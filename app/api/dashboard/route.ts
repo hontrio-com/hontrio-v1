@@ -14,20 +14,21 @@ export async function GET() {
     const userId = (session.user as any).id
 
     // Fetch all data in parallel
-    const [productsRes, imagesRes, userRes, transactionsRes] = await Promise.all([
-      supabase.from('products').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
+    const [productsCountRes, productsRes, imagesRes, userRes, transactionsRes] = await Promise.all([
+      supabase.from('products').select('id, status, seo_score', { count: 'exact' }).eq('user_id', userId).range(0, 49999),
+      supabase.from('products').select('id, original_title, optimized_title, status, seo_score, original_images').eq('user_id', userId).order('created_at', { ascending: false }).limit(5),
       supabase.from('generated_images').select('*', { count: 'exact', head: true }).eq('user_id', userId).in('status', ['completed', 'published']),
       supabase.from('users').select('credits').eq('id', userId).single(),
       supabase.from('credit_transactions').select('*').eq('user_id', userId).eq('type', 'usage').order('created_at', { ascending: false }).limit(10),
     ])
 
-    const products = productsRes.data || []
-    const totalProducts = products.length
-    const optimizedProducts = products.filter(p => p.status === 'optimized').length
-    const publishedProducts = products.filter(p => p.status === 'published').length
-    const draftProducts = products.filter(p => p.status === 'draft').length
+    const allProductStats = productsCountRes.data || []
+    const totalProducts = productsCountRes.count || allProductStats.length
+    const optimizedProducts = allProductStats.filter(p => p.status === 'optimized').length
+    const publishedProducts = allProductStats.filter(p => p.status === 'published').length
+    const draftProducts = allProductStats.filter(p => p.status === 'draft').length
 
-    const productsWithScore = products.filter(p => p.seo_score > 0)
+    const productsWithScore = allProductStats.filter(p => p.seo_score > 0)
     const avgSeoScore = productsWithScore.length > 0
       ? Math.round(productsWithScore.reduce((sum, p) => sum + p.seo_score, 0) / productsWithScore.length)
       : 0
@@ -45,7 +46,7 @@ export async function GET() {
       avgSeoScore,
       creditsUsed,
       creditsRemaining: userRes.data?.credits || 0,
-      recentProducts: products.slice(0, 5).map(p => ({
+      recentProducts: (productsRes.data || []).map(p => ({
         id: p.id,
         original_title: p.original_title,
         optimized_title: p.optimized_title,

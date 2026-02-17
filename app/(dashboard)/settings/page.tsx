@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useSession } from 'next-auth/react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -32,6 +32,7 @@ import {
   ShoppingBag,
   Package,
   Sparkles,
+  Upload,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -40,7 +41,7 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Separator } from '@/components/ui/separator'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 
 type StoreData = {
   id: string
@@ -49,6 +50,28 @@ type StoreData = {
   products_count: number
   last_sync_at: string | null
   status: string
+}
+
+type UserProfile = {
+  id: string
+  name: string | null
+  email: string
+  avatar_url: string | null
+  credits: number
+  plan: string
+  role: string
+  business_name: string | null
+  website: string | null
+  brand_tone: string | null
+  brand_language: string | null
+  niche: string | null
+  preferences: {
+    emailNotifications: boolean
+    weeklyReport: boolean
+    autoOptimize: boolean
+    darkMode: boolean
+  } | null
+  created_at: string
 }
 
 const fadeInUp = {
@@ -60,13 +83,19 @@ export default function SettingsPage() {
   const { data: session } = useSession()
   const [activeTab, setActiveTab] = useState('general')
   const [store, setStore] = useState<StoreData | null>(null)
+  const [profile, setProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const [connecting, setConnecting] = useState(false)
   const [syncing, setSyncing] = useState(false)
   const [disconnecting, setDisconnecting] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [savingBrand, setSavingBrand] = useState(false)
+  const [savingPassword, setSavingPassword] = useState(false)
+  const [savingPreferences, setSavingPreferences] = useState(false)
+  const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const [message, setMessage] = useState({ type: '', text: '' })
   const [showKeys, setShowKeys] = useState(false)
+  const avatarInputRef = useRef<HTMLInputElement>(null)
 
   const [storeForm, setStoreForm] = useState({
     store_url: '',
@@ -75,8 +104,8 @@ export default function SettingsPage() {
   })
 
   const [profileForm, setProfileForm] = useState({
-    name: session?.user?.name || '',
-    email: session?.user?.email || '',
+    name: '',
+    email: '',
   })
 
   const [brandForm, setBrandForm] = useState({
@@ -84,6 +113,13 @@ export default function SettingsPage() {
     website: '',
     tone: 'professional',
     language: 'ro',
+    niche: '',
+  })
+
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: '',
   })
 
   const [preferences, setPreferences] = useState({
@@ -93,18 +129,39 @@ export default function SettingsPage() {
     darkMode: false,
   })
 
+  // ========== FETCH DATA ==========
   useEffect(() => {
+    fetchProfile()
     fetchStore()
   }, [])
 
-  useEffect(() => {
-    if (session?.user) {
-      setProfileForm({
-        name: session.user.name || '',
-        email: session.user.email || '',
-      })
+  const fetchProfile = async () => {
+    try {
+      const res = await fetch('/api/user/profile')
+      const data = await res.json()
+      if (data.user) {
+        setProfile(data.user)
+        setProfileForm({
+          name: data.user.name || '',
+          email: data.user.email || '',
+        })
+        setBrandForm({
+          businessName: data.user.business_name || '',
+          website: data.user.website || '',
+          tone: data.user.brand_tone || 'professional',
+          language: data.user.brand_language || 'ro',
+          niche: data.user.niche || '',
+        })
+        if (data.user.preferences) {
+          setPreferences(data.user.preferences)
+        }
+      }
+    } catch {
+      console.error('Error loading profile')
+    } finally {
+      setLoading(false)
     }
-  }, [session])
+  }
 
   const fetchStore = async () => {
     try {
@@ -113,14 +170,182 @@ export default function SettingsPage() {
       if (data.store) setStore(data.store)
     } catch {
       console.error('Error loading store')
-    } finally {
-      setLoading(false)
     }
   }
 
+  // ========== SHOW MESSAGE HELPER ==========
+  const showMessage = (type: string, text: string) => {
+    setMessage({ type, text })
+    setTimeout(() => setMessage({ type: '', text: '' }), 5000)
+  }
+
+  // ========== AVATAR UPLOAD ==========
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setUploadingAvatar(true)
+    try {
+      const formData = new FormData()
+      formData.append('avatar', file)
+
+      const res = await fetch('/api/user/avatar', {
+        method: 'POST',
+        body: formData,
+      })
+      const data = await res.json()
+
+      if (!res.ok) {
+        showMessage('error', data.error || 'Eroare la încărcare')
+        return
+      }
+
+      setProfile(prev => prev ? { ...prev, avatar_url: data.avatar_url } : prev)
+      showMessage('success', 'Avatar actualizat cu succes!')
+    } catch {
+      showMessage('error', 'Eroare la încărcarea avatarului')
+    } finally {
+      setUploadingAvatar(false)
+      if (avatarInputRef.current) avatarInputRef.current.value = ''
+    }
+  }
+
+  // ========== SAVE PROFILE ==========
+  const handleSaveProfile = async () => {
+    if (!profileForm.name.trim()) {
+      showMessage('error', 'Numele nu poate fi gol')
+      return
+    }
+    setSaving(true)
+    try {
+      const res = await fetch('/api/user/profile', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: profileForm.name.trim() }),
+      })
+      const data = await res.json()
+
+      if (!res.ok) {
+        showMessage('error', data.error || 'Eroare la salvare')
+        return
+      }
+
+      setProfile(prev => prev ? { ...prev, name: data.user.name } : prev)
+      showMessage('success', 'Profil salvat cu succes!')
+    } catch {
+      showMessage('error', 'Eroare la salvare')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  // ========== SAVE BRAND ==========
+  const handleSaveBrand = async () => {
+    setSavingBrand(true)
+    try {
+      const res = await fetch('/api/user/profile', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          business_name: brandForm.businessName.trim(),
+          website: brandForm.website.trim(),
+          brand_tone: brandForm.tone,
+          brand_language: brandForm.language,
+          niche: brandForm.niche.trim(),
+        }),
+      })
+      const data = await res.json()
+
+      if (!res.ok) {
+        showMessage('error', data.error || 'Eroare la salvare')
+        return
+      }
+
+      setProfile(prev => prev ? {
+        ...prev,
+        business_name: data.user.business_name,
+        website: data.user.website,
+        brand_tone: data.user.brand_tone,
+        brand_language: data.user.brand_language,
+        niche: data.user.niche,
+      } : prev)
+      showMessage('success', 'Setări brand salvate cu succes!')
+    } catch {
+      showMessage('error', 'Eroare la salvare')
+    } finally {
+      setSavingBrand(false)
+    }
+  }
+
+  // ========== CHANGE PASSWORD ==========
+  const handleChangePassword = async () => {
+    if (!passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmPassword) {
+      showMessage('error', 'Completează toate câmpurile')
+      return
+    }
+    if (passwordForm.newPassword.length < 6) {
+      showMessage('error', 'Parola nouă trebuie să aibă minim 6 caractere')
+      return
+    }
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      showMessage('error', 'Parolele noi nu se potrivesc')
+      return
+    }
+
+    setSavingPassword(true)
+    try {
+      const res = await fetch('/api/user/change-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          currentPassword: passwordForm.currentPassword,
+          newPassword: passwordForm.newPassword,
+        }),
+      })
+      const data = await res.json()
+
+      if (!res.ok) {
+        showMessage('error', data.error || 'Eroare la schimbarea parolei')
+        return
+      }
+
+      showMessage('success', 'Parola a fost schimbată cu succes!')
+      setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' })
+    } catch {
+      showMessage('error', 'Eroare la schimbarea parolei')
+    } finally {
+      setSavingPassword(false)
+    }
+  }
+
+  // ========== SAVE PREFERENCES ==========
+  const handleSavePreferences = async () => {
+    setSavingPreferences(true)
+    try {
+      const res = await fetch('/api/user/profile', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ preferences }),
+      })
+      const data = await res.json()
+
+      if (!res.ok) {
+        showMessage('error', data.error || 'Eroare la salvare')
+        return
+      }
+
+      showMessage('success', 'Preferințe salvate cu succes!')
+    } catch {
+      showMessage('error', 'Eroare la salvare')
+    } finally {
+      setSavingPreferences(false)
+    }
+  }
+
+  // ========== STORE ACTIONS ==========
   const handleConnect = async () => {
     if (!storeForm.store_url || !storeForm.consumer_key || !storeForm.consumer_secret) {
-      setMessage({ type: 'error', text: 'Completează toate câmpurile' })
+      showMessage('error', 'Completează toate câmpurile')
       return
     }
     setConnecting(true)
@@ -133,14 +358,14 @@ export default function SettingsPage() {
       })
       const data = await res.json()
       if (!res.ok) {
-        setMessage({ type: 'error', text: data.error })
+        showMessage('error', data.error)
         return
       }
-      setMessage({ type: 'success', text: 'Magazin conectat cu succes!' })
+      showMessage('success', 'Magazin conectat cu succes!')
       setStore(data.store)
       setStoreForm({ store_url: '', consumer_key: '', consumer_secret: '' })
     } catch {
-      setMessage({ type: 'error', text: 'Eroare la conectare' })
+      showMessage('error', 'Eroare la conectare')
     } finally {
       setConnecting(false)
     }
@@ -154,13 +379,13 @@ export default function SettingsPage() {
       const res = await fetch(`/api/stores/${store.id}/sync`, { method: 'POST' })
       const data = await res.json()
       if (!res.ok) {
-        setMessage({ type: 'error', text: data.error })
+        showMessage('error', data.error)
         return
       }
-      setMessage({ type: 'success', text: `Sincronizare completă! ${data.synced} produse sincronizate.` })
+      showMessage('success', `Sincronizare completă! ${data.synced} produse sincronizate.`)
       fetchStore()
     } catch {
-      setMessage({ type: 'error', text: 'Eroare la sincronizare' })
+      showMessage('error', 'Eroare la sincronizare')
     } finally {
       setSyncing(false)
     }
@@ -172,25 +397,24 @@ export default function SettingsPage() {
     try {
       await fetch(`/api/stores/${store.id}`, { method: 'DELETE' })
       setStore(null)
-      setMessage({ type: 'success', text: 'Magazin deconectat.' })
+      showMessage('success', 'Magazin deconectat.')
     } catch {
-      setMessage({ type: 'error', text: 'Eroare la deconectare' })
+      showMessage('error', 'Eroare la deconectare')
     } finally {
       setDisconnecting(false)
     }
   }
 
-  const handleSaveProfile = async () => {
-    setSaving(true)
-    setTimeout(() => {
-      setMessage({ type: 'success', text: 'Profil salvat cu succes!' })
-      setSaving(false)
-    }, 800)
-  }
-
-  const userName = session?.user?.name || 'Utilizator'
-  const userEmail = session?.user?.email || ''
-  const userPlan = (session?.user as any)?.plan || 'free'
+  // ========== DERIVED DATA ==========
+  const userName = profile?.name || session?.user?.name || 'Utilizator'
+  const userEmail = profile?.email || session?.user?.email || ''
+  const userPlan = profile?.plan || (session?.user as any)?.plan || 'free'
+  const userCredits = profile?.credits ?? (session?.user as any)?.credits ?? 0
+  const userRole = profile?.role || (session?.user as any)?.role || 'user'
+  const userAvatar = profile?.avatar_url || null
+  const memberSince = profile?.created_at
+    ? new Date(profile.created_at).toLocaleDateString('ro-RO', { year: 'numeric', month: 'long' })
+    : ''
 
   const tabItems = [
     { value: 'general', label: 'General', icon: User },
@@ -199,6 +423,14 @@ export default function SettingsPage() {
     { value: 'security', label: 'Securitate', icon: Shield },
     { value: 'preferences', label: 'Preferințe', icon: SlidersHorizontal },
   ]
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -252,17 +484,47 @@ export default function SettingsPage() {
 
                     {/* Avatar section */}
                     <div className="flex items-center gap-4 mb-6">
-                      <Avatar className="h-16 w-16">
-                        <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-500 text-white text-xl font-medium">
-                          {userName[0]?.toUpperCase() || 'U'}
-                        </AvatarFallback>
-                      </Avatar>
+                      <div className="relative group">
+                        <Avatar className="h-16 w-16">
+                          {userAvatar ? (
+                            <AvatarImage src={userAvatar} alt={userName} />
+                          ) : null}
+                          <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-500 text-white text-xl font-medium">
+                            {userName[0]?.toUpperCase() || 'U'}
+                          </AvatarFallback>
+                        </Avatar>
+                        <button
+                          onClick={() => avatarInputRef.current?.click()}
+                          disabled={uploadingAvatar}
+                          className="absolute inset-0 bg-black/40 rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer"
+                        >
+                          {uploadingAvatar ? (
+                            <Loader2 className="h-5 w-5 text-white animate-spin" />
+                          ) : (
+                            <Camera className="h-5 w-5 text-white" />
+                          )}
+                        </button>
+                        <input
+                          ref={avatarInputRef}
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp,image/gif"
+                          onChange={handleAvatarUpload}
+                          className="hidden"
+                        />
+                      </div>
                       <div>
                         <p className="text-sm font-medium text-gray-900">{userName}</p>
                         <p className="text-xs text-gray-400">{userEmail}</p>
-                        <button className="text-xs text-blue-600 hover:text-blue-700 mt-1 flex items-center gap-1">
-                          <Camera className="h-3 w-3" />
-                          Schimbă avatar
+                        <button
+                          onClick={() => avatarInputRef.current?.click()}
+                          disabled={uploadingAvatar}
+                          className="text-xs text-blue-600 hover:text-blue-700 mt-1 flex items-center gap-1"
+                        >
+                          {uploadingAvatar ? (
+                            <><Loader2 className="h-3 w-3 animate-spin" /> Se încarcă...</>
+                          ) : (
+                            <><Camera className="h-3 w-3" /> Schimbă avatar</>
+                          )}
                         </button>
                       </div>
                     </div>
@@ -315,12 +577,18 @@ export default function SettingsPage() {
                       </div>
                       <div className="flex items-center justify-between">
                         <span className="text-sm text-gray-500">Credite</span>
-                        <span className="text-sm font-medium text-gray-900">{(session?.user as any)?.credits || 0}</span>
+                        <span className="text-sm font-medium text-gray-900">{userCredits}</span>
                       </div>
                       <div className="flex items-center justify-between">
                         <span className="text-sm text-gray-500">Rol</span>
-                        <span className="text-sm text-gray-700 capitalize">{(session?.user as any)?.role || 'user'}</span>
+                        <span className="text-sm text-gray-700 capitalize">{userRole}</span>
                       </div>
+                      {memberSince && (
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-gray-500">Membru din</span>
+                          <span className="text-sm text-gray-700">{memberSince}</span>
+                        </div>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
@@ -378,6 +646,16 @@ export default function SettingsPage() {
                       </div>
 
                       <div className="space-y-2">
+                        <Label className="text-sm text-gray-600">Nișa / Industria</Label>
+                        <Input
+                          value={brandForm.niche}
+                          onChange={(e) => setBrandForm(prev => ({ ...prev, niche: e.target.value }))}
+                          placeholder="ex: Fashion, Electronice, Cosmetice..."
+                          className="h-10 rounded-xl border-gray-200"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
                         <Label className="text-sm text-gray-600">Tonul comunicării</Label>
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                           {[
@@ -424,9 +702,16 @@ export default function SettingsPage() {
                         </div>
                       </div>
 
-                      <Button className="bg-blue-600 hover:bg-blue-700 rounded-xl h-10 px-5">
-                        <Save className="h-4 w-4 mr-2" />
-                        Salvează setări brand
+                      <Button
+                        onClick={handleSaveBrand}
+                        disabled={savingBrand}
+                        className="bg-blue-600 hover:bg-blue-700 rounded-xl h-10 px-5"
+                      >
+                        {savingBrand ? (
+                          <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Se salvează...</>
+                        ) : (
+                          <><Save className="h-4 w-4 mr-2" />Salvează setări brand</>
+                        )}
                       </Button>
                     </div>
                   </CardContent>
@@ -455,42 +740,50 @@ export default function SettingsPage() {
           <TabsContent value="integrations" className="mt-6">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <div className="lg:col-span-2 space-y-4">
-                {/* Connected store */}
                 {store ? (
-                  <Card className="rounded-2xl border-2 border-green-100 shadow-sm">
+                  <Card className="rounded-2xl border-0 shadow-sm">
                     <CardContent className="p-5">
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center gap-3">
-                          <div className="h-12 w-12 rounded-xl bg-green-100 flex items-center justify-center">
-                            <Store className="h-6 w-6 text-green-600" />
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <h3 className="text-sm font-semibold text-gray-900">{store.store_name}</h3>
-                              <Badge className="bg-green-100 text-green-700 border-0 text-[10px]">Conectat</Badge>
-                            </div>
-                            <p className="text-xs text-gray-400">{store.store_url}</p>
-                          </div>
+                      <div className="flex items-center gap-2 mb-5">
+                        <div className="h-8 w-8 rounded-xl bg-green-100 flex items-center justify-center">
+                          <Store className="h-4 w-4 text-green-600" />
                         </div>
-                        <div className="h-3 w-3 rounded-full bg-green-500 animate-pulse" />
+                        <div>
+                          <h3 className="text-sm font-semibold text-gray-900">Magazin conectat</h3>
+                          <p className="text-xs text-gray-400">WooCommerce este activ</p>
+                        </div>
+                        <Badge className="ml-auto bg-green-100 text-green-700 border-0 text-[10px]">Conectat</Badge>
                       </div>
 
-                      <div className="grid grid-cols-3 gap-3 mb-4">
-                        <div className="bg-gray-50 rounded-xl p-3 text-center">
-                          <p className="text-lg font-bold text-gray-900">{store.products_count}</p>
-                          <p className="text-[10px] text-gray-400">Produse</p>
+                      <div className="space-y-3 mb-5">
+                        <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
+                          <div className="flex items-center gap-2">
+                            <Globe className="h-4 w-4 text-gray-400" />
+                            <span className="text-sm text-gray-600">URL Magazin</span>
+                          </div>
+                          <a href={store.store_url} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1">
+                            {store.store_url.replace(/^https?:\/\//, '')}
+                            <ExternalLink className="h-3 w-3" />
+                          </a>
                         </div>
-                        <div className="bg-gray-50 rounded-xl p-3 text-center">
-                          <p className="text-xs font-medium text-gray-900">
+
+                        <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
+                          <div className="flex items-center gap-2">
+                            <Package className="h-4 w-4 text-gray-400" />
+                            <span className="text-sm text-gray-600">Produse sincronizate</span>
+                          </div>
+                          <span className="text-sm font-medium text-gray-900">{store.products_count}</span>
+                        </div>
+
+                        <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
+                          <div className="flex items-center gap-2">
+                            <RefreshCw className="h-4 w-4 text-gray-400" />
+                            <span className="text-sm text-gray-600">Ultima sincronizare</span>
+                          </div>
+                          <span className="text-sm text-gray-700">
                             {store.last_sync_at
-                              ? new Date(store.last_sync_at).toLocaleDateString('ro-RO')
+                              ? new Date(store.last_sync_at).toLocaleString('ro-RO')
                               : 'Niciodată'}
-                          </p>
-                          <p className="text-[10px] text-gray-400">Ultima sincron.</p>
-                        </div>
-                        <div className="bg-gray-50 rounded-xl p-3 text-center">
-                          <p className="text-xs font-medium text-green-600">Activ</p>
-                          <p className="text-[10px] text-gray-400">Status</p>
+                          </span>
                         </div>
                       </div>
 
@@ -498,22 +791,22 @@ export default function SettingsPage() {
                         <Button
                           onClick={handleSync}
                           disabled={syncing}
-                          className="bg-blue-600 hover:bg-blue-700 rounded-xl h-10 flex-1"
+                          className="bg-blue-600 hover:bg-blue-700 rounded-xl h-10 px-5"
                         >
                           {syncing ? (
-                            <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Se sincronizează...</>
+                            <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Sincronizare...</>
                           ) : (
-                            <><RefreshCw className="h-4 w-4 mr-2" />Sincronizează produse</>
+                            <><RefreshCw className="h-4 w-4 mr-2" />Sincronizează</>
                           )}
                         </Button>
                         <Button
                           onClick={handleDisconnect}
                           disabled={disconnecting}
                           variant="outline"
-                          className="rounded-xl h-10 border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
+                          className="rounded-xl h-10 px-5 border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
                         >
                           {disconnecting ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
+                            <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Se deconectează...</>
                           ) : (
                             <><Unplug className="h-4 w-4 mr-2" />Deconectează</>
                           )}
@@ -522,16 +815,15 @@ export default function SettingsPage() {
                     </CardContent>
                   </Card>
                 ) : (
-                  /* Connect store form */
                   <Card className="rounded-2xl border-0 shadow-sm">
                     <CardContent className="p-5">
-                      <div className="flex items-center gap-3 mb-5">
-                        <div className="h-10 w-10 rounded-xl bg-blue-100 flex items-center justify-center">
-                          <Store className="h-5 w-5 text-blue-600" />
+                      <div className="flex items-center gap-2 mb-5">
+                        <div className="h-8 w-8 rounded-xl bg-blue-100 flex items-center justify-center">
+                          <Plug className="h-4 w-4 text-blue-600" />
                         </div>
                         <div>
-                          <h3 className="text-sm font-semibold text-gray-900">Conectează magazin WooCommerce</h3>
-                          <p className="text-xs text-gray-400">Sincronizează produsele automat din magazinul tău</p>
+                          <h3 className="text-sm font-semibold text-gray-900">Conectează magazinul</h3>
+                          <p className="text-xs text-gray-400">Introdu datele WooCommerce pentru a conecta</p>
                         </div>
                       </div>
 
@@ -539,41 +831,40 @@ export default function SettingsPage() {
                         <div className="space-y-2">
                           <Label className="text-sm text-gray-600">URL Magazin</Label>
                           <Input
-                            placeholder="https://magazinul-tau.ro"
                             value={storeForm.store_url}
                             onChange={(e) => setStoreForm(prev => ({ ...prev, store_url: e.target.value }))}
+                            placeholder="https://magazinul-tau.ro"
                             className="h-10 rounded-xl border-gray-200"
                           />
                         </div>
 
                         <div className="space-y-2">
-                          <div className="flex items-center justify-between">
-                            <Label className="text-sm text-gray-600">Consumer Key</Label>
+                          <Label className="text-sm text-gray-600">Consumer Key</Label>
+                          <div className="relative">
+                            <Input
+                              type={showKeys ? 'text' : 'password'}
+                              value={storeForm.consumer_key}
+                              onChange={(e) => setStoreForm(prev => ({ ...prev, consumer_key: e.target.value }))}
+                              placeholder="ck_xxxxxxxxxxxxxxxxxxxxxxxx"
+                              className="h-10 rounded-xl border-gray-200 pr-10"
+                            />
                             <button
                               onClick={() => setShowKeys(!showKeys)}
-                              className="text-xs text-gray-400 hover:text-gray-600 flex items-center gap-1"
+                              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                             >
-                              {showKeys ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
-                              {showKeys ? 'Ascunde' : 'Arată'}
+                              {showKeys ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                             </button>
                           </div>
-                          <Input
-                            type={showKeys ? 'text' : 'password'}
-                            placeholder="ck_xxxxxxxxxxxxxxxx"
-                            value={storeForm.consumer_key}
-                            onChange={(e) => setStoreForm(prev => ({ ...prev, consumer_key: e.target.value }))}
-                            className="h-10 rounded-xl border-gray-200 font-mono text-sm"
-                          />
                         </div>
 
                         <div className="space-y-2">
                           <Label className="text-sm text-gray-600">Consumer Secret</Label>
                           <Input
                             type={showKeys ? 'text' : 'password'}
-                            placeholder="cs_xxxxxxxxxxxxxxxx"
                             value={storeForm.consumer_secret}
                             onChange={(e) => setStoreForm(prev => ({ ...prev, consumer_secret: e.target.value }))}
-                            className="h-10 rounded-xl border-gray-200 font-mono text-sm"
+                            placeholder="cs_xxxxxxxxxxxxxxxxxxxxxxxx"
+                            className="h-10 rounded-xl border-gray-200"
                           />
                         </div>
 
@@ -592,33 +883,6 @@ export default function SettingsPage() {
                     </CardContent>
                   </Card>
                 )}
-
-                {/* Other integrations - coming soon */}
-                <Card className="rounded-2xl border-0 shadow-sm">
-                  <CardContent className="p-5">
-                    <h3 className="text-sm font-semibold text-gray-900 mb-4">Alte integrări</h3>
-                    <div className="space-y-3">
-                      {[
-                        { name: 'Shopify', desc: 'Conectează magazinul Shopify', icon: ShoppingBag, status: 'coming' },
-                        { name: 'Google Analytics', desc: 'Monitorizează traficul', icon: Globe, status: 'coming' },
-                        { name: 'Google Search Console', desc: 'Date SEO reale', icon: Globe, status: 'coming' },
-                      ].map(integration => (
-                        <div key={integration.name} className="flex items-center justify-between p-3.5 bg-gray-50 rounded-xl">
-                          <div className="flex items-center gap-3">
-                            <div className="h-10 w-10 rounded-xl bg-white border border-gray-100 flex items-center justify-center">
-                              <integration.icon className="h-5 w-5 text-gray-400" />
-                            </div>
-                            <div>
-                              <p className="text-sm font-medium text-gray-900">{integration.name}</p>
-                              <p className="text-xs text-gray-400">{integration.desc}</p>
-                            </div>
-                          </div>
-                          <Badge variant="secondary" className="bg-gray-200 text-gray-500 text-[10px]">În curând</Badge>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
               </div>
 
               <div>
@@ -626,13 +890,13 @@ export default function SettingsPage() {
                   <CardContent className="p-5">
                     <div className="flex items-center gap-2 mb-2">
                       <Key className="h-4 w-4 text-blue-600" />
-                      <span className="text-sm font-semibold text-blue-900">Cum obții cheile API?</span>
+                      <span className="text-sm font-semibold text-blue-900">Cum obțin cheile API?</span>
                     </div>
-                    <div className="space-y-2 text-xs text-blue-700 leading-relaxed">
-                      <p>1. Mergi în panoul admin WooCommerce</p>
-                      <p>2. Navigă la <strong>WooCommerce → Settings → Advanced → REST API</strong></p>
-                      <p>3. Click pe <strong>"Add Key"</strong></p>
-                      <p>4. Selectează <strong>Read/Write</strong> permissions</p>
+                    <div className="text-xs text-blue-700 leading-relaxed space-y-1.5">
+                      <p>1. Intră în WordPress Admin</p>
+                      <p>2. WooCommerce → Settings → Advanced</p>
+                      <p>3. Click pe tab-ul REST API</p>
+                      <p>4. Add Key → Permissions: Read/Write</p>
                       <p>5. Copiază Consumer Key și Consumer Secret</p>
                     </div>
                   </CardContent>
@@ -660,21 +924,46 @@ export default function SettingsPage() {
                     <div className="space-y-4">
                       <div className="space-y-2">
                         <Label className="text-sm text-gray-600">Parola curentă</Label>
-                        <Input type="password" placeholder="••••••••" className="h-10 rounded-xl border-gray-200" />
+                        <Input
+                          type="password"
+                          value={passwordForm.currentPassword}
+                          onChange={(e) => setPasswordForm(prev => ({ ...prev, currentPassword: e.target.value }))}
+                          placeholder="••••••••"
+                          className="h-10 rounded-xl border-gray-200"
+                        />
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <Label className="text-sm text-gray-600">Parola nouă</Label>
-                          <Input type="password" placeholder="Minim 6 caractere" className="h-10 rounded-xl border-gray-200" />
+                          <Input
+                            type="password"
+                            value={passwordForm.newPassword}
+                            onChange={(e) => setPasswordForm(prev => ({ ...prev, newPassword: e.target.value }))}
+                            placeholder="Minim 6 caractere"
+                            className="h-10 rounded-xl border-gray-200"
+                          />
                         </div>
                         <div className="space-y-2">
                           <Label className="text-sm text-gray-600">Confirmă parola</Label>
-                          <Input type="password" placeholder="Repetă parola" className="h-10 rounded-xl border-gray-200" />
+                          <Input
+                            type="password"
+                            value={passwordForm.confirmPassword}
+                            onChange={(e) => setPasswordForm(prev => ({ ...prev, confirmPassword: e.target.value }))}
+                            placeholder="Repetă parola"
+                            className="h-10 rounded-xl border-gray-200"
+                          />
                         </div>
                       </div>
-                      <Button className="bg-blue-600 hover:bg-blue-700 rounded-xl h-10 px-5">
-                        <Lock className="h-4 w-4 mr-2" />
-                        Actualizează parola
+                      <Button
+                        onClick={handleChangePassword}
+                        disabled={savingPassword}
+                        className="bg-blue-600 hover:bg-blue-700 rounded-xl h-10 px-5"
+                      >
+                        {savingPassword ? (
+                          <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Se actualizează...</>
+                        ) : (
+                          <><Lock className="h-4 w-4 mr-2" />Actualizează parola</>
+                        )}
                       </Button>
                     </div>
                   </CardContent>
@@ -805,9 +1094,16 @@ export default function SettingsPage() {
                   </CardContent>
                 </Card>
 
-                <Button className="bg-blue-600 hover:bg-blue-700 rounded-xl h-10 px-5">
-                  <Save className="h-4 w-4 mr-2" />
-                  Salvează preferințele
+                <Button
+                  onClick={handleSavePreferences}
+                  disabled={savingPreferences}
+                  className="bg-blue-600 hover:bg-blue-700 rounded-xl h-10 px-5"
+                >
+                  {savingPreferences ? (
+                    <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Se salvează...</>
+                  ) : (
+                    <><Save className="h-4 w-4 mr-2" />Salvează preferințele</>
+                  )}
                 </Button>
               </div>
 

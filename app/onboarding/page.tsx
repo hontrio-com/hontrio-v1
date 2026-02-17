@@ -115,6 +115,8 @@ export default function OnboardingPage() {
   const [connecting, setConnecting] = useState(false)
   const [syncing, setSyncing] = useState(false)
   const [syncedCount, setSyncedCount] = useState(0)
+  const [syncTotal, setSyncTotal] = useState(0)
+  const [syncEstimate, setSyncEstimate] = useState('')
   const [showKeys, setShowKeys] = useState(false)
   const [selectedPlan, setSelectedPlan] = useState('free')
   const [error, setError] = useState('')
@@ -180,25 +182,114 @@ export default function OnboardingPage() {
   const handleSyncProducts = async () => {
     setSyncing(true)
     setError('')
+    setSyncedCount(0)
+    setSyncTotal(0)
+    setSyncEstimate('')
+    let syncDone = false
+
     try {
       const storesRes = await fetch('/api/stores')
       const storesData = await storesRes.json()
       if (!storesData.store) {
         setError('Niciun magazin conectat')
+        setSyncing(false)
         return
       }
-      const res = await fetch(`/api/stores/${storesData.store.id}/sync`, { method: 'POST' })
-      const data = await res.json()
-      if (!res.ok) {
-        setError(data.error || 'Eroare la sincronizare')
-        return
-      }
-      setSyncedCount(data.synced || 0)
-      setProductsSynced(true)
-      setTimeout(() => goNext(), 1200)
+
+      const storeId = storesData.store.id
+      const syncStartTime = Date.now()
+
+      // Start sync in background
+      fetch(`/api/stores/${storeId}/sync`, { method: 'POST' })
+        .then(async (res) => {
+          if (res.ok && !syncDone) {
+            syncDone = true
+            const data = await res.json()
+            setSyncedCount(data.synced || 0)
+            setSyncTotal(data.total || 0)
+            setProductsSynced(true)
+            setSyncing(false)
+            setTimeout(() => goNext(), 1200)
+          }
+        })
+        .catch(() => {})
+
+      // Poll for progress every 3 seconds
+      let pollCount = 0
+      const maxPolls = 200
+      let seenSyncing = false
+
+      const pollInterval = setInterval(async () => {
+        if (syncDone) {
+          clearInterval(pollInterval)
+          return
+        }
+        pollCount++
+        try {
+          const checkRes = await fetch('/api/stores')
+          const checkData = await checkRes.json()
+          const store = checkData.store
+          if (!store) return
+
+          const progress = store.sync_progress || 0
+          const total = store.sync_total || 0
+          const syncStatus = store.sync_status
+
+          // Once we see syncing or saving, we know our sync has started
+          if (syncStatus === 'syncing' || syncStatus === 'saving') {
+            seenSyncing = true
+          }
+
+          // Show progress when actively syncing
+          if (seenSyncing && (syncStatus === 'syncing' || syncStatus === 'saving')) {
+            if (total > 0) setSyncTotal(total)
+            if (progress > 0) setSyncedCount(progress)
+
+            // Time estimate only during download phase
+            if (syncStatus === 'syncing' && progress > 0 && total > 0 && progress < total) {
+              const elapsed = (Date.now() - syncStartTime) / 1000
+              const rate = progress / elapsed
+              const remaining = total - progress
+              const estimatedSeconds = Math.ceil(remaining / rate)
+
+              if (estimatedSeconds > 60) {
+                setSyncEstimate(`~${Math.ceil(estimatedSeconds / 60)} min rămase`)
+              } else if (estimatedSeconds > 0) {
+                setSyncEstimate(`~${estimatedSeconds}s rămase`)
+              } else {
+                setSyncEstimate('Se finalizează...')
+              }
+            }
+
+            // Saving phase message
+            if (syncStatus === 'saving') {
+              setSyncEstimate('Se salvează în baza de date...')
+            }
+          }
+
+          // Sync complete — only after we've seen it syncing first
+          if (seenSyncing && syncStatus === 'active' && !syncDone) {
+            syncDone = true
+            clearInterval(pollInterval)
+            setSyncedCount(store.products_count || total)
+            setSyncTotal(store.products_count || total)
+            setSyncEstimate('')
+            setProductsSynced(true)
+            setSyncing(false)
+            setTimeout(() => goNext(), 1200)
+            return
+          }
+        } catch {}
+
+        if (pollCount >= maxPolls) {
+          clearInterval(pollInterval)
+          setSyncing(false)
+          setError('Sincronizarea durează mai mult decât de obicei. Verifică în Dashboard.')
+        }
+      }, 3000)
+
     } catch {
       setError('Eroare la sincronizare')
-    } finally {
       setSyncing(false)
     }
   }
@@ -783,17 +874,51 @@ export default function OnboardingPage() {
                           </div>
                         </div>
                         <h3 className="text-lg font-semibold text-gray-900 mb-1">Se sincronizează...</h3>
-                        <p className="text-gray-500 text-sm">Importăm produsele din magazinul tău. Poate dura câteva secunde.</p>
-                        <div className="flex items-center justify-center gap-1 mt-4">
-                          {[0, 1, 2].map(i => (
-                            <motion.div
-                              key={i}
-                              animate={{ opacity: [0.3, 1, 0.3] }}
-                              transition={{ duration: 1.2, repeat: Infinity, delay: i * 0.3 }}
-                              className="h-2 w-2 rounded-full bg-blue-500"
-                            />
-                          ))}
-                        </div>
+                        <p className="text-gray-500 text-sm mb-4">
+                          {syncTotal > 0
+                            ? `${syncedCount} din ${syncTotal} produse importate`
+                            : 'Se conectează la magazin...'}
+                        </p>
+
+                        {/* Progress bar */}
+                        {syncTotal > 0 && (
+                          <div className="max-w-xs mx-auto mb-3">
+                            <div className="flex items-center justify-between mb-1.5">
+                              <span className="text-xs font-medium text-blue-600">
+                                {Math.round((syncedCount / syncTotal) * 100)}%
+                              </span>
+                              <span className="text-xs text-gray-400">
+                                {syncEstimate}
+                              </span>
+                            </div>
+                            <div className="h-3 bg-gray-100 rounded-full overflow-hidden">
+                              <motion.div
+                                className="h-full bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full"
+                                initial={{ width: '0%' }}
+                                animate={{ width: `${Math.min((syncedCount / syncTotal) * 100, 100)}%` }}
+                                transition={{ duration: 0.5, ease: 'easeOut' }}
+                              />
+                            </div>
+                            <p className="text-[11px] text-gray-400 mt-1.5">
+                              {syncedCount < syncTotal
+                                ? 'Sincronizarea continuă în fundal...'
+                                : 'Se salvează produsele...'}
+                            </p>
+                          </div>
+                        )}
+
+                        {syncTotal === 0 && (
+                          <div className="flex items-center justify-center gap-1 mt-4">
+                            {[0, 1, 2].map(i => (
+                              <motion.div
+                                key={i}
+                                animate={{ opacity: [0.3, 1, 0.3] }}
+                                transition={{ duration: 1.2, repeat: Infinity, delay: i * 0.3 }}
+                                className="h-2 w-2 rounded-full bg-blue-500"
+                              />
+                            ))}
+                          </div>
+                        )}
                       </motion.div>
                     ) : (
                       <>
@@ -836,6 +961,12 @@ export default function OnboardingPage() {
                   {!syncing && (
                     <Button variant="ghost" onClick={goNext} className="rounded-xl text-gray-400">
                       Sari peste
+                      <ChevronRight className="h-4 w-4 ml-1" />
+                    </Button>
+                  )}
+                  {syncing && (
+                    <Button variant="ghost" onClick={() => { setSyncing(false); goNext() }} className="rounded-xl text-gray-400">
+                      Continuă fără să aștepți
                       <ChevronRight className="h-4 w-4 ml-1" />
                     </Button>
                   )}

@@ -18,6 +18,7 @@ export async function GET() {
       .select('*')
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
+      .range(0, 49999)
 
     if (error) {
       return NextResponse.json({ error: 'Eroare la încărcarea produselor' }, { status: 500 })

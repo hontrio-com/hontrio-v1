@@ -4,6 +4,7 @@ import { useSession, signOut } from 'next-auth/react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
+import NotificationBell from '@/components/notification-bell'
 import {
   LayoutDashboard,
   Package,
@@ -315,7 +316,8 @@ export default function DashboardLayout({
 
             <div className="flex-1" />
 
-            <div className="flex items-center gap-3">
+           <div className="flex items-center gap-3">
+              <NotificationBell />
               <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-gray-50 rounded-full">
                 <div className="h-2 w-2 rounded-full bg-green-500" />
                 <span className="text-xs text-gray-500">
