@@ -49,6 +49,14 @@ type DashboardData = {
     created_at: string
     reference_type: string
   }[]
+  aiInsight: {
+    type: string
+    priority: number
+    message: string
+    action: string
+    actionUrl: string
+    stat: string
+  } | null
 }
 
 const fadeInUp = {
@@ -136,6 +144,40 @@ export default function DashboardPage() {
           plan={(session?.user as any)?.plan || 'free'}
           variant="banner"
         />
+      )}
+
+      {/* AI Insight Banner */}
+      {data?.aiInsight && (
+        <motion.div {...fadeInUp} transition={{ duration: 0.5, delay: 0.05 }}>
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+              {/* AI Icon */}
+              <div className="h-11 w-11 rounded-xl bg-blue-600 flex items-center justify-center shrink-0">
+                <Sparkles className="h-5 w-5 text-white" />
+              </div>
+
+              {/* Content */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-[11px] font-semibold uppercase tracking-wider text-blue-600">AI Insight</span>
+                  <span className="text-[11px] font-medium text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">{data.aiInsight.stat}</span>
+                </div>
+                <p className="text-sm leading-relaxed text-gray-600">
+                  <span className="text-gray-900 font-semibold">AI a analizat {data.totalProducts === 1 ? 'produsul tău' : `cele ${data.totalProducts} produse ale tale`}.</span>{' '}
+                  {data.aiInsight.message}
+                </p>
+              </div>
+
+              {/* CTA Button */}
+              <Link href={data.aiInsight.actionUrl} className="shrink-0">
+                <button className="group flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition-all shadow-sm">
+                  {data.aiInsight.action}
+                  <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+                </button>
+              </Link>
+            </div>
+          </div>
+        </motion.div>
       )}
 
       {/* Impact banner */}

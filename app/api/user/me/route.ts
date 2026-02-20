@@ -15,7 +15,7 @@ export async function GET() {
 
     const { data: user, error } = await supabase
       .from('users')
-      .select('credits, plan, role, name, email')
+      .select('credits, plan, role, name, email, avatar_url')
       .eq('id', userId)
       .single()
 
@@ -29,6 +29,7 @@ export async function GET() {
       role: user.role,
       name: user.name,
       email: user.email,
+      avatar_url: user.avatar_url,
     })
   } catch {
     return NextResponse.json({ error: 'Eroare internă' }, { status: 500 })

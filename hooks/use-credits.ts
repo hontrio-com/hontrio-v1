@@ -5,6 +5,7 @@ import { useState, useEffect, useCallback } from 'react'
 type CreditsData = {
   credits: number
   plan: string
+  avatarUrl: string | null
   loading: boolean
   refresh: () => Promise<void>
 }
@@ -12,6 +13,7 @@ type CreditsData = {
 export function useCredits(): CreditsData {
   const [credits, setCredits] = useState(0)
   const [plan, setPlan] = useState('free')
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
   const refresh = useCallback(async () => {
@@ -20,6 +22,7 @@ export function useCredits(): CreditsData {
       const data = await res.json()
       if (data.credits !== undefined) setCredits(data.credits)
       if (data.plan) setPlan(data.plan)
+      if (data.avatar_url !== undefined) setAvatarUrl(data.avatar_url)
     } catch {
       console.error('Error fetching credits')
     } finally {
@@ -42,7 +45,7 @@ export function useCredits(): CreditsData {
     return () => window.removeEventListener('credits-updated', handler)
   }, [refresh])
 
-  return { credits, plan, loading, refresh }
+  return { credits, plan, avatarUrl, loading, refresh }
 }
 
 // Call this from anywhere to trigger a refresh

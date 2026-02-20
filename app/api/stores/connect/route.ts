@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/auth.config'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { encrypt } from '@/lib/security/encryption'
+import { validateStoreUrl } from '@/lib/security/validate-url'
+import { rateLimit } from '@/lib/security/rate-limit'
 
 export async function POST(request: Request) {
   try {
@@ -10,8 +13,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
     }
 
-    const { store_url, consumer_key, consumer_secret } = await request.json()
     const userId = (session.user as any).id
+
+    // Rate limit: 5 connect attempts per 10 minutes
+    const rl = rateLimit(`store-connect:${userId}`, 5, 10 * 60 * 1000)
+    if (!rl.success) {
+      return NextResponse.json(
+        { error: 'Prea multe încercări. Așteaptă câteva minute.' },
+        { status: 429 }
+      )
+    }
+
+    const { store_url, consumer_key, consumer_secret } = await request.json()
 
     if (!store_url || !consumer_key || !consumer_secret) {
       return NextResponse.json(
@@ -20,20 +33,41 @@ export async function POST(request: Request) {
       )
     }
 
-    // Curata URL-ul
-    const cleanUrl = store_url.replace(/\/+$/, '')
+    // Validate & sanitize URL (SSRF protection)
+    const urlValidation = validateStoreUrl(store_url)
+    if (!urlValidation.valid) {
+      return NextResponse.json(
+        { error: urlValidation.error },
+        { status: 400 }
+      )
+    }
+    const cleanUrl = urlValidation.cleaned
 
-    // Testeaza conexiunea cu WooCommerce folosind Basic Auth
-    console.log('Testing WooCommerce connection...')
+    // Validate API key format
+    if (typeof consumer_key !== 'string' || !consumer_key.startsWith('ck_') || consumer_key.length < 10) {
+      return NextResponse.json(
+        { error: 'Consumer Key invalid. Trebuie să înceapă cu ck_' },
+        { status: 400 }
+      )
+    }
+    if (typeof consumer_secret !== 'string' || !consumer_secret.startsWith('cs_') || consumer_secret.length < 10) {
+      return NextResponse.json(
+        { error: 'Consumer Secret invalid. Trebuie să înceapă cu cs_' },
+        { status: 400 }
+      )
+    }
+
+    // Test connection with WooCommerce (HTTPS only)
     try {
       const testUrl = `${cleanUrl}/wp-json/wc/v3/system_status`
       const authHeader = 'Basic ' + Buffer.from(`${consumer_key}:${consumer_secret}`).toString('base64')
-      
+
       const testRes = await fetch(testUrl, {
         headers: {
           'Authorization': authHeader,
           'Content-Type': 'application/json',
         },
+        signal: AbortSignal.timeout(15000),
       })
 
       if (!testRes.ok) {
@@ -51,7 +85,27 @@ export async function POST(request: Request) {
 
     const supabase = createAdminClient()
 
-    // Verifica daca are deja un magazin
+    // Check if this store_url is already connected by ANY user
+    const { data: existingByUrl } = await supabase
+      .from('stores')
+      .select('id, user_id')
+      .eq('store_url', cleanUrl)
+      .maybeSingle()
+
+    if (existingByUrl) {
+      if (existingByUrl.user_id === userId) {
+        return NextResponse.json(
+          { error: 'Ai deja acest magazin conectat.' },
+          { status: 400 }
+        )
+      }
+      return NextResponse.json(
+        { error: 'Acest magazin este deja conectat la un alt cont.' },
+        { status: 400 }
+      )
+    }
+
+    // Check if user already has a store
     const { data: existingStore } = await supabase
       .from('stores')
       .select('id')
@@ -65,15 +119,19 @@ export async function POST(request: Request) {
       )
     }
 
-    // Salveaza magazinul
+    // Encrypt API keys before storing (AES-256-GCM)
+    const encryptedKey = encrypt(consumer_key)
+    const encryptedSecret = encrypt(consumer_secret)
+
+    // Save store with encrypted credentials
     const { data: store, error } = await supabase
       .from('stores')
       .insert({
         user_id: userId,
         platform: 'woocommerce',
         store_url: cleanUrl,
-        api_key: consumer_key,
-        api_secret: consumer_secret,
+        api_key: encryptedKey,
+        api_secret: encryptedSecret,
         sync_status: 'active',
         webhook_secret: crypto.randomUUID(),
       })
@@ -81,18 +139,14 @@ export async function POST(request: Request) {
       .single()
 
     if (error) {
-      console.error('Store creation error:', error)
       return NextResponse.json(
         { error: 'Eroare la salvarea magazinului' },
         { status: 500 }
       )
     }
 
-    console.log('Store connected:', store.id)
-
     return NextResponse.json({ store })
-  } catch (err) {
-    console.error('Unexpected error:', err)
+  } catch {
     return NextResponse.json(
       { error: 'Eroare internă de server' },
       { status: 500 }

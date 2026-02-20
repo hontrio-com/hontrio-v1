@@ -23,7 +23,7 @@ export class WooCommerceClient {
       url.searchParams.set(key, value)
     }
 
-    console.log('WooCommerce request:', url.toString())
+    console.log('WooCommerce request:', endpoint, 'page:', params.page || '1')
 
     const res = await fetch(url.toString(), {
       headers: {
@@ -55,6 +55,13 @@ export class WooCommerceClient {
   async getProduct(id: string) {
     const { data } = await this.request(`products/${id}`)
     return data
+  }
+
+  async getVariations(productId: string, page: number = 1, perPage: number = 50) {
+    return this.request(`products/${productId}/variations`, {
+      page: page.toString(),
+      per_page: perPage.toString(),
+    })
   }
 
   async updateProduct(id: string, productData: Record<string, unknown>) {

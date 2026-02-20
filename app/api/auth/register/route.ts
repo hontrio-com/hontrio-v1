@@ -1,11 +1,21 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { rateLimitRegister, getClientIp } from '@/lib/security/rate-limit'
 
 export async function POST(request: Request) {
   try {
+    // Rate limit by IP
+    const ip = getClientIp(request)
+    const limit = rateLimitRegister(ip)
+    if (!limit.success) {
+      return NextResponse.json(
+        { error: 'Prea multe încercări. Încearcă din nou mai târziu.' },
+        { status: 429 }
+      )
+    }
+
     const { name, email, password } = await request.json()
 
-    // Validari
     if (!email || !password || !name) {
       return NextResponse.json(
         { error: 'Toate câmpurile sunt obligatorii' },
@@ -22,8 +32,6 @@ export async function POST(request: Request) {
 
     const supabase = createAdminClient()
 
-    // Creaza userul in Supabase Auth
-    console.log('Creating auth user...')
     const { data: authData, error: authError } = await supabase.auth.admin.createUser({
       email,
       password,
@@ -31,23 +39,21 @@ export async function POST(request: Request) {
     })
 
     if (authError) {
-      console.error('Auth error:', authError)
+      // Anti user enumeration: generic message for duplicate email
       if (authError.message.includes('already been registered')) {
         return NextResponse.json(
-          { error: 'Acest email este deja înregistrat' },
+          { error: 'Nu s-a putut crea contul. Verifică datele introduse.' },
           { status: 400 }
         )
       }
       return NextResponse.json(
-        { error: 'Eroare la crearea contului: ' + authError.message },
+        { error: 'Eroare la crearea contului. Încearcă din nou.' },
         { status: 500 }
       )
     }
 
-    console.log('Auth user created:', authData.user.id)
 
-    // Creaza profilul in tabela users
-    console.log('Creating profile...')
+
     const { error: profileError } = await supabase.from('users').insert({
       id: authData.user.id,
       email: authData.user.email!,
@@ -59,15 +65,12 @@ export async function POST(request: Request) {
     })
 
     if (profileError) {
-      console.error('Profile error:', profileError)
       await supabase.auth.admin.deleteUser(authData.user.id)
       return NextResponse.json(
-        { error: 'Eroare la crearea profilului: ' + profileError.message },
+        { error: 'Eroare la crearea profilului. Încearcă din nou.' },
         { status: 500 }
       )
     }
-
-    console.log('Profile created successfully')
 
     return NextResponse.json(
       { message: 'Cont creat cu succes' },

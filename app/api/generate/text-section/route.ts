@@ -3,6 +3,8 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/auth.config'
 import { createAdminClient } from '@/lib/supabase/admin'
 import OpenAI from 'openai'
+import { rateLimitExpensive } from '@/lib/security/rate-limit'
+import { canStartJob, markJobRunning, markJobDone } from '@/lib/security/ai-guard'
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
@@ -14,6 +16,19 @@ export async function POST(request: Request) {
     }
 
     const userId = (session.user as any).id
+
+    // Rate limit
+    const limit = rateLimitExpensive(userId, 'text-section')
+    if (!limit.success) {
+      return NextResponse.json({ error: 'Prea multe cereri. Așteaptă un minut.' }, { status: 429 })
+    }
+
+    // Concurrent job limit
+    const jobCheck = canStartJob(userId)
+    if (!jobCheck.allowed) {
+      return NextResponse.json({ error: jobCheck.reason }, { status: 429 })
+    }
+
     const { product_id, section } = await request.json()
 
     if (!product_id || !section) {
@@ -72,20 +87,30 @@ export async function POST(request: Request) {
         break
     }
 
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [
-        {
-          role: 'system',
-          content: 'Ești un expert în copywriting eCommerce și SEO. Generezi conținut optimizat în limba română pentru magazine online. Răspunzi DOAR cu conținutul cerut, fără explicații sau text adițional.',
-        },
-        { role: 'user', content: prompt },
-      ],
-      temperature: 0.8,
-      max_tokens: section === 'long_description' ? 1500 : 500,
-    })
+    // Track this job
+    const jobKey = `${userId}:section:${product_id}:${section}`
+    if (!markJobRunning(jobKey)) {
+      return NextResponse.json({ error: 'Această secțiune este deja în curs de generare.' }, { status: 409 })
+    }
 
-    const result = completion.choices[0].message.content?.trim() || ''
+    let result: string
+    try {
+      const completion = await openai.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: [
+          {
+            role: 'system',
+            content: 'Ești un expert în copywriting eCommerce și SEO. Generezi conținut optimizat în limba română pentru magazine online. Răspunzi DOAR cu conținutul cerut, fără explicații sau text adițional.',
+          },
+          { role: 'user', content: prompt },
+        ],
+        temperature: 0.8,
+        max_tokens: section === 'long_description' ? 1500 : 500,
+      })
+      result = completion.choices[0].message.content?.trim() || ''
+    } finally {
+      markJobDone(jobKey)
+    }
 
     // Update the specific field
     const updateData: Record<string, any> = {}

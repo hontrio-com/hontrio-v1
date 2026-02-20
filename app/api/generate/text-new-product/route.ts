@@ -3,6 +3,8 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/auth.config'
 import { createAdminClient } from '@/lib/supabase/admin'
 import OpenAI from 'openai'
+import { rateLimitExpensive } from '@/lib/security/rate-limit'
+import { validateAiInput, canStartJob } from '@/lib/security/ai-guard'
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
@@ -14,10 +16,29 @@ export async function POST(request: Request) {
     }
 
     const userId = (session.user as any).id
+
+    // Rate limit
+    const limit = rateLimitExpensive(userId, 'text-new')
+    if (!limit.success) {
+      return NextResponse.json({ error: 'Prea multe cereri. Așteaptă un minut.' }, { status: 429 })
+    }
+
+    // Concurrent job limit
+    const jobCheck = canStartJob(userId)
+    if (!jobCheck.allowed) {
+      return NextResponse.json({ error: jobCheck.reason }, { status: 429 })
+    }
+
     const { title, short_description, category, price, section } = await request.json()
 
     if (!title) {
       return NextResponse.json({ error: 'Titlul este obligatoriu' }, { status: 400 })
+    }
+
+    // Cost guard
+    const inputCheck = validateAiInput({ title, description: short_description })
+    if (!inputCheck.valid) {
+      return NextResponse.json({ error: inputCheck.error }, { status: 400 })
     }
 
     const supabase = createAdminClient()

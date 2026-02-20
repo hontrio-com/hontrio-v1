@@ -4,6 +4,8 @@ import { authOptions } from '@/lib/auth/auth.config'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { KieClient } from '@/lib/kie/client'
 import { buildImagePrompt } from '@/lib/kie/prompts'
+import { rateLimitExpensive } from '@/lib/security/rate-limit'
+import { canStartJob, markJobRunning, markJobDone } from '@/lib/security/ai-guard'
 
 // Costul per stil
 const STYLE_COSTS: Record<string, number> = {
@@ -22,8 +24,22 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
     }
 
-    const { product_id, style, reference_image_url } = await request.json()
     const userId = (session.user as any).id
+
+    // Rate limit: max 10 image generations per minute
+    const limit = rateLimitExpensive(userId, 'image')
+    if (!limit.success) {
+      return NextResponse.json({ error: 'Prea multe cereri. Așteaptă un minut.' }, { status: 429 })
+    }
+
+    const { product_id, style, reference_image_url } = await request.json()
+
+    // Concurrent job limit
+    const jobCheck = canStartJob(userId)
+    if (!jobCheck.allowed) {
+      return NextResponse.json({ error: jobCheck.reason }, { status: 429 })
+    }
+
     const supabase = createAdminClient()
 
     const creditCost = STYLE_COSTS[style] || 3
@@ -66,13 +82,6 @@ export async function POST(request: Request) {
       refImageUrl = product.original_images[0]
     }
 
-    console.log('=== IMAGE GENERATION ===')
-    console.log('Product:', product.original_title)
-    console.log('Style:', style)
-    console.log('Reference image from request:', reference_image_url || 'none')
-    console.log('Reference image from DB:', product.original_images || 'none')
-    console.log('Final reference image:', refImageUrl || 'NONE')
-
     // BLOCAM daca nu avem imagine de referinta
     if (!refImageUrl) {
       return NextResponse.json(
@@ -92,10 +101,7 @@ export async function POST(request: Request) {
       hasReferenceImage: true,
     })
 
-    console.log('Prompt (first 300 chars):', prompt.substring(0, 300))
-    console.log('Sending to KIE with image_input:', referenceImages)
-
-    // Creaza inregistrarea in DB
+    // Trimite la KIE    // Creaza inregistrarea in DB
     const { data: imageRecord } = await supabase
       .from('generated_images')
       .insert({
@@ -111,19 +117,29 @@ export async function POST(request: Request) {
       .single()
 
     // Trimite catre KIE API
+    const jobKey = `${userId}:image:${product_id}`
+    if (!markJobRunning(jobKey)) {
+      return NextResponse.json({ error: 'O imagine este deja în curs de generare pentru acest produs.' }, { status: 409 })
+    }
+
     const kie = new KieClient()
     const startTime = Date.now()
 
-    const taskId = await kie.createImageTask(prompt, referenceImages, {
-      aspect_ratio: '1:1',
-      resolution: '1K',
-      output_format: 'png',
-    })
+    let resultUrls: string[] | null
+    try {
+      const taskId = await kie.createImageTask(prompt, referenceImages, {
+        aspect_ratio: '1:1',
+        resolution: '1K',
+        output_format: 'png',
+      })
 
-    console.log('KIE task created:', taskId)
-
-    // Asteapta rezultatul (polling)
-    const resultUrls = await kie.waitForTask(taskId)
+      // Asteapta rezultatul (polling)
+      resultUrls = await kie.waitForTask(taskId)
+    } catch (err) {
+      markJobDone(jobKey)
+      throw err
+    }
+    markJobDone(jobKey)
 
     if (!resultUrls || resultUrls.length === 0) {
       await supabase
@@ -136,8 +152,6 @@ export async function POST(request: Request) {
 
     const processingTime = Date.now() - startTime
     const generatedUrl = resultUrls[0]
-
-    console.log('Image generated:', generatedUrl, `(${processingTime}ms)`)
 
     // Actualizeaza inregistrarea
     await supabase

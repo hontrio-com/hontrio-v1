@@ -1,8 +1,19 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { rateLimit, getClientIp } from '@/lib/security/rate-limit'
 
 export async function POST(request: Request) {
   try {
+    // Rate limit: 3 attempts per 15 min per IP
+    const ip = getClientIp(request)
+    const limit = rateLimit(`forgot:${ip}`, 3, 15 * 60 * 1000)
+    if (!limit.success) {
+      return NextResponse.json(
+        { error: 'Prea multe cereri. Încearcă din nou mai târziu.' },
+        { status: 429 }
+      )
+    }
+
     const { email } = await request.json()
 
     if (!email) {
@@ -11,21 +22,16 @@ export async function POST(request: Request) {
 
     const supabase = createAdminClient()
 
-    // Check if user exists
     const { data: user } = await supabase
       .from('users')
       .select('id, email')
       .eq('email', email.toLowerCase())
       .single()
 
-    // Always return success (don't reveal if email exists)
-    // In production, you would send an actual email here
-    // For now, we just simulate it
-
+    // Always return same response (anti user enumeration)
     if (user) {
-      // TODO: Generate reset token, save to DB, send email
-      // For now, log it
-      console.log(`Password reset requested for: ${email}`)
+      // TODO: Generate reset token, save hashed to DB, send email
+      // Token: crypto.randomUUID(), expires in 30 min, one-time use
     }
 
     return NextResponse.json({

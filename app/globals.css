@@ -172,3 +172,13 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Mobile-only display helper */
+:root {
+  --mobile-only: none;
+}
+@media (max-width: 639px) {
+  :root {
+    --mobile-only: flex;
+  }
+}

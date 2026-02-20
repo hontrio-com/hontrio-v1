@@ -14,6 +14,7 @@ import {
   Activity,
   Settings,
   Package,
+  MessageSquare,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -21,6 +22,7 @@ import { Badge } from '@/components/ui/badge'
 const adminMenuItems = [
   { label: 'Statistici', href: '/admin/stats', icon: BarChart3 },
   { label: 'Utilizatori', href: '/admin/users', icon: Users },
+  { label: 'Tichete', href: '/admin/tickets', icon: MessageSquare },
   { label: 'Costuri API', href: '/admin/costs', icon: DollarSign },
   { label: 'Activitate', href: '/admin/activity', icon: Activity },
 ]

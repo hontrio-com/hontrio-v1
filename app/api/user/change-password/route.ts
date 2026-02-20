@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/auth.config'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { rateLimitExpensive } from '@/lib/security/rate-limit'
 
 export async function POST(request: Request) {
   try {
@@ -11,6 +12,13 @@ export async function POST(request: Request) {
     }
 
     const userId = (session.user as any).id
+
+    // Rate limit: max 5 password changes per hour
+    const limit = rateLimitExpensive(userId, 'change-password')
+    if (!limit.success) {
+      return NextResponse.json({ error: 'Prea multe încercări. Așteaptă câteva minute.' }, { status: 429 })
+    }
+
     const { currentPassword, newPassword } = await request.json()
 
     if (!currentPassword || !newPassword) {

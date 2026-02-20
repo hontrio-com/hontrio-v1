@@ -3,6 +3,8 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/auth.config'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { generateProductText } from '@/lib/openai/generate-text'
+import { rateLimitExpensive } from '@/lib/security/rate-limit'
+import { validateAiInput, canStartJob, markJobRunning, markJobDone } from '@/lib/security/ai-guard'
 
 export async function POST(request: Request) {
   try {
@@ -11,8 +13,21 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
     }
 
-    const { product_id } = await request.json()
     const userId = (session.user as any).id
+
+    // Rate limit: max 10 text generations per minute
+    const limit = rateLimitExpensive(userId, 'text')
+    if (!limit.success) {
+      return NextResponse.json({ error: 'Prea multe cereri. Așteaptă un minut.' }, { status: 429 })
+    }
+
+    // Concurrent job limit
+    const jobCheck = canStartJob(userId)
+    if (!jobCheck.allowed) {
+      return NextResponse.json({ error: jobCheck.reason }, { status: 429 })
+    }
+
+    const { product_id } = await request.json()
     const supabase = createAdminClient()
 
     // Verifica creditele
@@ -41,18 +56,33 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Produs negăsit' }, { status: 404 })
     }
 
-    console.log('Generating text for:', product.original_title)
-
-    // Genereaza textul cu OpenAI
-    const generated = await generateProductText({
+    // Cost guard: validate input sizes
+    const inputCheck = validateAiInput({
       title: product.original_title,
       description: product.original_description,
-      category: product.category,
-      price: product.price,
     })
+    if (!inputCheck.valid) {
+      return NextResponse.json({ error: inputCheck.error }, { status: 400 })
+    }
 
-    console.log('Text generated successfully')
+    // Track this job
+    const jobKey = `${userId}:text:${product_id}`
+    if (!markJobRunning(jobKey)) {
+      return NextResponse.json({ error: 'Acest produs este deja în curs de procesare.' }, { status: 409 })
+    }
 
+    let generated
+    try {
+      // Genereaza textul cu OpenAI
+      generated = await generateProductText({
+        title: product.original_title,
+        description: product.original_description,
+        category: product.category,
+        price: product.price,
+      })
+    } finally {
+      markJobDone(jobKey)
+    }
     // Actualizeaza produsul
     const { error: updateError } = await supabase
       .from('products')
@@ -91,7 +121,7 @@ export async function POST(request: Request) {
       reference_id: product_id,
     })
 
-    console.log('Credits deducted. Remaining:', newCredits)
+
 
     return NextResponse.json({
       message: 'Text generat cu succes',

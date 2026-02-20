@@ -5,41 +5,99 @@ import type { NextRequest } from 'next/server'
 export async function middleware(request: NextRequest) {
   const token = await getToken({ req: request })
   const { pathname } = request.nextUrl
+  const response = NextResponse.next()
 
-  // Rute publice - nu necesita autentificare
+  // ===== SECURITY HEADERS =====
+  response.headers.set('X-Content-Type-Options', 'nosniff')
+  response.headers.set('X-Frame-Options', 'DENY')
+  response.headers.set('X-XSS-Protection', '1; mode=block')
+  response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin')
+
+  // ===== CORS for API routes =====
+  if (pathname.startsWith('/api/')) {
+    const origin = request.headers.get('origin') || ''
+    const allowedOrigins = [
+      process.env.NEXTAUTH_URL || 'http://localhost:3000',
+      process.env.NEXT_PUBLIC_APP_URL || '',
+    ].filter(Boolean)
+
+    if (allowedOrigins.includes(origin)) {
+      response.headers.set('Access-Control-Allow-Origin', origin)
+    }
+    response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
+    response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+    response.headers.set('Access-Control-Allow-Credentials', 'true')
+
+    // Preflight
+    if (request.method === 'OPTIONS') {
+      return new NextResponse(null, { status: 204, headers: response.headers })
+    }
+
+    // Skip auth check for public API routes
+    if (
+      pathname.startsWith('/api/auth') ||
+      pathname.startsWith('/api/stripe/webhook')
+    ) {
+      return response
+    }
+  }
+
+  // ===== Public routes =====
   if (
     pathname.startsWith('/login') ||
     pathname.startsWith('/register') ||
     pathname.startsWith('/forgot-password') ||
     pathname.startsWith('/api/auth')
   ) {
-    // Daca e deja logat, redirect la dashboard
     if (token && (pathname === '/login' || pathname === '/register')) {
       return NextResponse.redirect(new URL('/dashboard', request.url))
     }
-    return NextResponse.next()
+    return response
   }
 
-  // Rute protejate - necesita autentificare
+  // ===== Protected routes =====
   if (!token) {
     const loginUrl = new URL('/login', request.url)
     loginUrl.searchParams.set('callbackUrl', pathname)
     return NextResponse.redirect(loginUrl)
   }
 
-  // Rute admin - necesita rol admin
-  if (pathname.startsWith('/admin')) {
-    if (token.role !== 'admin') {
+  // ===== Onboarding route protection =====
+  // If onboarding is completed, redirect to dashboard
+  if (pathname === '/onboarding') {
+    if (token.onboardingCompleted === true) {
       return NextResponse.redirect(new URL('/dashboard', request.url))
     }
   }
 
-  // Redirect root to dashboard
+  // If onboarding NOT completed, redirect dashboard routes to onboarding
+  // (except API routes and admin)
+  if (
+    token.onboardingCompleted !== true &&
+    token.role !== 'admin' &&
+    !pathname.startsWith('/api/') &&
+    !pathname.startsWith('/admin') &&
+    pathname !== '/onboarding'
+  ) {
+    return NextResponse.redirect(new URL('/onboarding', request.url))
+  }
+
+  // ===== Admin routes =====
+  if (pathname.startsWith('/admin') || pathname.startsWith('/api/admin')) {
+    if (token.role !== 'admin') {
+      if (pathname.startsWith('/api/')) {
+        return NextResponse.json({ error: 'Acces interzis' }, { status: 403 })
+      }
+      return NextResponse.redirect(new URL('/dashboard', request.url))
+    }
+  }
+
+  // Redirect root
   if (pathname === '/') {
     return NextResponse.redirect(new URL('/dashboard', request.url))
   }
 
-  return NextResponse.next()
+  return response
 }
 
 export const config = {
@@ -47,13 +105,14 @@ export const config = {
     '/',
     '/onboarding',
     '/dashboard/:path*',
-    '/dashboard/:path*',
     '/products/:path*',
     '/images/:path*',
     '/seo/:path*',
     '/credits/:path*',
     '/settings/:path*',
+    '/support/:path*',
     '/admin/:path*',
+    '/api/:path*',
     '/login',
     '/register',
   ],
