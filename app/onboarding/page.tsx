@@ -211,7 +211,19 @@ export default function OnboardingPage() {
         }),
       })
     } catch { /* non-blocking */ }
-    router.push('/dashboard')
+    // Force session refresh so middleware sees updated onboardingCompleted
+    window.location.href = '/dashboard'
+  }
+
+  const handleSkipOnboarding = async () => {
+    try {
+      await fetch('/api/onboarding/complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ selectedPlan: 'free', gdprConsent: true }),
+      })
+    } catch { /* non-blocking */ }
+    window.location.href = '/dashboard'
   }
 
   const progress = step / (steps.length - 1) * 100
@@ -253,7 +265,7 @@ export default function OnboardingPage() {
         )}
 
         {step > 0 && step < steps.length - 1 && (
-          <button onClick={() => router.push('/dashboard')}
+          <button onClick={handleSkipOnboarding}
             className="text-sm text-gray-400 hover:text-gray-600 transition-colors">
             Omite configurarea
           </button>

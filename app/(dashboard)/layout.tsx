@@ -77,6 +77,21 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const userInitial = userName[0]?.toUpperCase() || 'U'
   const userRole = (session?.user as any)?.role || 'user'
 
+  // Redirect to onboarding if not completed (client-side check from DB)
+  useEffect(() => {
+    if (!session?.user) return
+    if (userRole === 'admin') return
+    // Check DB directly — JWT might be stale
+    fetch('/api/user/me')
+      .then(r => r.json())
+      .then(data => {
+        if (data.user && data.user.onboarding_completed === false) {
+          window.location.href = '/onboarding'
+        }
+      })
+      .catch(() => {})
+  }, [session, userRole])
+
   // Search results
   const searchResults = searchQuery.length > 0
     ? searchablePages.filter(p =>

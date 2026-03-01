@@ -63,24 +63,15 @@ export async function middleware(request: NextRequest) {
   }
 
   // ===== Onboarding route protection =====
-  // If onboarding is completed, redirect to dashboard
+  // If onboarding is completed (in token), redirect to dashboard
   if (pathname === '/onboarding') {
     if (token.onboardingCompleted === true) {
       return NextResponse.redirect(new URL('/dashboard', request.url))
     }
   }
 
-  // If onboarding NOT completed, redirect dashboard routes to onboarding
-  // (except API routes and admin)
-  if (
-    token.onboardingCompleted !== true &&
-    token.role !== 'admin' &&
-    !pathname.startsWith('/api/') &&
-    !pathname.startsWith('/admin') &&
-    pathname !== '/onboarding'
-  ) {
-    return NextResponse.redirect(new URL('/onboarding', request.url))
-  }
+  // Note: Redirect from dashboard->onboarding is handled client-side
+  // in the dashboard layout, not middleware, to avoid stale JWT issues
 
   // ===== Admin routes =====
   if (pathname.startsWith('/admin') || pathname.startsWith('/api/admin')) {
