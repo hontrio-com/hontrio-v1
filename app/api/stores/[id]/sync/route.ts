@@ -16,7 +16,7 @@ function sanitize(str: string | null | undefined, maxLength: number = 50000): st
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 
 // Retry a Supabase operation up to 3 times with exponential backoff
-async function supabaseRetry<T>(fn: () => Promise<{ data: T; error: any }>): Promise<{ data: T; error: any }> {
+async function supabaseRetry<T>(fn: () => PromiseLike<{ data: T; error: any }>): Promise<{ data: T; error: any }> {
   for (let attempt = 0; attempt < 3; attempt++) {
     const result = await fn()
     if (!result.error) return result
