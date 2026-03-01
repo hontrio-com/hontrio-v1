@@ -120,8 +120,18 @@ export async function POST(request: Request) {
     }
 
     // Encrypt API keys before storing (AES-256-GCM)
-    const encryptedKey = encrypt(consumer_key)
-    const encryptedSecret = encrypt(consumer_secret)
+    let encryptedKey: string
+    let encryptedSecret: string
+    try {
+      encryptedKey = encrypt(consumer_key)
+      encryptedSecret = encrypt(consumer_secret)
+    } catch (encErr) {
+      console.error('Encryption error:', encErr)
+      return NextResponse.json(
+        { error: 'Eroare la criptarea cheilor API. Verifică ENCRYPTION_KEY în .env' },
+        { status: 500 }
+      )
+    }
 
     // Save store with encrypted credentials
     const { data: store, error } = await supabase
@@ -139,16 +149,18 @@ export async function POST(request: Request) {
       .single()
 
     if (error) {
+      console.error('Store insert error:', error.message, error.code, error.details)
       return NextResponse.json(
-        { error: 'Eroare la salvarea magazinului' },
+        { error: 'Eroare la salvarea magazinului: ' + error.message },
         { status: 500 }
       )
     }
 
     return NextResponse.json({ store })
-  } catch {
+  } catch (err) {
+    console.error('Stores connect unexpected error:', err)
     return NextResponse.json(
-      { error: 'Eroare internă de server' },
+      { error: 'Eroare internă: ' + (err as Error).message },
       { status: 500 }
     )
   }

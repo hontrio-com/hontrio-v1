@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/auth.config'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { decrypt } from '@/lib/security/encryption'
 
 export async function POST(
   request: Request,
@@ -49,8 +50,12 @@ export async function POST(
     }
 
     const wooUrl = store.store_url.replace(/\/$/, '')
-    const ck = encodeURIComponent(store.api_key)
-    const cs = encodeURIComponent(store.api_secret)
+    // Cheile sunt criptate in DB — decripteaza daca e nevoie (contine ':' ca separator iv:tag:cipher)
+    const ck = (store.api_key?.includes(':') ? decrypt(store.api_key) : store.api_key).trim()
+    const cs = (store.api_secret?.includes(':') ? decrypt(store.api_secret) : store.api_secret).trim()
+    // encodeURIComponent e obligatoriu — cheile WooCommerce pot contine caractere speciale
+    const authParams = `consumer_key=${encodeURIComponent(ck)}&consumer_secret=${encodeURIComponent(cs)}`
+    const wooHeaders = { 'Content-Type': 'application/json' }
 
     const wooProduct: Record<string, any> = {
       name: product.optimized_title || product.original_title,
@@ -85,10 +90,10 @@ export async function POST(
 
     if (product.external_id) {
       wooRes = await fetch(
-        `${wooUrl}/wp-json/wc/v3/products/${product.external_id}?consumer_key=${ck}&consumer_secret=${cs}`,
+        `${wooUrl}/wp-json/wc/v3/products/${product.external_id}?${authParams}`,
         {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
+          headers: wooHeaders,
           body: JSON.stringify(wooProduct),
         }
       )
@@ -120,10 +125,10 @@ export async function POST(
       }
 
       wooRes = await fetch(
-        `${wooUrl}/wp-json/wc/v3/products?consumer_key=${ck}&consumer_secret=${cs}`,
+        `${wooUrl}/wp-json/wc/v3/products?${authParams}`,
         {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: wooHeaders,
           body: JSON.stringify(wooProduct),
         }
       )
@@ -131,9 +136,46 @@ export async function POST(
 
     if (!wooRes.ok) {
       const errData = await wooRes.json().catch(() => ({}))
-      console.error('WooCommerce error:', errData)
+      const method = product.external_id ? 'PUT' : 'POST'
+      const targetId = product.external_id || 'nou'
+      console.error('[Publish] WooCommerce error:', JSON.stringify(errData))
+      console.error('[Publish] Status:', wooRes.status, '| Method:', method, '| external_id:', targetId)
+
+      // Daca PUT esueaza cu 401/403 (produs sters sau inexistent in WooCommerce), incearca POST ca produs nou
+      if ((wooRes.status === 401 || wooRes.status === 403) && product.external_id) {
+        console.log('[Publish] PUT 403 — incercam POST ca produs nou')
+        const images: { src: string; name: string; alt: string }[] = []
+        if (product.original_images?.length) {
+          product.original_images.forEach((img: string, i: number) => {
+            images.push({ src: img, name: `${product.original_title} - ${i+1}`, alt: product.optimized_title || product.original_title })
+          })
+        }
+        if (images.length > 0) wooProduct.images = images
+
+        const postRes = await fetch(
+          `${wooUrl}/wp-json/wc/v3/products?${authParams}`,
+          { method: 'POST', headers: wooHeaders, body: JSON.stringify(wooProduct) }
+        )
+        if (postRes.ok) {
+          const postData = await postRes.json()
+          await supabase.from('products').update({ external_id: String(postData.id), status: 'published' }).eq('id', id)
+          const newBalance = user.credits - 1
+          await supabase.from('users').update({ credits: newBalance }).eq('id', userId)
+          await supabase.from('credit_transactions').insert({
+            user_id: userId, type: 'usage', amount: -1, balance_after: newBalance,
+            description: `Publicare (nou): ${product.optimized_title || product.original_title}`,
+            reference_type: 'publish',
+          })
+          return NextResponse.json({ success: true, external_id: postData.id })
+        }
+        const postErr = await postRes.json().catch(() => ({}))
+        return NextResponse.json({
+          error: `Eroare WooCommerce (PUT 403 + POST ${postRes.status}): ${postErr.message || errData.message || 'Verifică permisiunile cheii API'}`
+        }, { status: 500 })
+      }
+
       return NextResponse.json({
-        error: `Eroare WooCommerce: ${errData.message || 'Verifică conexiunea magazinului'}`
+        error: `Eroare WooCommerce ${wooRes.status}: ${errData.message || errData.code || 'Verifică conexiunea'} — ${method} id=${targetId}`
       }, { status: 500 })
     }
 

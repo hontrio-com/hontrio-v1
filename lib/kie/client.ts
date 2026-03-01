@@ -10,7 +10,6 @@ export class KieClient {
     }
   }
 
-  // Trimite un task de generare imagine
   async createImageTask(prompt: string, imageUrls: string[] = [], options: {
     aspect_ratio?: string
     resolution?: string
@@ -35,31 +34,21 @@ export class KieClient {
     })
 
     const data = await response.json()
-
     if (data.code !== 200) {
       throw new Error(`KIE API error: ${data.msg || 'Unknown error'}`)
     }
-
     return data.data.taskId as string
   }
 
-  // Verifica statusul unui task
   async getTaskStatus(taskId: string) {
     const response = await fetch(
       `${KIE_API_URL}/recordInfo?taskId=${taskId}`,
-      {
-        headers: {
-          'Authorization': `Bearer ${this.apiKey}`,
-        },
-      }
+      { headers: { 'Authorization': `Bearer ${this.apiKey}` } }
     )
-
     const data = await response.json()
-
     if (data.code !== 200) {
       throw new Error(`KIE API error: ${data.msg || data.message || 'Unknown error'}`)
     }
-
     return data.data as {
       taskId: string
       model: string
@@ -70,18 +59,28 @@ export class KieClient {
     }
   }
 
-  // Asteapta pana se finalizeaza taskul (polling)
-  async waitForTask(taskId: string, maxWaitMs: number = 120000): Promise<string[]> {
+  // Limita 20 minute
+  async waitForTask(taskId: string, maxWaitMs: number = 1200000): Promise<string[]> {
     const startTime = Date.now()
-    const pollInterval = 3000 // 3 secunde
 
-    while (Date.now() - startTime < maxWaitMs) {
+    const getPollInterval = (elapsed: number) => {
+      if (elapsed < 30000) return 3000   // primele 30s: la 3s
+      if (elapsed < 120000) return 5000  // 30s-2min: la 5s
+      if (elapsed < 300000) return 8000  // 2min-5min: la 8s
+      return 15000                        // peste 5min: la 15s
+    }
+
+    while (true) {
+      const elapsed = Date.now() - startTime
+
+      if (elapsed >= maxWaitMs) {
+        throw new Error('Generarea a durat prea mult (peste 20 minute). Încearcă din nou.')
+      }
+
       const task = await this.getTaskStatus(taskId)
-
-      console.log(`KIE task ${taskId}: ${task.state}`)
+      console.log(`KIE task ${taskId}: ${task.state} (${Math.round(elapsed / 1000)}s)`)
 
       if (task.state === 'success') {
-        // Parseaza rezultatul
         const result = JSON.parse(task.resultJson)
         return result.resultUrls || []
       }
@@ -90,10 +89,7 @@ export class KieClient {
         throw new Error(`KIE generation failed: ${task.failMsg || 'Unknown reason'}`)
       }
 
-      // Asteapta inainte de urmatorul poll
-      await new Promise(resolve => setTimeout(resolve, pollInterval))
+      await new Promise(resolve => setTimeout(resolve, getPollInterval(elapsed)))
     }
-
-    throw new Error('KIE task timeout - imaginea nu a fost generată în timpul alocat')
   }
 }

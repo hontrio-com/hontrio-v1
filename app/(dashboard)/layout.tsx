@@ -8,7 +8,7 @@ import NotificationBell from '@/components/notification-bell'
 import {
   LayoutDashboard, Package, ImageIcon, Search, CreditCard, Settings,
   LogOut, Menu, X, ChevronRight, Shield, Sparkles, AlertTriangle,
-  MessageSquare, Zap, Crown, ArrowUpRight, Coins,
+  MessageSquare, Zap, Crown, ArrowUpRight, Coins, Video, Bot,
 } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
 import { Button } from '@/components/ui/button'
@@ -28,10 +28,12 @@ const menuSections = [
     ]
   },
   {
-    label: 'Unelte',
+    label: 'Unelte AI',
     items: [
       { label: 'Imagini AI', href: '/images', icon: ImageIcon },
-      { label: 'SEO', href: '/seo', icon: Search },
+      { label: 'Videoclipuri AI', href: '/videos', icon: Video },
+      { label: 'Optimizare SEO', href: '/seo', icon: Search },
+      { label: 'AI Agent', href: '/agent', icon: Bot },
     ]
   },
   {
@@ -51,12 +53,13 @@ const allMenuItems = menuSections.flatMap(s => s.items)
 const searchablePages = [
   { label: 'Dashboard', href: '/dashboard', keywords: ['dashboard', 'acasă', 'home'] },
   { label: 'Produse', href: '/products', keywords: ['produse', 'products', 'catalog'] },
-  { label: 'Imagini AI', href: '/images', keywords: ['imagini', 'images', 'generare', 'AI', 'foto'] },
-  { label: 'SEO', href: '/seo', keywords: ['seo', 'optimizare', 'scor', 'score'] },
+  { label: 'Imagini AI', href: '/images', keywords: ['imagini', 'images', 'generare', 'AI', 'foto', 'imagine'] },
+  { label: 'Videoclipuri AI', href: '/videos', keywords: ['video', 'videoclip', 'clip', 'reel', 'film'] },
+  { label: 'Optimizare SEO', href: '/seo', keywords: ['seo', 'optimizare', 'scor', 'score'] },
+  { label: 'AI Agent', href: '/agent', keywords: ['agent', 'chat', 'asistent', 'conversatie', 'bot', 'ai'] },
   { label: 'Abonament', href: '/credits', keywords: ['credite', 'credits', 'abonament', 'plan', 'upgrade'] },
   { label: 'Suport', href: '/support', keywords: ['suport', 'support', 'ajutor', 'tichet', 'help'] },
   { label: 'Setări', href: '/settings', keywords: ['setari', 'settings', 'profil', 'parolă', 'magazin'] },
-  { label: 'Produs nou', href: '/products/new', keywords: ['produs nou', 'adaugă', 'creare', 'new product'] },
 ]
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {

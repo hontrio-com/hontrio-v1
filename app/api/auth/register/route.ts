@@ -39,15 +39,16 @@ export async function POST(request: Request) {
     })
 
     if (authError) {
+      console.error('Supabase auth error:', authError.message, authError.status, authError.code)
       // Anti user enumeration: generic message for duplicate email
-      if (authError.message.includes('already been registered')) {
+      if (authError.message.includes('already been registered') || authError.message.includes('already exists')) {
         return NextResponse.json(
-          { error: 'Nu s-a putut crea contul. Verifică datele introduse.' },
+          { error: 'Există deja un cont cu această adresă de email.' },
           { status: 400 }
         )
       }
       return NextResponse.json(
-        { error: 'Eroare la crearea contului. Încearcă din nou.' },
+        { error: 'Eroare la crearea contului: ' + authError.message },
         { status: 500 }
       )
     }
@@ -65,9 +66,10 @@ export async function POST(request: Request) {
     })
 
     if (profileError) {
+      console.error('Profile insert error:', profileError.message, profileError.code, profileError.details)
       await supabase.auth.admin.deleteUser(authData.user.id)
       return NextResponse.json(
-        { error: 'Eroare la crearea profilului. Încearcă din nou.' },
+        { error: 'Eroare la crearea profilului: ' + profileError.message },
         { status: 500 }
       )
     }

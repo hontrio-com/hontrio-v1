@@ -1,0 +1,5 @@
+[2026-03-01T15:05:02.373Z] [WARN] /api/user/me — HTTP 404 — User negăsit în DB {"userId":"318a14ad-26a7-4742-afd1-2d8ee172358a","dbError":"Cannot coerce the result to a single JSON object"}
+[2026-03-01T15:05:03.045Z] [WARN] /api/user/me — HTTP 404 — User negăsit în DB {"userId":"318a14ad-26a7-4742-afd1-2d8ee172358a","dbError":"Cannot coerce the result to a single JSON object"}
+[2026-03-01T15:05:03.240Z] [WARN] /api/user/me — HTTP 404 — User negăsit în DB {"userId":"318a14ad-26a7-4742-afd1-2d8ee172358a","dbError":"Cannot coerce the result to a single JSON object"}
+[2026-03-01T21:37:13.115Z] [WARN] /api/user/me — HTTP 404 — User negăsit în DB {"userId":"70f8a487-07ad-4442-842d-f9007036174d","dbError":"TypeError: fetch failed"}
+[2026-03-01T21:37:13.158Z] [WARN] /api/user/me — HTTP 404 — User negăsit în DB {"userId":"70f8a487-07ad-4442-842d-f9007036174d","dbError":"TypeError: fetch failed"}

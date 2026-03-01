@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/auth.config'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { logApiError } from '@/lib/logger'
 
 export async function GET(request: Request) {
   try {
@@ -56,26 +57,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Eroare la încărcarea produselor' }, { status: 500 })
     }
 
-    // Get generated images for these products
     const productIds = (products || []).map(p => p.id)
-    let genImagesMap: Record<string, string> = {}
-
-    if (productIds.length > 0) {
-      const { data: genImages } = await supabase
-        .from('generated_images')
-        .select('product_id, generated_image_url')
-        .in('product_id', productIds)
-        .in('status', ['completed', 'published'])
-        .order('created_at', { ascending: false })
-
-      if (genImages) {
-        for (const img of genImages) {
-          if (!genImagesMap[img.product_id]) {
-            genImagesMap[img.product_id] = img.generated_image_url
-          }
-        }
-      }
-    }
 
     // Get variation count per parent product
     let variationCounts: Record<string, number> = {}
@@ -99,9 +81,7 @@ export async function GET(request: Request) {
     // Enrich products
     const enriched = (products || []).map(p => ({
       ...p,
-      thumbnail_url:
-        genImagesMap[p.id] ||
-        (p.original_images && p.original_images.length > 0 ? p.original_images[0] : null),
+      thumbnail_url: p.original_images && p.original_images.length > 0 ? p.original_images[0] : null,
       variations_count: variationCounts[p.id] || 0,
     }))
 

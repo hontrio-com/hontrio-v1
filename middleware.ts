@@ -28,7 +28,6 @@ export async function middleware(request: NextRequest) {
     response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization')
     response.headers.set('Access-Control-Allow-Credentials', 'true')
 
-    // Preflight
     if (request.method === 'OPTIONS') {
       return new NextResponse(null, { status: 204, headers: response.headers })
     }
@@ -63,15 +62,11 @@ export async function middleware(request: NextRequest) {
   }
 
   // ===== Onboarding route protection =====
-  // If onboarding is completed (in token), redirect to dashboard
   if (pathname === '/onboarding') {
     if (token.onboardingCompleted === true) {
       return NextResponse.redirect(new URL('/dashboard', request.url))
     }
   }
-
-  // Note: Redirect from dashboard->onboarding is handled client-side
-  // in the dashboard layout, not middleware, to avoid stale JWT issues
 
   // ===== Admin routes =====
   if (pathname.startsWith('/admin') || pathname.startsWith('/api/admin')) {
@@ -98,12 +93,27 @@ export const config = {
     '/dashboard/:path*',
     '/products/:path*',
     '/images/:path*',
+    '/videos/:path*',
     '/seo/:path*',
     '/credits/:path*',
     '/settings/:path*',
     '/support/:path*',
     '/admin/:path*',
-    '/api/:path*',
+    '/api/user/:path*',
+    '/api/stores/:path*',
+    '/api/products/:path*',
+    '/api/images/:path*',
+    '/api/generate/:path*',
+    '/api/dashboard/:path*',
+    '/api/credits/:path*',
+    '/api/tickets/:path*',
+    '/api/notifications/:path*',
+    '/api/upload/:path*',
+    '/api/onboarding/:path*',
+    '/api/admin/:path*',
+    '/api/stripe/checkout',
+    '/api/stripe/portal',
+    '/api/stripe/credits',
     '/login',
     '/register',
   ],
