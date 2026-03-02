@@ -5,6 +5,7 @@ var UID=cfg.userId||'';
 var COLOR=cfg.color||'#2563eb';
 var POS=cfg.position||'bottom-right';
 var SZ=cfg.size||'medium';
+var OFFSET=cfg.bottomOffset||20; // punct 5 — offset configurabil
 var BASE=(cfg.apiBase||'https://hontrio.com').replace(/\/$/,'');
 if(!UID){console.warn('[Hontrio] userId lipsește');return;}
 
@@ -15,73 +16,69 @@ var isOpen=false,isLoading=false,msgs=[],sid='s'+Math.random().toString(36).slic
 var vid;try{vid=localStorage.getItem('_hv')||'v'+Date.now().toString(36);localStorage.setItem('_hv',vid);}catch(e){vid='v'+Date.now().toString(36);}
 var unread=0,welcomed=false,agentName='Asistent';
 
-function rgb(h){
-  h=h.replace('#','');
-  return parseInt(h.slice(0,2),16)+','+parseInt(h.slice(2,4),16)+','+parseInt(h.slice(4,6),16);
-}
+function rgb(h){h=h.replace('#','');return parseInt(h.slice(0,2),16)+','+parseInt(h.slice(2,4),16)+','+parseInt(h.slice(4,6),16);}
 var C=rgb(COLOR);
 
-// ── STYLES ──────────────────────────────────────────────────────────────────
 var s=document.createElement('style');
 s.textContent=
+// Reset
 '#_h *{box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;margin:0;padding:0;}'+
-'#_h_b{position:fixed;'+(IS_R?'right':'left')+':20px;bottom:20px;width:'+BTN_S+'px;height:'+BTN_S+'px;'+
+
+// Buton flotant — punct 5: bottom offset configurabil
+'#_h_b{position:fixed;'+(IS_R?'right':'left')+':20px;bottom:'+OFFSET+'px;width:'+BTN_S+'px;height:'+BTN_S+'px;'+
 'border-radius:50%;background:'+COLOR+';border:none;cursor:pointer;z-index:2147483646;'+
 'box-shadow:0 4px 16px rgba('+C+',.4),0 2px 6px rgba(0,0,0,.1);'+
 'display:flex;align-items:center;justify-content:center;transition:transform .2s,box-shadow .2s;outline:none;}'+
-'#_h_b:hover{transform:scale(1.08);box-shadow:0 6px 24px rgba('+C+',.5);}'+
+'#_h_b:hover{transform:scale(1.08);}'+
 '#_h_b:active{transform:scale(.95);}'+
 '#_h_bg{position:absolute;top:-3px;'+(IS_R?'right':'left')+':-3px;background:#ef4444;color:#fff;font-size:10px;font-weight:700;'+
 'min-width:18px;height:18px;border-radius:9px;border:2px solid #fff;display:none;align-items:center;justify-content:center;padding:0 3px;}'+
 
-'#_h_w{position:fixed;'+(IS_R?'right':'left')+':16px;bottom:'+(BTN_S+20)+'px;'+
-'width:min(380px,calc(100vw - 28px));height:min(560px,calc(100vh - 90px));'+
+// Fereastra chat
+'#_h_w{position:fixed;'+(IS_R?'right':'left')+':16px;bottom:'+(OFFSET+BTN_S+8)+'px;'+
+'width:min(380px,calc(100vw - 28px));height:min(570px,calc(100vh - 90px));'+
 'background:#fff;border-radius:16px;overflow:hidden;z-index:2147483645;'+
-'box-shadow:0 8px 40px rgba(0,0,0,.12),0 2px 12px rgba(0,0,0,.08),0 0 0 1px rgba(0,0,0,.06);'+
+'box-shadow:0 8px 40px rgba(0,0,0,.14),0 2px 12px rgba(0,0,0,.08),0 0 0 1px rgba(0,0,0,.06);'+
 'display:flex;flex-direction:column;'+
 'transform:scale(.9) translateY(12px);opacity:0;pointer-events:none;'+
 'transition:transform .25s cubic-bezier(.34,1.3,.64,1),opacity .2s;}'+
 '#_h_w.on{transform:scale(1) translateY(0);opacity:1;pointer-events:all;}'+
 
-/* header */
-'#_h_hd{padding:14px 16px;display:flex;align-items:center;gap:10px;flex-shrink:0;'+
-'background:'+COLOR+';border-bottom:none;}'+
-'#_h_av{width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.2);border:2px solid rgba(255,255,255,.3);'+
-'display:flex;align-items:center;justify-content:center;flex-shrink:0;}'+
+// Header
+'#_h_hd{padding:14px 16px;display:flex;align-items:center;gap:10px;flex-shrink:0;background:'+COLOR+';}'+
+'#_h_av{width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.2);border:2px solid rgba(255,255,255,.3);display:flex;align-items:center;justify-content:center;flex-shrink:0;}'+
 '._h_hn{font-size:14px;font-weight:600;color:#fff;}'+
-'._h_hs{font-size:11px;color:rgba(255,255,255,.75);display:flex;align-items:center;gap:4px;margin-top:1px;}'+
+'._h_hs{font-size:11px;color:rgba(255,255,255,.8);display:flex;align-items:center;gap:4px;margin-top:2px;}'+
 '._h_hd{width:6px;height:6px;border-radius:50%;background:#4ade80;}'+
-'#_h_cl{margin-left:auto;background:rgba(255,255,255,.15);border:none;width:28px;height:28px;'+
-'border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;'+
-'color:#fff;transition:background .15s;flex-shrink:0;}'+
+'#_h_cl{margin-left:auto;background:rgba(255,255,255,.15);border:none;width:28px;height:28px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#fff;flex-shrink:0;}'+
 '#_h_cl:hover{background:rgba(255,255,255,.25);}'+
 
-/* messages */
-'#_h_ms{flex:1;overflow-y:auto;padding:14px 12px;display:flex;flex-direction:column;gap:10px;background:#f9fafb;scroll-behavior:smooth;}'+
+// Mesaje — punct 6: padding mai generos, mesaje mai aerisite
+'#_h_ms{flex:1;overflow-y:auto;padding:16px 14px;display:flex;flex-direction:column;gap:12px;background:#f9fafb;scroll-behavior:smooth;}'+
 '#_h_ms::-webkit-scrollbar{width:4px;}'+
 '#_h_ms::-webkit-scrollbar-thumb{background:#e5e7eb;border-radius:4px;}'+
-'._h_r{display:flex;flex-direction:column;gap:5px;max-width:85%;}'+
+'._h_r{display:flex;flex-direction:column;gap:6px;max-width:82%;}'+
 '._h_r.u{align-self:flex-end;align-items:flex-end;}'+
 '._h_r.b{align-self:flex-start;align-items:flex-start;}'+
-'._h_bb{padding:10px 13px;border-radius:16px;font-size:13.5px;line-height:1.5;word-break:break-word;}'+
-'._h_r.u ._h_bb{background:'+COLOR+';color:#fff;border-bottom-right-radius:4px;}'+
-'._h_r.b ._h_bb{background:#fff;color:#111827;border-bottom-left-radius:4px;box-shadow:0 1px 4px rgba(0,0,0,.08),0 0 0 1px rgba(0,0,0,.05);}'+
 
-/* product cards */
+// Bubble — punct 6: padding mai mare, font mai lizibil
+'._h_bb{padding:11px 15px;border-radius:18px;font-size:14px;line-height:1.55;word-break:break-word;}'+
+'._h_r.u ._h_bb{background:'+COLOR+';color:#fff;border-bottom-right-radius:5px;}'+
+'._h_r.b ._h_bb{background:#fff;color:#111827;border-bottom-left-radius:5px;box-shadow:0 1px 4px rgba(0,0,0,.08),0 0 0 1px rgba(0,0,0,.05);}'+
+
+// Cards — punct 3: fără descriere, mai compact
 '._h_cs{display:flex;flex-direction:column;gap:7px;width:100%;}'+
-'._h_c{background:#fff;border-radius:12px;overflow:hidden;border:1px solid #e5e7eb;'+
-'box-shadow:0 1px 4px rgba(0,0,0,.06);transition:box-shadow .2s,border-color .2s;}'+
-'._h_c:hover{box-shadow:0 4px 12px rgba(0,0,0,.1);border-color:rgba('+C+',.3);}'+
-'._h_ct{display:flex;}'+
-'._h_ci{width:76px;height:76px;object-fit:cover;flex-shrink:0;background:#f3f4f6;}'+
-'._h_cp{width:76px;height:76px;flex-shrink:0;background:#f3f4f6;display:flex;align-items:center;justify-content:center;font-size:24px;}'+
-'._h_cd{flex:1;min-width:0;padding:9px 11px;display:flex;flex-direction:column;gap:2px;}'+
-'._h_ctt{font-size:12.5px;font-weight:600;color:#111827;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}'+
-'._h_cds{font-size:11px;color:#6b7280;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin-top:1px;}'+
-'._h_cpr{font-size:14px;font-weight:700;color:'+COLOR+';margin-top:auto;}'+
+'._h_c{background:#fff;border-radius:12px;overflow:hidden;border:1px solid #e5e7eb;box-shadow:0 1px 4px rgba(0,0,0,.06);transition:box-shadow .2s,border-color .2s;}'+
+'._h_c:hover{box-shadow:0 3px 12px rgba(0,0,0,.1);border-color:rgba('+C+',.3);}'+
+'._h_ct{display:flex;align-items:center;}'+
+// Poza mai mare, mai vizibila
+'._h_ci{width:80px;height:80px;object-fit:cover;flex-shrink:0;background:#f3f4f6;}'+
+'._h_cp{width:80px;height:80px;flex-shrink:0;background:#f3f4f6;display:flex;align-items:center;justify-content:center;font-size:26px;}'+
+'._h_cd{flex:1;min-width:0;padding:10px 12px;}'+
+'._h_ctt{font-size:13px;font-weight:600;color:#111827;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}'+
+'._h_cpr{font-size:15px;font-weight:700;color:'+COLOR+';margin-top:6px;}'+
 '._h_cbs{display:flex;border-top:1px solid #f3f4f6;}'+
-'._h_cb{flex:1;padding:8px 6px;font-size:12px;font-weight:600;border:none;cursor:pointer;'+
-'display:flex;align-items:center;justify-content:center;gap:4px;transition:background .15s;}'+
+'._h_cb{flex:1;padding:9px 6px;font-size:12.5px;font-weight:600;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;transition:background .15s;}'+
 '._h_cb.vw{background:#f9fafb;color:'+COLOR+';border-right:1px solid #f3f4f6;}'+
 '._h_cb.vw:hover{background:#f3f4f6;}'+
 '._h_cb.ac{background:'+COLOR+';color:#fff;}'+
@@ -89,42 +86,38 @@ s.textContent=
 '._h_cb.ac:disabled{opacity:.5;cursor:default;}'+
 '._h_cb.ac.ok{background:#22c55e;}'+
 
-/* quick replies */
-'._h_qs{display:flex;flex-wrap:wrap;gap:5px;}'+
-'._h_q{font-size:12px;font-weight:500;color:'+COLOR+';background:#fff;'+
-'border:1.5px solid rgba('+C+',.3);border-radius:20px;padding:5px 11px;cursor:pointer;transition:all .15s;white-space:nowrap;}'+
-'._h_q:hover{background:rgba('+C+',.06);border-color:rgba('+C+',.5);}'+
+// Quick replies — punct 1: design mai curat, nu mai apar taiate
+'._h_qs{display:flex;flex-wrap:wrap;gap:6px;margin-top:2px;}'+
+'._h_q{font-size:13px;font-weight:500;color:'+COLOR+';background:#fff;'+
+'border:1.5px solid rgba('+C+',.35);border-radius:20px;padding:6px 14px;'+
+'cursor:pointer;transition:all .15s;white-space:nowrap;line-height:1.4;}'+
+'._h_q:hover{background:rgba('+C+',.07);border-color:rgba('+C+',.6);}'+
 '._h_q:disabled{opacity:.4;cursor:default;}'+
 
-/* whatsapp */
-'._h_wa{display:flex;align-items:center;gap:9px;background:#f0fdf4;'+
-'border:1px solid #bbf7d0;border-radius:12px;padding:10px 12px;cursor:pointer;text-decoration:none;transition:background .15s;}'+
+// WhatsApp
+'._h_wa{display:flex;align-items:center;gap:9px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:10px 12px;cursor:pointer;text-decoration:none;transition:background .15s;}'+
 '._h_wa:hover{background:#dcfce7;}'+
 '._h_wat{font-size:12.5px;font-weight:700;color:#166534;}'+
 '._h_was{font-size:11px;color:#16a34a;margin-top:1px;}'+
 
-/* typing */
-'._h_ty{align-self:flex-start;background:#fff;padding:11px 15px;border-radius:16px;border-bottom-left-radius:4px;'+
-'box-shadow:0 1px 4px rgba(0,0,0,.08),0 0 0 1px rgba(0,0,0,.05);display:flex;gap:4px;align-items:center;}'+
-'._h_td{width:6px;height:6px;border-radius:50%;background:#9ca3af;animation:_h_b .85s infinite;}'+
-'._h_td:nth-child(2){animation-delay:.14s;}._h_td:nth-child(3){animation-delay:.28s;}'+
-'@keyframes _h_b{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-4px)}}'+
+// Typing
+'._h_ty{align-self:flex-start;background:#fff;padding:12px 16px;border-radius:18px;border-bottom-left-radius:5px;box-shadow:0 1px 4px rgba(0,0,0,.08),0 0 0 1px rgba(0,0,0,.05);display:flex;gap:5px;align-items:center;}'+
+'._h_td{width:7px;height:7px;border-radius:50%;background:#9ca3af;animation:_h_b .85s infinite;}'+
+'._h_td:nth-child(2){animation-delay:.15s;}._h_td:nth-child(3){animation-delay:.3s;}'+
+'@keyframes _h_b{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-5px)}}'+
 
-/* footer */
-'#_h_ft{padding:10px 12px 12px;background:#fff;border-top:1px solid #f3f4f6;flex-shrink:0;}'+
+// Footer
+'#_h_ft{padding:10px 12px 13px;background:#fff;border-top:1px solid #f3f4f6;flex-shrink:0;}'+
 '#_h_fm{display:flex;gap:7px;align-items:flex-end;}'+
-'#_h_in{flex:1;background:#f9fafb;border:1.5px solid #e5e7eb;border-radius:12px;'+
-'padding:9px 13px;font-size:13.5px;color:#111827;outline:none;resize:none;'+
-'min-height:40px;max-height:96px;line-height:1.45;transition:border-color .15s;}'+
+'#_h_in{flex:1;background:#f9fafb;border:1.5px solid #e5e7eb;border-radius:12px;padding:10px 14px;font-size:14px;color:#111827;outline:none;resize:none;min-height:42px;max-height:100px;line-height:1.5;transition:border-color .15s,background .15s;}'+
 '#_h_in:focus{border-color:'+COLOR+';background:#fff;}'+
 '#_h_in::placeholder{color:#9ca3af;}'+
-'#_h_sn{width:40px;height:40px;border-radius:11px;border:none;background:'+COLOR+';color:#fff;'+
-'cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:opacity .15s,transform .15s;}'+
+'#_h_sn{width:42px;height:42px;border-radius:12px;border:none;background:'+COLOR+';color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:opacity .15s,transform .15s;}'+
 '#_h_sn:hover{opacity:.9;transform:scale(1.05);}'+
 '#_h_sn:disabled{opacity:.35;cursor:default;transform:none;}'+
 '._h_br{text-align:center;font-size:10px;color:#d1d5db;padding:5px 0 0;}'+
 '._h_br a{color:#9ca3af;text-decoration:none;}._h_br a:hover{color:'+COLOR+';}'+
-'@media(max-width:480px){#_h_w{left:8px!important;right:8px!important;width:auto!important;bottom:'+(BTN_S+12)+'px;}}';
+'@media(max-width:480px){#_h_w{left:8px!important;right:8px!important;width:auto!important;}}';
 document.head.appendChild(s);
 
 // ── ICONS ────────────────────────────────────────────────────────────────────
@@ -166,7 +159,7 @@ btn.addEventListener('click',toggle);
 document.getElementById('_h_cl').addEventListener('click',closeChat);
 document.getElementById('_h_sn').addEventListener('click',function(){doSend();});
 inp.addEventListener('keydown',function(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();doSend();}});
-inp.addEventListener('input',function(){this.style.height='auto';this.style.height=Math.min(this.scrollHeight,96)+'px';});
+inp.addEventListener('input',function(){this.style.height='auto';this.style.height=Math.min(this.scrollHeight,100)+'px';});
 
 // ── CART ─────────────────────────────────────────────────────────────────────
 function addCart(extId,cartBtn){
@@ -174,16 +167,13 @@ function addCart(extId,cartBtn){
   cartBtn.disabled=true;
   cartBtn.innerHTML='<span style="font-size:11px">Se adaugă...</span>';
   fetch(siteBase()+'/?wc-ajax=add_to_cart',{
-    method:'POST',
-    headers:{'Content-Type':'application/x-www-form-urlencoded'},
-    body:'product_id='+encodeURIComponent(extId)+'&quantity=1',
-    credentials:'include',
+    method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},
+    body:'product_id='+encodeURIComponent(extId)+'&quantity=1',credentials:'include',
   })
   .then(function(r){return r.json();})
   .then(function(d){
     if(d&&(d.fragments||d.cart_hash)){
-      cartBtn.innerHTML=iOk()+'<span>Adăugat!</span>';
-      cartBtn.classList.add('ok');
+      cartBtn.innerHTML=iOk()+'<span>Adăugat!</span>';cartBtn.classList.add('ok');
       if(d.fragments){Object.keys(d.fragments).forEach(function(k){var el=document.querySelector(k);if(el)el.outerHTML=d.fragments[k];});}
       setTimeout(function(){cartBtn.innerHTML=iCart()+'<span>Adaugă în coș</span>';cartBtn.classList.remove('ok');cartBtn.disabled=false;},2800);
     }else{window.location.href=siteBase()+'/?add-to-cart='+extId;}
@@ -192,7 +182,7 @@ function addCart(extId,cartBtn){
 }
 function siteBase(){return(window.HontrioAgent&&window.HontrioAgent.storeUrl)||window.location.origin;}
 
-// ── RENDER ───────────────────────────────────────────────────────────────────
+// ── RENDER MESSAGES ──────────────────────────────────────────────────────────
 function renderMsg(role,text,extra){
   msgs.push({role:role,content:text});
   var ms=document.getElementById('_h_ms');
@@ -200,6 +190,7 @@ function renderMsg(role,text,extra){
   var bub=document.createElement('div');bub.className='_h_bb';bub.textContent=text;
   row.appendChild(bub);
 
+  // Cards — punct 3: doar poza, titlu, pret, butoane (fara descriere)
   if(extra&&extra.products&&extra.products.length>0){
     var cs=document.createElement('div');cs.className='_h_cs';
     extra.products.forEach(function(p){
@@ -211,7 +202,6 @@ function renderMsg(role,text,extra){
         '<div class="_h_ct">'+img+
           '<div class="_h_cd">'+
             '<div class="_h_ctt">'+esc(p.title||'')+'</div>'+
-            (p.description?'<div class="_h_cds">'+esc(p.description)+'</div>':'')+
             (p.price?'<div class="_h_cpr">'+p.price+' RON</div>':'')+
           '</div>'+
         '</div>'+
@@ -220,7 +210,10 @@ function renderMsg(role,text,extra){
           '<button class="_h_cb ac">'+iCart()+'<span>Adaugă în coș</span></button>'+
         '</div>';
       var url=p.url||'';
-      card.querySelector('._h_cb.vw').addEventListener('click',function(){if(url&&url!=='#')window.location.href=url;});
+      // Punct 2: "Vezi produs" deschide in tab nou ca sa nu piarda conversatia
+      card.querySelector('._h_cb.vw').addEventListener('click',function(){
+        if(url&&url!=='#')window.open(url,'_blank');
+      });
       var acBtn=card.querySelector('._h_cb.ac');
       acBtn.addEventListener('click',function(){addCart(p.external_id,this);});
       cs.appendChild(card);
@@ -228,13 +221,16 @@ function renderMsg(role,text,extra){
     row.appendChild(cs);
   }
 
+  // Quick replies — punct 1: arata mai bine cu stilul nou
   if(extra&&extra.quick_replies&&extra.quick_replies.length>0){
     var qs=document.createElement('div');qs.className='_h_qs';
     extra.quick_replies.forEach(function(qr){
       var qb=document.createElement('button');qb.className='_h_q';qb.textContent=qr;
       qb.addEventListener('click',function(){
         qs.querySelectorAll('._h_q').forEach(function(x){x.disabled=true;x.style.opacity='.35';});
-        if(extra.redirect_url&&(qr.includes('→')||qr.toLowerCase().includes('deschide')||qr.toLowerCase().includes('vezi'))){window.location.href=extra.redirect_url;return;}
+        if(extra.redirect_url&&(qr.includes('→')||qr.toLowerCase().includes('deschide')||qr.toLowerCase().includes('vezi'))){
+          window.open(extra.redirect_url,'_blank');return;
+        }
         doSend(qr);
       });
       qs.appendChild(qb);
@@ -267,8 +263,7 @@ function openChat(){
   document.getElementById('_h_w').classList.add('on');
   btn.innerHTML=iX(ICN_S)+'<div id="_h_bg"></div>';
   badge=btn.querySelector('#_h_bg');
-  unread=0;updBadge();
-  inp.focus();
+  unread=0;updBadge();inp.focus();
   if(!welcomed){welcomed=true;doWelcome();}
 }
 function closeChat(){
@@ -312,10 +307,7 @@ function doSend(ov){
       session_id:sid,store_user_id:UID,visitor_id:vid,
     }),
   })
-  .then(function(r){
-    if(!r.ok)throw new Error('HTTP '+r.status);
-    return r.json();
-  })
+  .then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json();})
   .then(function(d){
     hideTyping();
     renderMsg('assistant',d.message,{
@@ -333,5 +325,4 @@ function doSend(ov){
 }
 
 setTimeout(function(){if(!isOpen&&!welcomed){unread=1;updBadge();}},25000);
-
 })();

@@ -38,6 +38,7 @@ type Config = {
   widget_position: string
   widget_color: string
   widget_size: string
+  widget_bottom_offset: number
 }
 
 type Stats = {
@@ -53,6 +54,7 @@ const defaultConfig: Config = {
   widget_position: 'bottom-right',
   widget_color: '#2563eb',
   widget_size: 'medium',
+  widget_bottom_offset: 20,
 }
 
 export default function AgentPage() {
@@ -453,6 +455,18 @@ export default function AgentPage() {
                 </div>
               </div>
 
+              {/* Offset buton - punct 5 */}
+              <div>
+                <label className="text-xs font-medium text-gray-600 block mb-2">Distanță față de marginea de jos (px)</label>
+                <div className="flex items-center gap-3">
+                  <input type="range" min="16" max="120" value={config.widget_bottom_offset || 20}
+                    onChange={e => setConfig(c => ({ ...c, widget_bottom_offset: Number(e.target.value) }))}
+                    className="flex-1" />
+                  <span className="text-sm font-medium text-gray-700 w-12 text-right">{config.widget_bottom_offset || 20}px</span>
+                </div>
+                <p className="text-xs text-gray-400 mt-1">Util dacă ai butoane WhatsApp sau telefon în colț</p>
+              </div>
+
               {/* Size */}
               <div>
                 <label className="text-xs font-medium text-gray-600 block mb-2">Dimensiune buton</label>
@@ -464,6 +478,18 @@ export default function AgentPage() {
                     </button>
                   ))}
                 </div>
+              </div>
+
+              {/* Offset buton - punct 5 */}
+              <div>
+                <label className="text-xs font-medium text-gray-600 block mb-2">Distanță față de marginea de jos (px)</label>
+                <div className="flex items-center gap-3">
+                  <input type="range" min="16" max="120" value={config.widget_bottom_offset || 20}
+                    onChange={e => setConfig(c => ({ ...c, widget_bottom_offset: Number(e.target.value) }))}
+                    className="flex-1" />
+                  <span className="text-sm font-medium text-gray-700 w-12 text-right">{config.widget_bottom_offset || 20}px</span>
+                </div>
+                <p className="text-xs text-gray-400 mt-1">Util dacă ai butoane WhatsApp sau telefon în colț</p>
               </div>
 
               {/* Live preview */}

@@ -42,11 +42,12 @@ export async function GET() {
  * Plugin Name: Hontrio AI Agent${storeName ? ' — ' + storeName : ''}
  * Plugin URI: https://hontrio.com
  * Description: Asistent AI conversational pentru magazinul tau online. Powered by Hontrio.
- * Version: 1.0.0
+ * Version: 1.0.3
  * Author: Hontrio
  * Author URI: https://hontrio.com
  * License: GPL2
  * Text Domain: hontrio-agent
+ * Update URI: ${apiBase}/api/agent/plugin-update
  */
 
 if ( ! defined( 'ABSPATH' ) ) exit;
@@ -56,6 +57,8 @@ define( 'HONTRIO_COLOR', '${color}' );
 define( 'HONTRIO_POSITION', '${position}' );
 define( 'HONTRIO_SIZE', '${size}' );
 define( 'HONTRIO_API_BASE', '${apiBase}' );
+define( 'HONTRIO_BOTTOM_OFFSET', ${config?.widget_bottom_offset || 20} );
+define( 'HONTRIO_PLUGIN_VERSION', '1.0.3' );
 
 function hontrio_agent_inject() {
     ?>
@@ -65,20 +68,68 @@ function hontrio_agent_inject() {
         color: "<?php echo esc_js( HONTRIO_COLOR ); ?>",
         position: "<?php echo esc_js( HONTRIO_POSITION ); ?>",
         size: "<?php echo esc_js( HONTRIO_SIZE ); ?>",
-        apiBase: "<?php echo esc_js( HONTRIO_API_BASE ); ?>"
+        apiBase: "<?php echo esc_js( HONTRIO_API_BASE ); ?>",
+        bottomOffset: <?php echo intval( HONTRIO_BOTTOM_OFFSET ); ?>
     };
     </script>
-    <script src="<?php echo esc_url( HONTRIO_API_BASE ); ?>/agent-widget.js?v=<?php echo time(); ?>" defer></script>
+    <script src="<?php echo esc_url( HONTRIO_API_BASE ); ?>/agent-widget.js?v=<?php echo HONTRIO_PLUGIN_VERSION; ?>" defer></script>
     <?php
 }
 add_action( 'wp_footer', 'hontrio_agent_inject' );
+
+// ── AUTO-UPDATE din Hontrio (punct 7) ─────────────────────────────────────
+function hontrio_check_update( \$transient ) {
+    if ( empty( \$transient->checked ) ) return \$transient;
+
+    \$response = wp_remote_get( HONTRIO_API_BASE . '/api/agent/plugin-update?v=' . HONTRIO_PLUGIN_VERSION, array(
+        'timeout' => 10,
+        'headers' => array( 'Accept' => 'application/json' ),
+    ) );
+
+    if ( is_wp_error( \$response ) ) return \$transient;
+
+    \$data = json_decode( wp_remote_retrieve_body( \$response ), true );
+
+    if ( ! empty( \$data['new_version'] ) && version_compare( \$data['new_version'], HONTRIO_PLUGIN_VERSION, '>' ) ) {
+        \$plugin_slug = 'hontrio-agent/hontrio-agent.php';
+        \$transient->response[ \$plugin_slug ] = (object) array(
+            'slug'        => 'hontrio-agent',
+            'plugin'      => \$plugin_slug,
+            'new_version' => \$data['new_version'],
+            'url'         => 'https://hontrio.com',
+            'package'     => \$data['download_url'],
+        );
+    }
+
+    return \$transient;
+}
+add_filter( 'pre_set_site_transient_update_plugins', 'hontrio_check_update' );
+
+function hontrio_plugin_info( \$result, \$action, \$args ) {
+    if ( \$action !== 'plugin_information' || \$args->slug !== 'hontrio-agent' ) return \$result;
+
+    \$response = wp_remote_get( HONTRIO_API_BASE . '/api/agent/plugin-update?v=' . HONTRIO_PLUGIN_VERSION );
+    if ( is_wp_error( \$response ) ) return \$result;
+
+    \$data = json_decode( wp_remote_retrieve_body( \$response ), true );
+    if ( empty( \$data ) ) return \$result;
+
+    return (object) array(
+        'name'          => 'Hontrio AI Agent',
+        'slug'          => 'hontrio-agent',
+        'version'       => \$data['new_version'] ?? HONTRIO_PLUGIN_VERSION,
+        'download_link' => \$data['download_url'] ?? '',
+        'sections'      => array( 'description' => 'Asistent AI pentru magazinul tău WooCommerce.' ),
+    );
+}
+add_filter( 'plugins_api', 'hontrio_plugin_info', 20, 3 );
 
 // Admin notice after activation
 function hontrio_activation_notice() {
     if ( get_transient( 'hontrio_activated' ) ) {
         ?>
         <div class="notice notice-success is-dismissible">
-            <p><strong>Hontrio AI Agent</strong> a fost activat cu succes! Agentul <strong><?php echo esc_html( '${agentName}' ); ?></strong> este acum activ pe site-ul tău. <a href="https://hontrio.com/agent" target="_blank">Gestionează agentul →</a></p>
+            <p><strong>Hontrio AI Agent</strong> a fost activat! Agentul <strong><?php echo esc_html( '${agentName}' ); ?></strong> este activ. <a href="${apiBase}/agent" target="_blank">Configurează →</a></p>
         </div>
         <?php
         delete_transient( 'hontrio_activated' );
@@ -86,9 +137,7 @@ function hontrio_activation_notice() {
 }
 add_action( 'admin_notices', 'hontrio_activation_notice' );
 
-function hontrio_on_activate() {
-    set_transient( 'hontrio_activated', true, 30 );
-}
+function hontrio_on_activate() { set_transient( 'hontrio_activated', true, 30 ); }
 register_activation_hook( __FILE__, 'hontrio_on_activate' );
 `
 
