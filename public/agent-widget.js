@@ -275,11 +275,62 @@ function closeChat(){
 }
 
 // ── WELCOME ──────────────────────────────────────────────────────────────────
+function applyConfig(d){
+  if(!d)return;
+  // Nume agent
+  if(d.agent_name){document.getElementById('_h_an').textContent=d.agent_name;agentName=d.agent_name;}
+  // Culoare — update toate elementele cu culoarea agentului
+  if(d.widget_color&&d.widget_color!==COLOR){
+    COLOR=d.widget_color;
+    C=rgb(COLOR);
+    var b=document.getElementById('_h_b');
+    var hd=document.getElementById('_h_hd');
+    var sn=document.getElementById('_h_sn');
+    if(b)b.style.background=COLOR;
+    if(hd)hd.style.background=COLOR;
+    if(sn)sn.style.background=COLOR;
+    // Rescrie stiluri dinamice
+    var st=document.getElementById('_h_dyn');
+    if(!st){st=document.createElement('style');st.id='_h_dyn';document.head.appendChild(st);}
+    st.textContent=
+      '._h_r.u ._h_bb{background:'+COLOR+' !important}'+
+      '._h_cb.ac{background:'+COLOR+' !important}'+
+      '._h_q{color:'+COLOR+' !important;border-color:rgba('+C+',.35) !important}'+
+      '._h_cpr{color:'+COLOR+' !important}'+
+      '#_h_in:focus{border-color:'+COLOR+' !important}'+
+      '._h_cb.vw{color:'+COLOR+' !important}';
+  }
+  // Pozitie
+  if(d.widget_position){
+    var isR=d.widget_position!=='bottom-left';
+    var b=document.getElementById('_h_b');
+    var w=document.getElementById('_h_w');
+    if(b){b.style.left=isR?'':' 20px';b.style.right=isR?'20px':'';}
+    if(w){w.style.left=isR?'':'16px';w.style.right=isR?'16px':'';}
+  }
+  // Dimensiune
+  if(d.widget_size){
+    var sz=d.widget_size;
+    var bs=sz==='small'?48:sz==='large'?64:56;
+    var is=sz==='small'?20:sz==='large'?28:24;
+    var b=document.getElementById('_h_b');
+    if(b){b.style.width=bs+'px';b.style.height=bs+'px';}
+  }
+  // Offset
+  if(d.widget_bottom_offset){
+    var off=d.widget_bottom_offset;
+    var b=document.getElementById('_h_b');
+    var w=document.getElementById('_h_w');
+    if(b)b.style.bottom=off+'px';
+    if(w)w.style.bottom=(off+64)+'px';
+  }
+}
+
 function doWelcome(){
   fetch(BASE+'/api/agent/public-config?userId='+UID)
     .then(function(r){return r.ok?r.json():null;})
     .then(function(d){
-      if(d&&d.agent_name){document.getElementById('_h_an').textContent=d.agent_name;agentName=d.agent_name;}
+      applyConfig(d);
       var msg=(d&&d.welcome_message)||('Bună! Sunt '+agentName+'. Cu ce te pot ajuta?');
       var qrs=(d&&d.quick_replies)||['Caut un produs','Am o întrebare','Livrare & retur'];
       renderMsg('assistant',msg,{quick_replies:qrs});

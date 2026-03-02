@@ -16,7 +16,7 @@ export async function GET(request: Request) {
 
     const { data: config } = await supabase
       .from('agent_configs')
-      .select('is_active, agent_name, welcome_message, widget_color, widget_position, widget_size, whatsapp_number')
+      .select('is_active, agent_name, welcome_message, widget_color, widget_position, widget_size, widget_bottom_offset, whatsapp_number')
       .eq('user_id', userId)
       .single()
 
@@ -39,12 +39,13 @@ export async function GET(request: Request) {
       widget_color: config.widget_color,
       widget_position: config.widget_position,
       widget_size: config.widget_size,
+      widget_bottom_offset: config.widget_bottom_offset || 20,
       has_whatsapp: !!config.whatsapp_number,
       quick_replies: ['Caut un produs', 'Am o întrebare', 'Livrare & retur'],
     }, {
       headers: {
         'Access-Control-Allow-Origin': '*',
-        'Cache-Control': 'public, max-age=60',
+        'Cache-Control': 'no-cache, no-store',
       }
     })
   } catch (err) {

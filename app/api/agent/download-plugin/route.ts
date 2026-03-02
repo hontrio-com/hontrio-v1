@@ -53,23 +53,15 @@ export async function GET() {
 if ( ! defined( 'ABSPATH' ) ) exit;
 
 define( 'HONTRIO_USER_ID', '${userId}' );
-define( 'HONTRIO_COLOR', '${color}' );
-define( 'HONTRIO_POSITION', '${position}' );
-define( 'HONTRIO_SIZE', '${size}' );
 define( 'HONTRIO_API_BASE', '${apiBase}' );
-define( 'HONTRIO_BOTTOM_OFFSET', ${config?.widget_bottom_offset || 20} );
-define( 'HONTRIO_PLUGIN_VERSION', '1.0.3' );
+define( 'HONTRIO_PLUGIN_VERSION', '1.0.4' );
 
 function hontrio_agent_inject() {
     ?>
     <script>
     window.HontrioAgent = {
         userId: "<?php echo esc_js( HONTRIO_USER_ID ); ?>",
-        color: "<?php echo esc_js( HONTRIO_COLOR ); ?>",
-        position: "<?php echo esc_js( HONTRIO_POSITION ); ?>",
-        size: "<?php echo esc_js( HONTRIO_SIZE ); ?>",
-        apiBase: "<?php echo esc_js( HONTRIO_API_BASE ); ?>",
-        bottomOffset: <?php echo intval( HONTRIO_BOTTOM_OFFSET ); ?>
+        apiBase: "<?php echo esc_js( HONTRIO_API_BASE ); ?>"
     };
     </script>
     <script src="<?php echo esc_url( HONTRIO_API_BASE ); ?>/agent-widget.js?v=<?php echo HONTRIO_PLUGIN_VERSION; ?>" defer></script>
