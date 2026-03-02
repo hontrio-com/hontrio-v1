@@ -21,9 +21,11 @@ export async function GET(request: Request) {
 
     const { data: config, error } = await supabase
       .from('agent_configs')
-      .select('is_active, agent_name, welcome_message, widget_color, widget_position, widget_size, widget_bottom_offset, whatsapp_number')
+      .select('is_active, agent_name, welcome_message, widget_color, widget_position, widget_size, whatsapp_number')
       .eq('user_id', userId)
       .single()
+
+    console.log('[PublicConfig] userId:', userId, '| config:', JSON.stringify(config), '| error:', error?.message)
 
     // Dacă nu există config deloc, returnăm defaults în loc de 403
     // Ca widgetul să funcționeze chiar dacă agentul nu e configurat complet
@@ -59,7 +61,7 @@ export async function GET(request: Request) {
       widget_color: config.widget_color || '#2563eb',
       widget_position: config.widget_position || 'bottom-right',
       widget_size: config.widget_size || 'medium',
-      widget_bottom_offset: config.widget_bottom_offset || 20,
+      widget_bottom_offset: 20,
       has_whatsapp: !!config.whatsapp_number,
       quick_replies: ['Caut un produs', 'Am o întrebare', 'Livrare & retur'],
     }, { headers: CORS })
