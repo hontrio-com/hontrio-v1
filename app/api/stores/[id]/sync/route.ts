@@ -278,7 +278,7 @@ export async function POST(
             errorCount++
             errorDetails.push(`WC#${product.id}: ${err.message}`)
           } else {
-            parentDbIds[String(product.id)] = inserted.id
+            if (inserted) parentDbIds[String(product.id)] = inserted.id
             syncedCount++
           }
         }
