@@ -111,8 +111,8 @@ export async function POST(request: Request) {
 
       // ===== SUBSCRIPTION RENEWED (monthly billing) =====
       case 'invoice.payment_succeeded': {
-        const invoice = event.data.object as Stripe.Invoice
-        const subscriptionId = invoice.subscription as string
+        const invoice = event.data.object as Stripe.Invoice & { subscription?: string }
+        const subscriptionId = (invoice.subscription ?? (invoice as any).parent?.subscription_details?.subscription) as string
 
         // Skip the first invoice (handled by checkout.session.completed)
         if (invoice.billing_reason === 'subscription_create') break
@@ -175,8 +175,8 @@ export async function POST(request: Request) {
 
       // ===== PAYMENT FAILED =====
       case 'invoice.payment_failed': {
-        const invoice = event.data.object as Stripe.Invoice
-        const subscriptionId = invoice.subscription as string
+        const invoice = event.data.object as Stripe.Invoice & { subscription?: string }
+        const subscriptionId = (invoice.subscription ?? (invoice as any).parent?.subscription_details?.subscription) as string
 
         if (subscriptionId) {
           const { data: user } = await supabase
