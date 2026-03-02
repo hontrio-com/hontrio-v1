@@ -480,18 +480,6 @@ export default function AgentPage() {
                 </div>
               </div>
 
-              {/* Offset buton - punct 5 */}
-              <div>
-                <label className="text-xs font-medium text-gray-600 block mb-2">Distanță față de marginea de jos (px)</label>
-                <div className="flex items-center gap-3">
-                  <input type="range" min="16" max="120" value={config.widget_bottom_offset || 20}
-                    onChange={e => setConfig(c => ({ ...c, widget_bottom_offset: Number(e.target.value) }))}
-                    className="flex-1" />
-                  <span className="text-sm font-medium text-gray-700 w-12 text-right">{config.widget_bottom_offset || 20}px</span>
-                </div>
-                <p className="text-xs text-gray-400 mt-1">Util dacă ai butoane WhatsApp sau telefon în colț</p>
-              </div>
-
               {/* Live preview */}
               <div className="bg-gray-50 rounded-xl p-4 relative h-20 overflow-hidden">
                 <p className="text-xs text-gray-400 mb-2">Preview buton:</p>

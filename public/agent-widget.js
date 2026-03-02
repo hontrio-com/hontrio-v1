@@ -54,17 +54,17 @@ s.textContent=
 '#_h_cl:hover{background:rgba(255,255,255,.25);}'+
 
 // Mesaje — punct 6: padding mai generos, mesaje mai aerisite
-'#_h_ms{flex:1;overflow-y:auto;padding:16px 14px;display:flex;flex-direction:column;gap:12px;background:#f9fafb;scroll-behavior:smooth;}'+
+'#_h_ms{flex:1 !important;overflow-y:auto !important;padding:16px 14px !important;display:flex !important;flex-direction:column !important;gap:12px !important;background:#f9fafb !important;scroll-behavior:smooth !important;}'+
 '#_h_ms::-webkit-scrollbar{width:4px;}'+
 '#_h_ms::-webkit-scrollbar-thumb{background:#e5e7eb;border-radius:4px;}'+
-'._h_r{display:flex;flex-direction:column;gap:6px;max-width:82%;}'+
+'._h_r{display:flex !important;flex-direction:column !important;gap:6px !important;max-width:82% !important;list-style:none !important;}'+
 '._h_r.u{align-self:flex-end;align-items:flex-end;}'+
 '._h_r.b{align-self:flex-start;align-items:flex-start;}'+
 
 // Bubble — punct 6: padding mai mare, font mai lizibil
-'._h_bb{padding:11px 15px;border-radius:18px;font-size:14px;line-height:1.55;word-break:break-word;}'+
-'._h_r.u ._h_bb{background:'+COLOR+';color:#fff;border-bottom-right-radius:5px;}'+
-'._h_r.b ._h_bb{background:#fff;color:#111827;border-bottom-left-radius:5px;box-shadow:0 1px 4px rgba(0,0,0,.08),0 0 0 1px rgba(0,0,0,.05);}'+
+'._h_bb{padding:12px 16px !important;border-radius:18px !important;font-size:14px !important;line-height:1.6 !important;word-break:break-word !important;display:block !important;margin:0 !important;}'+
+'._h_r.u ._h_bb{background:'+COLOR+' !important;color:#fff !important;border-bottom-right-radius:5px !important;}'+
+'._h_r.b ._h_bb{background:#fff !important;color:#111827 !important;border-bottom-left-radius:5px !important;box-shadow:0 1px 4px rgba(0,0,0,.08),0 0 0 1px rgba(0,0,0,.05) !important;}'+
 
 // Cards — punct 3: fără descriere, mai compact
 '._h_cs{display:flex;flex-direction:column;gap:7px;width:100%;}'+
@@ -88,8 +88,8 @@ s.textContent=
 
 // Quick replies — punct 1: design mai curat, nu mai apar taiate
 '._h_qs{display:flex;flex-wrap:wrap;gap:6px;margin-top:2px;}'+
-'._h_q{font-size:13px;font-weight:500;color:'+COLOR+';background:#fff;'+
-'border:1.5px solid rgba('+C+',.35);border-radius:20px;padding:6px 14px;'+
+'._h_q{font-size:13px !important;font-weight:500 !important;color:'+COLOR+' !important;background:#fff !important;'+
+'border:1.5px solid rgba('+C+',.35) !important;border-radius:20px !important;padding:6px 14px !important;'+
 'cursor:pointer;transition:all .15s;white-space:nowrap;line-height:1.4;}'+
 '._h_q:hover{background:rgba('+C+',.07);border-color:rgba('+C+',.6);}'+
 '._h_q:disabled{opacity:.4;cursor:default;}'+
