@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useSession } from 'next-auth/react'
 import { useSearchParams } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -111,7 +111,7 @@ const creditPacks = [
   { id: 'pack_1000', credits: 1000, price: 150, perCredit: 0.15, popular: false },
 ]
 
-export default function SubscriptionPage() {
+function SubscriptionPageInner() {
   const { data: session } = useSession()
   const searchParams = useSearchParams()
   const [transactions, setTransactions] = useState<Transaction[]>([])
@@ -662,5 +662,13 @@ export default function SubscriptionPage() {
         </Tabs>
       </motion.div>
     </div>
+  )
+}
+
+export default function SubscriptionPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" /></div>}>
+      <SubscriptionPageInner />
+    </Suspense>
   )
 }
