@@ -81,7 +81,7 @@ INTENȚIE — detectezi imediat:
 - Orice mention de produs specific → buying_ready → search_query imediat
 - "caut ceva", "am nevoie" fără detalii → browsing → O întrebare scurtă
 - "care e diferența", "care e mai bun" → comparing → search_query pentru ambele
-- "livrare", "retur", "garanție" → info_shipping → răspunzi din politici generale
+- "livrare", "retur", "garanție", "pickup", "ridicare", "termen" → info_shipping → răspunzi DIN CUNOȘTINȚELE SPECIFICE de mai sus, NU inventa
 - "unde e comanda", "status comandă", "număr comandă", "AWB" → order_tracking → order_query cu numărul/emailul
 - "problemă cu comanda", "comanda greșită", "nu am primit" → problem → escaladare WhatsApp
 - Orice altceva → off_topic → refuzi politicos în 1 propoziție
@@ -221,24 +221,55 @@ async function buildCatalog(userId:string):Promise<string> {
 async function searchKnowledge(query: string, userId: string): Promise<string> {
   try {
     const supabase = createAdminClient()
-    // Generează embedding pentru query
     const embRes = await openai.embeddings.create({
       model: 'text-embedding-3-small',
       input: query.slice(0, 500),
     })
     const embedding = embRes.data[0].embedding
 
-    // Caută chunks similare prin funcția SQL
-    const { data: chunks } = await supabase.rpc('match_knowledge_chunks', {
-      query_embedding: JSON.stringify(embedding),
+    // Încearcă mai întâi cu threshold normal
+    let { data: chunks, error } = await supabase.rpc('match_knowledge_chunks', {
+      query_embedding: embedding,  // array direct, NU JSON.stringify
       match_user_id: userId,
-      match_threshold: 0.72,
-      match_count: 4,
+      match_threshold: 0.5,        // threshold mai permisiv
+      match_count: 5,
     })
 
-    if (!chunks?.length) return ''
+    if (error) {
+      console.error('[RAG] RPC error:', error.message)
+      // Fallback: caută direct fără vector dacă RPC eșuează
+      const { data: allChunks } = await supabase
+        .from('knowledge_chunks')
+        .select('content')
+        .eq('user_id', userId)
+        .limit(5)
+      if (allChunks?.length) {
+        console.log('[RAG] Fallback: returning first chunks without similarity')
+        return allChunks.map((c: any) => c.content).join('\n---\n')
+      }
+      return ''
+    }
+
+    console.log('[RAG] Found chunks:', chunks?.length, 'for query:', query.slice(0, 50))
+    if (!chunks?.length) {
+      // Dacă nu găsește nimic cu threshold 0.5, ia primele chunks disponibile
+      const { data: anyChunks } = await supabase
+        .from('knowledge_chunks')
+        .select('content')
+        .eq('user_id', userId)
+        .limit(3)
+      if (anyChunks?.length) {
+        console.log('[RAG] No similarity match, using all available chunks')
+        return anyChunks.map((c: any) => c.content).join('\n---\n')
+      }
+      return ''
+    }
+
     return chunks.map((c: any) => c.content).join('\n---\n')
-  } catch { return '' }
+  } catch (err) {
+    console.error('[RAG] searchKnowledge error:', err)
+    return ''
+  }
 }
 
 
@@ -356,6 +387,7 @@ export async function POST(request:Request) {
       loadVisitorMemory(store_user_id, visitor_id),
       searchKnowledge(message, store_user_id),
     ])
+    console.log('[Chat] RAG context length:', ragContext.length, 'chars')
 
     const systemPrompt = buildSystemPrompt(config, storeName, catalog, memory, ragContext)
 
