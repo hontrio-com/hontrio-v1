@@ -341,8 +341,10 @@ export async function POST(request:Request) {
             body: JSON.stringify({ userId: store_user_id, productIds: externalIds }),
           })
           const stockData = await stockRes.json()
+          console.log('[Chat Stock Debug] externalIds:', externalIds)
+          console.log('[Chat Stock Debug] stockData:', JSON.stringify(stockData))
           if(stockData.stock) stockInfo = stockData.stock
-        } catch {}
+        } catch(e) { console.error('[Chat Stock Error]', e) }
       }
     }
 
