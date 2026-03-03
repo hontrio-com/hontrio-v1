@@ -499,9 +499,16 @@ function renderMsg(role,text,extra){
     var cs=document.createElement('div');cs.className='_h_cs';
     extra.products.forEach(function(p){
       var card=document.createElement('div');card.className='_h_c';
-      var img=p.image
-        ?'<img class="_h_ci" src="'+esc(p.image)+'" alt="" loading="lazy" onerror="this.outerHTML=\'<div class=\\\\"_h_cp\\\\">📦</div>\'">'
-        :'<div class="_h_cp">📦</div>';
+      var imgEl=document.createElement('div');
+      if(p.image){
+        var im=document.createElement('img');
+        im.className='_h_ci';im.src=p.image;im.alt='';im.loading='lazy';
+        im.onerror=function(){this.outerHTML='<div class="_h_cp">📦</div>';};
+        imgEl.appendChild(im);
+      } else {
+        imgEl.innerHTML='<div class="_h_cp">📦</div>';
+      }
+      var img=imgEl.innerHTML;
       var stockBadge='';
       if(p.stock){
         var sc=p.stock.available?'#16a34a':'#dc2626';

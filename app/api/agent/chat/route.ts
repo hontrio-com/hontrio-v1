@@ -134,12 +134,13 @@ function scoreProduct(p:any, keywords:string[]):number {
   const desc=(p.optimized_short_description||p.original_description||'').replace(/<[^>]*>/g,'').toLowerCase().slice(0,200)
   const words=title.split(/\s+/).filter(Boolean)
   let score=0,titleHits=0,exactHits=0
+
   for(const kw of keywords){
     const st=stem(kw);let best=0
     if(title.includes(kw)){best=100;titleHits++;exactHits++}
     else if(st.length>=3&&title.includes(st)){best=85;titleHits++}
-    else if(cat.includes(kw)){best=40}
-    else if(st.length>=3&&cat.includes(st)){best=30}
+    else if(cat.includes(kw)){best=35}
+    else if(st.length>=3&&cat.includes(st)){best=25}
     else{
       let fuzz=0
       for(const w of words){
@@ -147,15 +148,21 @@ function scoreProduct(p:any, keywords:string[]):number {
         if(s>fuzz)fuzz=s
       }
       if(fuzz>=0.85){best=Math.round(fuzz*80);titleHits++}
-      else if(desc.includes(kw)||(st.length>=3&&desc.includes(st)))best=8
+      else if(desc.includes(kw)||(st.length>=3&&desc.includes(st)))best=5
     }
     score+=best
   }
-  // Dacă niciun keyword nu apare în titlu → produs irelevant
-  if(titleHits===0)return 0
-  // Bonus dacă TOATE keyword-urile sunt în titlu
-  if(exactHits===keywords.length)score=Math.round(score*1.8)
-  else if(titleHits===keywords.length)score=Math.round(score*1.4)
+
+  // REGULA STRICTĂ: dacă niciun keyword nu e în titlu → 0
+  if(titleHits===0) return 0
+
+  // Penalizare dacă sunt mai multe keywords dar doar unul e în titlu
+  if(keywords.length>=2 && titleHits===1) score=Math.round(score*0.6)
+
+  // Bonus dacă TOATE keyword-urile sunt exact în titlu
+  if(exactHits===keywords.length) score=Math.round(score*1.8)
+  else if(titleHits===keywords.length) score=Math.round(score*1.3)
+
   return score
 }
 
@@ -171,16 +178,20 @@ async function searchProducts(query:string, userId:string, max=3, boostIds: stri
     .eq('user_id',userId).limit(500)
   if(!data?.length)return []
 
-  const scored = data
-    .map((p:any)=>({...p,_s:scoreProduct(p,keywords)}))
-    .filter((p:any)=>p._s>=50)  // threshold mai strict
+  const allScored = data
+    .map((p:any)=>({...p,_s:scoreProduct(p,keywords)+(boostIds.includes(p.id)?8:0)}))
+    .filter((p:any)=>p._s>=50)
     .sort((a:any,b:any)=>b._s-a._s)
-  // Boost produse văzute anterior DOAR dacă sunt deja relevante
-  const boosted = scored.map((p:any)=>({...p,_s:p._s+(boostIds.includes(p.id)?10:0)}))
-  return boosted
-    .sort((a:any,b:any)=>b._s-a._s)
-    .slice(0,max)
-    .map((p:any)=>({
+
+  if(!allScored.length) return []
+
+  // Filtrare bazată pe gap față de scorul maxim:
+  // Un produs e relevant doar dacă e în cel mult 55% din scorul primului
+  const topScore = allScored[0]._s
+  const minAcceptable = Math.max(50, topScore * 0.45)
+  const relevant = allScored.filter((p:any) => p._s >= minAcceptable).slice(0, max)
+
+  return relevant.map((p:any)=>({
       id:p.id, external_id:p.external_id,
       title:p.optimized_title||p.original_title,
       price:p.price, image:p.original_images?.[0]||null,
@@ -329,12 +340,24 @@ export async function POST(request:Request) {
 
     if(parsed.search_query&&parsed.intent!=='off_topic'&&parsed.intent!=='info_shipping'){
       searchQueriesUsed.push(parsed.search_query)
-      products=await searchProducts(parsed.search_query, store_user_id, config.max_products_shown||3, boostIds)
-      products=products.map(p=>({...p,url:p.url.replace('__STORE__',storeUrl)}))
+      const rawProducts=await searchProducts(parsed.search_query, store_user_id, config.max_products_shown||3, boostIds)
+      // Filtrare strictă: păstrează doar produsele unde query-ul apare în titlu sau categorie
+      const queryWords=parsed.search_query.toLowerCase().split(/\s+/).filter((w:string)=>w.length>2)
+      products=rawProducts.filter((p:any)=>{
+        const t=(p.title||'').toLowerCase()
+        const c=(p.category||'').toLowerCase()
+        // Cel puțin un cuvânt cheie relevant trebuie să fie în titlu
+        return queryWords.some((w:string)=>t.includes(w)||t.includes(stem(w)))
+      }).map(p=>({...p,url:p.url.replace('__STORE__',storeUrl)}))
     }
-    if(parsed.crosssell_query){
+    if(parsed.crosssell_query && products.length > 0){
       const cs=await searchProducts(parsed.crosssell_query,store_user_id,1)
-      crossProducts=cs.map(p=>({...p,url:p.url.replace('__STORE__',storeUrl)})).filter(p=>!products.find(x=>x.id===p.id))
+      // Crosssell valid doar dacă e dintr-o categorie diferită față de produsul principal
+      const mainCat=(products[0]?.category||'').toLowerCase()
+      crossProducts=cs
+        .map(p=>({...p,url:p.url.replace('__STORE__',storeUrl)}))
+        .filter(p=>!products.find(x=>x.id===p.id))
+        .filter(p=>(p.category||'').toLowerCase()!==mainCat)
     }
 
     // Stoc live — verifică ÎNTOTDEAUNA pentru orice produse afișate
