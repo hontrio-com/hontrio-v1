@@ -671,8 +671,6 @@ export default function AgentPage() {
             )}
 
             {activeSettingsTab === 'advanced' && (
-              <div className="space-y-4">
-              {/* CSS Custom */
               <Card className="border-0 shadow-sm rounded-2xl"><CardContent className="p-5 space-y-4">
                 <div>
                   <label className="text-xs font-semibold text-gray-700 flex items-center gap-1.5 mb-1"><Code2 className="w-3.5 h-3.5 text-purple-500" />CSS Custom</label>
