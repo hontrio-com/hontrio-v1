@@ -5,7 +5,7 @@ var UID=cfg.userId||'';
 var COLOR=cfg.color||'#2563eb';
 var POS=cfg.position||'bottom-right';
 var SZ=cfg.size||'medium';
-var OFFSET=cfg.bottomOffset||20; // punct 5 — offset configurabil
+var OFFSET=cfg.bottomOffset||20;
 var BASE=(cfg.apiBase||'https://hontrio.com').replace(/\/$/,'');
 if(!UID){console.warn('[Hontrio] userId lipsește');return;}
 
@@ -15,16 +15,15 @@ var ICN_S=SZ==='small'?20:SZ==='large'?28:24;
 var isOpen=false,isLoading=false,msgs=[],sid='s'+Math.random().toString(36).slice(2,11);
 var vid;try{vid=localStorage.getItem('_hv')||'v'+Date.now().toString(36);localStorage.setItem('_hv',vid);}catch(e){vid='v'+Date.now().toString(36);}
 var unread=0,welcomed=false,agentName='Asistent';
+var triggerFired=false; // max 1 trigger per sesiune
 
 function rgb(h){h=h.replace('#','');return parseInt(h.slice(0,2),16)+','+parseInt(h.slice(2,4),16)+','+parseInt(h.slice(4,6),16);}
 var C=rgb(COLOR);
 
+// ── STYLES ───────────────────────────────────────────────────────────────────
 var s=document.createElement('style');
 s.textContent=
-// Reset
 '#_h *{box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;margin:0;padding:0;}'+
-
-// Buton flotant — punct 5: bottom offset configurabil
 '#_h_b{position:fixed;'+(IS_R?'right':'left')+':20px;bottom:'+OFFSET+'px;width:'+BTN_S+'px;height:'+BTN_S+'px;'+
 'border-radius:50%;background:'+COLOR+';border:none;cursor:pointer;z-index:2147483646;'+
 'box-shadow:0 4px 16px rgba('+C+',.4),0 2px 6px rgba(0,0,0,.1);'+
@@ -34,7 +33,24 @@ s.textContent=
 '#_h_bg{position:absolute;top:-3px;'+(IS_R?'right':'left')+':-3px;background:#ef4444;color:#fff;font-size:10px;font-weight:700;'+
 'min-width:18px;height:18px;border-radius:9px;border:2px solid #fff;display:none;align-items:center;justify-content:center;padding:0 3px;}'+
 
-// Fereastra chat
+// Bubble trigger proactiv deasupra butonului
+'#_h_bl{position:fixed;'+(IS_R?'right':'left')+':16px;bottom:'+(OFFSET+BTN_S+12)+'px;'+
+'max-width:260px;background:#fff;border-radius:16px;border-bottom-'+(IS_R?'right':'left')+'-radius:4px;'+
+'padding:12px 14px 10px;box-shadow:0 4px 20px rgba(0,0,0,.12),0 0 0 1px rgba(0,0,0,.06);'+
+'z-index:2147483645;display:none;flex-direction:column;gap:8px;'+
+'animation:_h_bi .3s cubic-bezier(.34,1.3,.64,1);}'+
+'@keyframes _h_bi{from{opacity:0;transform:translateY(10px) scale(.95)}to{opacity:1;transform:translateY(0) scale(1)}}'+
+'#_h_bl_t{font-size:13px;color:#111827;line-height:1.45;}'+
+'#_h_bl_a{display:flex;gap:6px;}'+
+'._h_bl_y{flex:1;padding:7px;font-size:12px;font-weight:600;border:none;border-radius:10px;cursor:pointer;'+
+'background:'+COLOR+';color:#fff;transition:opacity .15s;}'+
+'._h_bl_y:hover{opacity:.9;}'+
+'._h_bl_n{flex:1;padding:7px;font-size:12px;font-weight:500;border:1px solid #e5e7eb;border-radius:10px;cursor:pointer;'+
+'background:#f9fafb;color:#6b7280;transition:background .15s;}'+
+'._h_bl_n:hover{background:#f3f4f6;}'+
+'#_h_bl_x{position:absolute;top:8px;right:8px;background:none;border:none;cursor:pointer;color:#9ca3af;padding:2px;}'+
+'#_h_bl_x:hover{color:#6b7280;}'+
+
 '#_h_w{position:fixed;'+(IS_R?'right':'left')+':16px;bottom:'+(OFFSET+BTN_S+8)+'px;'+
 'width:min(380px,calc(100vw - 28px));height:min(570px,calc(100vh - 90px));'+
 'background:#fff;border-radius:16px;overflow:hidden;z-index:2147483645;'+
@@ -44,7 +60,6 @@ s.textContent=
 'transition:transform .25s cubic-bezier(.34,1.3,.64,1),opacity .2s;}'+
 '#_h_w.on{transform:scale(1) translateY(0);opacity:1;pointer-events:all;}'+
 
-// Header
 '#_h_hd{padding:14px 16px;display:flex;align-items:center;gap:10px;flex-shrink:0;background:'+COLOR+';}'+
 '#_h_av{width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.2);border:2px solid rgba(255,255,255,.3);display:flex;align-items:center;justify-content:center;flex-shrink:0;}'+
 '._h_hn{font-size:14px;font-weight:600;color:#fff;}'+
@@ -53,25 +68,20 @@ s.textContent=
 '#_h_cl{margin-left:auto;background:rgba(255,255,255,.15);border:none;width:28px;height:28px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#fff;flex-shrink:0;}'+
 '#_h_cl:hover{background:rgba(255,255,255,.25);}'+
 
-// Mesaje — punct 6: padding mai generos, mesaje mai aerisite
 '#_h_ms{flex:1 !important;overflow-y:auto !important;padding:16px 14px !important;display:flex !important;flex-direction:column !important;gap:12px !important;background:#f9fafb !important;scroll-behavior:smooth !important;}'+
 '#_h_ms::-webkit-scrollbar{width:4px;}'+
 '#_h_ms::-webkit-scrollbar-thumb{background:#e5e7eb;border-radius:4px;}'+
 '._h_r{display:flex !important;flex-direction:column !important;gap:6px !important;max-width:82% !important;list-style:none !important;}'+
-'._h_r.u{align-self:flex-end;align-items:flex-end;}'+
-'._h_r.b{align-self:flex-start;align-items:flex-start;}'+
-
-// Bubble — punct 6: padding mai mare, font mai lizibil
+'._h_r.u{align-self:flex-end !important;align-items:flex-end !important;}'+
+'._h_r.b{align-self:flex-start !important;align-items:flex-start !important;}'+
 '._h_bb{padding:12px 16px !important;border-radius:18px !important;font-size:14px !important;line-height:1.6 !important;word-break:break-word !important;display:block !important;margin:0 !important;}'+
 '._h_r.u ._h_bb{background:'+COLOR+' !important;color:#fff !important;border-bottom-right-radius:5px !important;}'+
 '._h_r.b ._h_bb{background:#fff !important;color:#111827 !important;border-bottom-left-radius:5px !important;box-shadow:0 1px 4px rgba(0,0,0,.08),0 0 0 1px rgba(0,0,0,.05) !important;}'+
 
-// Cards — punct 3: fără descriere, mai compact
 '._h_cs{display:flex;flex-direction:column;gap:7px;width:100%;}'+
 '._h_c{background:#fff;border-radius:12px;overflow:hidden;border:1px solid #e5e7eb;box-shadow:0 1px 4px rgba(0,0,0,.06);transition:box-shadow .2s,border-color .2s;}'+
 '._h_c:hover{box-shadow:0 3px 12px rgba(0,0,0,.1);border-color:rgba('+C+',.3);}'+
 '._h_ct{display:flex;align-items:center;}'+
-// Poza mai mare, mai vizibila
 '._h_ci{width:80px;height:80px;object-fit:cover;flex-shrink:0;background:#f3f4f6;}'+
 '._h_cp{width:80px;height:80px;flex-shrink:0;background:#f3f4f6;display:flex;align-items:center;justify-content:center;font-size:26px;}'+
 '._h_cd{flex:1;min-width:0;padding:10px 12px;}'+
@@ -86,27 +96,23 @@ s.textContent=
 '._h_cb.ac:disabled{opacity:.5;cursor:default;}'+
 '._h_cb.ac.ok{background:#22c55e;}'+
 
-// Quick replies — punct 1: design mai curat, nu mai apar taiate
 '._h_qs{display:flex;flex-wrap:wrap;gap:6px;margin-top:2px;}'+
 '._h_q{font-size:13px !important;font-weight:500 !important;color:'+COLOR+' !important;background:#fff !important;'+
 'border:1.5px solid rgba('+C+',.35) !important;border-radius:20px !important;padding:6px 14px !important;'+
-'cursor:pointer;transition:all .15s;white-space:nowrap;line-height:1.4;}'+
-'._h_q:hover{background:rgba('+C+',.07);border-color:rgba('+C+',.6);}'+
+'cursor:pointer;transition:all .15s;white-space:nowrap;line-height:1.4 !important;}'+
+'._h_q:hover{background:rgba('+C+',.07) !important;border-color:rgba('+C+',.6) !important;}'+
 '._h_q:disabled{opacity:.4;cursor:default;}'+
 
-// WhatsApp
 '._h_wa{display:flex;align-items:center;gap:9px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:10px 12px;cursor:pointer;text-decoration:none;transition:background .15s;}'+
 '._h_wa:hover{background:#dcfce7;}'+
 '._h_wat{font-size:12.5px;font-weight:700;color:#166534;}'+
 '._h_was{font-size:11px;color:#16a34a;margin-top:1px;}'+
 
-// Typing
 '._h_ty{align-self:flex-start;background:#fff;padding:12px 16px;border-radius:18px;border-bottom-left-radius:5px;box-shadow:0 1px 4px rgba(0,0,0,.08),0 0 0 1px rgba(0,0,0,.05);display:flex;gap:5px;align-items:center;}'+
 '._h_td{width:7px;height:7px;border-radius:50%;background:#9ca3af;animation:_h_b .85s infinite;}'+
 '._h_td:nth-child(2){animation-delay:.15s;}._h_td:nth-child(3){animation-delay:.3s;}'+
 '@keyframes _h_b{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-5px)}}'+
 
-// Footer
 '#_h_ft{padding:10px 12px 13px;background:#fff;border-top:1px solid #f3f4f6;flex-shrink:0;}'+
 '#_h_fm{display:flex;gap:7px;align-items:flex-end;}'+
 '#_h_in{flex:1;background:#f9fafb;border:1.5px solid #e5e7eb;border-radius:12px;padding:10px 14px;font-size:14px;color:#111827;outline:none;resize:none;min-height:42px;max-height:100px;line-height:1.5;transition:border-color .15s,background .15s;}'+
@@ -136,6 +142,16 @@ var btn=document.createElement('button');btn.id='_h_b';btn.setAttribute('aria-la
 var badge=document.createElement('div');badge.id='_h_bg';
 btn.innerHTML=iChat();btn.appendChild(badge);
 
+// Bubble proactiv
+var bubble=document.createElement('div');bubble.id='_h_bl';
+bubble.innerHTML=
+  '<button id="_h_bl_x" aria-label="Închide">'+iX(10)+'</button>'+
+  '<div id="_h_bl_t"></div>'+
+  '<div id="_h_bl_a">'+
+    '<button class="_h_bl_y" id="_h_bl_y">Da, ajută-mă!</button>'+
+    '<button class="_h_bl_n" id="_h_bl_n">Nu, mulțumesc</button>'+
+  '</div>';
+
 var win=document.createElement('div');win.id='_h_w';
 win.innerHTML=
   '<div id="_h_hd">'+
@@ -152,14 +168,183 @@ win.innerHTML=
     '<div class="_h_br">Powered by <a href="https://hontrio.com" target="_blank" rel="noopener">Hontrio</a></div>'+
   '</div>';
 
-wrap.appendChild(btn);wrap.appendChild(win);document.body.appendChild(wrap);
+wrap.appendChild(bubble);wrap.appendChild(btn);wrap.appendChild(win);document.body.appendChild(wrap);
 
 var inp=document.getElementById('_h_in');
 btn.addEventListener('click',toggle);
 document.getElementById('_h_cl').addEventListener('click',closeChat);
 document.getElementById('_h_sn').addEventListener('click',function(){doSend();});
+document.getElementById('_h_bl_x').addEventListener('click',hideBubble);
+document.getElementById('_h_bl_n').addEventListener('click',hideBubble);
+document.getElementById('_h_bl_y').addEventListener('click',function(){hideBubble();openChat();});
 inp.addEventListener('keydown',function(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();doSend();}});
 inp.addEventListener('input',function(){this.style.height='auto';this.style.height=Math.min(this.scrollHeight,100)+'px';});
+
+// ── BUBBLE PROACTIV ──────────────────────────────────────────────────────────
+function showBubble(msg){
+  if(isOpen||triggerFired)return;
+  triggerFired=true;
+  var bl=document.getElementById('_h_bl');
+  document.getElementById('_h_bl_t').textContent=msg;
+  bl.style.display='flex';
+  // Auto-hide după 12 secunde
+  setTimeout(function(){hideBubble();},12000);
+}
+
+function hideBubble(){
+  var bl=document.getElementById('_h_bl');
+  if(bl)bl.style.display='none';
+}
+
+// ── PAGE TYPE DETECTION ───────────────────────────────────────────────────────
+// Generic — funcționează pe WooCommerce, Shopify, OpenCart, etc.
+function getPageType(){
+  var url=window.location.href.toLowerCase();
+  var path=window.location.pathname.toLowerCase();
+  var bodyClass=(document.body.className||'').toLowerCase();
+
+  // Cart
+  if(path.indexOf('/cart')!==-1||path.indexOf('/cos')!==-1||
+     bodyClass.indexOf('woocommerce-cart')!==-1||
+     document.querySelector('.cart-page,.checkout-cart,#cart')!==-1)return 'cart';
+
+  // Checkout
+  if(path.indexOf('/checkout')!==-1||path.indexOf('/finalizare')!==-1||
+     bodyClass.indexOf('woocommerce-checkout')!==-1)return 'checkout';
+
+  // Product
+  if(bodyClass.indexOf('single-product')!==-1||
+     document.querySelector('.product-page,.product_page,[itemtype*="Product"]'))return 'product';
+  if(path.match(/\/produs\/|\/product\/|\/p\/[0-9]|\/item\//))return 'product';
+
+  // Category
+  if(bodyClass.indexOf('tax-product_cat')!==-1||bodyClass.indexOf('term-')!==-1||
+     path.indexOf('/categorie')!==-1||path.indexOf('/category')!==-1)return 'category';
+
+  // Contact
+  if(path.indexOf('/contact')!==-1)return 'contact';
+
+  // Home
+  if(path==='/'||path===''||bodyClass.indexOf('home')!==-1)return 'home';
+
+  return 'other';
+}
+
+function pageMatches(pages){
+  if(!pages||pages.indexOf('all')!==-1)return true;
+  var pt=getPageType();
+  return pages.indexOf(pt)!==-1;
+}
+
+// ── COOLDOWN ─────────────────────────────────────────────────────────────────
+function getCooldownKey(triggerId){return '_hc_'+triggerId;}
+
+function isOnCooldown(triggerId,cooldownHours){
+  try{
+    var key=getCooldownKey(triggerId);
+    var last=localStorage.getItem(key);
+    if(!last)return false;
+    var diff=(Date.now()-parseInt(last))/(1000*60*60);
+    return diff<cooldownHours;
+  }catch(e){return false;}
+}
+
+function setCooldown(triggerId){
+  try{localStorage.setItem(getCooldownKey(triggerId),Date.now().toString());}catch(e){}
+}
+
+// ── TRIGGERS ENGINE ───────────────────────────────────────────────────────────
+var _triggers=[];
+var _timers=[];
+
+function loadAndInitTriggers(){
+  fetch(BASE+'/api/agent/triggers?userId='+UID)
+    .then(function(r){return r.ok?r.json():null;})
+    .then(function(d){
+      if(!d||!d.triggers)return;
+      _triggers=d.triggers;
+      initTriggers();
+    })
+    .catch(function(){});
+}
+
+function fireTrigger(trigger){
+  if(triggerFired||isOpen)return;
+  if(isOnCooldown(trigger.id,trigger.cooldown_hours))return;
+  setCooldown(trigger.id);
+  showBubble(trigger.message);
+}
+
+function initTriggers(){
+  // Sortează după prioritate descrescător
+  _triggers.sort(function(a,b){return b.priority-a.priority;});
+
+  _triggers.forEach(function(t){
+    var cond=t.conditions||{};
+
+    if(!pageMatches(cond.pages))return;
+
+    switch(t.type){
+
+      case 'exit_intent':
+        document.addEventListener('mouseleave',function handler(e){
+          if(e.clientY<=0){
+            document.removeEventListener('mouseleave',handler);
+            fireTrigger(t);
+          }
+        });
+        break;
+
+      case 'time_on_page':
+        var sec=parseInt(cond.seconds)||45;
+        var timer=setTimeout(function(){fireTrigger(t);},sec*1000);
+        _timers.push(timer);
+        break;
+
+      case 'scroll_depth':
+        var pct=parseInt(cond.percent)||70;
+        var scrollHandler=function(){
+          var scrolled=(window.scrollY||document.documentElement.scrollTop);
+          var total=document.documentElement.scrollHeight-window.innerHeight;
+          if(total>0&&(scrolled/total)*100>=pct){
+            window.removeEventListener('scroll',scrollHandler);
+            fireTrigger(t);
+          }
+        };
+        window.addEventListener('scroll',scrollHandler,{passive:true});
+        break;
+
+      case 'cart_abandonment':
+        // Detectează coș prin WooCommerce cookie sau elemente DOM
+        var hasCart=document.querySelector('.cart-contents,.woocommerce-cart-form,.cart_item');
+        if(hasCart){
+          var mins=parseInt(cond.minutes)||3;
+          var ct=setTimeout(function(){fireTrigger(t);},mins*60*1000);
+          _timers.push(ct);
+        }
+        break;
+
+      case 'page_specific':
+        var delaySec=parseInt(cond.seconds)||20;
+        var pt=setTimeout(function(){fireTrigger(t);},delaySec*1000);
+        _timers.push(pt);
+        break;
+
+      case 'inactivity':
+        var inacSec=parseInt(cond.seconds)||120;
+        var inacTimer;
+        var resetInac=function(){
+          clearTimeout(inacTimer);
+          inacTimer=setTimeout(function(){fireTrigger(t);},inacSec*1000);
+        };
+        resetInac();
+        ['mousemove','keydown','scroll','click','touchstart'].forEach(function(ev){
+          window.addEventListener(ev,resetInac,{passive:true});
+        });
+        break;
+    }
+  });
+}
 
 // ── CART ─────────────────────────────────────────────────────────────────────
 function addCart(extId,cartBtn){
@@ -182,6 +367,57 @@ function addCart(extId,cartBtn){
 }
 function siteBase(){return(window.HontrioAgent&&window.HontrioAgent.storeUrl)||window.location.origin;}
 
+// ── APPLY CONFIG ─────────────────────────────────────────────────────────────
+function applyConfig(d){
+  if(!d)return;
+  if(d.agent_name){document.getElementById('_h_an').textContent=d.agent_name;agentName=d.agent_name;}
+  if(d.widget_color&&d.widget_color!==COLOR){
+    COLOR=d.widget_color;C=rgb(COLOR);
+    var b=document.getElementById('_h_b');
+    var hd=document.getElementById('_h_hd');
+    var sn=document.getElementById('_h_sn');
+    var bly=document.getElementById('_h_bl_y');
+    if(b)b.style.background=COLOR;
+    if(hd)hd.style.background=COLOR;
+    if(sn)sn.style.background=COLOR;
+    if(bly)bly.style.background=COLOR;
+    var st=document.getElementById('_h_dyn');
+    if(!st){st=document.createElement('style');st.id='_h_dyn';document.head.appendChild(st);}
+    st.textContent=
+      '._h_r.u ._h_bb{background:'+COLOR+' !important}'+
+      '._h_cb.ac{background:'+COLOR+' !important}'+
+      '._h_q{color:'+COLOR+' !important;border-color:rgba('+C+',.35) !important}'+
+      '._h_cpr{color:'+COLOR+' !important}'+
+      '#_h_in:focus{border-color:'+COLOR+' !important}'+
+      '._h_cb.vw{color:'+COLOR+' !important}'+
+      '._h_bl_y{background:'+COLOR+' !important}';
+  }
+  if(d.widget_position){
+    var isR=d.widget_position!=='bottom-left';
+    var b2=document.getElementById('_h_b');
+    var w=document.getElementById('_h_w');
+    var bl=document.getElementById('_h_bl');
+    if(b2){b2.style.left=isR?'':'20px';b2.style.right=isR?'20px':'';}
+    if(w){w.style.left=isR?'':'16px';w.style.right=isR?'16px':'';}
+    if(bl){bl.style.left=isR?'':'16px';bl.style.right=isR?'16px':'';}
+  }
+  if(d.widget_size){
+    var sz=d.widget_size;
+    var bs=sz==='small'?48:sz==='large'?64:56;
+    var b3=document.getElementById('_h_b');
+    if(b3){b3.style.width=bs+'px';b3.style.height=bs+'px';}
+  }
+  if(d.widget_bottom_offset){
+    var off=d.widget_bottom_offset;
+    var b4=document.getElementById('_h_b');
+    var w2=document.getElementById('_h_w');
+    var bl2=document.getElementById('_h_bl');
+    if(b4)b4.style.bottom=off+'px';
+    if(w2)w2.style.bottom=(off+64)+'px';
+    if(bl2)bl2.style.bottom=(off+76)+'px';
+  }
+}
+
 // ── RENDER MESSAGES ──────────────────────────────────────────────────────────
 function renderMsg(role,text,extra){
   msgs.push({role:role,content:text});
@@ -190,7 +426,6 @@ function renderMsg(role,text,extra){
   var bub=document.createElement('div');bub.className='_h_bb';bub.textContent=text;
   row.appendChild(bub);
 
-  // Cards — punct 3: doar poza, titlu, pret, butoane (fara descriere)
   if(extra&&extra.products&&extra.products.length>0){
     var cs=document.createElement('div');cs.className='_h_cs';
     extra.products.forEach(function(p){
@@ -210,27 +445,20 @@ function renderMsg(role,text,extra){
           '<button class="_h_cb ac">'+iCart()+'<span>Adaugă în coș</span></button>'+
         '</div>';
       var url=p.url||'';
-      // Punct 2: "Vezi produs" deschide in tab nou ca sa nu piarda conversatia
-      card.querySelector('._h_cb.vw').addEventListener('click',function(){
-        if(url&&url!=='#')window.open(url,'_blank');
-      });
-      var acBtn=card.querySelector('._h_cb.ac');
-      acBtn.addEventListener('click',function(){addCart(p.external_id,this);});
+      card.querySelector('._h_cb.vw').addEventListener('click',function(){if(url&&url!=='#')window.open(url,'_blank');});
+      card.querySelector('._h_cb.ac').addEventListener('click',function(){addCart(p.external_id,this);});
       cs.appendChild(card);
     });
     row.appendChild(cs);
   }
 
-  // Quick replies — punct 1: arata mai bine cu stilul nou
   if(extra&&extra.quick_replies&&extra.quick_replies.length>0){
     var qs=document.createElement('div');qs.className='_h_qs';
     extra.quick_replies.forEach(function(qr){
       var qb=document.createElement('button');qb.className='_h_q';qb.textContent=qr;
       qb.addEventListener('click',function(){
         qs.querySelectorAll('._h_q').forEach(function(x){x.disabled=true;x.style.opacity='.35';});
-        if(extra.redirect_url&&(qr.includes('→')||qr.toLowerCase().includes('deschide')||qr.toLowerCase().includes('vezi'))){
-          window.open(extra.redirect_url,'_blank');return;
-        }
+        if(extra.redirect_url){window.open(extra.redirect_url,'_blank');return;}
         doSend(qr);
       });
       qs.appendChild(qb);
@@ -260,6 +488,7 @@ function updBadge(){var b=document.getElementById('_h_bg');if(!b)return;if(unrea
 function toggle(){isOpen?closeChat():openChat();}
 function openChat(){
   isOpen=true;
+  hideBubble();
   document.getElementById('_h_w').classList.add('on');
   btn.innerHTML=iX(ICN_S)+'<div id="_h_bg"></div>';
   badge=btn.querySelector('#_h_bg');
@@ -275,57 +504,6 @@ function closeChat(){
 }
 
 // ── WELCOME ──────────────────────────────────────────────────────────────────
-function applyConfig(d){
-  if(!d)return;
-  // Nume agent
-  if(d.agent_name){document.getElementById('_h_an').textContent=d.agent_name;agentName=d.agent_name;}
-  // Culoare — update toate elementele cu culoarea agentului
-  if(d.widget_color&&d.widget_color!==COLOR){
-    COLOR=d.widget_color;
-    C=rgb(COLOR);
-    var b=document.getElementById('_h_b');
-    var hd=document.getElementById('_h_hd');
-    var sn=document.getElementById('_h_sn');
-    if(b)b.style.background=COLOR;
-    if(hd)hd.style.background=COLOR;
-    if(sn)sn.style.background=COLOR;
-    // Rescrie stiluri dinamice
-    var st=document.getElementById('_h_dyn');
-    if(!st){st=document.createElement('style');st.id='_h_dyn';document.head.appendChild(st);}
-    st.textContent=
-      '._h_r.u ._h_bb{background:'+COLOR+' !important}'+
-      '._h_cb.ac{background:'+COLOR+' !important}'+
-      '._h_q{color:'+COLOR+' !important;border-color:rgba('+C+',.35) !important}'+
-      '._h_cpr{color:'+COLOR+' !important}'+
-      '#_h_in:focus{border-color:'+COLOR+' !important}'+
-      '._h_cb.vw{color:'+COLOR+' !important}';
-  }
-  // Pozitie
-  if(d.widget_position){
-    var isR=d.widget_position!=='bottom-left';
-    var b=document.getElementById('_h_b');
-    var w=document.getElementById('_h_w');
-    if(b){b.style.left=isR?'':' 20px';b.style.right=isR?'20px':'';}
-    if(w){w.style.left=isR?'':'16px';w.style.right=isR?'16px':'';}
-  }
-  // Dimensiune
-  if(d.widget_size){
-    var sz=d.widget_size;
-    var bs=sz==='small'?48:sz==='large'?64:56;
-    var is=sz==='small'?20:sz==='large'?28:24;
-    var b=document.getElementById('_h_b');
-    if(b){b.style.width=bs+'px';b.style.height=bs+'px';}
-  }
-  // Offset
-  if(d.widget_bottom_offset){
-    var off=d.widget_bottom_offset;
-    var b=document.getElementById('_h_b');
-    var w=document.getElementById('_h_w');
-    if(b)b.style.bottom=off+'px';
-    if(w)w.style.bottom=(off+64)+'px';
-  }
-}
-
 function doWelcome(){
   if(window._hCfg){
     var msg=window._hCfg.welcome_message||('Bună! Sunt '+agentName+'. Cu ce te pot ajuta?');
@@ -354,7 +532,6 @@ function doSend(ov){
   document.getElementById('_h_sn').disabled=true;
   inp.disabled=true;
   showTyping();
-
   fetch(BASE+'/api/agent/chat',{
     method:'POST',
     headers:{'Content-Type':'application/json'},
@@ -381,11 +558,14 @@ function doSend(ov){
   .finally(function(){isLoading=false;document.getElementById('_h_sn').disabled=false;inp.disabled=false;inp.focus();});
 }
 
-// Încarcă config IMEDIAT la load — butonul apare cu setările corecte din prima
+// ── INIT ─────────────────────────────────────────────────────────────────────
+// Încarcă config + triggeri imediat la load
 fetch(BASE+'/api/agent/public-config?userId='+UID)
   .then(function(r){return r.ok?r.json():null;})
   .then(function(d){if(d){applyConfig(d);window._hCfg=d;}})
   .catch(function(){});
+
+loadAndInitTriggers();
 
 setTimeout(function(){if(!isOpen&&!welcomed){unread=1;updBadge();}},25000);
 })();
