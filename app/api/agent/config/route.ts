@@ -50,6 +50,7 @@ export async function POST(request: Request) {
       'widget_button_shape', 'widget_button_label', 'widget_avatar_url',
       'widget_intro_animation', 'widget_custom_css', 'quick_replies',
       'language', 'max_products_shown', 'show_prices', 'show_images',
+      'notify_email', 'notify_on_escalation', 'notify_on_problem', 'notify_on_no_answer',
     ]
 
     const safeData: Record<string, any> = { user_id: userId, updated_at: new Date().toISOString() }
