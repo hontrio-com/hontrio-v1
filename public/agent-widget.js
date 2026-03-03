@@ -502,16 +502,27 @@ function renderMsg(role,text,extra){
       var img=p.image
         ?'<img class="_h_ci" src="'+esc(p.image)+'" alt="" loading="lazy" onerror="this.outerHTML=\'<div class=\\\\"_h_cp\\\\">📦</div>\'">'
         :'<div class="_h_cp">📦</div>';
+      var stockBadge='';
+      if(p.stock){
+        var sc=p.stock.available?'#16a34a':'#dc2626';
+        var sl=p.stock.label||'';
+        stockBadge='<div style="font-size:10px;font-weight:600;color:'+sc+';margin-top:3px;">● '+esc(sl)+'</div>';
+      }
       card.innerHTML=
         '<div class="_h_ct">'+img+
           '<div class="_h_cd">'+
             '<div class="_h_ctt">'+esc(p.title||'')+'</div>'+
             (p.price?'<div class="_h_cpr">'+p.price+' RON</div>':'')+
+            stockBadge+
           '</div>'+
         '</div>'+
         '<div class="_h_cbs">'+
-          '<button class="_h_cb vw">'+iEye()+'<span>Vezi produs</span></button>'+
-          '<button class="_h_cb ac">'+iCart()+'<span>Adaugă în coș</span></button>'+
+          (p.stock&&!p.stock.available
+            ?'<button class="_h_cb vw" style="opacity:.5;cursor:default;" disabled>'+iEye()+'<span>Indisponibil</span></button>'
+            :'<button class="_h_cb vw">'+iEye()+'<span>Vezi produs</span></button>')+
+          (p.stock&&!p.stock.available
+            ?''
+            :'<button class="_h_cb ac">'+iCart()+'<span>Adaugă în coș</span></button>')+
         '</div>';
       var url=p.url||'';
       card.querySelector('._h_cb.vw').addEventListener('click',function(){if(url&&url!=='#')window.open(url,'_blank');});

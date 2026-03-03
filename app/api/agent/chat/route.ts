@@ -79,7 +79,8 @@ INTENȚIE — detectezi imediat:
 - "caut ceva", "am nevoie" fără detalii → browsing → O întrebare scurtă
 - "care e diferența", "care e mai bun" → comparing → search_query pentru ambele
 - "livrare", "retur", "garanție" → info_shipping → răspunzi din politici generale
-- "problemă cu comanda" → problem → escaladare WhatsApp
+- "unde e comanda", "status comandă", "număr comandă", "AWB" → order_tracking → order_query cu numărul/emailul
+- "problemă cu comanda", "comanda greșită", "nu am primit" → problem → escaladare WhatsApp
 - Orice altceva → off_topic → refuzi politicos în 1 propoziție
 
 UPSELL (natural, niciodată forțat):
@@ -92,13 +93,15 @@ CROSSSELL (după ce alege):
 FORMAT RĂSPUNS — JSON strict:
 {
   "message": "mesaj uman, max 2 propoziții",
-  "intent": "buying_ready|browsing|comparing|compatibility|info_product|info_shipping|problem|off_topic|escalate|greeting",
+  "intent": "buying_ready|browsing|comparing|compatibility|info_product|info_shipping|problem|off_topic|escalate|greeting|order_tracking",
   "confidence": 0.0-1.0,
   "quick_replies": ["2-3 opțiuni max, scurte"],
   "show_whatsapp": false,
   "search_query": "1-3 cuvinte cheie SIMPLE SAU null",
   "crosssell_query": "1-2 cuvinte categorie complementară SAU null",
-  "selected_product_index": null
+  "selected_product_index": null,
+  "order_query": "numărul comenzii sau emailul clientului SAU null — când întreabă despre o comandă",
+  "check_stock": true/false — când trebuie să verifici stocul live pentru produsele găsite
 }`
 }
 
@@ -321,23 +324,71 @@ export async function POST(request:Request) {
       crossProducts=cs.map(p=>({...p,url:p.url.replace('__STORE__',storeUrl)})).filter(p=>!products.find(x=>x.id===p.id))
     }
 
+    // Stoc live — verifică disponibilitate reală din WooCommerce
+    if(parsed.check_stock && products.length > 0) {
+      const externalIds = products.map(p => p.external_id).filter(Boolean) as string[]
+      if(externalIds.length > 0) {
+        try {
+          const stockRes = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/agent/stock`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId: store_user_id, productIds: externalIds }),
+          })
+          const stockData = await stockRes.json()
+          if(stockData.stock) stockInfo = stockData.stock
+        } catch {}
+      }
+    }
+
+    // Tracking comenzi
+    if(parsed.order_query && parsed.intent === 'order_tracking') {
+      try {
+        const isEmail = parsed.order_query.includes('@')
+        const orderRes = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/agent/order`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: store_user_id,
+            query: parsed.order_query,
+            type: isEmail ? 'email' : 'search',
+          }),
+        })
+        const orderResult = await orderRes.json()
+        if(orderResult.orders?.length > 0) orderData = orderResult.orders
+      } catch {}
+    }
+
     const allProducts=[...products,...crossProducts].slice(0,config.max_products_shown||3)
 
     if(products.length>0){
       const ctx=products.map((p,i)=>`${i+1}. "${p.title}" — ${p.price?p.price+' RON':'preț indisponibil'}`).join('\n')
       const cross=crossProducts.length>0?`\nPentru crosssell: "${crossProducts[0].title}" (${crossProducts[0].price} RON)`:''
       const memCtx=memory?.conversation_summary?`\nContext vizitator: ${memory.conversation_summary}`:''
+      const stockCtx=Object.keys(stockInfo).length>0
+        ?`\nStoc live: ${products.map(p=>p.external_id&&stockInfo[p.external_id]?`"${p.title}": ${stockInfo[p.external_id].label}`:'').filter(Boolean).join(', ')}`
+        :''
       const r2=await openai.chat.completions.create({
         model:'gpt-4o-mini',
         messages:[
           {role:'system',content:systemPrompt},
           ...history.slice(-6).map((m:any)=>({role:m.role as 'user'|'assistant',content:m.content})),
           {role:'user',content:message},
-          {role:'system',content:`Produse găsite:\n${ctx}${cross}${memCtx}\n\nPrezintă natural în max 2 propoziții. JSON.`},
+          {role:'system',content:`Produse găsite:\n${ctx}${cross}${memCtx}${stockCtx}\n\nDacă un produs e "Stoc epuizat" menționează-l natural. Prezintă în max 2 propoziții. JSON.`},
         ],
         temperature:0.65, max_tokens:300, response_format:{type:'json_object'},
       })
       try{const r=JSON.parse(r2.choices[0].message.content||'{}');parsed.message=r.message||parsed.message;parsed.quick_replies=r.quick_replies||parsed.quick_replies}catch{}
+    } else if(parsed.intent === 'order_tracking') {
+      if(orderData.length > 0) {
+        const ord = orderData[0]
+        const trackingInfo = ord.tracking_number ? ` AWB: ${ord.tracking_number}.` : ''
+        const itemsList = ord.items.map((i:any) => `${i.name} x${i.quantity}`).join(', ')
+        parsed.message = `Comanda #${ord.number} din ${ord.date} — ${ord.status_label}.${trackingInfo} Produse: ${itemsList}.`
+        parsed.quick_replies = ord.status === 'processing' ? ['Când ajunge?', 'Modific comanda', 'Anulare'] : ['Mai am o întrebare', 'Vorbesc cu echipa']
+      } else if(parsed.order_query) {
+        parsed.message = `Nu am găsit comanda după "${parsed.order_query}". Încearcă cu numărul exact al comenzii sau emailul folosit la comandă.`
+        parsed.quick_replies = ['Număr comandă', 'Email comandă', 'Vorbesc cu echipa']
+      }
     } else if(parsed.search_query){
       parsed.message=`Nu am găsit "${parsed.search_query}" în catalog. Cum altfel ai descrie ce cauți?`
       parsed.quick_replies=['Descriu altfel','Arată tot','Vorbesc cu echipa']
@@ -346,6 +397,14 @@ export async function POST(request:Request) {
     let redirectUrl:string|undefined
     if(parsed.selected_product_index!=null){const sel=products[Number(parsed.selected_product_index)]||products[0];if(sel?.url)redirectUrl=sel.url}
     if(parsed.intent==='escalate'||parsed.intent==='problem')parsed.show_whatsapp=true
+
+    // Adaugă stoc în produse
+    if(Object.keys(stockInfo).length > 0) {
+      products = products.map(p => ({
+        ...p,
+        stock: p.external_id ? stockInfo[p.external_id] : undefined,
+      }))
+    }
 
     const response:AgentResponse={
       message:parsed.message||'Cum te pot ajuta?',

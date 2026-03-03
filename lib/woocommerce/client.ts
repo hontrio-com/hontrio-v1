@@ -89,3 +89,54 @@ export class WooCommerceClient {
     })
   }
 }
+  // Stoc live pentru un produs după external_id
+  async getStockStatus(productId: string) {
+    const { data } = await this.request(`products/${productId}`)
+    return {
+      id: data.id,
+      name: data.name,
+      stock_status: data.stock_status,           // 'instock' | 'outofstock' | 'onbackorder'
+      stock_quantity: data.stock_quantity ?? null,
+      manage_stock: data.manage_stock,
+      low_stock_amount: data.low_stock_amount ?? null,
+    }
+  }
+
+  // Stoc pentru mai multe produse dintr-o dată (batch)
+  async getStockBatch(productIds: string[]) {
+    const results = await Promise.allSettled(
+      productIds.map(id => this.getStockStatus(id))
+    )
+    return results.map((r, i) => ({
+      id: productIds[i],
+      ...(r.status === 'fulfilled' ? r.value : { stock_status: 'unknown', error: true }),
+    }))
+  }
+
+  // Comenzi după număr de comandă sau ID
+  async getOrder(orderId: string) {
+    const { data } = await this.request(`orders/${orderId}`)
+    return data
+  }
+
+  // Comenzi după email client
+  async getOrdersByEmail(email: string, limit = 5) {
+    const { data } = await this.request('orders', {
+      search: email,
+      per_page: limit.toString(),
+      orderby: 'date',
+      order: 'desc',
+    })
+    return data
+  }
+
+  // Caută comenzi după număr (billing phone sau order number)
+  async searchOrders(query: string, limit = 3) {
+    const { data } = await this.request('orders', {
+      search: query,
+      per_page: limit.toString(),
+      orderby: 'date',
+      order: 'desc',
+    })
+    return data
+  }
