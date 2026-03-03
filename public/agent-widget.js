@@ -504,9 +504,20 @@ function closeChat(){
 }
 
 // ── WELCOME ──────────────────────────────────────────────────────────────────
+function buildWelcomeMsg(cfg,mem){
+  var agName=agentName;
+  if(!mem||!mem.total_sessions||!mem.conversation_summary){
+    return (cfg&&cfg.welcome_message)||('Bună! Sunt '+agName+'. Cu ce te pot ajuta?');
+  }
+  var days=Math.floor((Date.now()-new Date(mem.last_seen_at).getTime())/(1000*60*60*24));
+  var timeAgo=days===0?'astăzi mai devreme':days===1?'ieri':'acum '+days+' zile';
+  return 'Bună revenire! '+timeAgo+' '+mem.conversation_summary+' Cu ce te pot ajuta?';
+}
+
 function doWelcome(){
+  var mem=window._hMem||null;
   if(window._hCfg){
-    var msg=window._hCfg.welcome_message||('Bună! Sunt '+agentName+'. Cu ce te pot ajuta?');
+    var msg=buildWelcomeMsg(window._hCfg,mem);
     var qrs=window._hCfg.quick_replies||['Caut un produs','Am o întrebare','Livrare & retur'];
     renderMsg('assistant',msg,{quick_replies:qrs});
     return;
@@ -515,7 +526,7 @@ function doWelcome(){
     .then(function(r){return r.ok?r.json():null;})
     .then(function(d){
       applyConfig(d);window._hCfg=d;
-      var msg=(d&&d.welcome_message)||('Bună! Sunt '+agentName+'. Cu ce te pot ajuta?');
+      var msg=buildWelcomeMsg(d,window._hMem||null);
       var qrs=(d&&d.quick_replies)||['Caut un produs','Am o întrebare','Livrare & retur'];
       renderMsg('assistant',msg,{quick_replies:qrs});
     })
@@ -539,6 +550,7 @@ function doSend(ov){
       message:txt,
       history:msgs.slice(-10).map(function(m){return{role:m.role,content:m.content};}),
       session_id:sid,store_user_id:UID,visitor_id:vid,
+      full_history:msgs.map(function(m){return{role:m.role,content:m.content};}),
     }),
   })
   .then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json();})
@@ -566,6 +578,12 @@ fetch(BASE+'/api/agent/public-config?userId='+UID)
   .catch(function(){});
 
 loadAndInitTriggers();
+
+// Încarcă memoria vizitatorului în fundal
+fetch(BASE+'/api/agent/memory?userId='+UID+'&visitorId='+vid)
+  .then(function(r){return r.ok?r.json():null;})
+  .then(function(d){if(d&&d.memory)window._hMem=d.memory;})
+  .catch(function(){});
 
 setTimeout(function(){if(!isOpen&&!welcomed){unread=1;updBadge();}},25000);
 })();

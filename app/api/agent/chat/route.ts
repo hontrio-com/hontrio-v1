@@ -16,11 +16,52 @@ type AgentResponse = {
   redirect_url?: string
 }
 
-function buildSystemPrompt(config: any, storeName: string, catalog: string): string {
+type VisitorMemory = {
+  total_sessions: number
+  total_messages: number
+  last_seen_at: string
+  first_seen_at: string
+  preferred_categories: string[]
+  viewed_product_ids: string[]
+  carted_product_ids: string[]
+  conversation_summary: string | null
+  key_facts: Array<{ fact: string; at: string }>
+  last_intent: string | null
+  return_count: number
+}
+
+function buildSystemPrompt(config: any, storeName: string, catalog: string, memory: VisitorMemory | null): string {
+  const isReturningVisitor = memory && memory.total_sessions > 0
+
+  let memoryContext = ''
+  if (isReturningVisitor) {
+    const daysSinceLast = Math.floor(
+      (Date.now() - new Date(memory.last_seen_at).getTime()) / (1000 * 60 * 60 * 24)
+    )
+    const timeAgo = daysSinceLast === 0 ? 'astăzi mai devreme' :
+      daysSinceLast === 1 ? 'ieri' :
+      `acum ${daysSinceLast} zile`
+
+    memoryContext = `
+
+MEMORIE VIZITATOR (conversații anterioare):
+- Număr vizite: ${memory.total_sessions}
+- Ultima vizită: ${timeAgo}
+- Rezumat: ${memory.conversation_summary || 'N/A'}
+${memory.key_facts?.length > 0 ? `- Ce știm despre el: ${memory.key_facts.slice(0, 5).map(f => f.fact).join(', ')}` : ''}
+${memory.preferred_categories?.length > 0 ? `- Categorii de interes: ${memory.preferred_categories.join(', ')}` : ''}
+
+INSTRUCȚIUNI MEMORIE:
+- Recunoaște vizitatorul care se întoarce: "Bună revenire!" sau "Te-am mai văzut pe aici!"
+- Folosește ce știi despre el pentru recomandări personalizate
+- Menționează produse noi din categoriile lui preferate dacă există`
+  }
+
   return `Ești ${config.agent_name || 'Asistentul'} de la ${storeName}.
 
 CATALOG COMPLET (acestea sunt TOATE produsele disponibile — nu inventa altele):
 ${catalog}
+${memoryContext}
 
 PERSONALITATE: Vorbești ca un prieten helpful, nu ca un robot. Limbaj cald, natural, scurt.
 Exemple bune: "Super alegere!", "Hai să vedem ce avem...", "Uite ce mi se pare perfect pentru tine:"
@@ -43,10 +84,9 @@ INTENȚIE — detectezi imediat:
 
 UPSELL (natural, niciodată forțat):
 - Dacă clientul vrea produs ieftin și există variantă mai bună la +20-30% → menționezi scurt
-- "Uite și varianta [X] care are [beneficiu scurt] — mai bun raport calitate/preț"
 
 CROSSSELL (după ce alege):
-- Sugerezi 1 singur produs complementar: "Ar merge perfect și cu [produs]"
+- Sugerezi 1 singur produs complementar
 - crosssell_query = categoria complementară logică
 
 FORMAT RĂSPUNS — JSON strict:
@@ -56,15 +96,12 @@ FORMAT RĂSPUNS — JSON strict:
   "confidence": 0.0-1.0,
   "quick_replies": ["2-3 opțiuni max, scurte"],
   "show_whatsapp": false,
-  "search_query": "1-3 cuvinte cheie SIMPLE din titluri de produse SAU null — OBLIGATORIU când clientul caută ceva",
+  "search_query": "1-3 cuvinte cheie SIMPLE SAU null",
   "crosssell_query": "1-2 cuvinte categorie complementară SAU null",
   "selected_product_index": null
+}`
 }
 
-CRITIC: search_query folosește cuvinte DIN TITLURILE din catalog (ex: "condimente", "mop", "tigaie", "sandwich"). NU fraze.`
-}
-
-// ─── FUZZY SEARCH ─────────────────────────────────────────────────────────────
 function lev(a: string, b: string): number {
   const dp = Array.from({length:a.length+1}, (_,i) =>
     Array.from({length:b.length+1}, (_,j) => i===0?j:j===0?i:0))
@@ -116,7 +153,7 @@ function scoreProduct(p:any, keywords:string[]):number {
   return score
 }
 
-async function searchProducts(query:string, userId:string, max=3):Promise<Product[]> {
+async function searchProducts(query:string, userId:string, max=3, boostIds: string[]=[]): Promise<Product[]> {
   const supabase=createAdminClient()
   const STOP=new Set(['pentru','care','este','sunt','caut','vreau','unui','ceva','unul','mai','din','sau','bun','un','o','al','la','cu','si','sau','ori'])
   const keywords=query.toLowerCase().replace(/[^a-zăâîșțA-ZĂÂÎȘȚ0-9\s]/g,' ')
@@ -129,7 +166,7 @@ async function searchProducts(query:string, userId:string, max=3):Promise<Produc
   if(!data?.length)return []
 
   return data
-    .map(p=>({...p,_s:scoreProduct(p,keywords)}))
+    .map(p=>({...p,_s:scoreProduct(p,keywords)+(boostIds.includes(p.id)?15:0)}))
     .filter(p=>p._s>=25)
     .sort((a,b)=>b._s-a._s)
     .slice(0,max)
@@ -157,9 +194,89 @@ async function buildCatalog(userId:string):Promise<string> {
   return Object.entries(by).map(([c,ps])=>`${c}: ${ps.slice(0,12).join(' | ')}`).join('\n')
 }
 
+async function loadVisitorMemory(userId: string, visitorId: string): Promise<VisitorMemory | null> {
+  if (!visitorId) return null
+  try {
+    const supabase = createAdminClient()
+    const { data } = await supabase
+      .from('visitor_memory')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('visitor_id', visitorId)
+      .single()
+    return data || null
+  } catch {
+    return null
+  }
+}
+
+async function persistMemory(params: {
+  userId: string; visitorId: string; sessionId: string
+  messages: Array<{role: string; content: string}>
+  searchQueries: string[]; productsShown: string[]; intent: string
+}) {
+  try {
+    const supabase = createAdminClient()
+    const { data: existing } = await supabase
+      .from('visitor_memory').select('*')
+      .eq('user_id', params.userId).eq('visitor_id', params.visitorId).single()
+
+    let newSummary = existing?.conversation_summary || null
+    let newKeyFacts: any[] = existing?.key_facts || []
+
+    if (params.messages.length >= 4) {
+      try {
+        const summaryRes = await openai.chat.completions.create({
+          model: 'gpt-4o-mini',
+          messages: [
+            { role: 'system', content: 'Analizează conversația și extrage informații utile pentru viitor. Răspunde DOAR JSON: {"summary": "max 2 propoziții", "facts": ["fapt1", "fapt2"]}' },
+            { role: 'user', content: params.messages.map(m => `${m.role}: ${m.content}`).join('\n') }
+          ],
+          temperature: 0.3, max_tokens: 200, response_format: { type: 'json_object' },
+        })
+        const parsed = JSON.parse(summaryRes.choices[0].message.content || '{}')
+        if (parsed.summary) newSummary = parsed.summary
+        if (parsed.facts?.length > 0) {
+          const ts = new Date().toISOString()
+          newKeyFacts = [...parsed.facts.map((f: string) => ({ fact: f, at: ts })), ...(existing?.key_facts || [])].slice(0, 20)
+        }
+      } catch { }
+    }
+
+    const freq: Record<string, number> = {}
+    for (const item of (existing?.preferred_categories || [])) freq[item] = (freq[item] || 0) + 2
+    for (const item of params.searchQueries) { const c = item.toLowerCase().trim(); if (c.length > 2) freq[c] = (freq[c] || 0) + 1 }
+    const updatedCategories = Object.entries(freq).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([k])=>k)
+
+    const updatedViewed = [...params.productsShown, ...(existing?.viewed_product_ids||[])].filter((v,i,a)=>a.indexOf(v)===i).slice(0,50)
+
+    await supabase.from('visitor_memory').upsert({
+      user_id: params.userId, visitor_id: params.visitorId,
+      total_sessions: (existing?.total_sessions || 0) + 1,
+      total_messages: (existing?.total_messages || 0) + params.messages.length,
+      last_seen_at: new Date().toISOString(),
+      first_seen_at: existing?.first_seen_at || new Date().toISOString(),
+      preferred_categories: updatedCategories,
+      viewed_product_ids: updatedViewed,
+      carted_product_ids: existing?.carted_product_ids || [],
+      conversation_summary: newSummary,
+      key_facts: newKeyFacts,
+      last_intent: params.intent,
+      return_count: existing ? (existing.return_count || 0) + 1 : 0,
+    }, { onConflict: 'user_id,visitor_id' })
+
+    await supabase.from('visitor_sessions').upsert({
+      user_id: params.userId, visitor_id: params.visitorId, session_id: params.sessionId,
+      messages_count: params.messages.length, intents: [params.intent],
+      products_shown: params.productsShown, search_queries: params.searchQueries,
+      messages_log: params.messages, ended_at: new Date().toISOString(),
+    }, { onConflict: 'session_id' })
+  } catch (err) { console.error('[Memory persist]', err) }
+}
+
 export async function POST(request:Request) {
   try {
-    const {message,history=[],session_id,store_user_id,visitor_id}=await request.json()
+    const {message, history=[], session_id, store_user_id, visitor_id, full_history=[]} = await request.json()
     if(!message||!store_user_id)return NextResponse.json({error:'Parametri lipsă'},{status:400})
 
     const supabase=createAdminClient()
@@ -170,8 +287,12 @@ export async function POST(request:Request) {
     const storeName=store?.store_name||config.agent_name||'magazin'
     const storeUrl=store?.store_url?.replace(/\/$/,'')||''
 
-    const [catalog]=await Promise.all([buildCatalog(store_user_id)])
-    const systemPrompt=buildSystemPrompt(config,storeName,catalog)
+    const [catalog, memory] = await Promise.all([
+      buildCatalog(store_user_id),
+      loadVisitorMemory(store_user_id, visitor_id),
+    ])
+
+    const systemPrompt = buildSystemPrompt(config, storeName, catalog, memory)
 
     const gpt=await openai.chat.completions.create({
       model:'gpt-4o-mini',
@@ -187,48 +308,43 @@ export async function POST(request:Request) {
     try{parsed=JSON.parse(gpt.choices[0].message.content||'{}')}
     catch{parsed={message:'Ceva n-a mers, încearcă din nou!',intent:'browsing',confidence:0.5,quick_replies:['Încearcă din nou']}}
 
-    let products:Product[]=[],crossProducts:Product[]=[]
+    const boostIds = memory?.viewed_product_ids?.slice(0,10) || []
+    let products:Product[]=[],crossProducts:Product[]=[],searchQueriesUsed:string[]=[]
 
     if(parsed.search_query&&parsed.intent!=='off_topic'&&parsed.intent!=='info_shipping'){
-      products=await searchProducts(parsed.search_query,store_user_id,config.max_products_shown||3)
+      searchQueriesUsed.push(parsed.search_query)
+      products=await searchProducts(parsed.search_query, store_user_id, config.max_products_shown||3, boostIds)
       products=products.map(p=>({...p,url:p.url.replace('__STORE__',storeUrl)}))
     }
     if(parsed.crosssell_query){
       const cs=await searchProducts(parsed.crosssell_query,store_user_id,1)
-      crossProducts=cs.map(p=>({...p,url:p.url.replace('__STORE__',storeUrl)}))
-        .filter(p=>!products.find(x=>x.id===p.id))
+      crossProducts=cs.map(p=>({...p,url:p.url.replace('__STORE__',storeUrl)})).filter(p=>!products.find(x=>x.id===p.id))
     }
 
     const allProducts=[...products,...crossProducts].slice(0,config.max_products_shown||3)
 
     if(products.length>0){
       const ctx=products.map((p,i)=>`${i+1}. "${p.title}" — ${p.price?p.price+' RON':'preț indisponibil'}`).join('\n')
-      const cross=crossProducts.length>0?`\nPentru crosssell disponibil: "${crossProducts[0].title}" (${crossProducts[0].price} RON)`:''
+      const cross=crossProducts.length>0?`\nPentru crosssell: "${crossProducts[0].title}" (${crossProducts[0].price} RON)`:''
+      const memCtx=memory?.conversation_summary?`\nContext vizitator: ${memory.conversation_summary}`:''
       const r2=await openai.chat.completions.create({
         model:'gpt-4o-mini',
         messages:[
           {role:'system',content:systemPrompt},
           ...history.slice(-6).map((m:any)=>({role:m.role as 'user'|'assistant',content:m.content})),
           {role:'user',content:message},
-          {role:'system',content:`Produse găsite:\n${ctx}${cross}\n\nPrezintă natural în max 2 propoziții. Fii uman și cald. Dacă ai crosssell menționează-l scurt la final. JSON.`},
+          {role:'system',content:`Produse găsite:\n${ctx}${cross}${memCtx}\n\nPrezintă natural în max 2 propoziții. JSON.`},
         ],
         temperature:0.65, max_tokens:300, response_format:{type:'json_object'},
       })
-      try{
-        const r=JSON.parse(r2.choices[0].message.content||'{}')
-        parsed.message=r.message||parsed.message
-        parsed.quick_replies=r.quick_replies||parsed.quick_replies
-      }catch{}
+      try{const r=JSON.parse(r2.choices[0].message.content||'{}');parsed.message=r.message||parsed.message;parsed.quick_replies=r.quick_replies||parsed.quick_replies}catch{}
     } else if(parsed.search_query){
       parsed.message=`Nu am găsit "${parsed.search_query}" în catalog. Cum altfel ai descrie ce cauți?`
       parsed.quick_replies=['Descriu altfel','Arată tot','Vorbesc cu echipa']
     }
 
     let redirectUrl:string|undefined
-    if(parsed.selected_product_index!=null){
-      const sel=products[Number(parsed.selected_product_index)]||products[0]
-      if(sel?.url)redirectUrl=sel.url
-    }
+    if(parsed.selected_product_index!=null){const sel=products[Number(parsed.selected_product_index)]||products[0];if(sel?.url)redirectUrl=sel.url}
     if(parsed.intent==='escalate'||parsed.intent==='problem')parsed.show_whatsapp=true
 
     const response:AgentResponse={
@@ -243,7 +359,17 @@ export async function POST(request:Request) {
     if(allProducts.length>0)response.products=allProducts
     if(redirectUrl)response.redirect_url=redirectUrl
 
+    const currentHistory=[...history,{role:'user',content:message},{role:'assistant',content:response.message}]
+
     saveConv({supabase,userId:store_user_id,sessionId:session_id,visitorId:visitor_id,intent:response.intent,products:allProducts.map(p=>p.id)}).catch(()=>{})
+
+    if(visitor_id){
+      persistMemory({
+        userId:store_user_id, visitorId:visitor_id, sessionId:session_id,
+        messages:full_history.length>0?full_history:currentHistory,
+        searchQueries:searchQueriesUsed, productsShown:allProducts.map(p=>p.id), intent:response.intent,
+      }).catch(()=>{})
+    }
 
     return NextResponse.json(response,{headers:{'Access-Control-Allow-Origin':'*'}})
   }catch(err:any){
