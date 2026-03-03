@@ -19,7 +19,7 @@ export async function GET(
 
     const { data: ticket } = await supabase
       .from('tickets')
-      .select('*, users!inner(name, email)')
+      .select('id, subject, message, status, priority, category, created_at, updated_at, attachments, users!inner(name, email)')
       .eq('id', id)
       .single()
 
@@ -29,7 +29,7 @@ export async function GET(
 
     const { data: replies } = await supabase
       .from('ticket_replies')
-      .select('*, users!inner(name, email)')
+      .select('id, message, is_admin, created_at, attachments, users!inner(name, email)')
       .eq('ticket_id', id)
       .order('created_at', { ascending: true })
 
