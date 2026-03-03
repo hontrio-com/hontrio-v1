@@ -8,7 +8,7 @@ import {
   Zap, ArrowUpRight, Loader2, Save, AlertCircle,
   ExternalLink, ToggleLeft, ToggleRight, Upload, Code2,
   Square, Circle, RectangleHorizontal,
-  X, Send,
+  X, Send, Users, Search, BarChart2, Clock, Star,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -36,6 +36,16 @@ type Config = {
 }
 
 type Stats = { total: number; last7: number; escalated: number; avgMessages: number }
+
+type Analytics = {
+  summary: { totalSessions: number; uniqueVisitors: number; returningVisitors: number; avgMessages: number; escalated: number; weekTrend: number; thisWeek: number; lastWeek: number }
+  conversationsPerDay: { date: string; count: number }[]
+  intentCounts: Record<string, number>
+  topProducts: { id: string; name: string; count: number }[]
+  topSearches: { query: string; count: number }[]
+  topCategories: { category: string; count: number }[]
+  hourCounts: number[]
+}
 
 const defaultConfig: Config = {
   is_active: false, agent_name: 'Asistent',
@@ -203,6 +213,9 @@ export default function AgentPage() {
   const [config, setConfig] = useState<Config>(defaultConfig)
   const [stats, setStats] = useState<Stats | null>(null)
   const [intents, setIntents] = useState<Record<string, number>>({})
+  const [analytics, setAnalytics] = useState<Analytics | null>(null)
+  const [analyticsRange, setAnalyticsRange] = useState<7 | 30>(30)
+  const [analyticsLoading, setAnalyticsLoading] = useState(false)
   const [storeUserId, setStoreUserId] = useState('')
   const [storeUrl, setStoreUrl] = useState('')
   const [loading, setLoading] = useState(true)
@@ -324,37 +337,141 @@ export default function AgentPage() {
       {/* STATISTICS */}
       {activeTab === 'overview' && (
         <div className="space-y-5">
+          {/* KPI Cards */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {[
-              { label: 'Conversații (30z)', value: stats?.total || 0, icon: MessageCircle, color: 'blue' },
-              { label: 'Săptămâna aceasta', value: stats?.last7 || 0, icon: TrendingUp, color: 'green' },
-              { label: 'Mesaje / conv.', value: stats?.avgMessages || 0, icon: Zap, color: 'amber' },
-              { label: 'Escaladări', value: stats?.escalated || 0, icon: Phone, color: 'purple' },
+              { label: 'Conversații (30z)', value: analytics?.summary.totalSessions ?? stats?.total ?? 0, icon: MessageCircle, color: 'blue', sub: analytics?.summary.weekTrend ? `${analytics.summary.weekTrend > 0 ? '+' : ''}${analytics.summary.weekTrend}% vs săpt. trecută` : undefined },
+              { label: 'Vizitatori unici', value: analytics?.summary.uniqueVisitors ?? 0, icon: Users, color: 'violet', sub: analytics ? `${analytics.summary.returningVisitors} reveniri` : undefined },
+              { label: 'Mesaje / conv.', value: analytics?.summary.avgMessages ?? stats?.avgMessages ?? 0, icon: Zap, color: 'amber', sub: undefined },
+              { label: 'Escaladări', value: analytics?.summary.escalated ?? stats?.escalated ?? 0, icon: Phone, color: 'red', sub: analytics?.summary.totalSessions ? `${Math.round((( analytics.summary.escalated) / analytics.summary.totalSessions) * 100)}% din total` : undefined },
             ].map(stat => (
               <Card key={stat.label} className="border-0 shadow-sm rounded-2xl">
                 <CardContent className="p-4">
                   <div className={`h-8 w-8 rounded-xl bg-${stat.color}-100 flex items-center justify-center mb-2`}><stat.icon className={`h-4 w-4 text-${stat.color}-600`} /></div>
                   <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
                   <p className="text-xs text-gray-500 mt-0.5">{stat.label}</p>
+                  {stat.sub && <p className="text-xs text-green-600 font-medium mt-1">{stat.sub}</p>}
                 </CardContent>
               </Card>
             ))}
           </div>
-          {Object.keys(intents).length > 0 && (
+
+          {/* Grafic conversații pe zile */}
+          {analytics?.conversationsPerDay && analytics.conversationsPerDay.length > 0 && (
             <Card className="border-0 shadow-sm rounded-2xl"><CardContent className="p-5">
-              <p className="text-sm font-semibold text-gray-900 mb-4">Intențiile vizitatorilor</p>
-              <div className="space-y-3">
-                {Object.entries(intents).sort((a,b) => b[1]-a[1]).map(([intent, count]) => {
-                  const total = Object.values(intents).reduce((s,v) => s+v, 0)
-                  return (
-                    <div key={intent} className="flex items-center gap-3">
-                      <span className="text-xs text-gray-600 w-32 shrink-0">{INTENT_LABELS[intent] || intent}</span>
-                      <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden"><div className="h-full bg-blue-500 rounded-full" style={{ width: `${Math.round((count/total)*100)}%` }} /></div>
-                      <span className="text-xs font-medium text-gray-500 w-8 text-right">{count}</span>
-                    </div>
-                  )
-                })}
+              <div className="flex items-center justify-between mb-4">
+                <p className="text-sm font-semibold text-gray-900">Conversații pe zile</p>
+                <div className="flex gap-1">
+                  {([7, 30] as const).map(d => (
+                    <button key={d} onClick={async () => {
+                      setAnalyticsRange(d); setAnalyticsLoading(true)
+                      try { const r = await fetch(`/api/agent/analytics?days=${d}`); const data = await r.json(); if (data.summary) setAnalytics(data) } catch {}
+                      setAnalyticsLoading(false)
+                    }} className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${analyticsRange === d ? 'bg-blue-600 text-white' : 'text-gray-500 hover:bg-gray-100'}`}>{d === 7 ? '7 zile' : '30 zile'}</button>
+                  ))}
+                </div>
               </div>
+              {analyticsLoading ? <div className="h-28 flex items-center justify-center"><Loader2 className="h-5 w-5 animate-spin text-gray-400" /></div> : (() => {
+                const data = analytics.conversationsPerDay.slice(-(analyticsRange))
+                const max = Math.max(...data.map(d => d.count), 1)
+                return (
+                  <div className="flex items-end gap-1 h-28">
+                    {(data as {date:string;count:number}[]).map((d, i) => (
+                      <div key={i} className="flex-1 flex flex-col items-center gap-1 group relative">
+                        <div className="absolute -top-7 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-xs rounded px-1.5 py-0.5 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">{d.count} conv.</div>
+                        <div className="w-full rounded-t-sm transition-all" style={{ height: `${Math.max(4, (d.count / max) * 100)}%`, background: d.count > 0 ? '#2563eb' : '#e5e7eb' }} />
+                        {(analyticsRange === 7 || i % 5 === 0) && <span className="text-[9px] text-gray-400 rotate-0">{d.date.slice(5)}</span>}
+                      </div>
+                    ))}
+                  </div>
+                )
+              })()}
+            </CardContent></Card>
+          )}
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* Intenții vizitatori */}
+            {analytics?.intentCounts && Object.keys(analytics.intentCounts).length > 0 && (
+              <Card className="border-0 shadow-sm rounded-2xl"><CardContent className="p-5">
+                <div className="flex items-center gap-2 mb-4"><BarChart2 className="h-4 w-4 text-blue-600" /><p className="text-sm font-semibold text-gray-900">Intențiile vizitatorilor</p></div>
+                <div className="space-y-2.5">
+                  {(() => {
+                    const INTENT_COLORS: Record<string,string> = { buying_ready:'#16a34a', browsing:'#2563eb', comparing:'#7c3aed', info_shipping:'#d97706', problem:'#dc2626', escalate:'#dc2626', greeting:'#6b7280', order_tracking:'#0891b2' }
+                    const entries = Object.entries(analytics.intentCounts) as [string, number][]
+                    const total = entries.reduce((s, [,v]) => s + v, 0)
+                    return entries.sort((a,b) => b[1]-a[1]).slice(0,6).map(([intent, count]) => (
+                      <div key={intent} className="flex items-center gap-3">
+                        <span className="text-xs text-gray-600 w-28 shrink-0">{INTENT_LABELS[intent] || intent}</span>
+                        <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden"><div className="h-full rounded-full transition-all" style={{ width: `${Math.round((count/total)*100)}%`, background: INTENT_COLORS[intent] || '#2563eb' }} /></div>
+                        <span className="text-xs font-semibold text-gray-700 w-8 text-right">{count}</span>
+                      </div>
+                    ))
+                  })()}
+                </div>
+              </CardContent></Card>
+            )}
+
+            {/* Heatmap ore */}
+            {analytics?.hourCounts && (
+              <Card className="border-0 shadow-sm rounded-2xl"><CardContent className="p-5">
+                <div className="flex items-center gap-2 mb-4"><Clock className="h-4 w-4 text-amber-500" /><p className="text-sm font-semibold text-gray-900">Ore de vârf</p></div>
+                <div className="grid grid-cols-12 gap-1">
+                  {analytics.hourCounts.map((count, h) => {
+                    const max = Math.max(...analytics.hourCounts, 1)
+                    const intensity = count / max
+                    return (
+                      <div key={h} className="relative group">
+                        <div className="h-8 rounded transition-all" style={{ background: count > 0 ? `rgba(37,99,235,${0.15 + intensity * 0.85})` : '#f3f4f6' }} />
+                        <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-xs rounded px-1.5 py-0.5 opacity-0 group-hover:opacity-100 whitespace-nowrap z-10">{h}:00 — {count}</div>
+                        {h % 6 === 0 && <p className="text-[9px] text-gray-400 text-center mt-1">{h}h</p>}
+                      </div>
+                    )
+                  })}
+                </div>
+              </CardContent></Card>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* Top produse cerute */}
+            {analytics?.topProducts && analytics.topProducts.length > 0 && (
+              <Card className="border-0 shadow-sm rounded-2xl"><CardContent className="p-5">
+                <div className="flex items-center gap-2 mb-4"><Star className="h-4 w-4 text-amber-500" /><p className="text-sm font-semibold text-gray-900">Top produse cerute</p></div>
+                <div className="space-y-2">
+                  {analytics.topProducts.slice(0,7).map((p, i) => (
+                    <div key={p.id} className="flex items-center gap-3">
+                      <span className="text-xs font-bold text-gray-400 w-4">{i+1}</span>
+                      <span className="text-xs text-gray-700 flex-1 truncate">{p.name}</span>
+                      <span className="text-xs font-semibold text-blue-600">{p.count}×</span>
+                    </div>
+                  ))}
+                </div>
+              </CardContent></Card>
+            )}
+
+            {/* Top căutări */}
+            {analytics?.topSearches && analytics.topSearches.length > 0 && (
+              <Card className="border-0 shadow-sm rounded-2xl"><CardContent className="p-5">
+                <div className="flex items-center gap-2 mb-4"><Search className="h-4 w-4 text-violet-500" /><p className="text-sm font-semibold text-gray-900">Top căutări</p></div>
+                <div className="space-y-2">
+                  {analytics.topSearches.slice(0,7).map((s, i) => (
+                    <div key={s.query} className="flex items-center gap-3">
+                      <span className="text-xs font-bold text-gray-400 w-4">{i+1}</span>
+                      <span className="text-xs text-gray-700 flex-1 truncate capitalize">{s.query}</span>
+                      <span className="text-xs font-semibold text-violet-600">{s.count}×</span>
+                    </div>
+                  ))}
+                </div>
+              </CardContent></Card>
+            )}
+          </div>
+
+          {/* Empty state */}
+          {!analytics?.summary?.totalSessions && !stats?.total && (
+            <Card className="border-0 shadow-sm rounded-2xl"><CardContent className="p-10 text-center">
+              <BarChart2 className="h-10 w-10 text-gray-300 mx-auto mb-3" />
+              <p className="text-sm font-medium text-gray-500">Nicio conversație încă</p>
+              <p className="text-xs text-gray-400 mt-1">Datele vor apărea odată ce vizitatoarele încep să interacționeze cu agentul.</p>
             </CardContent></Card>
           )}
         </div>
