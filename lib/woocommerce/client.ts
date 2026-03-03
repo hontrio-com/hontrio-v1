@@ -88,7 +88,7 @@ export class WooCommerceClient {
       images: [{ src: imageUrl }],
     })
   }
-}
+
   // Stoc live pentru un produs după external_id
   async getStockStatus(productId: string) {
     const { data } = await this.request(`products/${productId}`)
@@ -140,3 +140,4 @@ export class WooCommerceClient {
     })
     return data
   }
+}
