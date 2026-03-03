@@ -19,6 +19,7 @@ export async function GET(request: Request) {
     const perPage = Math.min(parseInt(searchParams.get('per_page') || '50'), 500)
     const search = searchParams.get('search') || ''
     const status = searchParams.get('status') || ''
+    const seoFilter = searchParams.get('seo_filter') || '' // 'unoptimized' | 'partial' | 'good' | 'published'
     const category = searchParams.get('category') || ''
     const parentOnly = searchParams.get('parent_only') === 'true'
 
@@ -45,6 +46,17 @@ export async function GET(request: Request) {
     }
     if (search) {
       query = query.or(`original_title.ilike.%${search}%,optimized_title.ilike.%${search}%,category.ilike.%${search}%`)
+    }
+
+    // SEO-based filter
+    if (seoFilter === 'unoptimized') {
+      query = query.eq('seo_score', 0)
+    } else if (seoFilter === 'partial') {
+      query = query.gt('seo_score', 0).lt('seo_score', 80)
+    } else if (seoFilter === 'good') {
+      query = query.gte('seo_score', 80)
+    } else if (seoFilter === 'published') {
+      query = query.eq('status', 'published')
     }
 
     // Paginate
@@ -97,7 +109,7 @@ export async function GET(request: Request) {
     // Get status counts (for all products, not just current page)
     let countQuery = supabase
       .from('products')
-      .select('status', { count: 'exact' })
+      .select('status, seo_score', { count: 'exact' })
       .eq('user_id', userId)
 
     if (parentOnly) {
@@ -107,9 +119,10 @@ export async function GET(request: Request) {
     const { data: allStatuses } = await countQuery.range(0, 49999)
     const statusCounts = {
       all: allStatuses?.length || 0,
-      draft: allStatuses?.filter(p => p.status === 'draft').length || 0,
-      optimized: allStatuses?.filter(p => p.status === 'optimized').length || 0,
-      published: allStatuses?.filter(p => p.status === 'published').length || 0,
+      unoptimized: allStatuses?.filter((p: any) => p.seo_score === 0).length || 0,
+      partial: allStatuses?.filter((p: any) => p.seo_score > 0 && p.seo_score < 80).length || 0,
+      good: allStatuses?.filter((p: any) => p.seo_score >= 80).length || 0,
+      published: allStatuses?.filter((p: any) => p.status === 'published').length || 0,
     }
 
     return NextResponse.json({

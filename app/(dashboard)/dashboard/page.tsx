@@ -379,7 +379,7 @@ export default function DashboardPage() {
                   <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-2">Ultimele produse</p>
                   <div className="space-y-1">
                     {(data?.recentProducts || []).map(product => (
-                      <Link key={product.id} href={`/products/${product.id}`}>
+                      <Link key={product.id} href={`/seo/${product.id}`}>
                         <div className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-gray-50 transition-colors group cursor-pointer">
                           <div className="h-9 w-9 rounded-lg bg-gray-100 overflow-hidden shrink-0">
                             {product.original_images?.[0]
@@ -425,7 +425,7 @@ export default function DashboardPage() {
                     <p className="text-sm font-medium text-gray-900 truncate">{data.worstProduct.title || 'Produs fără titlu'}</p>
                     <p className="text-xs text-gray-500">Scor SEO: <span className="text-red-600 font-semibold">{data.worstProduct.seo_score}/100</span> — cel mai slab din catalog</p>
                   </div>
-                  <Link href={`/products/${data.worstProduct.id}`}>
+                  <Link href={`/seo/${data.worstProduct.id}`}>
                     <Button size="sm" className="rounded-xl bg-orange-500 hover:bg-orange-600 text-white shrink-0 h-8 px-3 text-xs">
                       Optimizează
                     </Button>

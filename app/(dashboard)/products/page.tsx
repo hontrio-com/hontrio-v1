@@ -5,8 +5,8 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   Package, Store, ArrowRight, ImageIcon, Loader2, SearchIcon,
   Grid3X3, LayoutList, X, ChevronLeft, ChevronRight as ChevronRightIcon,
-  RefreshCw, Sparkles, TrendingUp, Eye, Filter, SlidersHorizontal,
-  CheckCircle, Clock, AlertCircle,
+  RefreshCw, Sparkles, TrendingUp, SlidersHorizontal,
+  CheckCircle, AlertCircle, MinusCircle, Upload,
 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardTitle, CardDescription } from '@/components/ui/card'
@@ -30,35 +30,35 @@ type Product = {
 
 type StatusCounts = {
   all: number
-  draft: number
-  optimized: number
+  unoptimized: number
+  partial: number
+  good: number
   published: number
 }
 
 type SortOption = 'newest' | 'oldest' | 'seo_asc' | 'seo_desc' | 'price_asc' | 'price_desc'
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// ─── SEO helpers ──────────────────────────────────────────────────────────────
 
-const statusConfig: Record<string, { label: string; color: string; icon: React.ElementType }> = {
-  draft:     { label: 'Draft',     color: 'bg-slate-100 text-slate-600',   icon: Clock },
-  optimized: { label: 'Optimizat', color: 'bg-blue-50 text-blue-700',      icon: Sparkles },
-  published: { label: 'Publicat',  color: 'bg-emerald-50 text-emerald-700', icon: CheckCircle },
+function getSeoTier(score: number, status: string): 'published' | 'good' | 'partial' | 'unoptimized' {
+  if (status === 'published') return 'published'
+  if (score >= 80) return 'good'
+  if (score > 0) return 'partial'
+  return 'unoptimized'
 }
 
-const sortOptions: { value: SortOption; label: string }[] = [
-  { value: 'newest',    label: 'Cele mai noi' },
-  { value: 'oldest',   label: 'Cele mai vechi' },
-  { value: 'seo_desc', label: 'SEO ↓ cel mai bun' },
-  { value: 'seo_asc',  label: 'SEO ↑ cel mai slab' },
-  { value: 'price_desc', label: 'Preț ↓' },
-  { value: 'price_asc',  label: 'Preț ↑' },
-]
+const seoTierConfig = {
+  published:   { label: 'Publicat',     color: 'bg-emerald-50 text-emerald-700', dot: 'bg-emerald-500', icon: Upload },
+  good:        { label: 'Optimizat',    color: 'bg-blue-50 text-blue-700',       dot: 'bg-blue-500',    icon: CheckCircle },
+  partial:     { label: 'Parțial',      color: 'bg-amber-50 text-amber-700',     dot: 'bg-amber-400',   icon: MinusCircle },
+  unoptimized: { label: 'Neoptimizat',  color: 'bg-gray-100 text-gray-500',      dot: 'bg-gray-300',    icon: AlertCircle },
+}
 
 function SeoIndicator({ score }: { score: number }) {
   if (!score || score === 0) return (
-    <span className="text-[10px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded-md font-medium">—</span>
+    <span className="text-[10px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded-md font-medium tabular-nums">—</span>
   )
-  const color = score >= 80 ? 'bg-emerald-50 text-emerald-700' : score >= 50 ? 'bg-amber-50 text-amber-700' : 'bg-red-50 text-red-600'
+  const color = score >= 80 ? 'bg-blue-50 text-blue-700' : score >= 50 ? 'bg-amber-50 text-amber-700' : 'bg-red-50 text-red-600'
   return (
     <span className={`text-[10px] px-1.5 py-0.5 rounded-md font-semibold tabular-nums ${color}`}>
       SEO {score}
@@ -66,8 +66,9 @@ function SeoIndicator({ score }: { score: number }) {
   )
 }
 
-function StatusBadge({ status }: { status: string }) {
-  const cfg = statusConfig[status] || statusConfig.draft
+function SeoTierBadge({ score, status }: { score: number; status: string }) {
+  const tier = getSeoTier(score, status)
+  const cfg = seoTierConfig[tier]
   return (
     <span className={`text-[10px] px-1.5 py-0.5 rounded-md font-medium ${cfg.color}`}>
       {cfg.label}
@@ -77,65 +78,71 @@ function StatusBadge({ status }: { status: string }) {
 
 function NoImagePlaceholder({ size = 'md' }: { size?: 'sm' | 'md' }) {
   return (
-    <div className={`w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100`}>
+    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">
       <ImageIcon className={`${size === 'sm' ? 'h-5 w-5' : 'h-8 w-8'} text-gray-200`} />
     </div>
   )
 }
 
-// ─── Main Component ───────────────────────────────────────────────────────────
+const sortOptions: { value: SortOption; label: string }[] = [
+  { value: 'newest',     label: 'Cele mai noi' },
+  { value: 'oldest',    label: 'Cele mai vechi' },
+  { value: 'seo_desc',  label: 'SEO ↓ cel mai bun' },
+  { value: 'seo_asc',   label: 'SEO ↑ cel mai slab' },
+  { value: 'price_desc', label: 'Preț ↓' },
+  { value: 'price_asc', label: 'Preț ↑' },
+]
+
+// ─── Main ─────────────────────────────────────────────────────────────────────
 
 export default function ProductsPage() {
-  const [products, setProducts]           = useState<Product[]>([])
-  const [loading, setLoading]             = useState(true)
-  const [syncing, setSyncing]             = useState(false)
-  const [hasStore, setHasStore]           = useState(false)
-  const [storeId, setStoreId]             = useState<string | null>(null)
-  const [searchInput, setSearchInput]     = useState('')
-  const [searchQuery, setSearchQuery]     = useState('')
-  const [viewMode, setViewMode]           = useState<'grid' | 'list'>('grid')
-  const [currentPage, setCurrentPage]     = useState(1)
-  const [perPage, setPerPage]             = useState(50)
-  const [totalProducts, setTotalProducts] = useState(0)
-  const [totalPages, setTotalPages]       = useState(0)
-  const [statusFilter, setStatusFilter]   = useState('all')
+  const [products, setProducts]             = useState<Product[]>([])
+  const [loading, setLoading]               = useState(true)
+  const [syncing, setSyncing]               = useState(false)
+  const [hasStore, setHasStore]             = useState(false)
+  const [storeId, setStoreId]               = useState<string | null>(null)
+  const [searchInput, setSearchInput]       = useState('')
+  const [searchQuery, setSearchQuery]       = useState('')
+  const [viewMode, setViewMode]             = useState<'grid' | 'list'>('grid')
+  const [currentPage, setCurrentPage]       = useState(1)
+  const [perPage, setPerPage]               = useState(50)
+  const [totalProducts, setTotalProducts]   = useState(0)
+  const [totalPages, setTotalPages]         = useState(0)
+  const [seoFilter, setSeoFilter]           = useState('all')
   const [categoryFilter, setCategoryFilter] = useState('all')
-  const [sortBy, setSortBy]               = useState<SortOption>('newest')
-  const [statusCounts, setStatusCounts]   = useState<StatusCounts>({ all: 0, draft: 0, optimized: 0, published: 0 })
-  const [categories, setCategories]       = useState<string[]>([])
-  const [showFilters, setShowFilters]     = useState(false)
-  const [hoveredId, setHoveredId]         = useState<string | null>(null)
+  const [sortBy, setSortBy]                 = useState<SortOption>('newest')
+  const [statusCounts, setStatusCounts]     = useState<StatusCounts>({ all: 0, unoptimized: 0, partial: 0, good: 0, published: 0 })
+  const [categories, setCategories]         = useState<string[]>([])
+  const [showFilters, setShowFilters]       = useState(false)
+  const [hoveredId, setHoveredId]           = useState<string | null>(null)
 
   const fetchProducts = useCallback(async () => {
     setLoading(true)
     try {
-      // Fetch store
       const storeRes = await fetch('/api/stores')
       const storeData = await storeRes.json()
       const store = storeData.store
       setHasStore(!!store)
       if (store) setStoreId(store.id)
 
-      // Build params
       const params = new URLSearchParams({
         page: currentPage.toString(),
         per_page: perPage.toString(),
         parent_only: 'true',
       })
-      if (searchQuery)                        params.set('search', searchQuery)
-      if (statusFilter && statusFilter !== 'all') params.set('status', statusFilter)
+      if (searchQuery)                            params.set('search', searchQuery)
+      if (seoFilter && seoFilter !== 'all')       params.set('seo_filter', seoFilter)
       if (categoryFilter && categoryFilter !== 'all') params.set('category', categoryFilter)
 
       const res = await fetch('/api/products?' + params)
       const data = await res.json()
 
-      // Client-side sort (API doesn't have sort param yet)
-      let sorted = data.products || []
-      if (sortBy === 'oldest')    sorted = [...sorted].sort((a: Product, b: Product) => a.id.localeCompare(b.id))
-      if (sortBy === 'seo_desc')  sorted = [...sorted].sort((a: Product, b: Product) => (b.seo_score || 0) - (a.seo_score || 0))
-      if (sortBy === 'seo_asc')   sorted = [...sorted].sort((a: Product, b: Product) => (a.seo_score || 0) - (b.seo_score || 0))
-      if (sortBy === 'price_desc') sorted = [...sorted].sort((a: Product, b: Product) => (b.price || 0) - (a.price || 0))
-      if (sortBy === 'price_asc') sorted = [...sorted].sort((a: Product, b: Product) => (a.price || 0) - (b.price || 0))
+      let sorted: Product[] = data.products || []
+      if (sortBy === 'oldest')     sorted = [...sorted].sort((a, b) => a.id.localeCompare(b.id))
+      if (sortBy === 'seo_desc')   sorted = [...sorted].sort((a, b) => (b.seo_score || 0) - (a.seo_score || 0))
+      if (sortBy === 'seo_asc')    sorted = [...sorted].sort((a, b) => (a.seo_score || 0) - (b.seo_score || 0))
+      if (sortBy === 'price_desc') sorted = [...sorted].sort((a, b) => (b.price || 0) - (a.price || 0))
+      if (sortBy === 'price_asc')  sorted = [...sorted].sort((a, b) => (a.price || 0) - (b.price || 0))
 
       setProducts(sorted)
       setTotalProducts(data.total || 0)
@@ -147,7 +154,7 @@ export default function ProductsPage() {
     } finally {
       setLoading(false)
     }
-  }, [currentPage, perPage, searchQuery, statusFilter, categoryFilter, sortBy])
+  }, [currentPage, perPage, searchQuery, seoFilter, categoryFilter, sortBy])
 
   useEffect(() => { fetchProducts() }, [fetchProducts])
 
@@ -162,23 +169,16 @@ export default function ProductsPage() {
     try {
       const res = await fetch(`/api/stores/${storeId}/sync`, { method: 'POST' })
       const data = await res.json()
-      if (res.ok) {
-        await fetchProducts()
-      } else {
-        alert(data.error || 'Eroare la sincronizare')
-      }
-    } catch {
-      alert('Eroare la sincronizare')
-    } finally {
-      setSyncing(false)
-    }
+      if (res.ok) await fetchProducts()
+      else alert(data.error || 'Eroare la sincronizare')
+    } catch { alert('Eroare la sincronizare') }
+    finally { setSyncing(false) }
   }
 
   const getPageNumbers = () => {
     const p: (number | string)[] = []
-    if (totalPages <= 7) {
-      for (let i = 1; i <= totalPages; i++) p.push(i)
-    } else {
+    if (totalPages <= 7) { for (let i = 1; i <= totalPages; i++) p.push(i) }
+    else {
       p.push(1)
       if (currentPage > 3) p.push('...')
       for (let i = Math.max(2, currentPage - 1); i <= Math.min(totalPages - 1, currentPage + 1); i++) p.push(i)
@@ -191,23 +191,31 @@ export default function ProductsPage() {
   const getImageUrl = (p: Product) => p.thumbnail_url || p.original_images?.[0] || null
 
   const emptyMessage = () => {
-    if (searchQuery) return { title: 'Niciun produs găsit', sub: `Nu există produse pentru "${searchQuery}".` }
-    if (statusFilter === 'draft')     return { title: 'Niciun produs draft', sub: 'Toate produsele au fost optimizate sau publicate.' }
-    if (statusFilter === 'optimized') return { title: 'Niciun produs optimizat', sub: 'Intră pe un produs și generează conținut AI.' }
-    if (statusFilter === 'published') return { title: 'Niciun produs publicat', sub: 'Optimizează produse și publică-le în magazin.' }
-    return { title: 'Niciun produs sincronizat', sub: 'Sincronizează magazinul pentru a importa produsele.' }
+    if (searchQuery)              return { title: 'Niciun produs găsit', sub: `Nu există produse pentru „${searchQuery}".` }
+    if (seoFilter === 'unoptimized') return { title: 'Nicio produs neoptimizat', sub: 'Toate produsele au un scor SEO. Excelent!' }
+    if (seoFilter === 'partial')  return { title: 'Niciun produs parțial optimizat', sub: 'Produsele au scor SEO complet sau nu au fost procesate.' }
+    if (seoFilter === 'good')     return { title: 'Niciun produs cu SEO complet', sub: 'Mergi la Optimizare SEO și generează conținut AI.' }
+    if (seoFilter === 'published') return { title: 'Niciun produs publicat', sub: 'Optimizează produse și publică-le în WooCommerce.' }
+    return { title: 'Niciun produs sincronizat', sub: 'Apasă „Sincronizează" pentru a importa produsele din magazin.' }
   }
 
-  // ── Loading skeleton ───────────────────────────────────────────────────────
+  const filterTabs = [
+    { key: 'all',          label: 'Toate',        count: statusCounts.all,          dot: 'bg-gray-300' },
+    { key: 'unoptimized',  label: 'Neoptimizat',  count: statusCounts.unoptimized,  dot: 'bg-gray-300' },
+    { key: 'partial',      label: 'Parțial',      count: statusCounts.partial,      dot: 'bg-amber-400' },
+    { key: 'good',         label: 'Optimizat',    count: statusCounts.good,         dot: 'bg-blue-500' },
+    { key: 'published',    label: 'Publicat',     count: statusCounts.published,    dot: 'bg-emerald-500' },
+  ]
 
+  const hasExtraFilters = categoryFilter !== 'all' || sortBy !== 'newest'
+
+  // ── Skeleton ───────────────────────────────────────────────────────────────
   if (loading && products.length === 0) return (
     <div className="space-y-5">
       <div className="h-8 w-48 bg-gray-100 rounded-lg animate-pulse" />
-      <div className="flex gap-2">{[1,2,3,4].map(i => <div key={i} className="h-8 w-24 bg-gray-100 rounded-xl animate-pulse" />)}</div>
+      <div className="flex gap-2">{[1,2,3,4,5].map(i => <div key={i} className="h-9 w-28 bg-gray-100 rounded-xl animate-pulse" />)}</div>
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-        {[1,2,3,4,5,6,7,8,9,10].map(i => (
-          <div key={i} className="rounded-2xl bg-gray-100 animate-pulse" style={{ aspectRatio: '3/4' }} />
-        ))}
+        {[...Array(10)].map((_, i) => <div key={i} className="rounded-2xl bg-gray-100 animate-pulse" style={{ aspectRatio: '3/4' }} />)}
       </div>
     </div>
   )
@@ -221,43 +229,34 @@ export default function ProductsPage() {
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Produse</h1>
             {hasStore && (
-              <div className="flex items-center gap-3 mt-1">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1">
                 <span className="text-sm text-gray-400">{statusCounts.all} total</span>
-                <span className="text-gray-200">·</span>
-                <span className="text-sm text-slate-500">{statusCounts.draft} draft</span>
-                <span className="text-gray-200">·</span>
-                <span className="text-sm text-blue-500">{statusCounts.optimized} optimizate</span>
-                <span className="text-gray-200">·</span>
-                <span className="text-sm text-emerald-500">{statusCounts.published} publicate</span>
+                {[
+                  { label: 'neoptimizate', count: statusCounts.unoptimized, color: 'text-gray-400' },
+                  { label: 'parțiale',     count: statusCounts.partial,     color: 'text-amber-500' },
+                  { label: 'optimizate',   count: statusCounts.good,        color: 'text-blue-500'  },
+                  { label: 'publicate',    count: statusCounts.published,   color: 'text-emerald-500' },
+                ].map(s => (
+                  <span key={s.label} className="flex items-center gap-1 text-sm">
+                    <span className="text-gray-200">·</span>
+                    <span className={s.color}>{s.count} {s.label}</span>
+                  </span>
+                ))}
               </div>
             )}
           </div>
 
           {hasStore && (
             <div className="flex items-center gap-2">
-              {/* View toggle */}
               <div className="hidden sm:flex border border-gray-200 rounded-xl overflow-hidden">
-                <button
-                  onClick={() => setViewMode('grid')}
-                  className={`p-2.5 transition-colors ${viewMode === 'grid' ? 'bg-blue-50 text-blue-600' : 'text-gray-400 hover:text-gray-600'}`}
-                >
+                <button onClick={() => setViewMode('grid')} className={`p-2.5 transition-colors ${viewMode === 'grid' ? 'bg-blue-50 text-blue-600' : 'text-gray-400 hover:text-gray-600'}`}>
                   <Grid3X3 className="h-4 w-4" />
                 </button>
-                <button
-                  onClick={() => setViewMode('list')}
-                  className={`p-2.5 transition-colors ${viewMode === 'list' ? 'bg-blue-50 text-blue-600' : 'text-gray-400 hover:text-gray-600'}`}
-                >
+                <button onClick={() => setViewMode('list')} className={`p-2.5 transition-colors ${viewMode === 'list' ? 'bg-blue-50 text-blue-600' : 'text-gray-400 hover:text-gray-600'}`}>
                   <LayoutList className="h-4 w-4" />
                 </button>
               </div>
-
-              {/* Sync button */}
-              <Button
-                onClick={handleSync}
-                disabled={syncing}
-                variant="outline"
-                className="rounded-xl h-10 px-4 border-gray-200 gap-2"
-              >
+              <Button onClick={handleSync} disabled={syncing} variant="outline" className="rounded-xl h-10 px-4 border-gray-200 gap-2">
                 <RefreshCw className={`h-4 w-4 ${syncing ? 'animate-spin text-blue-500' : 'text-gray-400'}`} />
                 <span className="text-sm">{syncing ? 'Sincronizez...' : 'Sincronizează'}</span>
               </Button>
@@ -266,7 +265,7 @@ export default function ProductsPage() {
         </div>
       </motion.div>
 
-      {/* ── No Store State ───────────────────────────────────────────────────── */}
+      {/* ── No Store ────────────────────────────────────────────────────────── */}
       {!hasStore ? (
         <Card className="border-dashed border-2 border-gray-200 rounded-2xl shadow-none">
           <CardContent className="flex flex-col items-center justify-center py-20">
@@ -286,7 +285,7 @@ export default function ProductsPage() {
         </Card>
       ) : (
         <>
-          {/* ── Filters Row ─────────────────────────────────────────────────── */}
+          {/* ── Filter Row ──────────────────────────────────────────────────── */}
           <div className="flex flex-col sm:flex-row gap-3">
             {/* Search */}
             <div className="relative flex-1 max-w-sm">
@@ -298,35 +297,26 @@ export default function ProductsPage() {
                 className="pl-10 h-10 rounded-xl border-gray-200 bg-white"
               />
               {searchInput && (
-                <button
-                  onClick={() => { setSearchInput(''); setSearchQuery(''); setCurrentPage(1) }}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                >
+                <button onClick={() => { setSearchInput(''); setSearchQuery(''); setCurrentPage(1) }} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
                   <X className="h-4 w-4" />
                 </button>
               )}
             </div>
 
-            {/* Status filter tabs */}
-            <div className="flex items-center gap-1 bg-gray-100 rounded-xl p-1">
-              {[
-                { key: 'all', label: 'Toate', count: statusCounts.all },
-                { key: 'draft', label: 'Draft', count: statusCounts.draft },
-                { key: 'optimized', label: 'Optimizat', count: statusCounts.optimized },
-                { key: 'published', label: 'Publicat', count: statusCounts.published },
-              ].map(tab => (
+            {/* SEO Filter tabs */}
+            <div className="flex items-center gap-1 bg-gray-100 rounded-xl p-1 overflow-x-auto">
+              {filterTabs.map(tab => (
                 <button
                   key={tab.key}
-                  onClick={() => { setStatusFilter(tab.key); setCurrentPage(1) }}
+                  onClick={() => { setSeoFilter(tab.key); setCurrentPage(1) }}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all whitespace-nowrap ${
-                    statusFilter === tab.key
-                      ? 'bg-white text-gray-900 shadow-sm'
-                      : 'text-gray-500 hover:text-gray-700'
+                    seoFilter === tab.key ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
                   }`}
                 >
+                  {tab.key !== 'all' && <div className={`h-1.5 w-1.5 rounded-full ${tab.dot}`} />}
                   {tab.label}
                   <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${
-                    statusFilter === tab.key ? 'bg-blue-100 text-blue-700' : 'bg-gray-200 text-gray-500'
+                    seoFilter === tab.key ? 'bg-blue-100 text-blue-700' : 'bg-gray-200 text-gray-500'
                   }`}>{tab.count}</span>
                 </button>
               ))}
@@ -335,17 +325,13 @@ export default function ProductsPage() {
             {/* Extra filters toggle */}
             <button
               onClick={() => setShowFilters(f => !f)}
-              className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-sm font-medium transition-all ${
-                showFilters || categoryFilter !== 'all' || sortBy !== 'newest'
-                  ? 'border-blue-200 bg-blue-50 text-blue-700'
-                  : 'border-gray-200 bg-white text-gray-500 hover:text-gray-700'
+              className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-sm font-medium transition-all shrink-0 ${
+                showFilters || hasExtraFilters ? 'border-blue-200 bg-blue-50 text-blue-700' : 'border-gray-200 bg-white text-gray-500 hover:text-gray-700'
               }`}
             >
               <SlidersHorizontal className="h-4 w-4" />
               <span className="hidden sm:inline">Filtre</span>
-              {(categoryFilter !== 'all' || sortBy !== 'newest') && (
-                <span className="h-2 w-2 rounded-full bg-blue-500" />
-              )}
+              {hasExtraFilters && <span className="h-2 w-2 rounded-full bg-blue-500" />}
             </button>
           </div>
 
@@ -360,7 +346,6 @@ export default function ProductsPage() {
                 className="overflow-hidden"
               >
                 <div className="flex flex-wrap items-center gap-3 p-4 bg-gray-50 rounded-2xl border border-gray-100">
-                  {/* Category filter */}
                   {categories.length > 0 && (
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-gray-500 font-medium">Categorie:</span>
@@ -370,14 +355,10 @@ export default function ProductsPage() {
                         className="text-sm border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-200"
                       >
                         <option value="all">Toate categoriile</option>
-                        {categories.map(cat => (
-                          <option key={cat} value={cat}>{cat}</option>
-                        ))}
+                        {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
                       </select>
                     </div>
                   )}
-
-                  {/* Sort */}
                   <div className="flex items-center gap-2">
                     <span className="text-xs text-gray-500 font-medium">Sortare:</span>
                     <select
@@ -385,36 +366,22 @@ export default function ProductsPage() {
                       onChange={(e) => setSortBy(e.target.value as SortOption)}
                       className="text-sm border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-200"
                     >
-                      {sortOptions.map(o => (
-                        <option key={o.value} value={o.value}>{o.label}</option>
-                      ))}
+                      {sortOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                     </select>
                   </div>
-
-                  {/* Per page */}
                   <div className="flex items-center gap-2 ml-auto">
                     <span className="text-xs text-gray-500 font-medium">Pe pagină:</span>
                     <div className="flex gap-1">
                       {[50, 100, 500].map(n => (
-                        <button
-                          key={n}
-                          onClick={() => { setPerPage(n); setCurrentPage(1) }}
-                          className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
-                            perPage === n ? 'bg-blue-100 text-blue-700' : 'bg-white border border-gray-200 text-gray-500 hover:bg-gray-50'
-                          }`}
-                        >
+                        <button key={n} onClick={() => { setPerPage(n); setCurrentPage(1) }}
+                          className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${perPage === n ? 'bg-blue-100 text-blue-700' : 'bg-white border border-gray-200 text-gray-500 hover:bg-gray-50'}`}>
                           {n}
                         </button>
                       ))}
                     </div>
                   </div>
-
-                  {/* Reset filters */}
-                  {(categoryFilter !== 'all' || sortBy !== 'newest') && (
-                    <button
-                      onClick={() => { setCategoryFilter('all'); setSortBy('newest') }}
-                      className="flex items-center gap-1 text-xs text-red-500 hover:text-red-700 font-medium"
-                    >
+                  {hasExtraFilters && (
+                    <button onClick={() => { setCategoryFilter('all'); setSortBy('newest') }} className="flex items-center gap-1 text-xs text-red-500 hover:text-red-700 font-medium">
                       <X className="h-3.5 w-3.5" />Resetează
                     </button>
                   )}
@@ -423,24 +390,24 @@ export default function ProductsPage() {
             )}
           </AnimatePresence>
 
-          {/* ── Result info ──────────────────────────────────────────────────── */}
+          {/* ── Result count ─────────────────────────────────────────────────── */}
           {!loading && (
             <p className="text-sm text-gray-400">
               {totalProducts} {totalProducts === 1 ? 'produs' : 'produse'}
-              {searchQuery ? ` pentru "${searchQuery}"` : ''}
-              {statusFilter !== 'all' ? ` · ${statusConfig[statusFilter]?.label || statusFilter}` : ''}
+              {searchQuery ? ` pentru „${searchQuery}"` : ''}
+              {seoFilter !== 'all' ? ` · ${filterTabs.find(t => t.key === seoFilter)?.label}` : ''}
               {categoryFilter !== 'all' ? ` · ${categoryFilter}` : ''}
             </p>
           )}
 
-          {/* ── Loading spinner ──────────────────────────────────────────────── */}
+          {/* ── Loading ───────────────────────────────────────────────────────── */}
           {loading ? (
             <div className="flex items-center justify-center py-16">
               <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
               <span className="ml-2 text-sm text-gray-500">Se încarcă...</span>
             </div>
 
-          /* ── Empty state ─────────────────────────────────────────────────── */
+          /* ── Empty ───────────────────────────────────────────────────────── */
           ) : products.length === 0 ? (
             <div className="text-center py-20">
               <div className="h-14 w-14 rounded-2xl bg-gray-100 flex items-center justify-center mx-auto mb-3">
@@ -448,7 +415,7 @@ export default function ProductsPage() {
               </div>
               <p className="text-gray-700 font-semibold mb-1">{emptyMessage().title}</p>
               <p className="text-sm text-gray-400 max-w-xs mx-auto">{emptyMessage().sub}</p>
-              {!searchQuery && statusFilter === 'all' && (
+              {!searchQuery && seoFilter === 'all' && (
                 <Button onClick={handleSync} disabled={syncing} variant="outline" className="mt-5 rounded-xl gap-2">
                   <RefreshCw className={`h-4 w-4 ${syncing ? 'animate-spin' : ''}`} />
                   Sincronizează acum
@@ -456,12 +423,13 @@ export default function ProductsPage() {
               )}
             </div>
 
-          /* ── GRID VIEW ────────────────────────────────────────────────────── */
+          /* ── GRID ────────────────────────────────────────────────────────── */
           ) : viewMode === 'grid' ? (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
               {products.map((product, i) => {
                 const imgUrl = getImageUrl(product)
-                const isHovered = hoveredId === product.id
+                const tier = getSeoTier(product.seo_score, product.status)
+                const tierCfg = seoTierConfig[tier]
                 return (
                   <motion.div
                     key={product.id}
@@ -469,7 +437,7 @@ export default function ProductsPage() {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.22, delay: Math.min(i * 0.03, 0.3) }}
                   >
-                    <Link href={`/products/${product.id}`}>
+                    <Link href={`/seo/${product.id}`}>
                       <div
                         className="group bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm hover:shadow-md hover:border-blue-100 transition-all duration-200 flex flex-col cursor-pointer"
                         onMouseEnter={() => setHoveredId(product.id)}
@@ -477,40 +445,31 @@ export default function ProductsPage() {
                       >
                         {/* Image */}
                         <div className="relative aspect-square bg-gray-50 overflow-hidden">
-                          {imgUrl ? (
-                            <img
-                              src={imgUrl}
-                              alt={product.original_title}
-                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                            />
-                          ) : (
-                            <NoImagePlaceholder />
-                          )}
+                          {imgUrl
+                            ? <img src={imgUrl} alt={product.original_title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                            : <NoImagePlaceholder />
+                          }
 
-                          {/* Status badge - top left */}
+                          {/* SEO tier badge — top left */}
                           <div className="absolute top-2 left-2">
-                            <StatusBadge status={product.status} />
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded-md font-medium backdrop-blur-sm ${tierCfg.color}`}>
+                              {tierCfg.label}
+                            </span>
                           </div>
 
-                          {/* Hover overlay with actions */}
+                          {/* Hover overlay */}
                           <AnimatePresence>
-                            {isHovered && (
+                            {hoveredId === product.id && (
                               <motion.div
                                 initial={{ opacity: 0 }}
                                 animate={{ opacity: 1 }}
                                 exit={{ opacity: 0 }}
                                 transition={{ duration: 0.15 }}
-                                className="absolute inset-0 bg-gray-900/40 flex items-center justify-center gap-2"
+                                className="absolute inset-0 bg-gray-900/40 flex items-center justify-center"
                               >
-                                <div className="flex items-center gap-2">
-                                  <div className="flex items-center gap-1.5 bg-white text-gray-900 text-xs font-semibold px-3 py-2 rounded-xl shadow-lg">
-                                    <Eye className="h-3.5 w-3.5" />
-                                    Detalii
-                                  </div>
-                                  <div className="flex items-center gap-1.5 bg-blue-600 text-white text-xs font-semibold px-3 py-2 rounded-xl shadow-lg">
-                                    <Sparkles className="h-3.5 w-3.5" />
-                                    AI
-                                  </div>
+                                <div className="flex items-center gap-1.5 bg-blue-600 text-white text-xs font-semibold px-4 py-2 rounded-xl shadow-lg">
+                                  <Sparkles className="h-3.5 w-3.5" />
+                                  Optimizează SEO
                                 </div>
                               </motion.div>
                             )}
@@ -549,7 +508,7 @@ export default function ProductsPage() {
               })}
             </div>
 
-          /* ── LIST VIEW ───────────────────────────────────────────────────── */
+          /* ── LIST ────────────────────────────────────────────────────────── */
           ) : (
             <div className="space-y-1.5">
               {/* List header */}
@@ -570,9 +529,8 @@ export default function ProductsPage() {
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ duration: 0.18, delay: Math.min(i * 0.02, 0.2) }}
                   >
-                    <Link href={`/products/${product.id}`}>
+                    <Link href={`/seo/${product.id}`}>
                       <div className="grid grid-cols-12 gap-4 items-center bg-white rounded-xl border border-gray-100 px-4 py-3 hover:border-blue-100 hover:shadow-sm transition-all cursor-pointer group">
-                        {/* Image + title */}
                         <div className="col-span-12 sm:col-span-6 flex items-center gap-3">
                           <div className="h-11 w-11 rounded-xl bg-gray-50 overflow-hidden shrink-0">
                             {imgUrl
@@ -589,23 +547,15 @@ export default function ProductsPage() {
                             )}
                           </div>
                         </div>
-
-                        {/* Category */}
                         <div className="hidden sm:block col-span-2">
                           <p className="text-xs text-gray-400 truncate">{product.category || '—'}</p>
                         </div>
-
-                        {/* SEO */}
                         <div className="hidden sm:flex col-span-1 justify-center">
                           <SeoIndicator score={product.seo_score} />
                         </div>
-
-                        {/* Status */}
                         <div className="hidden sm:flex col-span-1 justify-center">
-                          <StatusBadge status={product.status} />
+                          <SeoTierBadge score={product.seo_score} status={product.status} />
                         </div>
-
-                        {/* Price */}
                         <div className="hidden sm:block col-span-2 text-right">
                           {product.price
                             ? <span className="text-sm font-semibold text-gray-800">{product.price} <span className="text-xs text-gray-400 font-normal">RON</span></span>
@@ -623,37 +573,20 @@ export default function ProductsPage() {
           {/* ── Pagination ───────────────────────────────────────────────────── */}
           {totalPages > 1 && (
             <div className="flex items-center justify-between pt-4 border-t border-gray-100">
-              <p className="text-xs text-gray-400">
-                Pagina {currentPage} din {totalPages} ({totalProducts} produse)
-              </p>
+              <p className="text-xs text-gray-400">Pagina {currentPage} din {totalPages} ({totalProducts} produse)</p>
               <div className="flex items-center gap-1">
-                <button
-                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                  disabled={currentPage === 1}
-                  className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-30 transition-colors"
-                >
+                <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-30 transition-colors">
                   <ChevronLeft className="h-4 w-4" />
                 </button>
                 {getPageNumbers().map((pn, i) =>
-                  pn === '...' ? (
-                    <span key={'d' + i} className="px-2 text-gray-400 text-sm">...</span>
-                  ) : (
-                    <button
-                      key={pn}
-                      onClick={() => setCurrentPage(pn as number)}
-                      className={`h-8 w-8 rounded-lg text-sm font-medium transition-all ${
-                        currentPage === pn ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-500 hover:bg-gray-100'
-                      }`}
-                    >
-                      {pn}
-                    </button>
-                  )
+                  pn === '...'
+                    ? <span key={'d' + i} className="px-2 text-gray-400 text-sm">...</span>
+                    : <button key={pn} onClick={() => setCurrentPage(pn as number)}
+                        className={`h-8 w-8 rounded-lg text-sm font-medium transition-all ${currentPage === pn ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-500 hover:bg-gray-100'}`}>
+                        {pn}
+                      </button>
                 )}
-                <button
-                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                  disabled={currentPage === totalPages}
-                  className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-30 transition-colors"
-                >
+                <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-30 transition-colors">
                   <ChevronRightIcon className="h-4 w-4" />
                 </button>
               </div>
