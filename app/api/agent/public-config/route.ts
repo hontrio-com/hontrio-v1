@@ -42,11 +42,6 @@ export async function GET(request: Request) {
       }, { headers: CORS })
     }
 
-    // Dacă există dar e inactiv, tot returnăm 403 cu CORS
-    if (!config.is_active) {
-      return NextResponse.json({ error: 'Agent inactiv' }, { status: 403, headers: CORS })
-    }
-
     const { data: store } = await supabase
       .from('stores')
       .select('store_name, store_url')
@@ -68,6 +63,7 @@ export async function GET(request: Request) {
       widget_intro_animation: config.widget_intro_animation ?? true,
       widget_custom_css: config.widget_custom_css || '',
       quick_replies: config.quick_replies || ['Caut un produs', 'Am o întrebare', 'Livrare & retur'],
+      is_active: config.is_active,
       has_whatsapp: !!config.whatsapp_number,
     }, { headers: CORS })
 

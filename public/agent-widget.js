@@ -371,6 +371,13 @@ function siteBase(){return(window.HontrioAgent&&window.HontrioAgent.storeUrl)||w
 function applyConfig(d){
   if(!d)return;
 
+  // Ascunde widget-ul dacă agentul e inactiv
+  var container=document.getElementById('_h');
+  if(container){
+    if(d.is_active===false){container.style.display='none';return;}
+    else{container.style.display='';}
+  }
+
   // Agent name
   if(d.agent_name){
     var an=document.getElementById('_h_an');
