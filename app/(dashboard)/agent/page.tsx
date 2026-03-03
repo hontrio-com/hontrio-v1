@@ -4,59 +4,201 @@ import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Bot, Power, MessageCircle, Phone, Palette, Settings2,
-  Copy, Check, ChevronRight, Eye, TrendingUp, Users,
+  Copy, Check, ChevronRight, TrendingUp,
   Zap, ArrowUpRight, Loader2, Save, AlertCircle,
-  ExternalLink, Smartphone, Monitor, ToggleLeft, ToggleRight,
+  ExternalLink, ToggleLeft, ToggleRight, Upload, Code2,
+  Square, Circle, RectangleHorizontal,
+  X, Send,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 
 const COLORS = [
   '#2563eb', '#7c3aed', '#db2777', '#dc2626',
   '#d97706', '#16a34a', '#0891b2', '#374151',
+  '#f97316', '#8b5cf6', '#06b6d4', '#84cc16',
 ]
 
 const INTENT_LABELS: Record<string, string> = {
-  buying_ready: 'Gata să cumpere',
-  browsing: 'Explorează',
-  comparing: 'Compară',
-  compatibility: 'Compatibilitate',
-  info_product: 'Info produs',
-  info_shipping: 'Livrare/retur',
-  problem: 'Problemă',
-  escalate: 'Escaladare',
-  greeting: 'Salut inițial',
+  buying_ready: 'Gata să cumpere', browsing: 'Explorează', comparing: 'Compară',
+  compatibility: 'Compatibilitate', info_product: 'Info produs', info_shipping: 'Livrare/retur',
+  problem: 'Problemă', escalate: 'Escaladare', greeting: 'Salut inițial',
 }
 
 type Config = {
-  is_active: boolean
-  agent_name: string
-  welcome_message: string
-  whatsapp_number: string
-  whatsapp_message: string
-  widget_position: string
-  widget_color: string
-  widget_size: string
-  widget_bottom_offset: number
+  is_active: boolean; agent_name: string; welcome_message: string
+  whatsapp_number: string; whatsapp_message: string
+  widget_position: string; widget_color: string; widget_size: string
+  widget_bottom_offset: number; widget_button_shape: string
+  widget_button_label: string; widget_avatar_url: string
+  widget_intro_animation: boolean; widget_custom_css: string
+  quick_replies: string[]
 }
 
-type Stats = {
-  total: number; last7: number; escalated: number; avgMessages: number
-}
+type Stats = { total: number; last7: number; escalated: number; avgMessages: number }
 
 const defaultConfig: Config = {
-  is_active: false,
-  agent_name: 'Asistent',
+  is_active: false, agent_name: 'Asistent',
   welcome_message: 'Bună! Sunt asistentul tău virtual. Cu ce te pot ajuta astăzi?',
-  whatsapp_number: '',
-  whatsapp_message: 'Bună ziua! Am o întrebare despre produsele voastre.',
-  widget_position: 'bottom-right',
-  widget_color: '#2563eb',
-  widget_size: 'medium',
-  widget_bottom_offset: 20,
+  whatsapp_number: '', whatsapp_message: 'Bună ziua! Am o întrebare despre produsele voastre.',
+  widget_position: 'bottom-right', widget_color: '#2563eb', widget_size: 'medium',
+  widget_bottom_offset: 20, widget_button_shape: 'circle', widget_button_label: 'Ajutor?',
+  widget_avatar_url: '', widget_intro_animation: true, widget_custom_css: '',
+  quick_replies: ['Caut un produs', 'Am o întrebare', 'Livrare & retur'],
 }
 
+// ── LIVE WIDGET PREVIEW ───────────────────────────────────────────────────────
+function WidgetPreview({ config, messages, onSend, loading, onToggle, isOpen }: {
+  config: Config
+  messages: Array<{role: string; content: string; quick_replies?: string[]}>
+  onSend: (msg: string) => void
+  loading: boolean
+  onToggle: () => void
+  isOpen: boolean
+}) {
+  const [input, setInput] = useState('')
+  const endRef = useRef<HTMLDivElement>(null)
+  const btnSize = config.widget_size === 'small' ? 44 : config.widget_size === 'large' ? 64 : 52
+  const isRect = config.widget_button_shape === 'rectangle'
+  const borderRadius = config.widget_button_shape === 'circle' ? '50%' : config.widget_button_shape === 'rounded' ? '16px' : '12px'
+
+  useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages])
+
+  const handleSend = () => { if (!input.trim()) return; onSend(input.trim()); setInput('') }
+
+  return (
+    <div className="relative bg-gray-100 rounded-2xl overflow-hidden" style={{ height: 520 }}>
+      {/* Fake background */}
+      <div className="absolute inset-0 p-5 opacity-25 pointer-events-none select-none">
+        <div className="h-4 bg-gray-400 rounded w-2/3 mb-3" />
+        <div className="h-3 bg-gray-300 rounded w-full mb-2" />
+        <div className="h-3 bg-gray-300 rounded w-5/6 mb-2" />
+        <div className="h-3 bg-gray-300 rounded w-4/5 mb-5" />
+        <div className="grid grid-cols-3 gap-2">{[1,2,3].map(i => <div key={i} className="h-16 bg-gray-200 rounded-lg" />)}</div>
+      </div>
+
+      {/* Chat window */}
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0, y: 12 }} animate={{ scale: 1, opacity: 1, y: 0 }}
+            exit={{ scale: 0.9, opacity: 0, y: 12 }} transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+            className="absolute flex flex-col rounded-2xl overflow-hidden shadow-2xl bg-white"
+            style={{ width: 280, height: 380, bottom: config.widget_bottom_offset + btnSize + 10, [config.widget_position === 'bottom-right' ? 'right' : 'left']: 12 }}
+          >
+            <div className="flex items-center gap-2.5 px-3 py-2.5 shrink-0" style={{ background: config.widget_color }}>
+              {config.widget_avatar_url
+                ? <img src={config.widget_avatar_url} alt="" className="w-8 h-8 rounded-full object-cover border-2 border-white/30" />
+                : <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center border-2 border-white/30"><Bot className="w-4 h-4 text-white" /></div>
+              }
+              <div>
+                <p className="text-white text-xs font-semibold">{config.agent_name || 'Asistent'}</p>
+                <div className="flex items-center gap-1 mt-0.5"><div className="w-1.5 h-1.5 rounded-full bg-green-400" /><p className="text-white/80 text-[10px]">Online</p></div>
+              </div>
+              <button onClick={onToggle} className="ml-auto w-6 h-6 rounded-full bg-white/15 flex items-center justify-center hover:bg-white/25 transition-colors">
+                <X className="w-3 h-3 text-white" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-3 space-y-2.5 bg-gray-50">
+              {messages.length === 0 ? (
+                <div className="text-center py-6">
+                  <Bot className="w-7 h-7 text-gray-200 mx-auto mb-2" />
+                  <p className="text-[11px] text-gray-400 mb-3">Trimite un mesaj ca să testezi</p>
+                  <div className="flex flex-wrap gap-1.5 justify-center">
+                    {(config.quick_replies || []).slice(0,3).map((qr: string) => (
+                      <button key={qr} onClick={() => onSend(qr)}
+                        className="text-[10px] px-2 py-1 rounded-full border font-medium hover:opacity-80 transition-all"
+                        style={{ color: config.widget_color, borderColor: config.widget_color + '50', background: config.widget_color + '10' }}>
+                        {qr}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : messages.map((msg, i) => (
+                <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                  <div className="max-w-[85%] space-y-1.5">
+                    <div className={`px-3 py-2 rounded-2xl text-[11px] leading-relaxed ${msg.role === 'user' ? 'text-white rounded-br-sm' : 'bg-white text-gray-800 shadow-sm rounded-bl-sm'}`}
+                      style={msg.role === 'user' ? { background: config.widget_color } : {}}>
+                      {msg.content}
+                    </div>
+                    {msg.quick_replies && msg.quick_replies.length > 0 && (
+                      <div className="flex flex-wrap gap-1">
+                        {msg.quick_replies.map((qr: string) => (
+                          <button key={qr} onClick={() => onSend(qr)}
+                            className="text-[10px] px-2 py-1 rounded-full border font-medium hover:opacity-80 transition-all"
+                            style={{ color: config.widget_color, borderColor: config.widget_color + '50', background: config.widget_color + '10' }}>
+                            {qr}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+              {loading && (
+                <div className="flex justify-start">
+                  <div className="bg-white rounded-2xl rounded-bl-sm px-3 py-2.5 shadow-sm flex gap-1">
+                    {[0,1,2].map(i => <div key={i} className="w-1.5 h-1.5 rounded-full bg-gray-300 animate-bounce" style={{ animationDelay: `${i*0.15}s` }} />)}
+                  </div>
+                </div>
+              )}
+              <div ref={endRef} />
+            </div>
+
+            <div className="p-2.5 border-t border-gray-100 bg-white flex gap-2">
+              <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSend()}
+                placeholder="Scrie un mesaj..." className="flex-1 text-[11px] bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:border-blue-300 transition-colors" />
+              <button onClick={handleSend} disabled={!input.trim() || loading}
+                className="w-8 h-8 rounded-xl flex items-center justify-center text-white hover:opacity-80 disabled:opacity-40 transition-all"
+                style={{ background: config.widget_color }}>
+                <Send className="w-3.5 h-3.5" />
+              </button>
+            </div>
+            <div className="text-center py-1.5 text-[9px] text-gray-300 bg-white">Powered by <span className="text-gray-400">Hontrio</span></div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Intro bubble */}
+      <AnimatePresence>
+        {!isOpen && config.widget_intro_animation && (
+          <motion.div initial={{ opacity: 0, y: 8, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} transition={{ delay: 0.6 }}
+            className="absolute rounded-2xl px-3 py-2.5 shadow-lg text-[11px] text-gray-700 font-medium max-w-[170px] cursor-pointer hover:shadow-xl transition-shadow"
+            style={{
+              background: '#fff', bottom: config.widget_bottom_offset + btnSize + 14,
+              [config.widget_position === 'bottom-right' ? 'right' : 'left']: 12,
+              boxShadow: '0 4px 20px rgba(0,0,0,.12),0 0 0 1px rgba(0,0,0,.06)',
+              borderBottomRightRadius: config.widget_position === 'bottom-right' ? 4 : 16,
+              borderBottomLeftRadius: config.widget_position === 'bottom-left' ? 4 : 16,
+            }}
+            onClick={onToggle}>
+            👋 {(config.welcome_message || 'Cu ce te pot ajuta?').slice(0, 55)}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Button */}
+      <motion.button whileHover={{ scale: 1.08 }} whileTap={{ scale: 0.95 }} onClick={onToggle}
+        className="absolute flex items-center justify-center gap-2 text-white"
+        style={{
+          background: config.widget_color, borderRadius,
+          width: isRect ? 'auto' : btnSize, height: isRect ? Math.round(btnSize * 0.65) : btnSize,
+          paddingLeft: isRect ? 14 : 0, paddingRight: isRect ? 14 : 0,
+          bottom: config.widget_bottom_offset, [config.widget_position === 'bottom-right' ? 'right' : 'left']: 12,
+          boxShadow: `0 4px 16px ${config.widget_color}66`,
+        }}>
+        {config.widget_avatar_url && !isOpen
+          ? <img src={config.widget_avatar_url} alt="" className="w-7 h-7 rounded-full object-cover" />
+          : <MessageCircle style={{ width: config.widget_size === 'small' ? 18 : config.widget_size === 'large' ? 26 : 22, height: 'auto' }} />
+        }
+        {isRect && <span className="text-sm font-semibold whitespace-nowrap">{config.widget_button_label || 'Ajutor?'}</span>}
+      </motion.button>
+    </div>
+  )
+}
+
+// ── MAIN PAGE ─────────────────────────────────────────────────────────────────
 export default function AgentPage() {
   const [config, setConfig] = useState<Config>(defaultConfig)
   const [stats, setStats] = useState<Stats | null>(null)
@@ -69,46 +211,35 @@ export default function AgentPage() {
   const [copied, setCopied] = useState(false)
   const [downloading, setDownloading] = useState(false)
   const [activeTab, setActiveTab] = useState<'overview' | 'settings' | 'install'>('overview')
+  const [activeSettingsTab, setActiveSettingsTab] = useState<'identity' | 'appearance' | 'advanced'>('identity')
+  const [uploadingAvatar, setUploadingAvatar] = useState(false)
+  const avatarInputRef = useRef<HTMLInputElement>(null)
   const [previewOpen, setPreviewOpen] = useState(false)
-  const [previewMessage, setPreviewMessage] = useState('')
-  const [previewMessages, setPreviewMessages] = useState<Array<{role: string; content: string; products?: any[]; quick_replies?: string[]}>>([])
+  const [previewMessages, setPreviewMessages] = useState<Array<{role: string; content: string; quick_replies?: string[]}>>([])
   const [previewLoading, setPreviewLoading] = useState(false)
-  const previewEndRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => { loadData() }, [])
-  useEffect(() => { previewEndRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [previewMessages])
 
   const loadData = async () => {
     try {
-      const [configRes, statsRes] = await Promise.all([
-        fetch('/api/agent/config'),
-        fetch('/api/agent/conversations'),
+      const [configRes, statsRes, meRes] = await Promise.all([
+        fetch('/api/agent/config'), fetch('/api/agent/conversations'), fetch('/api/user/me'),
       ])
       const configData = await configRes.json()
       const statsData = await statsRes.json()
-
+      const meData = await meRes.json()
       if (configData.config) setConfig({ ...defaultConfig, ...configData.config })
-      if (configData.store?.id) setStoreUserId(configData.store.id)
       if (configData.store?.store_url) setStoreUrl(configData.store.store_url)
-
+      if (meData.user?.id) setStoreUserId(meData.user.id)
       if (statsData.stats) setStats(statsData.stats)
       if (statsData.intents) setIntents(statsData.intents)
-
-      // Get current user ID for snippet
-      const meRes = await fetch('/api/user/me')
-      const meData = await meRes.json()
-      if (meData.user?.id) setStoreUserId(meData.user.id)
     } catch (e) { console.error(e) } finally { setLoading(false) }
   }
 
   const handleSave = async () => {
     setSaving(true)
     try {
-      const res = await fetch('/api/agent/config', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(config),
-      })
+      const res = await fetch('/api/agent/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(config) })
       if (res.ok) { setSaved(true); setTimeout(() => setSaved(false), 3000) }
     } catch {} finally { setSaving(false) }
   }
@@ -116,127 +247,73 @@ export default function AgentPage() {
   const handleToggle = async () => {
     const newActive = !config.is_active
     setConfig(c => ({ ...c, is_active: newActive }))
-    await fetch('/api/agent/config', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...config, is_active: newActive }),
-    })
+    await fetch('/api/agent/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...config, is_active: newActive }) })
   }
 
-  const snippetCode = `<!-- HONTRIO AI Agent -->
-<script>
-  window.HontrioAgent = {
-    userId: "${storeUserId}",
-    color: "${config.widget_color}",
-    position: "${config.widget_position}",
-    size: "${config.widget_size}"
-  };
-</script>
-<script src="https://hontrio.com/agent-widget.js" async></script>`
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]; if (!file) return
+    setUploadingAvatar(true)
+    try {
+      const formData = new FormData(); formData.append('file', file)
+      const res = await fetch('/api/user/avatar', { method: 'POST', body: formData })
+      const data = await res.json()
+      if (data.url) setConfig(c => ({ ...c, widget_avatar_url: data.url }))
+    } catch {} finally { setUploadingAvatar(false) }
+  }
+
+  const sendPreview = async (msg: string) => {
+    if (!msg || previewLoading) return
+    const newMessages = [...previewMessages, { role: 'user', content: msg }]
+    setPreviewMessages(newMessages); setPreviewLoading(true); setPreviewOpen(true)
+    try {
+      const res = await fetch('/api/agent/chat', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: msg, history: newMessages.slice(-6).map(m => ({ role: m.role, content: m.content })), session_id: 'preview-' + Date.now(), store_user_id: storeUserId }),
+      })
+      const data = await res.json()
+      setPreviewMessages(prev => [...prev, { role: 'assistant', content: data.message, quick_replies: data.quick_replies }])
+    } catch { setPreviewMessages(prev => [...prev, { role: 'assistant', content: 'Eroare la conectare.' }]) }
+    finally { setPreviewLoading(false) }
+  }
+
+  const snippetCode = `<!-- HONTRIO AI Agent -->\n<script>\n  window.HontrioAgent = {\n    userId: "${storeUserId}",\n    color: "${config.widget_color}",\n    position: "${config.widget_position}",\n    size: "${config.widget_size}",\n    bottomOffset: ${config.widget_bottom_offset},\n  };\n</script>\n<script src="https://hontrio.com/agent-widget.js" async></script>`
+
+  const copySnippet = () => { navigator.clipboard.writeText(snippetCode); setCopied(true); setTimeout(() => setCopied(false), 2000) }
 
   const downloadPlugin = async () => {
     setDownloading(true)
     try {
-      const res = await fetch('/api/agent/download-plugin')
-      if (!res.ok) throw new Error('Eroare')
-      const blob = await res.blob()
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = 'hontrio-agent.zip'
-      a.click()
-      URL.revokeObjectURL(url)
-    } catch (e) { alert('Eroare la descărcare. Încearcă din nou.') }
-    finally { setDownloading(false) }
+      const res = await fetch('/api/agent/download-plugin'); if (!res.ok) throw new Error()
+      const blob = await res.blob(); const url = URL.createObjectURL(blob)
+      const a = document.createElement('a'); a.href = url; a.download = 'hontrio-agent.zip'; a.click(); URL.revokeObjectURL(url)
+    } catch { alert('Eroare la descărcare.') } finally { setDownloading(false) }
   }
 
-  const copySnippet = () => {
-    navigator.clipboard.writeText(snippetCode)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }
-
-  const sendPreview = async (msg?: string) => {
-    const text = msg || previewMessage.trim()
-    if (!text) return
-    setPreviewMessage('')
-    const newMessages = [...previewMessages, { role: 'user', content: text }]
-    setPreviewMessages(newMessages)
-    setPreviewLoading(true)
-    try {
-      const res = await fetch('/api/agent/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: text,
-          history: newMessages.slice(-6).map(m => ({ role: m.role, content: m.content })),
-          session_id: 'preview-' + Date.now(),
-          store_user_id: storeUserId,
-        }),
-      })
-      const data = await res.json()
-      setPreviewMessages(prev => [...prev, {
-        role: 'assistant',
-        content: data.message,
-        products: data.products,
-        quick_replies: data.quick_replies,
-      }])
-    } catch {
-      setPreviewMessages(prev => [...prev, { role: 'assistant', content: 'Eroare la conectare. Verifică că agentul e activ.' }])
-    } finally { setPreviewLoading(false) }
-  }
-
-  if (loading) return (
-    <div className="space-y-4">
-      {[1,2,3].map(i => <div key={i} className="h-32 bg-gray-100 rounded-2xl animate-pulse" />)}
-    </div>
-  )
+  if (loading) return <div className="space-y-4">{[1,2,3].map(i => <div key={i} className="h-32 bg-gray-100 rounded-2xl animate-pulse" />)}</div>
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
+      <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}>
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">AI Agent</h1>
-            <p className="text-gray-500 text-sm mt-0.5">Asistent conversațional pentru magazinul tău</p>
-          </div>
-          <div className="flex items-center gap-3">
-            <button onClick={handleToggle} className="flex items-center gap-2 text-sm font-medium">
-              {config.is_active ? (
-                <><ToggleRight className="h-8 w-8 text-green-500" /><span className="text-green-600">Activ</span></>
-              ) : (
-                <><ToggleLeft className="h-8 w-8 text-gray-300" /><span className="text-gray-400">Inactiv</span></>
-              )}
-            </button>
-          </div>
+          <div><h1 className="text-2xl font-bold text-gray-900">AI Agent</h1><p className="text-gray-500 text-sm mt-0.5">Asistent conversațional pentru magazinul tău</p></div>
+          <button onClick={handleToggle} className="flex items-center gap-2 text-sm font-medium">
+            {config.is_active ? <><ToggleRight className="h-8 w-8 text-green-500" /><span className="text-green-600">Activ</span></> : <><ToggleLeft className="h-8 w-8 text-gray-300" /><span className="text-gray-400">Inactiv</span></>}
+          </button>
         </div>
       </motion.div>
 
-      {/* Status banner */}
-      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay: 0.05 }}>
-        <div className={`rounded-2xl p-4 flex items-center justify-between ${config.is_active ? 'bg-green-50 border border-green-100' : 'bg-gray-50 border border-gray-100'}`}>
-          <div className="flex items-center gap-3">
-            <div className={`h-2.5 w-2.5 rounded-full ${config.is_active ? 'bg-green-500 animate-pulse' : 'bg-gray-300'}`} />
-            <span className={`text-sm font-medium ${config.is_active ? 'text-green-700' : 'text-gray-500'}`}>
-              {config.is_active ? `Agentul "${config.agent_name}" este activ și răspunde vizitatorilor` : 'Agentul este oprit — vizitatorii nu îl văd'}
-            </span>
-          </div>
-          {!config.is_active && (
-            <Button onClick={handleToggle} size="sm" className="bg-green-500 hover:bg-green-600 text-white rounded-xl gap-1.5 text-xs">
-              <Power className="h-3.5 w-3.5" />Activează
-            </Button>
-          )}
+      <div className={`rounded-2xl p-4 flex items-center justify-between ${config.is_active ? 'bg-green-50 border border-green-100' : 'bg-gray-50 border border-gray-100'}`}>
+        <div className="flex items-center gap-3">
+          <div className={`h-2.5 w-2.5 rounded-full ${config.is_active ? 'bg-green-500 animate-pulse' : 'bg-gray-300'}`} />
+          <span className={`text-sm font-medium ${config.is_active ? 'text-green-700' : 'text-gray-500'}`}>
+            {config.is_active ? `"${config.agent_name}" este activ` : 'Agentul este oprit'}
+          </span>
         </div>
-      </motion.div>
+        {!config.is_active && <Button onClick={handleToggle} size="sm" className="bg-green-500 hover:bg-green-600 text-white rounded-xl gap-1.5 text-xs"><Power className="h-3.5 w-3.5" />Activează</Button>}
+      </div>
 
-      {/* Tabs */}
       <div className="flex gap-1 p-1 bg-gray-100 rounded-xl w-fit">
-        {[
-          { id: 'overview', label: 'Statistici', icon: TrendingUp },
-          { id: 'settings', label: 'Configurare', icon: Settings2 },
-          { id: 'install', label: 'Instalare', icon: ExternalLink },
-        ].map(tab => (
+        {[{ id: 'overview', label: 'Statistici', icon: TrendingUp }, { id: 'settings', label: 'Configurare', icon: Settings2 }, { id: 'install', label: 'Instalare', icon: ExternalLink }].map(tab => (
           <button key={tab.id} onClick={() => setActiveTab(tab.id as any)}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === tab.id ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
             <tab.icon className="h-4 w-4" />{tab.label}
@@ -244,10 +321,9 @@ export default function AgentPage() {
         ))}
       </div>
 
-      {/* ── STATISTICS TAB ── */}
+      {/* STATISTICS */}
       {activeTab === 'overview' && (
         <div className="space-y-5">
-          {/* Stats cards */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {[
               { label: 'Conversații (30z)', value: stats?.total || 0, icon: MessageCircle, color: 'blue' },
@@ -257,303 +333,230 @@ export default function AgentPage() {
             ].map(stat => (
               <Card key={stat.label} className="border-0 shadow-sm rounded-2xl">
                 <CardContent className="p-4">
-                  <div className={`h-8 w-8 rounded-xl bg-${stat.color}-100 flex items-center justify-center mb-2`}>
-                    <stat.icon className={`h-4 w-4 text-${stat.color}-600`} />
-                  </div>
+                  <div className={`h-8 w-8 rounded-xl bg-${stat.color}-100 flex items-center justify-center mb-2`}><stat.icon className={`h-4 w-4 text-${stat.color}-600`} /></div>
                   <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
                   <p className="text-xs text-gray-500 mt-0.5">{stat.label}</p>
                 </CardContent>
               </Card>
             ))}
           </div>
-
-          {/* Intent breakdown */}
           {Object.keys(intents).length > 0 && (
-            <Card className="border-0 shadow-sm rounded-2xl">
-              <CardContent className="p-5">
-                <p className="text-sm font-semibold text-gray-900 mb-4">Intențiile vizitatorilor</p>
-                <div className="space-y-3">
-                  {Object.entries(intents).sort((a, b) => b[1] - a[1]).map(([intent, count]) => {
-                    const total = Object.values(intents).reduce((s, v) => s + v, 0)
-                    const pct = Math.round((count / total) * 100)
-                    return (
-                      <div key={intent} className="flex items-center gap-3">
-                        <span className="text-xs text-gray-600 w-32 shrink-0">{INTENT_LABELS[intent] || intent}</span>
-                        <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
-                          <div className="h-full bg-blue-500 rounded-full transition-all" style={{ width: `${pct}%` }} />
-                        </div>
-                        <span className="text-xs font-medium text-gray-500 w-8 text-right">{count}</span>
-                      </div>
-                    )
-                  })}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Preview chat */}
-          <Card className="border-0 shadow-sm rounded-2xl overflow-hidden">
-            <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Bot className="h-4 w-4 text-blue-500" />
-                <p className="text-sm font-semibold text-gray-900">Testează agentul</p>
+            <Card className="border-0 shadow-sm rounded-2xl"><CardContent className="p-5">
+              <p className="text-sm font-semibold text-gray-900 mb-4">Intențiile vizitatorilor</p>
+              <div className="space-y-3">
+                {Object.entries(intents).sort((a,b) => b[1]-a[1]).map(([intent, count]) => {
+                  const total = Object.values(intents).reduce((s,v) => s+v, 0)
+                  return (
+                    <div key={intent} className="flex items-center gap-3">
+                      <span className="text-xs text-gray-600 w-32 shrink-0">{INTENT_LABELS[intent] || intent}</span>
+                      <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden"><div className="h-full bg-blue-500 rounded-full" style={{ width: `${Math.round((count/total)*100)}%` }} /></div>
+                      <span className="text-xs font-medium text-gray-500 w-8 text-right">{count}</span>
+                    </div>
+                  )
+                })}
               </div>
-              {previewMessages.length > 0 && (
-                <button onClick={() => setPreviewMessages([])} className="text-xs text-gray-400 hover:text-gray-600">Resetează</button>
-              )}
+            </CardContent></Card>
+          )}
+        </div>
+      )}
+
+      {/* SETTINGS */}
+      {activeTab === 'settings' && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="space-y-4">
+            <div className="flex gap-1 p-1 bg-gray-100 rounded-xl">
+              {[{ id: 'identity', label: 'Identitate', icon: Bot }, { id: 'appearance', label: 'Aspect', icon: Palette }, { id: 'advanced', label: 'Avansat', icon: Code2 }].map(t => (
+                <button key={t.id} onClick={() => setActiveSettingsTab(t.id as any)}
+                  className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-medium transition-all ${activeSettingsTab === t.id ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+                  <t.icon className="h-3.5 w-3.5" />{t.label}
+                </button>
+              ))}
             </div>
-            <div className="h-72 overflow-y-auto p-4 space-y-3 bg-gray-50">
-              {previewMessages.length === 0 && (
-                <div className="text-center py-8">
-                  <Bot className="h-8 w-8 text-gray-200 mx-auto mb-2" />
-                  <p className="text-sm text-gray-400">Trimite un mesaj ca să testezi agentul</p>
-                  <div className="flex flex-wrap gap-2 justify-center mt-3">
-                    {['Caut un produs', 'Care e programul?', 'Mă poate ajuta cineva?'].map(q => (
-                      <button key={q} onClick={() => sendPreview(q)}
-                        className="text-xs text-blue-600 bg-blue-50 px-3 py-1.5 rounded-full hover:bg-blue-100 transition-colors">
-                        {q}
+
+            {activeSettingsTab === 'identity' && (
+              <Card className="border-0 shadow-sm rounded-2xl"><CardContent className="p-5 space-y-4">
+                <div>
+                  <label className="text-xs font-semibold text-gray-700 block mb-2">Avatar agent</label>
+                  <div className="flex items-center gap-3">
+                    <div className="w-14 h-14 rounded-2xl overflow-hidden border-2 border-gray-100 bg-gray-50 flex items-center justify-center shrink-0">
+                      {config.widget_avatar_url ? <img src={config.widget_avatar_url} alt="" className="w-full h-full object-cover" /> : <Bot className="w-6 h-6 text-gray-300" />}
+                    </div>
+                    <div className="space-y-1.5 flex-1">
+                      <button onClick={() => avatarInputRef.current?.click()} disabled={uploadingAvatar}
+                        className="flex items-center gap-2 text-xs font-medium px-3 py-2 rounded-xl border border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition-all w-full justify-center">
+                        {uploadingAvatar ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+                        {uploadingAvatar ? 'Se urcă...' : 'Încarcă poză'}
+                      </button>
+                      {config.widget_avatar_url && <button onClick={() => setConfig(c => ({ ...c, widget_avatar_url: '' }))} className="text-xs text-red-400 hover:text-red-500 w-full text-center">Șterge avatarul</button>}
+                    </div>
+                    <input ref={avatarInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
+                  </div>
+                  <p className="text-xs text-gray-400 mt-2">Sau URL direct:</p>
+                  <input value={config.widget_avatar_url} onChange={e => setConfig(c => ({ ...c, widget_avatar_url: e.target.value }))}
+                    placeholder="https://exemplu.ro/avatar.jpg"
+                    className="mt-1.5 w-full text-xs border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:border-blue-400 transition-colors" />
+                </div>
+                <div className="h-px bg-gray-100" />
+                <div>
+                  <label className="text-xs font-semibold text-gray-700 block mb-1.5">Numele agentului</label>
+                  <input value={config.agent_name} onChange={e => setConfig(c => ({ ...c, agent_name: e.target.value }))} placeholder="ex: Maria"
+                    className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 focus:outline-none focus:border-blue-400 transition-colors" />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-gray-700 block mb-1.5">Mesaj de bun venit</label>
+                  <textarea value={config.welcome_message} onChange={e => setConfig(c => ({ ...c, welcome_message: e.target.value }))} rows={3}
+                    className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 focus:outline-none focus:border-blue-400 transition-colors resize-none" />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-gray-700 block mb-2">Răspunsuri rapide</label>
+                  {(config.quick_replies || []).map((qr, i) => (
+                    <div key={i} className="flex items-center gap-2 mb-2">
+                      <input value={qr} onChange={e => { const u = [...(config.quick_replies||[])]; u[i] = e.target.value; setConfig(c => ({ ...c, quick_replies: u })) }}
+                        className="flex-1 text-xs border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:border-blue-400 transition-colors" />
+                      <button onClick={() => setConfig(c => ({ ...c, quick_replies: (c.quick_replies||[]).filter((_,j) => j !== i) }))}
+                        className="p-1.5 rounded-lg text-gray-300 hover:text-red-400 hover:bg-red-50 transition-all"><X className="w-3.5 h-3.5" /></button>
+                    </div>
+                  ))}
+                  {(config.quick_replies || []).length < 5 && (
+                    <button onClick={() => setConfig(c => ({ ...c, quick_replies: [...(c.quick_replies||[]), ''] }))} className="text-xs text-blue-500 hover:text-blue-600 font-medium">+ Adaugă răspuns rapid</button>
+                  )}
+                </div>
+                <div className="h-px bg-gray-100" />
+                <div>
+                  <label className="text-xs font-semibold text-gray-700 block mb-1.5 flex items-center gap-1.5"><Phone className="w-3.5 h-3.5 text-green-500" />WhatsApp escaladare</label>
+                  <input value={config.whatsapp_number} onChange={e => setConfig(c => ({ ...c, whatsapp_number: e.target.value }))} placeholder="40712345678"
+                    className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 focus:outline-none focus:border-blue-400 transition-colors" />
+                </div>
+              </CardContent></Card>
+            )}
+
+            {activeSettingsTab === 'appearance' && (
+              <Card className="border-0 shadow-sm rounded-2xl"><CardContent className="p-5 space-y-5">
+                <div>
+                  <label className="text-xs font-semibold text-gray-700 block mb-2">Culoare principală</label>
+                  <div className="flex gap-2 flex-wrap items-center">
+                    {COLORS.map(color => (
+                      <button key={color} onClick={() => setConfig(c => ({ ...c, widget_color: color }))}
+                        className={`w-7 h-7 rounded-full transition-all ${config.widget_color === color ? 'ring-2 ring-offset-2 ring-gray-400 scale-110' : 'hover:scale-105'}`}
+                        style={{ backgroundColor: color }} />
+                    ))}
+                    <input type="color" value={config.widget_color} onChange={e => setConfig(c => ({ ...c, widget_color: e.target.value }))}
+                      className="w-7 h-7 rounded-full cursor-pointer border border-gray-200" />
+                    <span className="text-xs text-gray-400 font-mono">{config.widget_color}</span>
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-gray-700 block mb-2">Formă buton</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[{ id: 'circle', label: 'Cerc', icon: Circle }, { id: 'rounded', label: 'Rotunjit', icon: Square }, { id: 'rectangle', label: 'Text + icon', icon: RectangleHorizontal }].map(s => (
+                      <button key={s.id} onClick={() => setConfig(c => ({ ...c, widget_button_shape: s.id }))}
+                        className={`flex flex-col items-center gap-1.5 py-3 rounded-xl border text-xs font-medium transition-all ${config.widget_button_shape === s.id ? 'border-blue-500 bg-blue-50 text-blue-600' : 'border-gray-200 text-gray-500 hover:border-gray-300'}`}>
+                        <s.icon className="w-4 h-4" />{s.label}
                       </button>
                     ))}
                   </div>
+                  {config.widget_button_shape === 'rectangle' && (
+                    <input value={config.widget_button_label} onChange={e => setConfig(c => ({ ...c, widget_button_label: e.target.value }))}
+                      placeholder="Text buton (ex: Ajutor?)" className="mt-2 w-full text-xs border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:border-blue-400 transition-colors" />
+                  )}
                 </div>
-              )}
-              {previewMessages.map((msg, i) => (
-                <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-[80%] space-y-2`}>
-                    <div className={`px-3.5 py-2.5 rounded-2xl text-sm leading-relaxed ${
-                      msg.role === 'user' ? 'bg-blue-500 text-white rounded-br-sm' : 'bg-white text-gray-800 shadow-sm rounded-bl-sm'
-                    }`}>
-                      {msg.content}
-                    </div>
-                    {/* Product cards */}
-                    {msg.products && msg.products.length > 0 && (
-                      <div className="space-y-2">
-                        {msg.products.map((p: any) => (
-                          <div key={p.id} className="bg-white rounded-xl shadow-sm p-3 flex gap-3 border border-gray-100">
-                            {p.image && <img src={p.image} alt="" className="w-12 h-12 rounded-lg object-cover shrink-0" />}
-                            <div className="min-w-0">
-                              <p className="text-xs font-semibold text-gray-900 truncate">{p.title}</p>
-                              <p className="text-xs text-gray-500 truncate">{p.description}</p>
-                              {p.price && <p className="text-xs font-bold text-blue-600 mt-0.5">{p.price} RON</p>}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    {/* Quick replies */}
-                    {msg.quick_replies && msg.quick_replies.length > 0 && (
-                      <div className="flex flex-wrap gap-1.5">
-                        {msg.quick_replies.map((qr: string) => (
-                          <button key={qr} onClick={() => sendPreview(qr)}
-                            className="text-xs text-blue-600 bg-blue-50 border border-blue-100 px-2.5 py-1 rounded-full hover:bg-blue-100 transition-colors">
-                            {qr}
-                          </button>
-                        ))}
-                      </div>
-                    )}
+                <div>
+                  <label className="text-xs font-semibold text-gray-700 block mb-2">Dimensiune</label>
+                  <div className="flex gap-2">
+                    {[{ id: 'small', label: 'Mic' }, { id: 'medium', label: 'Mediu' }, { id: 'large', label: 'Mare' }].map(s => (
+                      <button key={s.id} onClick={() => setConfig(c => ({ ...c, widget_size: s.id }))}
+                        className={`flex-1 py-2 text-xs rounded-xl border font-medium transition-all ${config.widget_size === s.id ? 'border-blue-500 bg-blue-50 text-blue-600' : 'border-gray-200 text-gray-500 hover:border-gray-300'}`}>{s.label}</button>
+                    ))}
                   </div>
                 </div>
-              ))}
-              {previewLoading && (
-                <div className="flex justify-start">
-                  <div className="bg-white rounded-2xl rounded-bl-sm px-4 py-3 shadow-sm">
-                    <div className="flex gap-1">
-                      {[0,1,2].map(i => <div key={i} className="w-2 h-2 bg-gray-300 rounded-full animate-bounce" style={{ animationDelay: `${i*0.15}s` }} />)}
-                    </div>
+                <div>
+                  <label className="text-xs font-semibold text-gray-700 block mb-2">Poziție</label>
+                  <div className="flex gap-2">
+                    {[{ id: 'bottom-right', label: 'Dreapta jos' }, { id: 'bottom-left', label: 'Stânga jos' }].map(pos => (
+                      <button key={pos.id} onClick={() => setConfig(c => ({ ...c, widget_position: pos.id }))}
+                        className={`flex-1 py-2 text-xs rounded-xl border font-medium transition-all ${config.widget_position === pos.id ? 'border-blue-500 bg-blue-50 text-blue-600' : 'border-gray-200 text-gray-500 hover:border-gray-300'}`}>{pos.label}</button>
+                    ))}
                   </div>
                 </div>
-              )}
-              <div ref={previewEndRef} />
-            </div>
-            <div className="p-3 border-t border-gray-100 flex gap-2 bg-white">
-              <input
-                value={previewMessage}
-                onChange={e => setPreviewMessage(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && sendPreview()}
-                placeholder="Scrie un mesaj de test..."
-                className="flex-1 text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:border-blue-400 transition-colors"
-              />
-              <Button onClick={() => sendPreview()} disabled={!previewMessage.trim() || previewLoading} size="sm"
-                className="bg-blue-500 hover:bg-blue-600 text-white rounded-xl px-4">
-                Trimite
-              </Button>
-            </div>
-          </Card>
-        </div>
-      )}
-
-      {/* ── SETTINGS TAB ── */}
-      {activeTab === 'settings' && (
-        <div className="space-y-4">
-          {/* Identity */}
-          <Card className="border-0 shadow-sm rounded-2xl">
-            <CardContent className="p-5 space-y-4">
-              <p className="text-sm font-semibold text-gray-900 flex items-center gap-2"><Bot className="h-4 w-4 text-blue-500" />Identitate agent</p>
-              <div>
-                <label className="text-xs font-medium text-gray-600 block mb-1.5">Numele agentului</label>
-                <input value={config.agent_name} onChange={e => setConfig(c => ({ ...c, agent_name: e.target.value }))}
-                  placeholder="ex: Asistent BundeCasa"
-                  className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 focus:outline-none focus:border-blue-400 transition-colors" />
-                <p className="text-xs text-gray-400 mt-1">Apare în chat ca "Salut! Sunt [Nume]"</p>
-              </div>
-              <div>
-                <label className="text-xs font-medium text-gray-600 block mb-1.5">Mesaj de bun venit</label>
-                <textarea value={config.welcome_message} onChange={e => setConfig(c => ({ ...c, welcome_message: e.target.value }))}
-                  rows={3} className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 focus:outline-none focus:border-blue-400 transition-colors resize-none" />
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* WhatsApp */}
-          <Card className="border-0 shadow-sm rounded-2xl">
-            <CardContent className="p-5 space-y-4">
-              <p className="text-sm font-semibold text-gray-900 flex items-center gap-2"><Phone className="h-4 w-4 text-green-500" />Escaladare WhatsApp</p>
-              <div>
-                <label className="text-xs font-medium text-gray-600 block mb-1.5">Număr WhatsApp</label>
-                <input value={config.whatsapp_number} onChange={e => setConfig(c => ({ ...c, whatsapp_number: e.target.value }))}
-                  placeholder="40712345678 (fără + sau spații)"
-                  className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 focus:outline-none focus:border-blue-400 transition-colors" />
-                <p className="text-xs text-gray-400 mt-1">Format internațional fără +: ex: 40712345678</p>
-              </div>
-              <div>
-                <label className="text-xs font-medium text-gray-600 block mb-1.5">Mesaj pre-completat pentru client</label>
-                <textarea value={config.whatsapp_message} onChange={e => setConfig(c => ({ ...c, whatsapp_message: e.target.value }))}
-                  rows={2} className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 focus:outline-none focus:border-blue-400 transition-colors resize-none" />
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Widget appearance */}
-          <Card className="border-0 shadow-sm rounded-2xl">
-            <CardContent className="p-5 space-y-4">
-              <p className="text-sm font-semibold text-gray-900 flex items-center gap-2"><Palette className="h-4 w-4 text-purple-500" />Aspect widget</p>
-
-              {/* Color */}
-              <div>
-                <label className="text-xs font-medium text-gray-600 block mb-2">Culoare principală</label>
-                <div className="flex gap-2 flex-wrap">
-                  {COLORS.map(color => (
-                    <button key={color} onClick={() => setConfig(c => ({ ...c, widget_color: color }))}
-                      className={`w-8 h-8 rounded-full transition-all ${config.widget_color === color ? 'ring-2 ring-offset-2 ring-gray-400 scale-110' : 'hover:scale-105'}`}
-                      style={{ backgroundColor: color }} />
-                  ))}
-                  <input type="color" value={config.widget_color} onChange={e => setConfig(c => ({ ...c, widget_color: e.target.value }))}
-                    className="w-8 h-8 rounded-full cursor-pointer border-0 p-0" title="Culoare custom" />
+                <div>
+                  <label className="text-xs font-semibold text-gray-700 block mb-2">Distanță față de jos — <span className="font-bold text-gray-900">{config.widget_bottom_offset}px</span></label>
+                  <input type="range" min="16" max="120" value={config.widget_bottom_offset} onChange={e => setConfig(c => ({ ...c, widget_bottom_offset: Number(e.target.value) }))} className="w-full accent-blue-500" />
+                  <p className="text-xs text-gray-400 mt-1">Util dacă ai butoane WhatsApp sau telefon în colț</p>
                 </div>
-              </div>
-
-              {/* Position */}
-              <div>
-                <label className="text-xs font-medium text-gray-600 block mb-2">Poziție</label>
-                <div className="flex gap-2">
-                  {[{ id: 'bottom-right', label: 'Dreapta jos' }, { id: 'bottom-left', label: 'Stânga jos' }].map(pos => (
-                    <button key={pos.id} onClick={() => setConfig(c => ({ ...c, widget_position: pos.id }))}
-                      className={`flex-1 py-2 text-sm rounded-xl border font-medium transition-all ${config.widget_position === pos.id ? 'border-blue-500 bg-blue-50 text-blue-600' : 'border-gray-200 text-gray-500 hover:border-gray-300'}`}>
-                      {pos.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Offset buton - punct 5 */}
-              <div>
-                <label className="text-xs font-medium text-gray-600 block mb-2">Distanță față de marginea de jos (px)</label>
-                <div className="flex items-center gap-3">
-                  <input type="range" min="16" max="120" value={config.widget_bottom_offset || 20}
-                    onChange={e => setConfig(c => ({ ...c, widget_bottom_offset: Number(e.target.value) }))}
-                    className="flex-1" />
-                  <span className="text-sm font-medium text-gray-700 w-12 text-right">{config.widget_bottom_offset || 20}px</span>
-                </div>
-                <p className="text-xs text-gray-400 mt-1">Util dacă ai butoane WhatsApp sau telefon în colț</p>
-              </div>
-
-              {/* Size */}
-              <div>
-                <label className="text-xs font-medium text-gray-600 block mb-2">Dimensiune buton</label>
-                <div className="flex gap-2">
-                  {[{ id: 'small', label: 'Mic' }, { id: 'medium', label: 'Mediu' }, { id: 'large', label: 'Mare' }].map(s => (
-                    <button key={s.id} onClick={() => setConfig(c => ({ ...c, widget_size: s.id }))}
-                      className={`flex-1 py-2 text-sm rounded-xl border font-medium transition-all ${config.widget_size === s.id ? 'border-blue-500 bg-blue-50 text-blue-600' : 'border-gray-200 text-gray-500 hover:border-gray-300'}`}>
-                      {s.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Live preview */}
-              <div className="bg-gray-50 rounded-xl p-4 relative h-20 overflow-hidden">
-                <p className="text-xs text-gray-400 mb-2">Preview buton:</p>
-                <div className={`absolute bottom-3 ${config.widget_position === 'bottom-right' ? 'right-3' : 'left-3'}`}>
-                  <button className="flex items-center justify-center rounded-full shadow-lg text-white transition-all"
-                    style={{
-                      backgroundColor: config.widget_color,
-                      width: config.widget_size === 'small' ? 44 : config.widget_size === 'large' ? 64 : 52,
-                      height: config.widget_size === 'small' ? 44 : config.widget_size === 'large' ? 64 : 52,
-                    }}>
-                    <MessageCircle style={{ width: config.widget_size === 'small' ? 20 : config.widget_size === 'large' ? 28 : 24, height: config.widget_size === 'small' ? 20 : config.widget_size === 'large' ? 28 : 24 }} />
+                <div className="flex items-center justify-between py-2 border-t border-gray-100">
+                  <div><p className="text-xs font-semibold text-gray-700">Animație de introducere</p><p className="text-xs text-gray-400 mt-0.5">Bubble cu mesajul de bun venit la load</p></div>
+                  <button onClick={() => setConfig(c => ({ ...c, widget_intro_animation: !c.widget_intro_animation }))}
+                    className={`w-10 h-6 rounded-full transition-colors relative ${config.widget_intro_animation ? 'bg-blue-500' : 'bg-gray-200'}`}>
+                    <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${config.widget_intro_animation ? 'left-5' : 'left-1'}`} />
                   </button>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent></Card>
+            )}
 
-          {/* Save */}
-          <Button onClick={handleSave} disabled={saving} className="w-full bg-gray-900 hover:bg-gray-800 text-white rounded-xl h-11 gap-2">
-            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : saved ? <Check className="h-4 w-4" /> : <Save className="h-4 w-4" />}
-            {saving ? 'Salvez...' : saved ? 'Salvat!' : 'Salvează configurarea'}
-          </Button>
+            {activeSettingsTab === 'advanced' && (
+              <Card className="border-0 shadow-sm rounded-2xl"><CardContent className="p-5 space-y-4">
+                <div>
+                  <label className="text-xs font-semibold text-gray-700 flex items-center gap-1.5 mb-1"><Code2 className="w-3.5 h-3.5 text-purple-500" />CSS Custom</label>
+                  <p className="text-xs text-gray-400 mb-2">Suprascrie stilurile implicite ale widget-ului.</p>
+                  <textarea value={config.widget_custom_css} onChange={e => setConfig(c => ({ ...c, widget_custom_css: e.target.value }))}
+                    placeholder={`/* Exemplu */\n#_h * { font-family: 'Georgia', serif !important; }\n#_h_b { box-shadow: 0 0 20px rgba(37,99,235,.5) !important; }`}
+                    rows={12} spellCheck={false}
+                    className="w-full text-xs font-mono border border-gray-200 rounded-xl px-3 py-2.5 focus:outline-none focus:border-purple-400 transition-colors resize-none bg-gray-50" />
+                </div>
+                <div className="bg-amber-50 border border-amber-100 rounded-xl p-3">
+                  <p className="text-xs font-semibold text-amber-800 mb-1.5">🎨 Selectori principali</p>
+                  <div className="space-y-0.5 text-xs font-mono text-amber-700">
+                    {[['#_h_b', 'Butonul'], ['#_h_w', 'Fereastra chat'], ['#_h_hd', 'Header'], ['._h_r.u ._h_bb', 'Mesaje utilizator'], ['._h_r.b ._h_bb', 'Mesaje agent'], ['#_h_bl', 'Bubble intro']].map(([s, d]) => (
+                      <div key={s} className="flex gap-2"><span className="shrink-0">{s}</span><span className="text-amber-500">— {d}</span></div>
+                    ))}
+                  </div>
+                </div>
+              </CardContent></Card>
+            )}
+
+            <Button onClick={handleSave} disabled={saving} className="w-full bg-gray-900 hover:bg-gray-800 text-white rounded-xl h-11 gap-2">
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : saved ? <Check className="h-4 w-4" /> : <Save className="h-4 w-4" />}
+              {saving ? 'Salvez...' : saved ? 'Salvat!' : 'Salvează configurarea'}
+            </Button>
+          </div>
+
+          {/* Preview */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div><p className="text-sm font-semibold text-gray-900">Preview live</p><p className="text-xs text-gray-400">Modificările se văd instant</p></div>
+              {previewMessages.length > 0 && <button onClick={() => { setPreviewMessages([]); setPreviewOpen(false) }} className="text-xs text-gray-400 hover:text-gray-600">Resetează</button>}
+            </div>
+            <WidgetPreview config={config} messages={previewMessages} onSend={sendPreview} loading={previewLoading} onToggle={() => setPreviewOpen(p => !p)} isOpen={previewOpen} />
+            <p className="text-xs text-gray-400 text-center">Apasă butonul din preview ca să deschizi chat-ul și să testezi</p>
+          </div>
         </div>
       )}
 
-      {/* ── INSTALL TAB ── */}
+      {/* INSTALL */}
       {activeTab === 'install' && (
         <div className="space-y-4">
-
-          {/* MAIN: Download Plugin */}
           <Card className="border-0 shadow-sm rounded-2xl overflow-hidden">
             <div className="bg-gradient-to-br from-slate-800 to-slate-900 p-6">
               <div className="flex items-start gap-4">
                 <div className="h-12 w-12 rounded-2xl bg-blue-500/20 border border-blue-400/30 flex items-center justify-center shrink-0 text-2xl">🔌</div>
-                <div className="flex-1">
-                  <p className="text-white font-bold text-base">Plugin WordPress — instalare 1 click</p>
-                  <p className="text-slate-400 text-sm mt-1">Descarcă pluginul pre-configurat cu datele tale și uploadează-l direct în WordPress. Nicio configurare necesară.</p>
-                </div>
+                <div><p className="text-white font-bold text-base">Plugin WordPress — instalare 1 click</p><p className="text-slate-400 text-sm mt-1">Descarcă pluginul pre-configurat și uploadează-l direct în WordPress.</p></div>
               </div>
-              <Button onClick={downloadPlugin} disabled={downloading}
-                className="mt-5 w-full bg-blue-500 hover:bg-blue-400 text-white rounded-xl h-11 gap-2 font-semibold text-sm">
+              <Button onClick={downloadPlugin} disabled={downloading} className="mt-5 w-full bg-blue-500 hover:bg-blue-400 text-white rounded-xl h-11 gap-2 font-semibold text-sm">
                 {downloading ? <><Loader2 className="h-4 w-4 animate-spin" />Se generează...</> : <><ArrowUpRight className="h-4 w-4" />Descarcă hontrio-agent.zip</>}
               </Button>
             </div>
-
-            <div className="p-5 space-y-4">
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Cum instalezi</p>
-              {[
-                { step: '1', text: 'Descarcă fișierul ZIP de mai sus' },
-                { step: '2', text: 'În WordPress mergi la Plugins → Add New → Upload Plugin' },
-                { step: '3', text: 'Selectează fișierul ZIP descărcat și apasă Install Now' },
-                { step: '4', text: 'Apasă Activate Plugin — agentul apare instant pe site!' },
-              ].map(s => (
+            <div className="p-5 space-y-3">
+              {[{ step: '1', text: 'Descarcă ZIP-ul' }, { step: '2', text: 'WordPress → Plugins → Add New → Upload Plugin' }, { step: '3', text: 'Selectează ZIP și Install Now' }, { step: '4', text: 'Activate Plugin — gata!' }].map(s => (
                 <div key={s.step} className="flex items-center gap-3">
                   <div className="h-6 w-6 rounded-full bg-blue-100 flex items-center justify-center text-xs font-bold text-blue-600 shrink-0">{s.step}</div>
                   <p className="text-sm text-gray-700">{s.text}</p>
                 </div>
               ))}
-
-              {storeUrl && (
-                <div className="pt-2 border-t border-gray-100">
-                  <a href={storeUrl} target="_blank" rel="noopener" className="inline-flex items-center gap-1.5 text-sm text-blue-600 hover:underline">
-                    Verifică pe {storeUrl} <ExternalLink className="h-3.5 w-3.5" />
-                  </a>
-                </div>
-              )}
             </div>
           </Card>
-
-          {/* Advanced: manual snippet */}
           <details className="group">
             <summary className="cursor-pointer text-sm text-gray-400 hover:text-gray-600 flex items-center gap-2 select-none">
-              <ChevronRight className="h-4 w-4 group-open:rotate-90 transition-transform" />
-              Instalare manuală (avansat)
+              <ChevronRight className="h-4 w-4 group-open:rotate-90 transition-transform" />Instalare manuală (cod snippet)
             </summary>
             <Card className="border-0 shadow-sm rounded-2xl overflow-hidden mt-2">
               <div className="bg-slate-900 p-4">
@@ -564,26 +567,10 @@ export default function AgentPage() {
               </div>
             </Card>
           </details>
-
-          {/* Warning if not configured */}
           {!config.whatsapp_number && (
             <div className="flex items-start gap-3 bg-amber-50 border border-amber-100 rounded-2xl p-4">
               <AlertCircle className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
-              <div>
-                <p className="text-sm font-semibold text-amber-800">Numărul WhatsApp lipsește</p>
-                <p className="text-xs text-amber-600 mt-0.5">Fără număr WhatsApp, vizitatorii nu pot fi escaladați când agentul nu poate răspunde. Adaugă-l în tab-ul Configurare.</p>
-              </div>
-            </div>
-          )}
-
-          {!config.is_active && (
-            <div className="flex items-start gap-3 bg-blue-50 border border-blue-100 rounded-2xl p-4">
-              <Power className="h-5 w-5 text-blue-500 shrink-0 mt-0.5" />
-              <div>
-                <p className="text-sm font-semibold text-blue-800">Agentul nu e activ</p>
-                <p className="text-xs text-blue-600 mt-0.5">Chiar dacă instalezi codul, agentul nu va răspunde până nu îl activezi.</p>
-                <button onClick={handleToggle} className="text-xs font-semibold text-blue-700 underline mt-1">Activează acum</button>
-              </div>
+              <div><p className="text-sm font-semibold text-amber-800">Numărul WhatsApp lipsește</p><p className="text-xs text-amber-600 mt-0.5">Fără WhatsApp, vizitatorii nu pot fi escaladați.</p></div>
             </div>
           )}
         </div>

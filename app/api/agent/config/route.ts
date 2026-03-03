@@ -45,7 +45,9 @@ export async function POST(request: Request) {
     const allowed = [
       'is_active', 'agent_name', 'welcome_message',
       'whatsapp_number', 'whatsapp_message',
-      'widget_position', 'widget_color', 'widget_size',
+      'widget_position', 'widget_color', 'widget_size', 'widget_bottom_offset',
+      'widget_button_shape', 'widget_button_label', 'widget_avatar_url',
+      'widget_intro_animation', 'widget_custom_css', 'quick_replies',
       'language', 'max_products_shown', 'show_prices', 'show_images',
     ]
 
