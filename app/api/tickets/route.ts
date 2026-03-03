@@ -4,7 +4,7 @@ import { authOptions } from '@/lib/auth/auth.config'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { rateLimitApi } from '@/lib/security/rate-limit'
 
-// GET — list user's tickets
+// GET — list user's tickets with reply counts + unread flag
 export async function GET() {
   try {
     const session = await getServerSession(authOptions)
@@ -19,13 +19,41 @@ export async function GET() {
       .from('tickets')
       .select('*')
       .eq('user_id', userId)
-      .order('created_at', { ascending: false })
+      .order('updated_at', { ascending: false })
 
     if (error) {
       return NextResponse.json({ error: 'Eroare la încărcarea tichetelor' }, { status: 500 })
     }
 
-    return NextResponse.json({ tickets: tickets || [] })
+    if (!tickets || tickets.length === 0) {
+      return NextResponse.json({ tickets: [] })
+    }
+
+    // Get reply counts + check for unread admin replies per ticket
+    const ticketIds = tickets.map((t: any) => t.id)
+
+    const { data: replies } = await supabase
+      .from('ticket_replies')
+      .select('ticket_id, is_admin, created_at')
+      .in('ticket_id', ticketIds)
+
+    // Build enriched tickets
+    const enriched = tickets.map((ticket: any) => {
+      const ticketReplies = (replies || []).filter((r: any) => r.ticket_id === ticket.id)
+      const adminReplies = ticketReplies.filter((r: any) => r.is_admin)
+      const hasUnreadAdmin = adminReplies.length > 0 && (
+        !ticket.user_last_read_at ||
+        new Date(adminReplies[adminReplies.length - 1].created_at) > new Date(ticket.user_last_read_at)
+      )
+      return {
+        ...ticket,
+        replies_count: ticketReplies.length,
+        admin_replies_count: adminReplies.length,
+        has_unread: hasUnreadAdmin,
+      }
+    })
+
+    return NextResponse.json({ tickets: enriched })
   } catch {
     return NextResponse.json({ error: 'Eroare internă' }, { status: 500 })
   }
@@ -41,7 +69,6 @@ export async function POST(request: Request) {
 
     const userId = (session.user as any).id
 
-    // Rate limit: max 5 tickets per hour
     const limit = rateLimitApi(userId, 'create-ticket')
     if (!limit.success) {
       return NextResponse.json({ error: 'Prea multe tichete. Așteaptă puțin.' }, { status: 429 })
@@ -52,11 +79,9 @@ export async function POST(request: Request) {
     if (!subject || !message) {
       return NextResponse.json({ error: 'Subiectul și mesajul sunt obligatorii' }, { status: 400 })
     }
-
     if (subject.length > 200) {
       return NextResponse.json({ error: 'Subiectul nu poate depăși 200 caractere' }, { status: 400 })
     }
-
     if (message.length > 5000) {
       return NextResponse.json({ error: 'Mesajul nu poate depăși 5000 caractere' }, { status: 400 })
     }

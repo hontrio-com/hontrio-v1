@@ -1,70 +1,137 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { motion } from 'framer-motion'
+import { useState, useEffect, useRef } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import {
   MessageSquare, ArrowLeft, Send, Loader2, Clock, CheckCircle,
-  AlertCircle, ChevronRight, ChevronLeft, Shield,
+  AlertCircle, ChevronRight, ChevronLeft, Shield, Search, X,
+  HelpCircle, Bug, Lightbulb, CreditCard, Link2, User, Mail,
+  Tag, Zap,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
-import { Card, CardContent } from '@/components/ui/card'
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 type Ticket = {
-  id: string; subject: string; message: string; status: string
-  priority: string; category: string; created_at: string; updated_at: string
+  id: string
+  subject: string
+  message: string
+  status: string
+  priority: string
+  category: string
+  created_at: string
+  updated_at: string
   users: { name: string; email: string }
 }
+
 type Reply = {
-  id: string; message: string; is_admin: boolean; created_at: string
+  id: string
+  message: string
+  is_admin: boolean
+  created_at: string
   users: { name: string; email: string }
 }
 
-const statusConfig: Record<string, { label: string; color: string }> = {
-  open: { label: 'Deschis', color: 'bg-blue-100 text-blue-700' },
-  in_progress: { label: 'În lucru', color: 'bg-yellow-100 text-yellow-700' },
-  resolved: { label: 'Rezolvat', color: 'bg-green-100 text-green-700' },
-  closed: { label: 'Închis', color: 'bg-gray-100 text-gray-500' },
+// ─── Config ───────────────────────────────────────────────────────────────────
+
+const statusConfig: Record<string, { label: string; color: string; dot: string }> = {
+  open:        { label: 'Deschis',  color: 'bg-blue-50 text-blue-700',      dot: 'bg-blue-500' },
+  in_progress: { label: 'În lucru', color: 'bg-amber-50 text-amber-700',    dot: 'bg-amber-400' },
+  resolved:    { label: 'Rezolvat', color: 'bg-emerald-50 text-emerald-700', dot: 'bg-emerald-500' },
+  closed:      { label: 'Închis',   color: 'bg-gray-100 text-gray-500',     dot: 'bg-gray-300' },
 }
 
-const priorityConfig: Record<string, { label: string; color: string }> = {
-  low: { label: 'Scăzută', color: 'text-gray-500' },
-  normal: { label: 'Normală', color: 'text-blue-600' },
-  high: { label: 'Ridicată', color: 'text-orange-600' },
-  urgent: { label: 'Urgentă', color: 'text-red-600' },
+const priorityConfig: Record<string, { label: string; color: string; bg: string }> = {
+  low:    { label: 'Scăzută',  color: 'text-gray-500',  bg: 'bg-gray-100' },
+  normal: { label: 'Normală',  color: 'text-blue-600',  bg: 'bg-blue-50' },
+  high:   { label: 'Ridicată', color: 'text-orange-600', bg: 'bg-orange-50' },
+  urgent: { label: 'Urgentă', color: 'text-red-600',    bg: 'bg-red-50' },
 }
+
+const categoryConfig: Record<string, { label: string; icon: any; color: string }> = {
+  general:     { label: 'General',   icon: HelpCircle, color: 'text-gray-500 bg-gray-100' },
+  bug:         { label: 'Bug',       icon: Bug,        color: 'text-red-600 bg-red-50' },
+  feature:     { label: 'Sugestie',  icon: Lightbulb,  color: 'text-amber-600 bg-amber-50' },
+  billing:     { label: 'Facturare', icon: CreditCard, color: 'text-violet-600 bg-violet-50' },
+  integration: { label: 'Integrare', icon: Link2,      color: 'text-blue-600 bg-blue-50' },
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function timeAgo(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime()
+  const mins  = Math.floor(diff / 60000)
+  const hours = Math.floor(diff / 3600000)
+  const days  = Math.floor(diff / 86400000)
+  if (mins < 2)   return 'acum câteva secunde'
+  if (mins < 60)  return `acum ${mins} min`
+  if (hours < 24) return `acum ${hours}h`
+  if (days === 1) return 'ieri'
+  if (days < 7)   return `acum ${days}z`
+  return new Date(iso).toLocaleDateString('ro-RO', { day: 'numeric', month: 'short' })
+}
+
+function formatFull(iso: string): string {
+  return new Date(iso).toLocaleDateString('ro-RO', {
+    day: 'numeric', month: 'long', year: 'numeric',
+    hour: '2-digit', minute: '2-digit',
+  })
+}
+
+// ─── Main ─────────────────────────────────────────────────────────────────────
 
 export default function AdminTicketsPage() {
-  const [tickets, setTickets] = useState<Ticket[]>([])
-  const [loading, setLoading] = useState(true)
+  const [tickets, setTickets]         = useState<Ticket[]>([])
+  const [loading, setLoading]         = useState(true)
   const [statusFilter, setStatusFilter] = useState('all')
   const [statusCounts, setStatusCounts] = useState<Record<string, number>>({})
-  const [page, setPage] = useState(1)
-  const [totalPages, setTotalPages] = useState(0)
+  const [page, setPage]               = useState(1)
+  const [totalPages, setTotalPages]   = useState(0)
+  const [total, setTotal]             = useState(0)
+  const [search, setSearch]           = useState('')
+  const [searchInput, setSearchInput] = useState('')
 
-  const [selected, setSelected] = useState<Ticket | null>(null)
-  const [replies, setReplies] = useState<Reply[]>([])
-  const [replyText, setReplyText] = useState('')
-  const [sending, setSending] = useState(false)
+  const [selected, setSelected]       = useState<Ticket | null>(null)
+  const [replies, setReplies]         = useState<Reply[]>([])
+  const [replyText, setReplyText]     = useState('')
+  const [sending, setSending]         = useState(false)
+  const [sendError, setSendError]     = useState('')
+  const [updatingStatus, setUpdatingStatus] = useState(false)
+  const repliesEndRef = useRef<HTMLDivElement>(null)
 
-  useEffect(() => { fetchTickets() }, [statusFilter, page])
+  useEffect(() => { fetchTickets() }, [statusFilter, page, search])
+
+  useEffect(() => {
+    const t = setTimeout(() => { setSearch(searchInput); setPage(1) }, 400)
+    return () => clearTimeout(t)
+  }, [searchInput])
+
+  useEffect(() => {
+    if (replies.length > 0) {
+      repliesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    }
+  }, [replies])
 
   async function fetchTickets() {
     setLoading(true)
     try {
       const params = new URLSearchParams({ page: page.toString() })
       if (statusFilter !== 'all') params.set('status', statusFilter)
+      if (search) params.set('search', search)
       const res = await fetch('/api/admin/tickets?' + params)
       const data = await res.json()
       setTickets(data.tickets || [])
       setTotalPages(data.total_pages || 0)
+      setTotal(data.total || 0)
       setStatusCounts(data.status_counts || {})
     } catch {} finally { setLoading(false) }
   }
 
   async function openTicket(ticket: Ticket) {
     setSelected(ticket)
+    setReplies([])
+    setSendError('')
     try {
       const res = await fetch('/api/admin/tickets/' + ticket.id)
       const data = await res.json()
@@ -73,161 +140,372 @@ export default function AdminTicketsPage() {
   }
 
   async function updateStatus(status: string) {
-    if (!selected) return
+    if (!selected || updatingStatus) return
+    setUpdatingStatus(true)
     try {
-      await fetch('/api/admin/tickets/' + selected.id, {
+      const res = await fetch('/api/admin/tickets/' + selected.id, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status }),
       })
-      setSelected({ ...selected, status })
-      fetchTickets()
-    } catch {}
+      if (res.ok) {
+        setSelected({ ...selected, status })
+        setTickets(prev => prev.map(t => t.id === selected.id ? { ...t, status } : t))
+        setStatusCounts(prev => {
+          const next = { ...prev }
+          next[selected.status] = Math.max(0, (next[selected.status] || 0) - 1)
+          next[status] = (next[status] || 0) + 1
+          return next
+        })
+      }
+    } catch {} finally { setUpdatingStatus(false) }
   }
 
   async function sendReply() {
     if (!replyText.trim() || !selected) return
     setSending(true)
+    setSendError('')
     try {
       const res = await fetch('/api/admin/tickets/' + selected.id + '/replies', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: replyText }),
       })
+      const data = await res.json()
       if (res.ok) {
-        const data = await res.json()
         setReplies(prev => [...prev, { ...data.reply, users: { name: 'Admin', email: '' } }])
         setReplyText('')
-        if (selected.status === 'open') setSelected({ ...selected, status: 'in_progress' })
+        // Auto-update status locally if was open
+        if (selected.status === 'open') {
+          setSelected({ ...selected, status: 'in_progress' })
+          setTickets(prev => prev.map(t => t.id === selected.id ? { ...t, status: 'in_progress' } : t))
+        }
+      } else {
+        setSendError(data.error || 'Eroare la trimitere')
       }
-    } catch {} finally { setSending(false) }
+    } catch { setSendError('Eroare de rețea') }
+    finally { setSending(false) }
   }
 
-  const formatDate = (d: string) => new Date(d).toLocaleDateString('ro-RO', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
-
-  // ===== DETAIL VIEW =====
+  // ── DETAIL VIEW ────────────────────────────────────────────────────────────
   if (selected) {
     const sc = statusConfig[selected.status] || statusConfig.open
     const pc = priorityConfig[selected.priority] || priorityConfig.normal
+    const cc = categoryConfig[selected.category] || categoryConfig.general
+    const CatIcon = cc.icon
+
     return (
-      <div className="max-w-3xl space-y-6">
-        <button onClick={() => setSelected(null)} className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700">
+      <div className="max-w-3xl space-y-5">
+        {/* Back */}
+        <button
+          onClick={() => { setSelected(null); setReplies([]) }}
+          className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700 transition-colors"
+        >
           <ArrowLeft className="h-4 w-4" />Toate tichetele
         </button>
 
-        <div className="flex items-start justify-between">
+        {/* Header */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+          <div className="flex items-start justify-between gap-3 mb-3">
+            <h1 className="text-lg font-bold text-gray-900 leading-snug">{selected.subject}</h1>
+            <span className={`text-xs font-semibold px-2.5 py-1 rounded-full shrink-0 flex items-center gap-1.5 ${sc.color}`}>
+              <div className={`h-1.5 w-1.5 rounded-full ${sc.dot}`} />
+              {sc.label}
+            </span>
+          </div>
+
+          {/* User info */}
+          <div className="flex flex-wrap items-center gap-3 mb-4 text-xs">
+            <span className="flex items-center gap-1.5 text-gray-600 font-medium">
+              <User className="h-3.5 w-3.5 text-gray-400" />
+              {selected.users?.name || 'User'}
+            </span>
+            <span className="flex items-center gap-1.5 text-gray-400">
+              <Mail className="h-3.5 w-3.5" />
+              {selected.users?.email}
+            </span>
+            <span className={`flex items-center gap-1.5 px-2 py-0.5 rounded-lg font-medium ${cc.color}`}>
+              <CatIcon className="h-3 w-3" />{cc.label}
+            </span>
+            <span className={`px-2 py-0.5 rounded-lg text-xs font-semibold ${pc.bg} ${pc.color}`}>
+              {pc.label}
+            </span>
+            <span className="text-gray-400" title={formatFull(selected.created_at)}>
+              {timeAgo(selected.created_at)}
+            </span>
+          </div>
+
+          {/* Status controls */}
           <div>
-            <h1 className="text-xl font-bold text-gray-900">{selected.subject}</h1>
-            <p className="text-sm text-gray-500 mt-1">
-              {selected.users?.name || 'User'} &bull; {selected.users?.email} &bull; {formatDate(selected.created_at)}
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <Badge className={sc.color + ' text-xs'}>{sc.label}</Badge>
-            <span className={`text-xs font-medium ${pc.color}`}>{pc.label}</span>
-          </div>
-        </div>
-
-        {/* Status actions */}
-        <div className="flex gap-2">
-          {['open', 'in_progress', 'resolved', 'closed'].map(s => {
-            const c = statusConfig[s]
-            return (
-              <button key={s} onClick={() => updateStatus(s)} disabled={selected.status === s}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${selected.status === s ? c.color + ' ring-2 ring-offset-1 ring-blue-300' : 'bg-gray-50 text-gray-500 hover:bg-gray-100'}`}>
-                {c.label}
-              </button>
-            )
-          })}
-        </div>
-
-        {/* Original message */}
-        <Card className="rounded-2xl border-gray-100">
-          <CardContent className="p-4">
-            <p className="text-sm text-gray-700 whitespace-pre-wrap">{selected.message}</p>
-          </CardContent>
-        </Card>
-
-        {/* Replies */}
-        <div className="space-y-3">
-          {replies.map(reply => (
-            <div key={reply.id} className={`p-4 rounded-2xl ${reply.is_admin ? 'bg-blue-50 border border-blue-100 ml-4' : 'bg-white border border-gray-100 mr-4'}`}>
-              <div className="flex items-center gap-2 mb-2">
-                <span className={`text-xs font-medium ${reply.is_admin ? 'text-blue-600' : 'text-gray-600'}`}>
-                  {reply.is_admin ? '🛡️ ' + (reply.users?.name || 'Admin') : '👤 ' + (reply.users?.name || 'User')}
-                </span>
-                <span className="text-xs text-gray-400">{formatDate(reply.created_at)}</span>
-              </div>
-              <p className="text-sm text-gray-700 whitespace-pre-wrap">{reply.message}</p>
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-2">Schimbă status</p>
+            <div className="flex flex-wrap gap-1.5">
+              {Object.entries(statusConfig).map(([s, cfg]) => (
+                <button
+                  key={s}
+                  onClick={() => updateStatus(s)}
+                  disabled={selected.status === s || updatingStatus}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border ${
+                    selected.status === s
+                      ? `${cfg.color} border-current ring-2 ring-offset-1 ring-blue-300`
+                      : 'bg-gray-50 text-gray-500 border-gray-200 hover:bg-gray-100 disabled:opacity-40'
+                  }`}
+                >
+                  <div className={`h-1.5 w-1.5 rounded-full ${cfg.dot}`} />
+                  {cfg.label}
+                </button>
+              ))}
             </div>
+          </div>
+        </div>
+
+        {/* Timeline */}
+        <div className="relative space-y-3">
+          <div className="absolute left-5 top-6 bottom-6 w-px bg-gray-100" />
+
+          {/* Original message */}
+          <div className="relative flex gap-4">
+            <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center text-xs font-bold text-gray-600 shrink-0 z-10">
+              {selected.users?.name?.[0]?.toUpperCase() || 'U'}
+            </div>
+            <div className="flex-1 bg-white rounded-2xl border border-gray-100 shadow-sm p-4 min-w-0">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-semibold text-gray-700">{selected.users?.name || 'User'}</span>
+                <span className="text-xs text-gray-400" title={formatFull(selected.created_at)}>
+                  {timeAgo(selected.created_at)}
+                </span>
+              </div>
+              <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{selected.message}</p>
+            </div>
+          </div>
+
+          {/* Replies */}
+          {replies.map(reply => (
+            <motion.div
+              key={reply.id}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="relative flex gap-4"
+            >
+              <div className={`h-10 w-10 rounded-full flex items-center justify-center text-xs font-bold shrink-0 z-10 ${
+                reply.is_admin ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-600'
+              }`}>
+                {reply.is_admin ? 'A' : (reply.users?.name?.[0]?.toUpperCase() || 'U')}
+              </div>
+              <div className={`flex-1 rounded-2xl border p-4 min-w-0 ${
+                reply.is_admin ? 'bg-blue-50 border-blue-100' : 'bg-white border-gray-100 shadow-sm'
+              }`}>
+                <div className="flex items-center justify-between mb-2">
+                  <span className={`text-xs font-semibold flex items-center gap-1.5 ${reply.is_admin ? 'text-blue-700' : 'text-gray-700'}`}>
+                    {reply.is_admin && <Shield className="h-3 w-3" />}
+                    {reply.is_admin ? (reply.users?.name || 'Admin') : (reply.users?.name || 'User')}
+                  </span>
+                  <span className="text-xs text-gray-400" title={formatFull(reply.created_at)}>
+                    {timeAgo(reply.created_at)}
+                  </span>
+                </div>
+                <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{reply.message}</p>
+              </div>
+            </motion.div>
           ))}
+
+          <div ref={repliesEndRef} />
         </div>
 
         {/* Reply box */}
-        <div className="flex gap-3">
-          <Input value={replyText} onChange={e => setReplyText(e.target.value)} placeholder="Răspunde ca admin..." className="rounded-xl flex-1"
-            onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendReply()} maxLength={5000} />
-          <Button onClick={sendReply} disabled={sending || !replyText.trim()} className="bg-blue-600 hover:bg-blue-700 rounded-xl">
-            {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-          </Button>
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <div className="h-7 w-7 rounded-full bg-blue-600 flex items-center justify-center">
+              <Shield className="h-3.5 w-3.5 text-white" />
+            </div>
+            <p className="text-xs font-semibold text-gray-600">Răspunde ca Admin</p>
+            {selected.status === 'open' && (
+              <span className="text-[10px] text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full font-medium flex items-center gap-1">
+                <Zap className="h-2.5 w-2.5" />Va deveni „În lucru"
+              </span>
+            )}
+          </div>
+          <textarea
+            value={replyText}
+            onChange={e => setReplyText(e.target.value)}
+            placeholder="Scrie răspunsul pentru user..."
+            className="w-full h-32 rounded-xl border border-gray-200 px-4 py-3 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-200 bg-gray-50"
+            maxLength={5000}
+            onKeyDown={e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) sendReply() }}
+          />
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-gray-400">{replyText.length}/5000 · Ctrl+Enter</span>
+            <div className="flex items-center gap-3">
+              {sendError && <span className="text-xs text-red-500">{sendError}</span>}
+              <Button
+                onClick={sendReply}
+                disabled={sending || !replyText.trim()}
+                className="bg-blue-600 hover:bg-blue-700 rounded-xl h-9 px-4 gap-2"
+              >
+                {sending
+                  ? <Loader2 className="h-4 w-4 animate-spin" />
+                  : <><Send className="h-4 w-4" />Trimite</>
+                }
+              </Button>
+            </div>
+          </div>
         </div>
       </div>
     )
   }
 
-  // ===== LIST VIEW =====
+  // ── LIST VIEW ──────────────────────────────────────────────────────────────
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-gray-900">Tichete Suport</h1>
 
-      <div className="flex gap-2 flex-wrap">
-        {[
-          { value: 'all', label: 'Toate' },
-          { value: 'open', label: 'Deschise' },
-          { value: 'in_progress', label: 'În lucru' },
-          { value: 'resolved', label: 'Rezolvate' },
-          { value: 'closed', label: 'Închise' },
-        ].map(opt => (
-          <button key={opt.value} onClick={() => { setStatusFilter(opt.value); setPage(1) }}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${statusFilter === opt.value ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
-            {opt.label} ({statusCounts[opt.value] || 0})
-          </button>
-        ))}
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Tichete Suport</h1>
+          <p className="text-sm text-gray-400 mt-0.5">{total} tichete total</p>
+        </div>
+        <div className="flex items-center gap-2">
+          {statusCounts['open'] > 0 && (
+            <span className="flex items-center gap-1.5 text-xs font-semibold bg-blue-600 text-white px-3 py-1.5 rounded-full">
+              <div className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" />
+              {statusCounts['open']} deschise
+            </span>
+          )}
+        </div>
       </div>
 
+      {/* Search + Filters */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1 max-w-sm">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Input
+            placeholder="Caută după subiect sau user..."
+            value={searchInput}
+            onChange={e => setSearchInput(e.target.value)}
+            className="pl-10 h-10 rounded-xl border-gray-200 bg-white"
+          />
+          {searchInput && (
+            <button onClick={() => { setSearchInput(''); setSearch('') }} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+
+        <div className="flex items-center gap-1 bg-gray-100 rounded-xl p-1">
+          {[
+            { value: 'all',         label: 'Toate' },
+            { value: 'open',        label: 'Deschise' },
+            { value: 'in_progress', label: 'În lucru' },
+            { value: 'resolved',    label: 'Rezolvate' },
+            { value: 'closed',      label: 'Închise' },
+          ].map(opt => (
+            <button
+              key={opt.value}
+              onClick={() => { setStatusFilter(opt.value); setPage(1) }}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all whitespace-nowrap ${
+                statusFilter === opt.value
+                  ? 'bg-white text-gray-900 shadow-sm'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              {opt.label}
+              <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${
+                statusFilter === opt.value ? 'bg-blue-100 text-blue-700' : 'bg-gray-200 text-gray-500'
+              }`}>{statusCounts[opt.value] || 0}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* List */}
       {loading ? (
-        <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-blue-500" /></div>
+        <div className="flex justify-center py-16">
+          <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
+        </div>
       ) : tickets.length === 0 ? (
-        <div className="text-center py-16"><MessageSquare className="h-12 w-12 text-gray-200 mx-auto mb-3" /><p className="text-gray-500">Niciun tichet</p></div>
+        <div className="text-center py-16">
+          <MessageSquare className="h-12 w-12 text-gray-200 mx-auto mb-3" />
+          <p className="text-gray-500 font-medium">Niciun tichet</p>
+          {search && <p className="text-sm text-gray-400 mt-1">pentru „{search}"</p>}
+        </div>
       ) : (
         <div className="space-y-2">
-          {tickets.map(ticket => {
+          {/* List header */}
+          <div className="hidden sm:grid grid-cols-12 gap-4 px-4 py-2 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+            <div className="col-span-5">Subiect</div>
+            <div className="col-span-3">User</div>
+            <div className="col-span-1 text-center">Prioritate</div>
+            <div className="col-span-2 text-center">Status</div>
+            <div className="col-span-1 text-right">Data</div>
+          </div>
+
+          {tickets.map((ticket, i) => {
             const sc = statusConfig[ticket.status] || statusConfig.open
             const pc = priorityConfig[ticket.priority] || priorityConfig.normal
+            const cc = categoryConfig[ticket.category] || categoryConfig.general
+            const CatIcon = cc.icon
             return (
-              <div key={ticket.id} onClick={() => openTicket(ticket)}
-                className="group flex items-center gap-4 bg-white rounded-xl border border-gray-100 p-4 hover:shadow-md hover:border-blue-100 transition-all cursor-pointer">
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900 truncate">{ticket.subject}</p>
-                  <div className="flex items-center gap-2 mt-1">
-                    <Badge className={sc.color + ' text-[10px] px-1.5 py-0 h-5'}>{sc.label}</Badge>
-                    <span className={`text-[10px] font-medium ${pc.color}`}>{pc.label}</span>
-                    <span className="text-[11px] text-gray-400">{ticket.users?.name || 'User'}</span>
-                    <span className="text-[11px] text-gray-400">{formatDate(ticket.created_at)}</span>
+              <motion.div
+                key={ticket.id}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.03 }}
+                onClick={() => openTicket(ticket)}
+                className="group grid grid-cols-12 gap-4 items-center bg-white rounded-2xl border border-gray-100 px-4 py-3.5 hover:border-blue-100 hover:shadow-sm transition-all cursor-pointer"
+              >
+                {/* Subject + category */}
+                <div className="col-span-12 sm:col-span-5 flex items-center gap-3 min-w-0">
+                  <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 ${cc.color}`}>
+                    <CatIcon className="h-4 w-4" />
                   </div>
+                  <p className="text-sm font-medium text-gray-900 truncate">{ticket.subject}</p>
                 </div>
-                <ChevronRight className="h-4 w-4 text-gray-300 group-hover:text-blue-500 shrink-0" />
-              </div>
+
+                {/* User */}
+                <div className="hidden sm:block col-span-3 min-w-0">
+                  <p className="text-sm text-gray-700 truncate">{ticket.users?.name || '—'}</p>
+                  <p className="text-xs text-gray-400 truncate">{ticket.users?.email}</p>
+                </div>
+
+                {/* Priority */}
+                <div className="hidden sm:flex col-span-1 justify-center">
+                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${pc.bg} ${pc.color}`}>
+                    {pc.label}
+                  </span>
+                </div>
+
+                {/* Status */}
+                <div className="hidden sm:flex col-span-2 justify-center">
+                  <span className={`flex items-center gap-1.5 text-[10px] font-semibold px-2 py-0.5 rounded-full ${sc.color}`}>
+                    <div className={`h-1.5 w-1.5 rounded-full ${sc.dot}`} />
+                    {sc.label}
+                  </span>
+                </div>
+
+                {/* Date */}
+                <div className="hidden sm:flex col-span-1 justify-end items-center gap-1">
+                  <span className="text-xs text-gray-400 text-right" title={formatFull(ticket.updated_at)}>
+                    {timeAgo(ticket.updated_at)}
+                  </span>
+                  <ChevronRight className="h-4 w-4 text-gray-300 group-hover:text-blue-400 transition-colors shrink-0" />
+                </div>
+              </motion.div>
             )
           })}
         </div>
       )}
 
+      {/* Pagination */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-center gap-2 pt-4">
-          <button onClick={() => setPage(p => Math.max(1, p-1))} disabled={page === 1} className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-30"><ChevronLeft className="h-4 w-4" /></button>
-          <span className="text-sm text-gray-500">Pagina {page} din {totalPages}</span>
-          <button onClick={() => setPage(p => Math.min(totalPages, p+1))} disabled={page === totalPages} className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-30"><ChevronRight className="h-4 w-4" /></button>
+        <div className="flex items-center justify-between pt-4 border-t border-gray-100">
+          <p className="text-xs text-gray-400">Pagina {page} din {totalPages}</p>
+          <div className="flex items-center gap-1">
+            <button onClick={() => setPage(p => Math.max(1, p-1))} disabled={page === 1} className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-30 transition-colors">
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <button onClick={() => setPage(p => Math.min(totalPages, p+1))} disabled={page === totalPages} className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-30 transition-colors">
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
         </div>
       )}
     </div>
