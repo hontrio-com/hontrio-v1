@@ -9,6 +9,7 @@ import {
   LayoutDashboard, Package, ImageIcon, Search, CreditCard, Settings,
   LogOut, Menu, X, ChevronRight, Shield, Sparkles, AlertTriangle,
   MessageSquare, Zap, Crown, ArrowUpRight, Coins, Video, Bot,
+  MessageCircle, TrendingUp,
 } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
 import { Button } from '@/components/ui/button'
@@ -50,6 +51,8 @@ const allMenuItems = menuSections.flatMap(s => s.items)
 const agentSubMenu = [
   { label: 'Configurare', href: '/agent', icon: Settings },
   { label: 'Triggeri', href: '/agent/triggers', icon: Zap },
+  { label: 'Inbox', href: '/agent/inbox', icon: MessageCircle },
+  { label: 'Insights', href: '/agent/insights', icon: TrendingUp },
 ]
 
 const searchablePages = [
