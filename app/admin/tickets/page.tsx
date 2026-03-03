@@ -31,6 +31,7 @@ type Reply = {
   is_admin: boolean
   created_at: string
   users: { name: string; email: string }
+  attachments?: Attachment[]
 }
 
 // ─── Config ───────────────────────────────────────────────────────────────────
@@ -390,7 +391,7 @@ export default function AdminTicketsPage() {
                   </span>
                 </div>
                 <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{reply.message}</p>
-                {(reply as any).attachments?.length > 0 && <AttachmentGallery attachments={(reply as any).attachments} />}
+                {(reply.attachments?.length ?? 0) > 0 && <AttachmentGallery attachments={reply.attachments!} />}
               </div>
             </motion.div>
           ))}
