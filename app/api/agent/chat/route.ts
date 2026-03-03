@@ -330,9 +330,9 @@ export async function POST(request:Request) {
       crossProducts=cs.map(p=>({...p,url:p.url.replace('__STORE__',storeUrl)})).filter(p=>!products.find(x=>x.id===p.id))
     }
 
-    // Stoc live — verifică disponibilitate reală din WooCommerce
-    if(parsed.check_stock && products.length > 0) {
-      const externalIds = products.map(p => p.external_id).filter(Boolean) as string[]
+    // Stoc live — verifică ÎNTOTDEAUNA pentru orice produse afișate
+    if(products.length > 0) {
+      const externalIds = products.map((p:any) => p.external_id).filter(Boolean) as string[]
       if(externalIds.length > 0) {
         try {
           const stockRes = await fetch(`${baseUrl}/api/agent/stock`, {
