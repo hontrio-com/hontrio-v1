@@ -313,6 +313,8 @@ export async function POST(request:Request) {
 
     const boostIds = memory?.viewed_product_ids?.slice(0,10) || []
     let products:Product[]=[],crossProducts:Product[]=[],searchQueriesUsed:string[]=[]
+    let stockInfo:Record<string,any> = {}
+    let orderData:any[] = []
 
     if(parsed.search_query&&parsed.intent!=='off_topic'&&parsed.intent!=='info_shipping'){
       searchQueriesUsed.push(parsed.search_query)
