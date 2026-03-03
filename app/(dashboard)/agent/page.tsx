@@ -233,6 +233,15 @@ export default function AgentPage() {
 
   useEffect(() => { loadData() }, [])
 
+  const loadAnalytics = async (days = analyticsRange) => {
+    setAnalyticsLoading(true)
+    try {
+      const r = await fetch(`/api/agent/analytics?days=${days}`)
+      const data = await r.json()
+      if (data.summary) setAnalytics(data)
+    } catch {} finally { setAnalyticsLoading(false) }
+  }
+
   const loadData = async () => {
     try {
       const [configRes, statsRes, meRes] = await Promise.all([
@@ -247,6 +256,7 @@ export default function AgentPage() {
       if (statsData.stats) setStats(statsData.stats)
       if (statsData.intents) setIntents(statsData.intents)
     } catch (e) { console.error(e) } finally { setLoading(false) }
+    loadAnalytics()
   }
 
   const handleSave = async () => {
@@ -327,7 +337,7 @@ export default function AgentPage() {
 
       <div className="flex gap-1 p-1 bg-gray-100 rounded-xl w-fit">
         {[{ id: 'overview', label: 'Statistici', icon: TrendingUp }, { id: 'settings', label: 'Configurare', icon: Settings2 }, { id: 'install', label: 'Instalare', icon: ExternalLink }].map(tab => (
-          <button key={tab.id} onClick={() => setActiveTab(tab.id as any)}
+          <button key={tab.id} onClick={() => { setActiveTab(tab.id as any); if (tab.id === 'overview') loadAnalytics() }}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === tab.id ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
             <tab.icon className="h-4 w-4" />{tab.label}
           </button>
@@ -337,6 +347,13 @@ export default function AgentPage() {
       {/* STATISTICS */}
       {activeTab === 'overview' && (
         <div className="space-y-5">
+          <div className="flex justify-end">
+            <button onClick={() => loadAnalytics()} disabled={analyticsLoading}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-all disabled:opacity-50">
+              {analyticsLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ArrowUpRight className="h-3.5 w-3.5 rotate-180" />}
+              Actualizează
+            </button>
+          </div>
           {/* KPI Cards */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {[
@@ -364,9 +381,7 @@ export default function AgentPage() {
                 <div className="flex gap-1">
                   {([7, 30] as const).map(d => (
                     <button key={d} onClick={async () => {
-                      setAnalyticsRange(d); setAnalyticsLoading(true)
-                      try { const r = await fetch(`/api/agent/analytics?days=${d}`); const data = await r.json(); if (data.summary) setAnalytics(data) } catch {}
-                      setAnalyticsLoading(false)
+                      setAnalyticsRange(d); loadAnalytics(d)
                     }} className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${analyticsRange === d ? 'bg-blue-600 text-white' : 'text-gray-500 hover:bg-gray-100'}`}>{d === 7 ? '7 zile' : '30 zile'}</button>
                   ))}
                 </div>
