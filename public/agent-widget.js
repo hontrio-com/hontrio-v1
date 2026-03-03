@@ -518,15 +518,32 @@ function renderMsg(role,text,extra){
         '</div>'+
         '<div class="_h_cbs">'+
           (p.stock&&!p.stock.available
-            ?'<button class="_h_cb vw" style="opacity:.5;cursor:default;" disabled>'+iEye()+'<span>Indisponibil</span></button>'
+            ?'<button class="_h_cb vw _h_ask_avail">📩<span>Întreabă disponibilitate</span></button>'
             :'<button class="_h_cb vw">'+iEye()+'<span>Vezi produs</span></button>')+
           (p.stock&&!p.stock.available
-            ?''
+            ?((window._hCfg&&window._hCfg.has_whatsapp)?'<button class="_h_cb ac _h_wa_avail" style="background:#25d366;">📞<span>Sună / WhatsApp</span></button>':'')
             :'<button class="_h_cb ac">'+iCart()+'<span>Adaugă în coș</span></button>')+
         '</div>';
       var url=p.url||'';
-      card.querySelector('._h_cb.vw').addEventListener('click',function(){if(url&&url!=='#')window.open(url,'_blank');});
-      card.querySelector('._h_cb.ac').addEventListener('click',function(){addCart(p.external_id,this);});
+      var askBtn=card.querySelector('._h_ask_avail');
+      var waBtn=card.querySelector('._h_wa_avail');
+      if(askBtn){
+        var pname=p.title||'acest produs';
+        askBtn.addEventListener('click',function(){
+          doSend('Este disponibil '+pname+'? Când va reintra în stoc?');
+        });
+      }
+      if(waBtn){
+        var waNum=(window._hCfg&&window._hCfg.whatsapp_number)||'';
+        waBtn.addEventListener('click',function(){
+          var wMsg=encodeURIComponent('Bună ziua! Aș dori să știu disponibilitatea produsului: '+p.title);
+          window.open('https://wa.me/'+waNum+'?text='+wMsg,'_blank');
+        });
+      }
+      if(!p.stock||p.stock.available){
+        card.querySelector('._h_cb.vw').addEventListener('click',function(){if(url&&url!=='#')window.open(url,'_blank');});
+        card.querySelector('._h_cb.ac').addEventListener('click',function(){addCart(p.external_id,this);});
+      }
       cs.appendChild(card);
     });
     row.appendChild(cs);
