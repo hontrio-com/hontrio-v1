@@ -477,7 +477,7 @@ export default function SupportPage() {
                   <span className="text-xs text-gray-400" title={formatFull(reply.created_at)}>{timeAgo(reply.created_at)}</span>
                 </div>
                 <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{reply.message}</p>
-                {reply.attachments?.length > 0 && <AttachmentGallery attachments={reply.attachments} />}
+                {(reply.attachments?.length ?? 0) > 0 && <AttachmentGallery attachments={reply.attachments!} />}
               </div>
             </motion.div>
           ))}
