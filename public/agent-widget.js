@@ -649,28 +649,24 @@ fetch(BASE+'/api/agent/memory?userId='+UID+'&visitorId='+vid)
 
 setTimeout(function(){if(!isOpen&&!welcomed){unread=1;updBadge();}},25000);
 
-// ── POLLING CONFIG (actualizare live din dashboard) ───────────────────────────
-var _lastConfigHash='';
-function hashConfig(d){
-  if(!d)return'';
-  return[d.widget_color,d.widget_position,d.widget_size,d.widget_bottom_offset,
-    d.widget_button_shape,d.widget_button_label,d.widget_avatar_url,
-    d.widget_custom_css,d.agent_name].join('|');
-}
-function pollConfig(){
-  fetch(BASE+'/api/agent/public-config?userId='+UID)
-    .then(function(r){return r.ok?r.json():null;})
-    .then(function(d){
-      if(!d)return;
-      var h=hashConfig(d);
-      if(h!==_lastConfigHash){
-        _lastConfigHash=h;
+// ── REAL-TIME CONFIG (SSE — actualizare instant din dashboard) ───────────────
+function connectConfigStream(){
+  if(!window.EventSource)return; // fallback — browser vechi
+  var es=new EventSource(BASE+'/api/agent/config-stream?userId='+UID);
+  es.onmessage=function(e){
+    try{
+      var d=JSON.parse(e.data);
+      if(d&&d.widget_color){
         applyConfig(d);
         window._hCfg=d;
       }
-    })
-    .catch(function(){});
+    }catch(err){}
+  };
+  es.onerror=function(){
+    // Reconectare automată după 5s dacă conexiunea pică
+    es.close();
+    setTimeout(connectConfigStream,5000);
+  };
 }
-// Polling la fiecare 30 secunde
-setInterval(pollConfig,30000);
+connectConfigStream();
 })();

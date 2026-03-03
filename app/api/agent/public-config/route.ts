@@ -21,7 +21,7 @@ export async function GET(request: Request) {
 
     const { data: config, error } = await supabase
       .from('agent_configs')
-      .select('is_active, agent_name, welcome_message, widget_color, widget_position, widget_size, whatsapp_number')
+      .select('is_active, agent_name, welcome_message, widget_color, widget_position, widget_size, widget_bottom_offset, widget_button_shape, widget_button_label, widget_avatar_url, widget_intro_animation, widget_custom_css, quick_replies, whatsapp_number')
       .eq('user_id', userId)
       .single()
 
@@ -61,9 +61,14 @@ export async function GET(request: Request) {
       widget_color: config.widget_color || '#2563eb',
       widget_position: config.widget_position || 'bottom-right',
       widget_size: config.widget_size || 'medium',
-      widget_bottom_offset: 20,
+      widget_bottom_offset: config.widget_bottom_offset ?? 20,
+      widget_button_shape: config.widget_button_shape || 'circle',
+      widget_button_label: config.widget_button_label || 'Ajutor?',
+      widget_avatar_url: config.widget_avatar_url || '',
+      widget_intro_animation: config.widget_intro_animation ?? true,
+      widget_custom_css: config.widget_custom_css || '',
+      quick_replies: config.quick_replies || ['Caut un produs', 'Am o întrebare', 'Livrare & retur'],
       has_whatsapp: !!config.whatsapp_number,
-      quick_replies: ['Caut un produs', 'Am o întrebare', 'Livrare & retur'],
     }, { headers: CORS })
 
   } catch (err) {
