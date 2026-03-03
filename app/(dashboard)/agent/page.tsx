@@ -771,15 +771,6 @@ export default function AgentPage() {
               <p className="text-xs text-blue-600">Când un client spune "vreau să vorbesc cu cineva" sau raportează o problemă, primești imediat un email cu ultimele mesaje din conversație. Nu se trimit duplicate pentru aceeași conversație.</p>
             </div>
           </div>
-
-          {/* Requirement note */}
-          <div className="flex gap-3 p-4 bg-gray-50 rounded-xl">
-            <AlertCircle className="h-4 w-4 text-gray-400 shrink-0 mt-0.5" />
-            <div>
-              <p className="text-xs font-medium text-gray-600 mb-1">Cerință tehnică</p>
-              <p className="text-xs text-gray-500">Emailurile sunt trimise prin <strong>Resend</strong>. Asigură-te că variabila <code className="bg-gray-200 px-1 rounded">RESEND_API_KEY</code> este setată în Vercel.</p>
-            </div>
-          </div>
         </div>
       )}
 

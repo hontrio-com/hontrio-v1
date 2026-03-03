@@ -31,7 +31,7 @@ type VisitorMemory = {
   return_count: number
 }
 
-function buildSystemPrompt(config: any, storeName: string, catalog: string, memory: VisitorMemory | null, ragContext = ''): string {
+function buildSystemPrompt(config: any, storeName: string, catalog: string, memory: VisitorMemory | null, ragContext = '', trainingContext = ''): string {
   const isReturningVisitor = memory && memory.total_sessions > 0
 
   let memoryContext = ''
@@ -77,6 +77,9 @@ REGULI ABSOLUTE:
 ${ragContext ? `
 CUNOȘTINȚE SPECIFICE MAGAZIN (folosește pentru întrebări despre livrare, garanție, politici, FAQ):
 ${ragContext}` : ''}
+${trainingContext ? `
+CORECȚII OBLIGATORII (acestea suprascriu orice alt răspuns — respectă-le exact):
+${trainingContext}` : ''}
 
 INTENȚIE — detectezi imediat:
 - Orice mention de produs specific → buying_ready → search_query imediat
@@ -280,7 +283,23 @@ async function searchKnowledge(query: string, userId: string): Promise<string> {
 
 
 
-async function loadVisitorMemory(userId: string, visitorId: string): Promise<VisitorMemory | null> {
+async function searchTrainingCorrections(query: string, userId: string): Promise<string> {
+  try {
+    const supabase = createAdminClient()
+    const embRes = await openai.embeddings.create({ model: 'text-embedding-3-small', input: query.slice(0, 500) })
+    const embedding = embRes.data[0].embedding
+    const { data: corrections } = await supabase.rpc('match_training_corrections', {
+      query_embedding: embedding,
+      match_user_id: userId,
+      match_threshold: 0.80,
+      match_count: 3,
+    })
+    if (!corrections?.length) return ''
+    return corrections.map((c: any) => `- "${c.correct_answer}"`).join('\n')
+  } catch { return '' }
+}
+
+(userId: string, visitorId: string): Promise<VisitorMemory | null> {
   if (!visitorId) return null
   try {
     const supabase = createAdminClient()
@@ -388,14 +407,15 @@ export async function POST(request:Request) {
     const storeName=store?.store_name||config.agent_name||'magazin'
     const storeUrl=store?.store_url?.replace(/\/$/,'')||''
 
-    const [catalog, memory, ragContext] = await Promise.all([
+    const [catalog, memory, ragContext, trainingContext] = await Promise.all([
       buildCatalog(store_user_id),
       loadVisitorMemory(store_user_id, visitor_id),
       searchKnowledge(message, store_user_id),
+      searchTrainingCorrections(message, store_user_id),
     ])
     console.log('[Chat] RAG context length:', ragContext.length, 'chars')
 
-    const systemPrompt = buildSystemPrompt(config, storeName, catalog, memory, ragContext)
+    const systemPrompt = buildSystemPrompt(config, storeName, catalog, memory, ragContext, trainingContext)
 
     const gpt=await openai.chat.completions.create({
       model:'gpt-4o-mini',
@@ -544,6 +564,16 @@ export async function POST(request:Request) {
       }).catch(()=>{})
     }
 
+    // 13. Unanswered questions tracking
+    if(response.intent==='off_topic'||(response.intent==='escalate'&&response.confidence<0.6)||response.confidence<0.35){
+      trackUnanswered({supabase,userId:store_user_id,sessionId:session_id,question:message,intent:response.intent,confidence:response.confidence||0}).catch(()=>{})
+    }
+
+    // 15. Product events tracking
+    if(allProducts.length>0){
+      trackProductEvents({supabase,userId:store_user_id,sessionId:session_id,products:allProducts,intent:response.intent}).catch(()=>{})
+    }
+
     // Notificări escaladare — async, nu blochează răspunsul
     const shouldNotify = (
       (response.intent === 'escalate' && config.notify_on_escalation !== false) ||
@@ -617,4 +647,39 @@ async function sendEscalationNotification(p: {
   } catch (err) {
     console.error('[Notification] Error:', err)
   }
+}
+
+// ── 13. UNANSWERED QUESTIONS ─────────────────────────────────────────────────
+async function trackUnanswered(p:{supabase:any;userId:string;sessionId?:string;question:string;intent:string;confidence:number}){
+  try{
+    // Încearcă să găsească o întrebare similară existentă (simplificat: primele 80 chars)
+    const key = p.question.trim().toLowerCase().slice(0,80)
+    const {data:existing}=await p.supabase.from('unanswered_questions')
+      .select('id,count').eq('user_id',p.userId).eq('resolved',false)
+      .ilike('question',`%${key.slice(0,40)}%`).limit(1).single()
+    if(existing){
+      await p.supabase.from('unanswered_questions')
+        .update({count:existing.count+1,last_seen_at:new Date().toISOString()})
+        .eq('id',existing.id)
+    } else {
+      await p.supabase.from('unanswered_questions').insert({
+        user_id:p.userId, session_id:p.sessionId,
+        question:p.question, intent:p.intent, confidence:p.confidence,
+      })
+    }
+  }catch{}
+}
+
+// ── 15. PRODUCT EVENTS ───────────────────────────────────────────────────────
+async function trackProductEvents(p:{supabase:any;userId:string;sessionId?:string;products:any[];intent:string}){
+  try{
+    const eventType = p.intent==='comparing'?'compared':p.intent==='escalate'?'escalated':'shown'
+    const rows = p.products.map(prod=>({
+      user_id:p.userId, session_id:p.sessionId,
+      product_id:prod.id||'', external_id:prod.external_id?String(prod.external_id):null,
+      product_name:prod.title||prod.name||'',
+      event_type:eventType,
+    }))
+    await p.supabase.from('product_events').insert(rows)
+  }catch{}
 }
