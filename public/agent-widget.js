@@ -327,10 +327,16 @@ function applyConfig(d){
 }
 
 function doWelcome(){
+  if(window._hCfg){
+    var msg=window._hCfg.welcome_message||('Bună! Sunt '+agentName+'. Cu ce te pot ajuta?');
+    var qrs=window._hCfg.quick_replies||['Caut un produs','Am o întrebare','Livrare & retur'];
+    renderMsg('assistant',msg,{quick_replies:qrs});
+    return;
+  }
   fetch(BASE+'/api/agent/public-config?userId='+UID)
     .then(function(r){return r.ok?r.json():null;})
     .then(function(d){
-      applyConfig(d);
+      applyConfig(d);window._hCfg=d;
       var msg=(d&&d.welcome_message)||('Bună! Sunt '+agentName+'. Cu ce te pot ajuta?');
       var qrs=(d&&d.quick_replies)||['Caut un produs','Am o întrebare','Livrare & retur'];
       renderMsg('assistant',msg,{quick_replies:qrs});
@@ -374,6 +380,12 @@ function doSend(ov){
   })
   .finally(function(){isLoading=false;document.getElementById('_h_sn').disabled=false;inp.disabled=false;inp.focus();});
 }
+
+// Încarcă config IMEDIAT la load — butonul apare cu setările corecte din prima
+fetch(BASE+'/api/agent/public-config?userId='+UID)
+  .then(function(r){return r.ok?r.json():null;})
+  .then(function(d){if(d){applyConfig(d);window._hCfg=d;}})
+  .catch(function(){});
 
 setTimeout(function(){if(!isOpen&&!welcomed){unread=1;updBadge();}},25000);
 })();
