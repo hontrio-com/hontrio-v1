@@ -50,12 +50,6 @@ export async function POST(request: Request) {
     const ids = productIds.slice(0, 10)
     const results = await woo.getStockBatch(ids)
 
-    // DEBUG — șterge după testare
-    console.log('[Stock Debug] productIds trimise:', ids)
-    console.log('[Stock Debug] rezultate WooCommerce:', JSON.stringify(results.map((r:any) => ({
-      id: r.id, stock_status: r.stock_status, quantity: r.stock_quantity
-    }))))
-
     // Map: external_id -> stock info
     const stock: Record<string, any> = {}
     for (const r of results as any[]) {

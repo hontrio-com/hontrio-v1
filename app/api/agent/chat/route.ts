@@ -133,26 +133,29 @@ function scoreProduct(p:any, keywords:string[]):number {
   const cat=(p.category||'').toLowerCase()
   const desc=(p.optimized_short_description||p.original_description||'').replace(/<[^>]*>/g,'').toLowerCase().slice(0,200)
   const words=title.split(/\s+/).filter(Boolean)
-  let score=0,titleHits=0
+  let score=0,titleHits=0,exactHits=0
   for(const kw of keywords){
     const st=stem(kw);let best=0
-    if(title.includes(kw)){best=100;titleHits++}
+    if(title.includes(kw)){best=100;titleHits++;exactHits++}
     else if(st.length>=3&&title.includes(st)){best=85;titleHits++}
-    else if(cat.includes(kw)){best=60}
-    else if(st.length>=3&&cat.includes(st)){best=50}
+    else if(cat.includes(kw)){best=40}
+    else if(st.length>=3&&cat.includes(st)){best=30}
     else{
       let fuzz=0
       for(const w of words){
         const s=Math.max(sim(kw,w),ngram(kw,w),st.length>=3?sim(st,stem(w)):0)
         if(s>fuzz)fuzz=s
       }
-      if(fuzz>=0.78){best=Math.round(fuzz*80);titleHits++}
-      else if(desc.includes(kw)||(st.length>=3&&desc.includes(st)))best=12
+      if(fuzz>=0.85){best=Math.round(fuzz*80);titleHits++}
+      else if(desc.includes(kw)||(st.length>=3&&desc.includes(st)))best=8
     }
     score+=best
   }
+  // Dacă niciun keyword nu apare în titlu → produs irelevant
   if(titleHits===0)return 0
-  if(titleHits===keywords.length)score=Math.round(score*1.6)
+  // Bonus dacă TOATE keyword-urile sunt în titlu
+  if(exactHits===keywords.length)score=Math.round(score*1.8)
+  else if(titleHits===keywords.length)score=Math.round(score*1.4)
   return score
 }
 
@@ -168,9 +171,13 @@ async function searchProducts(query:string, userId:string, max=3, boostIds: stri
     .eq('user_id',userId).limit(500)
   if(!data?.length)return []
 
-  return data
-    .map((p:any)=>({...p,_s:scoreProduct(p,keywords)+(boostIds.includes(p.id)?15:0)}))
-    .filter((p:any)=>p._s>=25)
+  const scored = data
+    .map((p:any)=>({...p,_s:scoreProduct(p,keywords)}))
+    .filter((p:any)=>p._s>=50)  // threshold mai strict
+    .sort((a:any,b:any)=>b._s-a._s)
+  // Boost produse văzute anterior DOAR dacă sunt deja relevante
+  const boosted = scored.map((p:any)=>({...p,_s:p._s+(boostIds.includes(p.id)?10:0)}))
+  return boosted
     .sort((a:any,b:any)=>b._s-a._s)
     .slice(0,max)
     .map((p:any)=>({
@@ -332,7 +339,7 @@ export async function POST(request:Request) {
 
     // Stoc live — verifică ÎNTOTDEAUNA pentru orice produse afișate
     if(products.length > 0) {
-      const externalIds = products.map((p:any) => p.external_id).filter(Boolean) as string[]
+      const externalIds = products.map((p:any) => p.external_id ? String(p.external_id) : null).filter(Boolean) as string[]
       if(externalIds.length > 0) {
         try {
           const stockRes = await fetch(`${baseUrl}/api/agent/stock`, {
@@ -341,8 +348,6 @@ export async function POST(request:Request) {
             body: JSON.stringify({ userId: store_user_id, productIds: externalIds }),
           })
           const stockData = await stockRes.json()
-          console.log('[Chat Stock Debug] externalIds:', externalIds)
-          console.log('[Chat Stock Debug] stockData:', JSON.stringify(stockData))
           if(stockData.stock) stockInfo = stockData.stock
         } catch(e) { console.error('[Chat Stock Error]', e) }
       }
@@ -366,24 +371,30 @@ export async function POST(request:Request) {
       } catch {}
     }
 
-    const allProducts=[...products,...crossProducts].slice(0,config.max_products_shown||3)
-
     if(products.length>0){
-      const ctx=products.map((p,i)=>`${i+1}. "${p.title}" — ${p.price?p.price+' RON':'preț indisponibil'}`).join('\n')
+      // Adaugă stoc în produse ÎNAINTE de al doilea apel GPT
+      if(Object.keys(stockInfo).length > 0) {
+        products = products.map((p:any) => ({
+          ...p,
+          stock: p.external_id ? (stockInfo[String(p.external_id)] || undefined) : undefined,
+        }))
+      }
+
+      const ctx=products.map((p:any,i:number)=>{
+        const stockLabel = p.stock ? ` [${p.stock.label}]` : ''
+        return `${i+1}. "${p.title}" — ${p.price?p.price+' RON':'preț indisponibil'}${stockLabel}`
+      }).join('\n')
       const cross=crossProducts.length>0?`\nPentru crosssell: "${crossProducts[0].title}" (${crossProducts[0].price} RON)`:''
       const memCtx=memory?.conversation_summary?`\nContext vizitator: ${memory.conversation_summary}`:''
-      const stockCtx=Object.keys(stockInfo).length>0
-        ?`\nStoc live: ${products.map(p=>p.external_id&&stockInfo[p.external_id]?`"${p.title}": ${stockInfo[p.external_id].label}`:'').filter(Boolean).join(', ')}`
-        :''
       const r2=await openai.chat.completions.create({
         model:'gpt-4o-mini',
         messages:[
           {role:'system',content:systemPrompt},
           ...history.slice(-6).map((m:any)=>({role:m.role as 'user'|'assistant',content:m.content})),
           {role:'user',content:message},
-          {role:'system',content:`Produse găsite:\n${ctx}${cross}${memCtx}${stockCtx}\n\nDacă un produs e "Stoc epuizat" menționează-l natural. Prezintă în max 2 propoziții. JSON.`},
+          {role:'system',content:`Produse găsite (cu stoc real):\n${ctx}${cross}${memCtx}\n\nFOARTE IMPORTANT: Prezintă EXACT aceste produse, nu inventa altele. Dacă stocul e "Stoc epuizat" spune-o clar. Max 2 propoziții. JSON.`},
         ],
-        temperature:0.65, max_tokens:300, response_format:{type:'json_object'},
+        temperature:0.4, max_tokens:300, response_format:{type:'json_object'},
       })
       try{const r=JSON.parse(r2.choices[0].message.content||'{}');parsed.message=r.message||parsed.message;parsed.quick_replies=r.quick_replies||parsed.quick_replies}catch{}
     } else if(parsed.intent === 'order_tracking') {
@@ -402,17 +413,11 @@ export async function POST(request:Request) {
       parsed.quick_replies=['Descriu altfel','Arată tot','Vorbesc cu echipa']
     }
 
+    const allProducts=[...products,...crossProducts].slice(0,config.max_products_shown||3)
+
     let redirectUrl:string|undefined
     if(parsed.selected_product_index!=null){const sel=products[Number(parsed.selected_product_index)]||products[0];if(sel?.url)redirectUrl=sel.url}
     if(parsed.intent==='escalate'||parsed.intent==='problem')parsed.show_whatsapp=true
-
-    // Adaugă stoc în produse
-    if(Object.keys(stockInfo).length > 0) {
-      products = products.map(p => ({
-        ...p,
-        stock: p.external_id ? stockInfo[p.external_id] : undefined,
-      }))
-    }
 
     const response:AgentResponse={
       message:parsed.message||'Cum te pot ajuta?',
