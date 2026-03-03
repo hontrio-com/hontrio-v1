@@ -52,8 +52,8 @@ export async function GET() {
       supabase.from('generated_images').select('*', { count: 'exact', head: true }).eq('user_id', userId).in('status', ['completed', 'published']),
       supabase.from('users').select('credits, plan, name, avatar_url').eq('id', userId).single(),
       supabase.from('credit_transactions').select('description, amount, created_at, reference_type, type').eq('user_id', userId).order('created_at', { ascending: false }).limit(8),
-      supabase.from('stores').select('id, store_url, store_name, sync_status, last_sync_at, products_count, platform').eq('user_id', userId).single(),
-      supabase.from('agent_configs').select('is_active, agent_name').eq('user_id', userId).single(),
+      supabase.from('stores').select('id, store_url, sync_status, last_sync_at, products_count, platform').eq('user_id', userId).maybeSingle(),
+      supabase.from('agent_configs').select('is_active, agent_name').eq('user_id', userId).maybeSingle(),
       supabase.from('visitor_sessions').select('session_id', { count: 'exact', head: true }).eq('user_id', userId).gte('started_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()),
     ])
 
@@ -127,7 +127,7 @@ export async function GET() {
       creditsRemaining: userRes.data?.credits || 0,
       recentProducts: (recentProductsRes.data || []).map(p => ({ id: p.id, original_title: p.original_title, optimized_title: p.optimized_title, status: p.status, seo_score: p.seo_score, original_images: p.original_images })),
       recentTransactions: (transactionsRes.data || []).slice(0, 6).map((t: any) => ({ description: t.description, amount: t.amount, created_at: t.created_at, reference_type: t.reference_type, type: t.type })),
-      store: storeRes.data ? { id: storeRes.data.id, store_url: storeRes.data.store_url, store_name: storeRes.data.store_name, sync_status: storeRes.data.sync_status, last_sync_at: storeRes.data.last_sync_at, products_count: storeRes.data.products_count, platform: storeRes.data.platform } : null,
+      store: storeRes.data ? { id: storeRes.data.id, store_url: storeRes.data.store_url, store_name: storeRes.data.store_url, sync_status: storeRes.data.sync_status, last_sync_at: storeRes.data.last_sync_at, products_count: storeRes.data.products_count, platform: storeRes.data.platform } : null,
       agent: agentConfigRes.data ? { is_active: agentConfigRes.data.is_active, agent_name: agentConfigRes.data.agent_name, conversations_today: agentSessionsTodayRes.count || 0 } : null,
       onboardingChecklist, onboardingProgress, onboardingComplete,
       aiInsight: insights[0] || null,

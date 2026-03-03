@@ -201,9 +201,9 @@ export default function DashboardPage() {
             </div>
             <p className="text-gray-500 mt-0.5 text-sm">Iată un rezumat al performanței magazinului tău</p>
           </div>
-          <Link href="/products/new">
+          <Link href="/products">
             <Button className="bg-blue-600 hover:bg-blue-700 rounded-xl h-10 px-5 shadow-sm shadow-blue-200">
-              <Sparkles className="h-4 w-4 mr-2" />Produs nou
+              <Sparkles className="h-4 w-4 mr-2" />Optimizează produse
             </Button>
           </Link>
         </div>
