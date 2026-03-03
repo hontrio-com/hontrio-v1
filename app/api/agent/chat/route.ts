@@ -299,7 +299,7 @@ async function searchTrainingCorrections(query: string, userId: string): Promise
   } catch { return '' }
 }
 
-(userId: string, visitorId: string): Promise<VisitorMemory | null> {
+async function getVisitorMemory(userId: string, visitorId: string): Promise<VisitorMemory | null> {
   if (!visitorId) return null
   try {
     const supabase = createAdminClient()
