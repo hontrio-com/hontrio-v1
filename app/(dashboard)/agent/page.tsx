@@ -9,7 +9,7 @@ import {
   ExternalLink, ToggleLeft, ToggleRight, Upload, Code2,
   Square, Circle, RectangleHorizontal,
   X, Send, Users, Search, BarChart2, Clock, Star,
-  BookOpen, FileText, Link2, Trash2, PlusCircle, CheckCircle2, AlertTriangle,
+  BookOpen, FileText, Link2, Trash2, PlusCircle, CheckCircle2, AlertTriangle, Bell,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -34,6 +34,7 @@ type Config = {
   widget_button_label: string; widget_avatar_url: string
   widget_intro_animation: boolean; widget_custom_css: string
   quick_replies: string[]
+  notify_email: string; notify_on_escalation: boolean; notify_on_problem: boolean
 }
 
 type Stats = { total: number; last7: number; escalated: number; avgMessages: number }
@@ -61,6 +62,7 @@ const defaultConfig: Config = {
   widget_bottom_offset: 20, widget_button_shape: 'circle', widget_button_label: 'Ajutor?',
   widget_avatar_url: '', widget_intro_animation: true, widget_custom_css: '',
   quick_replies: ['Caut un produs', 'Am o întrebare', 'Livrare & retur'],
+  notify_email: '', notify_on_escalation: true, notify_on_problem: true,
 }
 
 // ── LIVE WIDGET PREVIEW ───────────────────────────────────────────────────────
@@ -669,6 +671,46 @@ export default function AgentPage() {
             )}
 
             {activeSettingsTab === 'advanced' && (
+              <div className="space-y-4">
+              {/* Notificări */}
+              <Card className="border-0 shadow-sm rounded-2xl"><CardContent className="p-5 space-y-4">
+                <div className="flex items-center gap-2 mb-1">
+                  <Bell className="h-4 w-4 text-blue-600" />
+                  <p className="text-sm font-semibold text-gray-900">Notificări email</p>
+                </div>
+                <p className="text-xs text-gray-400 -mt-2">Primești un email instant când un client are nevoie de ajutor uman.</p>
+                <div>
+                  <label className="text-xs font-semibold text-gray-700 mb-1 block">Email pentru notificări</label>
+                  <input value={config.notify_email || ''} onChange={e => setConfig(c => ({ ...c, notify_email: e.target.value }))}
+                    type="email" placeholder="tu@magazin.ro"
+                    className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div className="space-y-2">
+                  {[
+                    { key: 'notify_on_escalation', label: 'Client solicită agent uman', desc: 'Când vizitatorul cere să vorbească cu cineva' },
+                    { key: 'notify_on_problem', label: 'Problemă cu comanda', desc: 'Când vizitatorul raportează o problemă' },
+                  ].map(({ key, label, desc }) => (
+                    <div key={key} onClick={() => setConfig(c => ({ ...c, [key]: !(c as any)[key] }))}
+                      className="flex items-center justify-between p-3 rounded-xl border border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors">
+                      <div>
+                        <p className="text-xs font-medium text-gray-800">{label}</p>
+                        <p className="text-xs text-gray-400">{desc}</p>
+                      </div>
+                      <div className={`w-9 h-5 rounded-full transition-colors relative ${(config as any)[key] ? 'bg-blue-600' : 'bg-gray-200'}`}>
+                        <div className={`w-3.5 h-3.5 bg-white rounded-full absolute top-0.5 transition-all shadow-sm ${(config as any)[key] ? 'left-[18px]' : 'left-0.5'}`} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {!config.notify_email && (
+                  <p className="text-xs text-amber-600 flex items-center gap-1">⚠️ Adaugă un email ca să activezi notificările</p>
+                )}
+                {config.notify_email && (
+                  <p className="text-xs text-green-600 flex items-center gap-1">✓ Notificările vor fi trimise la <strong>{config.notify_email}</strong></p>
+                )}
+              </CardContent></Card>
+
+              {/* CSS Custom */}
               <Card className="border-0 shadow-sm rounded-2xl"><CardContent className="p-5 space-y-4">
                 <div>
                   <label className="text-xs font-semibold text-gray-700 flex items-center gap-1.5 mb-1"><Code2 className="w-3.5 h-3.5 text-purple-500" />CSS Custom</label>
@@ -687,6 +729,7 @@ export default function AgentPage() {
                   </div>
                 </div>
               </CardContent></Card>
+              </div>
             )}
 
             <Button onClick={handleSave} disabled={saving} className="w-full bg-gray-900 hover:bg-gray-800 text-white rounded-xl h-11 gap-2">

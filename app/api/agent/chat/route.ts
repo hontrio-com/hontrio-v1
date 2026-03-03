@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { openai } from '@/lib/openai/client'
+import { sendEmail, buildEscalationEmail } from '@/lib/email'
 
 type Intent = 'buying_ready'|'browsing'|'comparing'|'compatibility'|'info_product'|'info_shipping'|'problem'|'off_topic'|'escalate'|'greeting'
 
@@ -538,6 +539,21 @@ export async function POST(request:Request) {
       }).catch(()=>{})
     }
 
+    // Notificări escaladare — async, nu blochează răspunsul
+    const shouldNotify = (
+      (response.intent === 'escalate' && config.notify_on_escalation !== false) ||
+      (response.intent === 'problem' && config.notify_on_problem !== false)
+    ) && config.notify_email
+
+    if (shouldNotify) {
+      sendEscalationNotification({
+        supabase, config, storeName,
+        userId: store_user_id, sessionId: session_id, visitorId: visitor_id,
+        message, intent: response.intent,
+        history: full_history.length > 0 ? full_history : currentHistory,
+      }).catch(() => {})
+    }
+
     return NextResponse.json(response,{headers:{'Access-Control-Allow-Origin':'*'}})
   }catch(err:any){
     console.error('[Agent]',err)
@@ -554,4 +570,46 @@ async function saveConv(p:{supabase:any;userId:string;sessionId:string;visitorId
 
 export async function OPTIONS() {
   return new Response(null,{headers:{'Access-Control-Allow-Origin':'*','Access-Control-Allow-Methods':'POST,OPTIONS','Access-Control-Allow-Headers':'Content-Type'}})
+}
+
+async function sendEscalationNotification(p: {
+  supabase: any; config: any; storeName: string
+  userId: string; sessionId: string; visitorId?: string
+  message: string; intent: string
+  history: Array<{ role: string; content: string }>
+}) {
+  try {
+    // Evită duplicate — nu trimite dacă am trimis deja pentru această sesiune + intent
+    const { data: existing } = await p.supabase
+      .from('escalation_notifications')
+      .select('id').eq('session_id', p.sessionId).eq('trigger_intent', p.intent).limit(1)
+    if (existing?.length) return
+
+    const html = buildEscalationEmail({
+      agentName: p.config.agent_name || 'Asistent',
+      storeName: p.storeName,
+      visitorMessage: p.message,
+      intent: p.intent,
+      conversationHistory: p.history,
+    })
+
+    const sent = await sendEmail({
+      to: p.config.notify_email,
+      subject: p.intent === 'escalate'
+        ? `🔴 Client solicită ajutor uman — ${p.storeName}`
+        : `⚠️ Problemă raportată de client — ${p.storeName}`,
+      html,
+    })
+
+    if (sent) {
+      await p.supabase.from('escalation_notifications').insert({
+        user_id: p.userId, session_id: p.sessionId, visitor_id: p.visitorId,
+        trigger_intent: p.intent, trigger_message: p.message,
+        email_sent_to: p.config.notify_email, status: 'sent',
+      })
+      console.log('[Notification] Escalation email sent to', p.config.notify_email)
+    }
+  } catch (err) {
+    console.error('[Notification] Error:', err)
+  }
 }
