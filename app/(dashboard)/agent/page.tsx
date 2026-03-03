@@ -9,6 +9,7 @@ import {
   ExternalLink, ToggleLeft, ToggleRight, Upload, Code2,
   Square, Circle, RectangleHorizontal,
   X, Send, Users, Search, BarChart2, Clock, Star,
+  BookOpen, FileText, Link2, Trash2, PlusCircle, CheckCircle2, AlertTriangle,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -36,6 +37,11 @@ type Config = {
 }
 
 type Stats = { total: number; last7: number; escalated: number; avgMessages: number }
+
+type KnowledgeDoc = {
+  id: string; name: string; type: string; status: string
+  chunk_count: number; size_bytes: number; error_msg: string | null; created_at: string
+}
 
 type Analytics = {
   summary: { totalSessions: number; uniqueVisitors: number; returningVisitors: number; avgMessages: number; escalated: number; weekTrend: number; thisWeek: number; lastWeek: number }
@@ -214,6 +220,14 @@ export default function AgentPage() {
   const [stats, setStats] = useState<Stats | null>(null)
   const [intents, setIntents] = useState<Record<string, number>>({})
   const [analytics, setAnalytics] = useState<Analytics | null>(null)
+  const [knowledgeDocs, setKnowledgeDocs] = useState<KnowledgeDoc[]>([])
+  const [kUploadType, setKUploadType] = useState<'file' | 'url' | 'text'>('file')
+  const [kUrl, setKUrl] = useState('')
+  const [kText, setKText] = useState('')
+  const [kName, setKName] = useState('')
+  const [kUploading, setKUploading] = useState(false)
+  const [kError, setKError] = useState('')
+  const kFileRef = useRef<HTMLInputElement>(null)
   const [analyticsRange, setAnalyticsRange] = useState<7 | 30>(30)
   const [analyticsLoading, setAnalyticsLoading] = useState(false)
   const [storeUserId, setStoreUserId] = useState('')
@@ -223,7 +237,7 @@ export default function AgentPage() {
   const [saved, setSaved] = useState(false)
   const [copied, setCopied] = useState(false)
   const [downloading, setDownloading] = useState(false)
-  const [activeTab, setActiveTab] = useState<'overview' | 'settings' | 'install'>('overview')
+  const [activeTab, setActiveTab] = useState<'overview' | 'settings' | 'knowledge' | 'install'>('overview')
   const [activeSettingsTab, setActiveSettingsTab] = useState<'identity' | 'appearance' | 'advanced'>('identity')
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const avatarInputRef = useRef<HTMLInputElement>(null)
@@ -232,6 +246,35 @@ export default function AgentPage() {
   const [previewLoading, setPreviewLoading] = useState(false)
 
   useEffect(() => { loadData() }, [])
+
+  const loadKnowledge = async () => {
+    try {
+      const r = await fetch('/api/agent/knowledge')
+      const data = await r.json()
+      if (data.documents) setKnowledgeDocs(data.documents)
+    } catch {}
+  }
+
+  const uploadKnowledge = async (file?: File) => {
+    setKUploading(true); setKError('')
+    try {
+      const fd = new FormData()
+      if (file) { fd.append('file', file); fd.append('name', kName || file.name) }
+      else if (kUploadType === 'url') { fd.append('url', kUrl); fd.append('name', kName || kUrl) }
+      else { fd.append('text', kText); fd.append('name', kName || 'Text manual') }
+      const r = await fetch('/api/agent/knowledge/upload', { method: 'POST', body: fd })
+      const data = await r.json()
+      if (!r.ok) { setKError(data.error || 'Eroare upload'); return }
+      setKUrl(''); setKText(''); setKName('')
+      await loadKnowledge()
+    } catch { setKError('Eroare la upload') } finally { setKUploading(false) }
+  }
+
+  const deleteKnowledge = async (id: string) => {
+    if (!confirm('Ștergi acest document?')) return
+    await fetch('/api/agent/knowledge', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) })
+    setKnowledgeDocs(prev => prev.filter(d => d.id !== id))
+  }
 
   const loadAnalytics = async (days = analyticsRange) => {
     setAnalyticsLoading(true)
@@ -336,8 +379,8 @@ export default function AgentPage() {
       </div>
 
       <div className="flex gap-1 p-1 bg-gray-100 rounded-xl w-fit">
-        {[{ id: 'overview', label: 'Statistici', icon: TrendingUp }, { id: 'settings', label: 'Configurare', icon: Settings2 }, { id: 'install', label: 'Instalare', icon: ExternalLink }].map(tab => (
-          <button key={tab.id} onClick={() => { setActiveTab(tab.id as any); if (tab.id === 'overview') loadAnalytics() }}
+        {[{ id: 'overview', label: 'Statistici', icon: TrendingUp }, { id: 'settings', label: 'Configurare', icon: Settings2 }, { id: 'knowledge', label: 'Cunoștințe', icon: BookOpen }, { id: 'install', label: 'Instalare', icon: ExternalLink }].map(tab => (
+          <button key={tab.id} onClick={() => { setActiveTab(tab.id as any); if (tab.id === 'overview') loadAnalytics(); if (tab.id === 'knowledge') loadKnowledge() }}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === tab.id ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
             <tab.icon className="h-4 w-4" />{tab.label}
           </button>
@@ -660,6 +703,125 @@ export default function AgentPage() {
             </div>
             <WidgetPreview config={config} messages={previewMessages} onSend={sendPreview} loading={previewLoading} onToggle={() => setPreviewOpen(p => !p)} isOpen={previewOpen} />
             <p className="text-xs text-gray-400 text-center">Apasă butonul din preview ca să deschizi chat-ul și să testezi</p>
+          </div>
+        </div>
+      )}
+
+      {/* KNOWLEDGE / RAG */}
+      {activeTab === 'knowledge' && (
+        <div className="space-y-5">
+          {/* Upload card */}
+          <Card className="border-0 shadow-sm rounded-2xl"><CardContent className="p-5">
+            <div className="flex items-center gap-2 mb-4">
+              <BookOpen className="h-4 w-4 text-blue-600" />
+              <p className="text-sm font-semibold text-gray-900">Adaugă cunoștințe</p>
+            </div>
+            <p className="text-xs text-gray-500 mb-4">Încarcă documente, adaugă un URL sau scrie direct text. Agentul va răspunde la întrebări bazat pe aceste informații.</p>
+
+            {/* Type selector */}
+            <div className="flex gap-1 bg-gray-100 rounded-xl p-1 mb-4">
+              {([['file','📄 Fișier'],['url','🔗 URL'],['text','✏️ Text']] as const).map(([t, label]) => (
+                <button key={t} onClick={() => setKUploadType(t)}
+                  className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-all ${kUploadType === t ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            <div className="space-y-3">
+              <input value={kName} onChange={e => setKName(e.target.value)} placeholder="Nume document (opțional)"
+                className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+
+              {kUploadType === 'file' && (
+                <div onClick={() => kFileRef.current?.click()}
+                  className="border-2 border-dashed border-gray-200 rounded-xl p-6 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-all">
+                  <Upload className="h-6 w-6 text-gray-400 mx-auto mb-2" />
+                  <p className="text-xs text-gray-500">Click sau drag & drop</p>
+                  <p className="text-xs text-gray-400 mt-1">PDF, TXT, MD — max 5MB</p>
+                  <input ref={kFileRef} type="file" accept=".pdf,.txt,.md" className="hidden"
+                    onChange={e => { const f = e.target.files?.[0]; if (f) uploadKnowledge(f); e.target.value = '' }} />
+                </div>
+              )}
+
+              {kUploadType === 'url' && (
+                <input value={kUrl} onChange={e => setKUrl(e.target.value)} placeholder="https://magazin.ro/politica-retur"
+                  className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              )}
+
+              {kUploadType === 'text' && (
+                <textarea value={kText} onChange={e => setKText(e.target.value)} rows={5}
+                  placeholder="Ex: Livrăm în 24-48h prin Fan Courier. Returul e gratuit în 30 de zile..."
+                  className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
+              )}
+
+              {kError && <p className="text-xs text-red-500 flex items-center gap-1"><AlertTriangle className="h-3 w-3" />{kError}</p>}
+
+              {(kUploadType === 'url' || kUploadType === 'text') && (
+                <Button onClick={() => uploadKnowledge()} disabled={kUploading || (!kUrl && !kText)}
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm">
+                  {kUploading ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />Se procesează...</> : <><PlusCircle className="h-4 w-4 mr-2" />Adaugă</>}
+                </Button>
+              )}
+              {kUploading && kUploadType === 'file' && (
+                <div className="flex items-center gap-2 text-xs text-blue-600"><Loader2 className="h-4 w-4 animate-spin" />Se procesează documentul...</div>
+              )}
+            </div>
+          </CardContent></Card>
+
+          {/* Documents list */}
+          <Card className="border-0 shadow-sm rounded-2xl"><CardContent className="p-5">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <FileText className="h-4 w-4 text-gray-500" />
+                <p className="text-sm font-semibold text-gray-900">Documente ({knowledgeDocs.length})</p>
+              </div>
+              <button onClick={loadKnowledge} className="text-xs text-gray-400 hover:text-gray-600 transition-colors">↻ Actualizează</button>
+            </div>
+
+            {knowledgeDocs.length === 0 ? (
+              <div className="text-center py-8">
+                <BookOpen className="h-10 w-10 text-gray-200 mx-auto mb-3" />
+                <p className="text-sm text-gray-400">Niciun document adăugat</p>
+                <p className="text-xs text-gray-400 mt-1">Adaugă politica de livrare, FAQ, garanții etc.</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {knowledgeDocs.map(doc => (
+                  <div key={doc.id} className="flex items-center gap-3 p-3 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors group">
+                    <div className="shrink-0">
+                      {doc.type === 'pdf' ? <FileText className="h-4 w-4 text-red-500" /> :
+                       doc.type === 'url' ? <Link2 className="h-4 w-4 text-blue-500" /> :
+                       <FileText className="h-4 w-4 text-gray-500" />}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium text-gray-800 truncate">{doc.name}</p>
+                      <p className="text-xs text-gray-400">
+                        {doc.status === 'ready' ? `${doc.chunk_count} segmente` :
+                         doc.status === 'processing' ? 'Se procesează...' : doc.error_msg || 'Eroare'}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {doc.status === 'ready' && <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />}
+                      {doc.status === 'processing' && <Loader2 className="h-3.5 w-3.5 text-blue-500 animate-spin" />}
+                      {doc.status === 'error' && <AlertTriangle className="h-3.5 w-3.5 text-red-500" />}
+                      <button onClick={() => deleteKnowledge(doc.id)}
+                        className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-100 rounded-lg transition-all">
+                        <Trash2 className="h-3.5 w-3.5 text-red-500" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent></Card>
+
+          {/* Info box */}
+          <div className="flex gap-2 p-4 bg-blue-50 rounded-xl">
+            <BookOpen className="h-4 w-4 text-blue-600 shrink-0 mt-0.5" />
+            <div>
+              <p className="text-xs font-medium text-blue-800">Ce să adaugi?</p>
+              <p className="text-xs text-blue-600 mt-1">Politica de livrare și retur, garanții, FAQ, instrucțiuni de utilizare, informații despre brand. Agentul va cita automat informațiile relevante când clienții întreabă.</p>
+            </div>
           </div>
         </div>
       )}

@@ -30,7 +30,7 @@ type VisitorMemory = {
   return_count: number
 }
 
-function buildSystemPrompt(config: any, storeName: string, catalog: string, memory: VisitorMemory | null): string {
+function buildSystemPrompt(config: any, storeName: string, catalog: string, memory: VisitorMemory | null, ragContext = ''): string {
   const isReturningVisitor = memory && memory.total_sessions > 0
 
   let memoryContext = ''
@@ -73,6 +73,9 @@ REGULI ABSOLUTE:
 3. NU inventa prețuri, specificații, disponibilitate
 4. MAX 2 propoziții în mesaj — niciodată mai mult
 5. O singură întrebare per mesaj dacă ai nevoie de clarificare
+${ragContext ? `
+CUNOȘTINȚE SPECIFICE MAGAZIN (folosește pentru întrebări despre livrare, garanție, politici, FAQ):
+${ragContext}` : ''}
 
 INTENȚIE — detectezi imediat:
 - Orice mention de produs specific → buying_ready → search_query imediat
@@ -215,6 +218,31 @@ async function buildCatalog(userId:string):Promise<string> {
   return Object.entries(by).map(([c,ps])=>`${c}: ${ps.slice(0,12).join(' | ')}`).join('\n')
 }
 
+async function searchKnowledge(query: string, userId: string): Promise<string> {
+  try {
+    const supabase = createAdminClient()
+    // Generează embedding pentru query
+    const embRes = await openai.embeddings.create({
+      model: 'text-embedding-3-small',
+      input: query.slice(0, 500),
+    })
+    const embedding = embRes.data[0].embedding
+
+    // Caută chunks similare prin funcția SQL
+    const { data: chunks } = await supabase.rpc('match_knowledge_chunks', {
+      query_embedding: JSON.stringify(embedding),
+      match_user_id: userId,
+      match_threshold: 0.72,
+      match_count: 4,
+    })
+
+    if (!chunks?.length) return ''
+    return chunks.map((c: any) => c.content).join('\n---\n')
+  } catch { return '' }
+}
+
+
+
 async function loadVisitorMemory(userId: string, visitorId: string): Promise<VisitorMemory | null> {
   if (!visitorId) return null
   try {
@@ -323,12 +351,13 @@ export async function POST(request:Request) {
     const storeName=store?.store_name||config.agent_name||'magazin'
     const storeUrl=store?.store_url?.replace(/\/$/,'')||''
 
-    const [catalog, memory] = await Promise.all([
+    const [catalog, memory, ragContext] = await Promise.all([
       buildCatalog(store_user_id),
       loadVisitorMemory(store_user_id, visitor_id),
+      searchKnowledge(message, store_user_id),
     ])
 
-    const systemPrompt = buildSystemPrompt(config, storeName, catalog, memory)
+    const systemPrompt = buildSystemPrompt(config, storeName, catalog, memory, ragContext)
 
     const gpt=await openai.chat.completions.create({
       model:'gpt-4o-mini',
