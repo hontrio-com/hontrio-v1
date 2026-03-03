@@ -1,1037 +1,361 @@
 'use client'
 
-import { useSession, signOut } from 'next-auth/react'
-import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
-import { motion, AnimatePresence } from 'framer-motion'
-import NotificationBell from '@/components/notification-bell'
-import {
-  LayoutDashboard, Package, ImageIcon, Search, CreditCard, Settings,
-  LogOut, Menu, X, ChevronRight, Shield, Sparkles, AlertTriangle,
-  MessageSquare, Zap, Crown, ArrowUpRight, Coins, Video, Bot,
-} from 'lucide-react'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
+import { AlertCircle, BookOpen, Plus, Trash2, ToggleLeft, ToggleRight, Star, TrendingUp, CheckCircle2, Loader2, Save, ExternalLink, RefreshCw } from 'lucide-react'
+import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { Badge } from '@/components/ui/badge'
-import { Input } from '@/components/ui/input'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { useCredits } from '@/hooks/use-credits'
 
-const menuSections = [
-  {
-    label: 'Principal',
-    items: [
-      { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-      { label: 'Produse', href: '/products', icon: Package },
-    ]
-  },
-  {
-    label: 'Unelte AI',
-    items: [
-      { label: 'Imagini AI', href: '/images', icon: ImageIcon },
-      { label: 'Videoclipuri AI', href: '/videos', icon: Video },
-      { label: 'Optimizare SEO', href: '/seo', icon: Search },
-      { label: 'AI Agent', href: '/agent', icon: Bot },
-    ]
-  },
-  {
-    label: 'Cont',
-    items: [
-      { label: 'Abonament', href: '/credits', icon: CreditCard },
-      { label: 'Suport', href: '/support', icon: MessageSquare },
-      { label: 'Setări', href: '/settings', icon: Settings },
-    ]
-  },
-]
+// ═══════════════════════════════════════════════
+// TYPES
+// ═══════════════════════════════════════════════
+type UnansweredQ = { id: string; question: string; intent: string; confidence: number; count: number; resolved: boolean; last_seen_at: string }
+type ProductStat = { id: string; name: string; shown: number; clicked: number; compared: number; escalated: number; carted: number; score: number }
+type Correction = { id: string; original_question: string; wrong_answer?: string; correct_answer: string; is_active: boolean; created_at: string }
 
-const allMenuItems = menuSections.flatMap(s => s.items)
-
-const agentSubMenu = [
-  { label: 'Configurare', href: '/agent', icon: Settings },
-  { label: 'Triggeri', href: '/agent/triggers', icon: Zap },
-  { label: 'Inbox', href: '/agent/inbox', icon: MessageCircle },
-  { label: 'Insights', href: '/agent/insights', icon: TrendingUp },
-]
-
-const searchablePages = [
-  { label: 'Dashboard', href: '/dashboard', keywords: ['dashboard', 'acasă', 'home'] },
-  { label: 'Produse', href: '/products', keywords: ['produse', 'products', 'catalog'] },
-  { label: 'Imagini AI', href: '/images', keywords: ['imagini', 'images', 'generare', 'AI', 'foto', 'imagine'] },
-  { label: 'Videoclipuri AI', href: '/videos', keywords: ['video', 'videoclip', 'clip', 'reel', 'film'] },
-  { label: 'Optimizare SEO', href: '/seo', keywords: ['seo', 'optimizare', 'scor', 'score'] },
-  { label: 'AI Agent', href: '/agent', keywords: ['agent', 'chat', 'asistent', 'conversatie', 'bot', 'ai'] },
-  { label: 'Triggeri', href: '/agent/triggers', keywords: ['triggeri', 'triggers', 'proactiv', 'exit', 'scroll'] },
-  { label: 'Abonament', href: '/credits', keywords: ['credite', 'credits', 'abonament', 'plan', 'upgrade'] },
-  { label: 'Suport', href: '/support', keywords: ['suport', 'support', 'ajutor', 'tichet', 'help'] },
-  { label: 'Setări', href: '/settings', keywords: ['setari', 'settings', 'profil', 'parolă', 'magazin'] },
-]
-
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const { data: session } = useSession()
-  const pathname = usePathname()
-  const router = useRouter()
-  const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [collapsed, setCollapsed] = useState(false)
-  const [searchQuery, setSearchQuery] = useState('')
-  const [searchFocused, setSearchFocused] = useState(false)
-  const [mobileSearchOpen, setMobileSearchOpen] = useState(false)
-  const searchRef = useRef<HTMLDivElement>(null)
-
-  const { credits: userCredits, plan: userPlan, avatarUrl } = useCredits()
-
-  const userName = session?.user?.name || 'Utilizator'
-  const userEmail = session?.user?.email || ''
-  const userInitial = userName[0]?.toUpperCase() || 'U'
-  const userRole = (session?.user as any)?.role || 'user'
-  const isAgentSection = pathname.startsWith('/agent')
+// ═══════════════════════════════════════════════
+// UNANSWERED QUESTIONS TAB
+// ═══════════════════════════════════════════════
+function UnansweredTab() {
+  const [questions, setQuestions] = useState<UnansweredQ[]>([])
+  const [loading, setLoading] = useState(true)
+  const [filter, setFilter] = useState<'all' | 'unresolved'>('unresolved')
 
   useEffect(() => {
-    if (!session?.user) return
-    if (userRole === 'admin') return
-    fetch('/api/user/me')
-      .then(r => r.json())
-      .then(data => {
-        if (data.user && data.user.onboarding_completed === false) {
-          window.location.href = '/onboarding'
-        }
-      })
-      .catch(() => {})
-  }, [session, userRole])
-
-  const searchResults = searchQuery.length > 0
-    ? searchablePages.filter(p =>
-        p.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p.keywords.some(k => k.toLowerCase().includes(searchQuery.toLowerCase()))
-      )
-    : []
-
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
-        setSearchFocused(false)
-      }
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
+    fetch('/api/agent/unanswered').then(r => r.json()).then(d => { setQuestions(d.questions || []); setLoading(false) }).catch(() => setLoading(false))
   }, [])
 
-  useEffect(() => {
-    setSearchFocused(false)
-    setSearchQuery('')
-  }, [pathname])
-
-  const navigateAndClose = (href: string) => {
-    router.push(href)
-    setSearchFocused(false)
-    setSearchQuery('')
-    setSidebarOpen(false)
+  const resolve = async (id: string) => {
+    await fetch('/api/agent/unanswered', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, resolved: true }) })
+    setQuestions(prev => prev.map(q => q.id === id ? { ...q, resolved: true } : q))
   }
 
+  const filtered = questions.filter(q => filter === 'all' || !q.resolved)
+  const unresolvedCount = questions.filter(q => !q.resolved).length
+
   return (
-    <TooltipProvider delayDuration={0}>
-      <div className="min-h-screen bg-gray-50/50 overflow-x-hidden">
-        <AnimatePresence>
-          {sidebarOpen && (
-            <motion.div
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40 lg:hidden"
-              onClick={() => setSidebarOpen(false)}
-            />
-          )}
-        </AnimatePresence>
-
-        <aside className={`fixed top-0 left-0 z-50 h-full bg-white border-r border-gray-100 transition-all duration-300 ease-in-out
-          ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0
-          ${collapsed ? 'lg:w-[72px]' : 'lg:w-[260px]'}
-        `}>
-          <div className="flex flex-col h-full">
-            <div className={`flex items-center h-16 border-b border-gray-100 ${collapsed ? 'justify-center px-2' : 'justify-between px-5'}`}>
-              {!collapsed ? (
-                <Link href="/dashboard" className="flex items-center gap-2.5">
-                  <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center">
-                    <Sparkles className="h-4 w-4 text-white" />
-                  </div>
-                  <span className="text-lg font-bold gradient-text">HONTRIO</span>
-                </Link>
-              ) : (
-                <Link href="/dashboard">
-                  <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center">
-                    <Sparkles className="h-4 w-4 text-white" />
-                  </div>
-                </Link>
-              )}
-              {!collapsed && (
-                <button className="lg:hidden text-gray-400 hover:text-gray-600" onClick={() => setSidebarOpen(false)}>
-                  <X className="h-5 w-5" />
-                </button>
-              )}
-            </div>
-
-            <nav className={`flex-1 py-3 overflow-y-auto ${collapsed ? 'px-2' : 'px-3'}`}>
-              {menuSections.map((section, si) => (
-                <div key={section.label} className={si > 0 ? 'mt-5' : ''}>
-                  {!collapsed && (
-                    <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-300 mb-2 px-3">{section.label}</p>
-                  )}
-                  {collapsed && si > 0 && <div className="mx-1 border-t border-gray-100 my-2" />}
-                  <div className="space-y-0.5">
-                    {section.items.map((item) => {
-                      const isAgentItem = item.href === '/agent'
-                      const isActive = !isAgentItem && (
-                        pathname === item.href ||
-                        (item.href !== '/dashboard' && pathname.startsWith(item.href))
-                      )
-                      const isAgentActive = isAgentItem && isAgentSection
-
-                      const content = (
-                        <div key={item.href}>
-                          <Link
-                            href={item.href}
-                            onClick={() => setSidebarOpen(false)}
-                            className={`group flex items-center gap-3 rounded-xl text-sm font-medium transition-all duration-200
-                              ${collapsed ? 'justify-center p-2.5' : 'px-3 py-2.5'}
-                              ${(isActive || isAgentActive) ? 'bg-blue-50 text-blue-600 shadow-sm shadow-blue-100' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50'}
-                            `}
-                          >
-                            <item.icon className={`h-[18px] w-[18px] shrink-0 transition-colors ${(isActive || isAgentActive) ? 'text-blue-600' : 'text-gray-400 group-hover:text-gray-600'}`} />
-                            {!collapsed && <span>{item.label}</span>}
-                            {!collapsed && isAgentItem && (
-                              <ChevronRight className={`ml-auto h-3.5 w-3.5 transition-transform duration-200 ${isAgentSection ? 'rotate-90 text-blue-400' : 'text-gray-300'}`} />
-                            )}
-                            {!collapsed && !isAgentItem && isActive && (
-                              <div className="ml-auto h-1.5 w-1.5 rounded-full bg-blue-600" />
-                            )}
-                          </Link>
-
-                          {/* Submeniu expandat - sidebar normal */}
-                          {isAgentItem && isAgentSection && !collapsed && (
-                            <div className="mt-1 ml-3 border-l-2 border-blue-100 pl-2 space-y-0.5 pb-1">
-                              {agentSubMenu.map(sub => {
-                                const isSubActive = pathname === sub.href
-                                return (
-                                  <Link key={sub.href} href={sub.href}
-                                    onClick={() => setSidebarOpen(false)}
-                                    className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm font-medium transition-all
-                                      ${isSubActive ? 'bg-blue-50 text-blue-600' : 'text-gray-400 hover:text-gray-700 hover:bg-gray-50'}`}>
-                                    <sub.icon className={`h-3.5 w-3.5 shrink-0 ${isSubActive ? 'text-blue-500' : 'text-gray-300'}`} />
-                                    <span>{sub.label}</span>
-                                    {isSubActive && <div className="ml-auto h-1.5 w-1.5 rounded-full bg-blue-600" />}
-                                  </Link>
-                                )
-                              })}
-                            </div>
-                          )}
-
-                          {/* Submeniu - sidebar collapsed */}
-                          {isAgentItem && isAgentSection && collapsed && (
-                            <div className="mt-1 space-y-0.5">
-                              {agentSubMenu.map(sub => {
-                                const isSubActive = pathname === sub.href
-                                return (
-                                  <Tooltip key={sub.href}>
-                                    <TooltipTrigger asChild>
-                                      <Link href={sub.href}
-                                        className={`flex items-center justify-center p-2.5 rounded-xl transition-all
-                                          ${isSubActive ? 'bg-blue-50 text-blue-600' : 'text-gray-400 hover:text-gray-700 hover:bg-gray-50'}`}>
-                                        <sub.icon className="h-[18px] w-[18px]" />
-                                      </Link>
-                                    </TooltipTrigger>
-                                    <TooltipContent side="right" sideOffset={10}>{sub.label}</TooltipContent>
-                                  </Tooltip>
-                                )
-                              })}
-                            </div>
-                          )}
-                        </div>
-                      )
-
-                      return collapsed && !isAgentItem ? (
-                        <Tooltip key={item.href}>
-                          <TooltipTrigger asChild><div>{content}</div></TooltipTrigger>
-                          <TooltipContent side="right" sideOffset={10}>{item.label}</TooltipContent>
-                        </Tooltip>
-                      ) : (
-                        <div key={item.href}>{content}</div>
-                      )
-                    })}
-                  </div>
-                </div>
-              ))}
-
-              {userRole === 'admin' && (
-                <>
-                  {!collapsed && <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-300 mb-2 px-3 mt-5">Admin</p>}
-                  {collapsed && <div className="mx-1 border-t border-gray-100 my-2" />}
-                  {collapsed ? (
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Link href="/admin/stats" className={`group flex items-center justify-center p-2.5 rounded-xl text-sm font-medium transition-all
-                          ${pathname.startsWith('/admin') ? 'bg-red-50 text-red-600' : 'text-red-400 hover:text-red-600 hover:bg-red-50'}`}>
-                          <Shield className="h-[18px] w-[18px]" />
-                        </Link>
-                      </TooltipTrigger>
-                      <TooltipContent side="right" sideOffset={10}>Admin</TooltipContent>
-                    </Tooltip>
-                  ) : (
-                    <Link href="/admin/stats" onClick={() => setSidebarOpen(false)}
-                      className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all
-                        ${pathname.startsWith('/admin') ? 'bg-red-50 text-red-600' : 'text-red-400 hover:text-red-600 hover:bg-red-50'}`}>
-                      <Shield className="h-[18px] w-[18px]" /><span>Panou Admin</span>
-                    </Link>
-                  )}
-                </>
-              )}
-            </nav>
-
-            {!collapsed && (
-              <div className="mx-3 mb-3">
-                {userCredits <= 0 ? (
-                  <div className="rounded-2xl bg-red-600 p-4 text-white">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-2">
-                        <div className="h-7 w-7 rounded-lg bg-white/20 flex items-center justify-center">
-                          <AlertTriangle className="h-3.5 w-3.5" />
-                        </div>
-                        <span className="text-xs font-semibold text-red-100">Credite epuizate</span>
-                      </div>
-                      <span className="text-[10px] font-medium bg-white/20 px-2 py-0.5 rounded-full capitalize">{userPlan}</span>
-                    </div>
-                    <p className="text-3xl font-bold">0</p>
-                    <p className="text-[11px] text-red-200 mt-1">Cumpără credite pentru a continua</p>
-                    <Link href="/credits">
-                      <button className="w-full mt-3 h-9 rounded-xl bg-white text-red-700 text-xs font-semibold hover:bg-red-50 transition-colors flex items-center justify-center gap-1.5">
-                        <Zap className="h-3.5 w-3.5" />Cumpără credite
-                      </button>
-                    </Link>
-                  </div>
-                ) : userCredits <= 5 ? (
-                  <div className="rounded-2xl bg-amber-600 p-4 text-white">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-2">
-                        <div className="h-7 w-7 rounded-lg bg-white/20 flex items-center justify-center">
-                          <Coins className="h-3.5 w-3.5" />
-                        </div>
-                        <span className="text-xs font-semibold text-amber-100">Credite scăzute</span>
-                      </div>
-                      <span className="text-[10px] font-medium bg-white/20 px-2 py-0.5 rounded-full capitalize">{userPlan}</span>
-                    </div>
-                    <p className="text-3xl font-bold">{userCredits}</p>
-                    <div className="h-1.5 bg-white/20 rounded-full mt-2 overflow-hidden">
-                      <div className="h-full bg-white rounded-full transition-all" style={{ width: `${Math.min((userCredits / 20) * 100, 100)}%` }} />
-                    </div>
-                    <Link href="/credits">
-                      <button className="w-full mt-3 h-9 rounded-xl bg-white/20 text-white text-xs font-semibold hover:bg-white/30 transition-colors flex items-center justify-center gap-1.5 border border-white/20">
-                        <Coins className="h-3.5 w-3.5" />Suplimentează
-                      </button>
-                    </Link>
-                  </div>
-                ) : (
-                  <div className="rounded-2xl bg-blue-600 p-4 text-white">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-2">
-                        <div className="h-7 w-7 rounded-lg bg-white/20 flex items-center justify-center">
-                          <Sparkles className="h-3.5 w-3.5" />
-                        </div>
-                        <span className="text-xs font-semibold text-blue-100">Credite disponibile</span>
-                      </div>
-                      <span className="text-[10px] font-medium bg-white/20 px-2 py-0.5 rounded-full capitalize">{userPlan}</span>
-                    </div>
-                    <p className="text-3xl font-bold">{userCredits}</p>
-                    <div className="h-1.5 bg-white/20 rounded-full mt-2 overflow-hidden">
-                      <div className="h-full bg-white rounded-full transition-all" style={{ width: `${Math.min((userCredits / 100) * 100, 100)}%` }} />
-                    </div>
-                    <Link href="/credits">
-                      <button className="w-full mt-3 h-9 rounded-xl bg-white/20 text-white text-xs font-semibold hover:bg-white/30 transition-colors flex items-center justify-center gap-1.5 border border-white/20">
-                        <Crown className="h-3.5 w-3.5" />Upgrade plan
-                      </button>
-                    </Link>
-                  </div>
-                )}
-              </div>
-            )}
-
-            <div className={`border-t border-gray-100 ${collapsed ? 'p-2' : 'p-3'}`}>
-              {collapsed ? (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button onClick={() => signOut({ callbackUrl: '/login' })}
-                      className="w-full flex items-center justify-center p-2.5 rounded-xl text-gray-400 hover:text-red-500 hover:bg-red-50 transition-all">
-                      <LogOut className="h-[18px] w-[18px]" />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent side="right" sideOffset={10}>Deconectare</TooltipContent>
-                </Tooltip>
-              ) : (
-                <div className="flex items-center gap-3">
-                  <Avatar className="h-9 w-9">
-                    {avatarUrl && <AvatarImage src={avatarUrl} alt={userName} />}
-                    <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-500 text-white text-sm font-medium">
-                      {userInitial}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">{userName}</p>
-                    <p className="text-xs text-gray-400 truncate">{userEmail}</p>
-                  </div>
-                  <button onClick={() => signOut({ callbackUrl: '/login' })}
-                    className="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-all">
-                    <LogOut className="h-4 w-4" />
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        </aside>
-
-        <div className={`transition-all duration-300 ${collapsed ? 'lg:pl-[72px]' : 'lg:pl-[260px]'}`}>
-          <header className="sticky top-0 z-30 h-14 sm:h-16 bg-white/80 backdrop-blur-md border-b border-gray-100 flex items-center gap-2 sm:gap-3 px-3 sm:px-4 lg:px-6">
-            <button className="lg:hidden p-2 rounded-lg hover:bg-gray-100 transition-colors shrink-0" onClick={() => setSidebarOpen(true)}>
-              <Menu className="h-5 w-5 text-gray-600" />
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <p className="text-xs text-gray-500">{unresolvedCount} întrebări fără răspuns bun</p>
+        <div className="flex gap-1 bg-gray-100 rounded-lg p-1">
+          {(['unresolved', 'all'] as const).map(f => (
+            <button key={f} onClick={() => setFilter(f)} className={`text-xs px-3 py-1 rounded-md font-medium transition-all ${filter === f ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}>
+              {f === 'unresolved' ? 'Nerezolvate' : 'Toate'}
             </button>
-            <button className="hidden lg:flex p-1.5 rounded-lg hover:bg-gray-100 transition-colors text-gray-400 hover:text-gray-600 shrink-0"
-              onClick={() => setCollapsed(!collapsed)}>
-              <Menu className="h-4 w-4" />
-            </button>
-
-            <div ref={searchRef} className="relative hidden sm:block flex-1 max-w-2xl mx-auto">
-              <div className="relative">
-                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-300 pointer-events-none" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
-                  onFocus={() => setSearchFocused(true)}
-                  placeholder="Caută produse, imagini, setări..."
-                  className="w-full h-10 pl-10 pr-12 rounded-xl bg-gray-50 border border-gray-100 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:border-blue-200 focus:bg-white transition-all"
-                />
-                <kbd className="hidden md:flex absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded font-mono">⌘K</kbd>
-              </div>
-              <AnimatePresence>
-                {searchFocused && searchQuery.length > 0 && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 4 }}
-                    className="absolute top-12 left-0 right-0 bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden z-50"
-                  >
-                    {searchResults.length > 0 ? (
-                      searchResults.map(result => (
-                        <button key={result.href} onClick={() => navigateAndClose(result.href)}
-                          className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition-colors text-left">
-                          <Search className="h-3.5 w-3.5 text-gray-400" />
-                          {result.label}
-                          <ArrowUpRight className="h-3 w-3 text-gray-300 ml-auto" />
-                        </button>
-                      ))
-                    ) : (
-                      <div className="px-4 py-3 text-sm text-gray-400">Niciun rezultat</div>
-                    )}
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-
-            <div className="contents" id="mobile-search-wrapper">
-              <button
-                className="p-2 rounded-lg hover:bg-gray-100 transition-colors text-gray-400 shrink-0"
-                onClick={() => { setSearchFocused(true); setMobileSearchOpen(true) }}
-                style={{ display: 'var(--mobile-only, none)' } as React.CSSProperties}
-              >
-                <Search className="h-5 w-5" />
-              </button>
-              <div className="flex-1" style={{ display: 'var(--mobile-only, none)' } as React.CSSProperties} />
-            </div>
-
-            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-              <Link href="/credits">
-                <button className="flex items-center gap-1.5 h-8 sm:h-9 px-2.5 sm:px-4 rounded-xl text-xs font-medium text-gray-600 bg-gray-50 hover:bg-gray-100 border border-gray-100 transition-all">
-                  <Coins className="h-3.5 w-3.5 text-amber-500 shrink-0" />
-                  <span className="hidden md:inline">Cumpără Credite</span>
-                  <span className="md:hidden">Credite</span>
-                </button>
-              </Link>
-              <Link href="/credits">
-                <button className="flex items-center gap-1.5 h-8 sm:h-9 px-2.5 sm:px-4 rounded-xl text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 transition-all">
-                  <Crown className="h-3.5 w-3.5 shrink-0" />
-                  <span className="hidden md:inline">Upgrade Pachet</span>
-                  <span className="md:hidden">Upgrade</span>
-                </button>
-              </Link>
-              <NotificationBell />
-            </div>
-          </header>
-
-          <AnimatePresence>
-            {mobileSearchOpen && (
-              <motion.div
-                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                className="fixed inset-0 z-50 bg-black/40 sm:hidden"
-                onClick={() => setMobileSearchOpen(false)}
-              >
-                <motion.div
-                  initial={{ y: -20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -20, opacity: 0 }}
-                  className="bg-white p-4 shadow-lg"
-                  onClick={e => e.stopPropagation()}
-                >
-                  <div className="relative">
-                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-300 pointer-events-none" />
-                    <input
-                      type="text"
-                      value={searchQuery}
-                      onChange={e => setSearchQuery(e.target.value)}
-                      placeholder="Caută produse, imagini, setări..."
-                      className="w-full h-11 pl-10 pr-10 rounded-xl bg-gray-50 border border-gray-200 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:border-blue-300"
-                      autoFocus
-                    />
-                    <button className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" onClick={() => { setMobileSearchOpen(false); setSearchQuery('') }}>
-                      <X className="h-4 w-4" />
-                    </button>
-                  </div>
-                  {searchQuery.length > 0 && (
-                    <div className="mt-2 rounded-xl border border-gray-100 overflow-hidden">
-                      {searchResults.length > 0 ? (
-                        searchResults.map(result => (
-                          <button key={result.href} onClick={() => { navigateAndClose(result.href); setMobileSearchOpen(false) }}
-                            className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 text-left border-b border-gray-50 last:border-0">
-                            <Search className="h-3.5 w-3.5 text-gray-400" />
-                            {result.label}
-                            <ArrowUpRight className="h-3 w-3 text-gray-300 ml-auto" />
-                          </button>
-                        ))
-                      ) : (
-                        <div className="px-4 py-3 text-sm text-gray-400">Niciun rezultat</div>
-                      )}
-                    </div>
-                  )}
-                </motion.div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          <main className="p-4 lg:p-8 max-w-7xl mx-auto">
-            <motion.div key={pathname} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
-              {children}
-            </motion.div>
-          </main>
+          ))}
         </div>
       </div>
-    </TooltipProvider>
+      {loading ? <div className="flex justify-center py-12"><Loader2 className="h-5 w-5 animate-spin text-gray-300" /></div> :
+       filtered.length === 0 ? (
+        <div className="text-center py-12"><CheckCircle2 className="h-10 w-10 text-green-300 mx-auto mb-3" /><p className="text-sm text-gray-400">Nicio întrebare nerezolvată!</p></div>
+       ) : (
+        <div className="space-y-2">
+          {filtered.map(q => (
+            <div key={q.id} className={`p-4 rounded-xl border transition-colors ${q.resolved ? 'bg-gray-50 border-gray-100 opacity-60' : 'bg-white border-gray-200 hover:border-blue-200'}`}>
+              <div className="flex items-start gap-3">
+                <div className={`shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${q.count > 5 ? 'bg-red-100 text-red-600' : q.count > 2 ? 'bg-orange-100 text-orange-600' : 'bg-gray-100 text-gray-500'}`}>
+                  {q.count}×
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-gray-800 font-medium">"{q.question}"</p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="text-xs text-gray-400">Intent: {q.intent}</span>
+                    <span className="text-xs text-gray-300">·</span>
+                    <span className="text-xs text-gray-400">Confidence: {Math.round(q.confidence * 100)}%</span>
+                  </div>
+                </div>
+                {!q.resolved && (
+                  <div className="flex gap-2 shrink-0">
+                    <a href="/agent/knowledge" className="text-xs text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1">
+                      <BookOpen className="h-3 w-3" />Adaugă în RAG
+                    </a>
+                    <button onClick={() => resolve(q.id)} className="text-xs text-green-600 hover:text-green-700 font-medium flex items-center gap-1">
+                      <CheckCircle2 className="h-3 w-3" />Rezolvat
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="flex gap-2 p-4 bg-blue-50 rounded-xl">
+        <BookOpen className="h-4 w-4 text-blue-600 shrink-0 mt-0.5" />
+        <p className="text-xs text-blue-600">Adaugă răspunsul corect în tab-ul <strong>Cunoștințe</strong> și marchează întrebarea ca rezolvată. Agentul va răspunde corect data viitoare.</p>
+      </div>
+    </div>
   )
-}'use client'
+}
 
-import { useSession, signOut } from 'next-auth/react'
-import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
-import { motion, AnimatePresence } from 'framer-motion'
-import NotificationBell from '@/components/notification-bell'
-import {
-  LayoutDashboard, Package, ImageIcon, Search, CreditCard, Settings,
-  LogOut, Menu, X, ChevronRight, Shield, Sparkles, AlertTriangle,
-  MessageSquare, Zap, Crown, ArrowUpRight, Coins, Video, Bot,
-} from 'lucide-react'
-import { useState, useEffect, useRef } from 'react'
-import { Button } from '@/components/ui/button'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { Badge } from '@/components/ui/badge'
-import { Input } from '@/components/ui/input'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { useCredits } from '@/hooks/use-credits'
-
-const menuSections = [
-  {
-    label: 'Principal',
-    items: [
-      { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-      { label: 'Produse', href: '/products', icon: Package },
-    ]
-  },
-  {
-    label: 'Unelte AI',
-    items: [
-      { label: 'Imagini AI', href: '/images', icon: ImageIcon },
-      { label: 'Videoclipuri AI', href: '/videos', icon: Video },
-      { label: 'Optimizare SEO', href: '/seo', icon: Search },
-      { label: 'AI Agent', href: '/agent', icon: Bot },
-    ]
-  },
-  {
-    label: 'Cont',
-    items: [
-      { label: 'Abonament', href: '/credits', icon: CreditCard },
-      { label: 'Suport', href: '/support', icon: MessageSquare },
-      { label: 'Setări', href: '/settings', icon: Settings },
-    ]
-  },
-]
-
-const allMenuItems = menuSections.flatMap(s => s.items)
-
-const agentSubMenu = [
-  { label: 'Configurare', href: '/agent', icon: Settings },
-  { label: 'Triggeri', href: '/agent/triggers', icon: Zap },
-  { label: 'Inbox', href: '/agent/inbox', icon: MessageCircle },
-  { label: 'Insights', href: '/agent/insights', icon: TrendingUp },
-]
-
-const searchablePages = [
-  { label: 'Dashboard', href: '/dashboard', keywords: ['dashboard', 'acasă', 'home'] },
-  { label: 'Produse', href: '/products', keywords: ['produse', 'products', 'catalog'] },
-  { label: 'Imagini AI', href: '/images', keywords: ['imagini', 'images', 'generare', 'AI', 'foto', 'imagine'] },
-  { label: 'Videoclipuri AI', href: '/videos', keywords: ['video', 'videoclip', 'clip', 'reel', 'film'] },
-  { label: 'Optimizare SEO', href: '/seo', keywords: ['seo', 'optimizare', 'scor', 'score'] },
-  { label: 'AI Agent', href: '/agent', keywords: ['agent', 'chat', 'asistent', 'conversatie', 'bot', 'ai'] },
-  { label: 'Triggeri', href: '/agent/triggers', keywords: ['triggeri', 'triggers', 'proactiv', 'exit', 'scroll'] },
-  { label: 'Abonament', href: '/credits', keywords: ['credite', 'credits', 'abonament', 'plan', 'upgrade'] },
-  { label: 'Suport', href: '/support', keywords: ['suport', 'support', 'ajutor', 'tichet', 'help'] },
-  { label: 'Setări', href: '/settings', keywords: ['setari', 'settings', 'profil', 'parolă', 'magazin'] },
-]
-
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const { data: session } = useSession()
-  const pathname = usePathname()
-  const router = useRouter()
-  const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [collapsed, setCollapsed] = useState(false)
-  const [searchQuery, setSearchQuery] = useState('')
-  const [searchFocused, setSearchFocused] = useState(false)
-  const [mobileSearchOpen, setMobileSearchOpen] = useState(false)
-  const searchRef = useRef<HTMLDivElement>(null)
-
-  const { credits: userCredits, plan: userPlan, avatarUrl } = useCredits()
-
-  const userName = session?.user?.name || 'Utilizator'
-  const userEmail = session?.user?.email || ''
-  const userInitial = userName[0]?.toUpperCase() || 'U'
-  const userRole = (session?.user as any)?.role || 'user'
-  const isAgentSection = pathname.startsWith('/agent')
+// ═══════════════════════════════════════════════
+// PRODUCT HEATMAP TAB
+// ═══════════════════════════════════════════════
+function HeatmapTab() {
+  const [products, setProducts] = useState<ProductStat[]>([])
+  const [loading, setLoading] = useState(true)
+  const [days, setDays] = useState(30)
 
   useEffect(() => {
-    if (!session?.user) return
-    if (userRole === 'admin') return
-    fetch('/api/user/me')
-      .then(r => r.json())
-      .then(data => {
-        if (data.user && data.user.onboarding_completed === false) {
-          window.location.href = '/onboarding'
-        }
-      })
-      .catch(() => {})
-  }, [session, userRole])
+    setLoading(true)
+    fetch(`/api/agent/product-events?days=${days}`).then(r => r.json()).then(d => { setProducts(d.products || []); setLoading(false) }).catch(() => setLoading(false))
+  }, [days])
 
-  const searchResults = searchQuery.length > 0
-    ? searchablePages.filter(p =>
-        p.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p.keywords.some(k => k.toLowerCase().includes(searchQuery.toLowerCase()))
-      )
-    : []
+  const maxScore = Math.max(...products.map(p => p.score), 1)
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <p className="text-xs text-gray-500">{products.length} produse cu activitate</p>
+        <select value={days} onChange={e => setDays(Number(e.target.value))} className="text-sm border border-gray-200 rounded-xl px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+          <option value={7}>7 zile</option><option value={30}>30 zile</option><option value={90}>90 zile</option>
+        </select>
+      </div>
+      {loading ? <div className="flex justify-center py-12"><Loader2 className="h-5 w-5 animate-spin text-gray-300" /></div> :
+       products.length === 0 ? (
+        <div className="text-center py-12"><TrendingUp className="h-10 w-10 text-gray-200 mx-auto mb-3" /><p className="text-sm text-gray-400">Nicio activitate înregistrată încă</p></div>
+       ) : (
+        <div className="space-y-2">
+          {products.slice(0, 20).map((p, i) => (
+            <div key={p.id} className="p-3 bg-white rounded-xl border border-gray-100 hover:border-gray-200 transition-colors">
+              <div className="flex items-center gap-3 mb-2">
+                <span className="text-xs font-bold text-gray-400 w-5">#{i + 1}</span>
+                <p className="text-sm font-medium text-gray-800 flex-1 truncate">{p.name}</p>
+                <span className="text-xs font-bold text-gray-600">Scor: {p.score}</span>
+              </div>
+              {/* Heat bar */}
+              <div className="h-2 bg-gray-100 rounded-full overflow-hidden mb-2">
+                <div className="h-full bg-gradient-to-r from-blue-400 to-blue-600 rounded-full transition-all" style={{ width: `${Math.round((p.score / maxScore) * 100)}%` }} />
+              </div>
+              <div className="flex gap-3 text-xs text-gray-400">
+                <span>👁️ {p.shown} cereri</span>
+                {p.clicked > 0 && <span>🖱️ {p.clicked} click-uri</span>}
+                {p.compared > 0 && <span>⚖️ {p.compared} comparații</span>}
+                {p.carted > 0 && <span className="text-green-600 font-medium">🛒 {p.carted} în coș</span>}
+                {p.escalated > 0 && <span className="text-red-500">⚠️ {p.escalated} escaladări</span>}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════
+// TRAINING TAB
+// ═══════════════════════════════════════════════
+function TrainingTab() {
+  const [corrections, setCorrections] = useState<Correction[]>([])
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [form, setForm] = useState({ question: '', wrong: '', correct: '' })
+  const [error, setError] = useState('')
 
   useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
-        setSearchFocused(false)
-      }
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
+    fetch('/api/agent/training').then(r => r.json()).then(d => { setCorrections(d.corrections || []); setLoading(false) }).catch(() => setLoading(false))
   }, [])
 
-  useEffect(() => {
-    setSearchFocused(false)
-    setSearchQuery('')
-  }, [pathname])
+  const add = async () => {
+    if (!form.question || !form.correct) { setError('Completează întrebarea și răspunsul corect'); return }
+    setSaving(true); setError('')
+    try {
+      const r = await fetch('/api/agent/training', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ original_question: form.question, wrong_answer: form.wrong || undefined, correct_answer: form.correct }) })
+      const data = await r.json()
+      if (!r.ok) { setError(data.error || 'Eroare'); return }
+      setCorrections(prev => [data.correction, ...prev])
+      setForm({ question: '', wrong: '', correct: '' })
+    } catch { setError('Eroare la salvare') } finally { setSaving(false) }
+  }
 
-  const navigateAndClose = (href: string) => {
-    router.push(href)
-    setSearchFocused(false)
-    setSearchQuery('')
-    setSidebarOpen(false)
+  const toggle = async (c: Correction) => {
+    await fetch('/api/agent/training', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: c.id, is_active: !c.is_active }) })
+    setCorrections(prev => prev.map(x => x.id === c.id ? { ...x, is_active: !x.is_active } : x))
+  }
+
+  const remove = async (id: string) => {
+    if (!confirm('Ștergi această corecție?')) return
+    await fetch('/api/agent/training', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) })
+    setCorrections(prev => prev.filter(x => x.id !== id))
   }
 
   return (
-    <TooltipProvider delayDuration={0}>
-      <div className="min-h-screen bg-gray-50/50 overflow-x-hidden">
-        <AnimatePresence>
-          {sidebarOpen && (
-            <motion.div
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40 lg:hidden"
-              onClick={() => setSidebarOpen(false)}
-            />
-          )}
-        </AnimatePresence>
+    <div className="space-y-5">
+      {/* Formular adăugare */}
+      <Card className="border-0 shadow-sm rounded-2xl"><CardContent className="p-5 space-y-3">
+        <p className="text-sm font-semibold text-gray-900">Adaugă corecție nouă</p>
+        <p className="text-xs text-gray-500">Când agentul răspunde greșit la o întrebare, adaugă aici răspunsul corect. Agentul îl va folosi prioritar.</p>
+        <div className="space-y-2">
+          <input value={form.question} onChange={e => setForm(f => ({ ...f, question: e.target.value }))} placeholder="Întrebarea clientului (ex: Cât durează livrarea?)"
+            className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          <input value={form.wrong} onChange={e => setForm(f => ({ ...f, wrong: e.target.value }))} placeholder="Răspunsul greșit al agentului (opțional)"
+            className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-400 bg-orange-50/50" />
+          <textarea value={form.correct} onChange={e => setForm(f => ({ ...f, correct: e.target.value }))} placeholder="Răspunsul CORECT pe care trebuie să-l dea agentul"
+            rows={3} className="w-full text-sm border border-green-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500 bg-green-50/50 resize-none" />
+        </div>
+        {error && <p className="text-xs text-red-500 flex items-center gap-1"><AlertCircle className="h-3 w-3" />{error}</p>}
+        <Button onClick={add} disabled={saving} className="w-full bg-gray-900 hover:bg-gray-800 text-white rounded-xl h-10 text-sm gap-2">
+          {saving ? <><Loader2 className="h-4 w-4 animate-spin" />Se procesează...</> : <><Plus className="h-4 w-4" />Adaugă corecție</>}
+        </Button>
+      </CardContent></Card>
 
-        <aside className={`fixed top-0 left-0 z-50 h-full bg-white border-r border-gray-100 transition-all duration-300 ease-in-out
-          ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0
-          ${collapsed ? 'lg:w-[72px]' : 'lg:w-[260px]'}
-        `}>
-          <div className="flex flex-col h-full">
-            <div className={`flex items-center h-16 border-b border-gray-100 ${collapsed ? 'justify-center px-2' : 'justify-between px-5'}`}>
-              {!collapsed ? (
-                <Link href="/dashboard" className="flex items-center gap-2.5">
-                  <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center">
-                    <Sparkles className="h-4 w-4 text-white" />
-                  </div>
-                  <span className="text-lg font-bold gradient-text">HONTRIO</span>
-                </Link>
-              ) : (
-                <Link href="/dashboard">
-                  <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center">
-                    <Sparkles className="h-4 w-4 text-white" />
-                  </div>
-                </Link>
-              )}
-              {!collapsed && (
-                <button className="lg:hidden text-gray-400 hover:text-gray-600" onClick={() => setSidebarOpen(false)}>
-                  <X className="h-5 w-5" />
-                </button>
-              )}
-            </div>
-
-            <nav className={`flex-1 py-3 overflow-y-auto ${collapsed ? 'px-2' : 'px-3'}`}>
-              {menuSections.map((section, si) => (
-                <div key={section.label} className={si > 0 ? 'mt-5' : ''}>
-                  {!collapsed && (
-                    <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-300 mb-2 px-3">{section.label}</p>
-                  )}
-                  {collapsed && si > 0 && <div className="mx-1 border-t border-gray-100 my-2" />}
-                  <div className="space-y-0.5">
-                    {section.items.map((item) => {
-                      const isAgentItem = item.href === '/agent'
-                      const isActive = !isAgentItem && (
-                        pathname === item.href ||
-                        (item.href !== '/dashboard' && pathname.startsWith(item.href))
-                      )
-                      const isAgentActive = isAgentItem && isAgentSection
-
-                      const content = (
-                        <div key={item.href}>
-                          <Link
-                            href={item.href}
-                            onClick={() => setSidebarOpen(false)}
-                            className={`group flex items-center gap-3 rounded-xl text-sm font-medium transition-all duration-200
-                              ${collapsed ? 'justify-center p-2.5' : 'px-3 py-2.5'}
-                              ${(isActive || isAgentActive) ? 'bg-blue-50 text-blue-600 shadow-sm shadow-blue-100' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50'}
-                            `}
-                          >
-                            <item.icon className={`h-[18px] w-[18px] shrink-0 transition-colors ${(isActive || isAgentActive) ? 'text-blue-600' : 'text-gray-400 group-hover:text-gray-600'}`} />
-                            {!collapsed && <span>{item.label}</span>}
-                            {!collapsed && isAgentItem && (
-                              <ChevronRight className={`ml-auto h-3.5 w-3.5 transition-transform duration-200 ${isAgentSection ? 'rotate-90 text-blue-400' : 'text-gray-300'}`} />
-                            )}
-                            {!collapsed && !isAgentItem && isActive && (
-                              <div className="ml-auto h-1.5 w-1.5 rounded-full bg-blue-600" />
-                            )}
-                          </Link>
-
-                          {/* Submeniu expandat - sidebar normal */}
-                          {isAgentItem && isAgentSection && !collapsed && (
-                            <div className="mt-1 ml-3 border-l-2 border-blue-100 pl-2 space-y-0.5 pb-1">
-                              {agentSubMenu.map(sub => {
-                                const isSubActive = pathname === sub.href
-                                return (
-                                  <Link key={sub.href} href={sub.href}
-                                    onClick={() => setSidebarOpen(false)}
-                                    className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm font-medium transition-all
-                                      ${isSubActive ? 'bg-blue-50 text-blue-600' : 'text-gray-400 hover:text-gray-700 hover:bg-gray-50'}`}>
-                                    <sub.icon className={`h-3.5 w-3.5 shrink-0 ${isSubActive ? 'text-blue-500' : 'text-gray-300'}`} />
-                                    <span>{sub.label}</span>
-                                    {isSubActive && <div className="ml-auto h-1.5 w-1.5 rounded-full bg-blue-600" />}
-                                  </Link>
-                                )
-                              })}
-                            </div>
-                          )}
-
-                          {/* Submeniu - sidebar collapsed */}
-                          {isAgentItem && isAgentSection && collapsed && (
-                            <div className="mt-1 space-y-0.5">
-                              {agentSubMenu.map(sub => {
-                                const isSubActive = pathname === sub.href
-                                return (
-                                  <Tooltip key={sub.href}>
-                                    <TooltipTrigger asChild>
-                                      <Link href={sub.href}
-                                        className={`flex items-center justify-center p-2.5 rounded-xl transition-all
-                                          ${isSubActive ? 'bg-blue-50 text-blue-600' : 'text-gray-400 hover:text-gray-700 hover:bg-gray-50'}`}>
-                                        <sub.icon className="h-[18px] w-[18px]" />
-                                      </Link>
-                                    </TooltipTrigger>
-                                    <TooltipContent side="right" sideOffset={10}>{sub.label}</TooltipContent>
-                                  </Tooltip>
-                                )
-                              })}
-                            </div>
-                          )}
-                        </div>
-                      )
-
-                      return collapsed && !isAgentItem ? (
-                        <Tooltip key={item.href}>
-                          <TooltipTrigger asChild><div>{content}</div></TooltipTrigger>
-                          <TooltipContent side="right" sideOffset={10}>{item.label}</TooltipContent>
-                        </Tooltip>
-                      ) : (
-                        <div key={item.href}>{content}</div>
-                      )
-                    })}
-                  </div>
+      {/* Lista corecții */}
+      {loading ? <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-gray-300" /></div> :
+       corrections.length === 0 ? (
+        <div className="text-center py-10"><Star className="h-10 w-10 text-gray-200 mx-auto mb-3" /><p className="text-sm text-gray-400">Nicio corecție adăugată</p></div>
+       ) : (
+        <div className="space-y-2">
+          {corrections.map(c => (
+            <div key={c.id} className={`p-4 rounded-xl border transition-colors ${c.is_active ? 'bg-white border-gray-200' : 'bg-gray-50 border-gray-100 opacity-60'}`}>
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1 min-w-0 space-y-1">
+                  <p className="text-xs text-gray-500">Întrebare: <span className="font-medium text-gray-700">"{c.original_question}"</span></p>
+                  {c.wrong_answer && <p className="text-xs text-orange-600">❌ Greșit: "{c.wrong_answer}"</p>}
+                  <p className="text-xs text-green-700">✅ Corect: "{c.correct_answer}"</p>
                 </div>
-              ))}
-
-              {userRole === 'admin' && (
-                <>
-                  {!collapsed && <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-300 mb-2 px-3 mt-5">Admin</p>}
-                  {collapsed && <div className="mx-1 border-t border-gray-100 my-2" />}
-                  {collapsed ? (
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Link href="/admin/stats" className={`group flex items-center justify-center p-2.5 rounded-xl text-sm font-medium transition-all
-                          ${pathname.startsWith('/admin') ? 'bg-red-50 text-red-600' : 'text-red-400 hover:text-red-600 hover:bg-red-50'}`}>
-                          <Shield className="h-[18px] w-[18px]" />
-                        </Link>
-                      </TooltipTrigger>
-                      <TooltipContent side="right" sideOffset={10}>Admin</TooltipContent>
-                    </Tooltip>
-                  ) : (
-                    <Link href="/admin/stats" onClick={() => setSidebarOpen(false)}
-                      className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all
-                        ${pathname.startsWith('/admin') ? 'bg-red-50 text-red-600' : 'text-red-400 hover:text-red-600 hover:bg-red-50'}`}>
-                      <Shield className="h-[18px] w-[18px]" /><span>Panou Admin</span>
-                    </Link>
-                  )}
-                </>
-              )}
-            </nav>
-
-            {!collapsed && (
-              <div className="mx-3 mb-3">
-                {userCredits <= 0 ? (
-                  <div className="rounded-2xl bg-red-600 p-4 text-white">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-2">
-                        <div className="h-7 w-7 rounded-lg bg-white/20 flex items-center justify-center">
-                          <AlertTriangle className="h-3.5 w-3.5" />
-                        </div>
-                        <span className="text-xs font-semibold text-red-100">Credite epuizate</span>
-                      </div>
-                      <span className="text-[10px] font-medium bg-white/20 px-2 py-0.5 rounded-full capitalize">{userPlan}</span>
-                    </div>
-                    <p className="text-3xl font-bold">0</p>
-                    <p className="text-[11px] text-red-200 mt-1">Cumpără credite pentru a continua</p>
-                    <Link href="/credits">
-                      <button className="w-full mt-3 h-9 rounded-xl bg-white text-red-700 text-xs font-semibold hover:bg-red-50 transition-colors flex items-center justify-center gap-1.5">
-                        <Zap className="h-3.5 w-3.5" />Cumpără credite
-                      </button>
-                    </Link>
-                  </div>
-                ) : userCredits <= 5 ? (
-                  <div className="rounded-2xl bg-amber-600 p-4 text-white">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-2">
-                        <div className="h-7 w-7 rounded-lg bg-white/20 flex items-center justify-center">
-                          <Coins className="h-3.5 w-3.5" />
-                        </div>
-                        <span className="text-xs font-semibold text-amber-100">Credite scăzute</span>
-                      </div>
-                      <span className="text-[10px] font-medium bg-white/20 px-2 py-0.5 rounded-full capitalize">{userPlan}</span>
-                    </div>
-                    <p className="text-3xl font-bold">{userCredits}</p>
-                    <div className="h-1.5 bg-white/20 rounded-full mt-2 overflow-hidden">
-                      <div className="h-full bg-white rounded-full transition-all" style={{ width: `${Math.min((userCredits / 20) * 100, 100)}%` }} />
-                    </div>
-                    <Link href="/credits">
-                      <button className="w-full mt-3 h-9 rounded-xl bg-white/20 text-white text-xs font-semibold hover:bg-white/30 transition-colors flex items-center justify-center gap-1.5 border border-white/20">
-                        <Coins className="h-3.5 w-3.5" />Suplimentează
-                      </button>
-                    </Link>
-                  </div>
-                ) : (
-                  <div className="rounded-2xl bg-blue-600 p-4 text-white">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-2">
-                        <div className="h-7 w-7 rounded-lg bg-white/20 flex items-center justify-center">
-                          <Sparkles className="h-3.5 w-3.5" />
-                        </div>
-                        <span className="text-xs font-semibold text-blue-100">Credite disponibile</span>
-                      </div>
-                      <span className="text-[10px] font-medium bg-white/20 px-2 py-0.5 rounded-full capitalize">{userPlan}</span>
-                    </div>
-                    <p className="text-3xl font-bold">{userCredits}</p>
-                    <div className="h-1.5 bg-white/20 rounded-full mt-2 overflow-hidden">
-                      <div className="h-full bg-white rounded-full transition-all" style={{ width: `${Math.min((userCredits / 100) * 100, 100)}%` }} />
-                    </div>
-                    <Link href="/credits">
-                      <button className="w-full mt-3 h-9 rounded-xl bg-white/20 text-white text-xs font-semibold hover:bg-white/30 transition-colors flex items-center justify-center gap-1.5 border border-white/20">
-                        <Crown className="h-3.5 w-3.5" />Upgrade plan
-                      </button>
-                    </Link>
-                  </div>
-                )}
-              </div>
-            )}
-
-            <div className={`border-t border-gray-100 ${collapsed ? 'p-2' : 'p-3'}`}>
-              {collapsed ? (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button onClick={() => signOut({ callbackUrl: '/login' })}
-                      className="w-full flex items-center justify-center p-2.5 rounded-xl text-gray-400 hover:text-red-500 hover:bg-red-50 transition-all">
-                      <LogOut className="h-[18px] w-[18px]" />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent side="right" sideOffset={10}>Deconectare</TooltipContent>
-                </Tooltip>
-              ) : (
-                <div className="flex items-center gap-3">
-                  <Avatar className="h-9 w-9">
-                    {avatarUrl && <AvatarImage src={avatarUrl} alt={userName} />}
-                    <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-500 text-white text-sm font-medium">
-                      {userInitial}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">{userName}</p>
-                    <p className="text-xs text-gray-400 truncate">{userEmail}</p>
-                  </div>
-                  <button onClick={() => signOut({ callbackUrl: '/login' })}
-                    className="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-all">
-                    <LogOut className="h-4 w-4" />
+                <div className="flex items-center gap-2 shrink-0">
+                  <button onClick={() => toggle(c)} className="text-xs text-gray-400 hover:text-gray-600">
+                    {c.is_active ? <ToggleRight className="h-5 w-5 text-green-500" /> : <ToggleLeft className="h-5 w-5 text-gray-300" />}
+                  </button>
+                  <button onClick={() => remove(c.id)} className="p-1 hover:bg-red-50 rounded-lg text-red-400 hover:text-red-600 transition-colors">
+                    <Trash2 className="h-3.5 w-3.5" />
                   </button>
                 </div>
-              )}
-            </div>
-          </div>
-        </aside>
-
-        <div className={`transition-all duration-300 ${collapsed ? 'lg:pl-[72px]' : 'lg:pl-[260px]'}`}>
-          <header className="sticky top-0 z-30 h-14 sm:h-16 bg-white/80 backdrop-blur-md border-b border-gray-100 flex items-center gap-2 sm:gap-3 px-3 sm:px-4 lg:px-6">
-            <button className="lg:hidden p-2 rounded-lg hover:bg-gray-100 transition-colors shrink-0" onClick={() => setSidebarOpen(true)}>
-              <Menu className="h-5 w-5 text-gray-600" />
-            </button>
-            <button className="hidden lg:flex p-1.5 rounded-lg hover:bg-gray-100 transition-colors text-gray-400 hover:text-gray-600 shrink-0"
-              onClick={() => setCollapsed(!collapsed)}>
-              <Menu className="h-4 w-4" />
-            </button>
-
-            <div ref={searchRef} className="relative hidden sm:block flex-1 max-w-2xl mx-auto">
-              <div className="relative">
-                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-300 pointer-events-none" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
-                  onFocus={() => setSearchFocused(true)}
-                  placeholder="Caută produse, imagini, setări..."
-                  className="w-full h-10 pl-10 pr-12 rounded-xl bg-gray-50 border border-gray-100 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:border-blue-200 focus:bg-white transition-all"
-                />
-                <kbd className="hidden md:flex absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded font-mono">⌘K</kbd>
               </div>
-              <AnimatePresence>
-                {searchFocused && searchQuery.length > 0 && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 4 }}
-                    className="absolute top-12 left-0 right-0 bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden z-50"
-                  >
-                    {searchResults.length > 0 ? (
-                      searchResults.map(result => (
-                        <button key={result.href} onClick={() => navigateAndClose(result.href)}
-                          className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition-colors text-left">
-                          <Search className="h-3.5 w-3.5 text-gray-400" />
-                          {result.label}
-                          <ArrowUpRight className="h-3 w-3 text-gray-300 ml-auto" />
-                        </button>
-                      ))
-                    ) : (
-                      <div className="px-4 py-3 text-sm text-gray-400">Niciun rezultat</div>
-                    )}
-                  </motion.div>
-                )}
-              </AnimatePresence>
             </div>
-
-            <div className="contents" id="mobile-search-wrapper">
-              <button
-                className="p-2 rounded-lg hover:bg-gray-100 transition-colors text-gray-400 shrink-0"
-                onClick={() => { setSearchFocused(true); setMobileSearchOpen(true) }}
-                style={{ display: 'var(--mobile-only, none)' } as React.CSSProperties}
-              >
-                <Search className="h-5 w-5" />
-              </button>
-              <div className="flex-1" style={{ display: 'var(--mobile-only, none)' } as React.CSSProperties} />
-            </div>
-
-            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-              <Link href="/credits">
-                <button className="flex items-center gap-1.5 h-8 sm:h-9 px-2.5 sm:px-4 rounded-xl text-xs font-medium text-gray-600 bg-gray-50 hover:bg-gray-100 border border-gray-100 transition-all">
-                  <Coins className="h-3.5 w-3.5 text-amber-500 shrink-0" />
-                  <span className="hidden md:inline">Cumpără Credite</span>
-                  <span className="md:hidden">Credite</span>
-                </button>
-              </Link>
-              <Link href="/credits">
-                <button className="flex items-center gap-1.5 h-8 sm:h-9 px-2.5 sm:px-4 rounded-xl text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 transition-all">
-                  <Crown className="h-3.5 w-3.5 shrink-0" />
-                  <span className="hidden md:inline">Upgrade Pachet</span>
-                  <span className="md:hidden">Upgrade</span>
-                </button>
-              </Link>
-              <NotificationBell />
-            </div>
-          </header>
-
-          <AnimatePresence>
-            {mobileSearchOpen && (
-              <motion.div
-                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                className="fixed inset-0 z-50 bg-black/40 sm:hidden"
-                onClick={() => setMobileSearchOpen(false)}
-              >
-                <motion.div
-                  initial={{ y: -20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -20, opacity: 0 }}
-                  className="bg-white p-4 shadow-lg"
-                  onClick={e => e.stopPropagation()}
-                >
-                  <div className="relative">
-                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-300 pointer-events-none" />
-                    <input
-                      type="text"
-                      value={searchQuery}
-                      onChange={e => setSearchQuery(e.target.value)}
-                      placeholder="Caută produse, imagini, setări..."
-                      className="w-full h-11 pl-10 pr-10 rounded-xl bg-gray-50 border border-gray-200 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:border-blue-300"
-                      autoFocus
-                    />
-                    <button className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" onClick={() => { setMobileSearchOpen(false); setSearchQuery('') }}>
-                      <X className="h-4 w-4" />
-                    </button>
-                  </div>
-                  {searchQuery.length > 0 && (
-                    <div className="mt-2 rounded-xl border border-gray-100 overflow-hidden">
-                      {searchResults.length > 0 ? (
-                        searchResults.map(result => (
-                          <button key={result.href} onClick={() => { navigateAndClose(result.href); setMobileSearchOpen(false) }}
-                            className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 text-left border-b border-gray-50 last:border-0">
-                            <Search className="h-3.5 w-3.5 text-gray-400" />
-                            {result.label}
-                            <ArrowUpRight className="h-3 w-3 text-gray-300 ml-auto" />
-                          </button>
-                        ))
-                      ) : (
-                        <div className="px-4 py-3 text-sm text-gray-400">Niciun rezultat</div>
-                      )}
-                    </div>
-                  )}
-                </motion.div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          <main className="p-4 lg:p-8 max-w-7xl mx-auto">
-            <motion.div key={pathname} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
-              {children}
-            </motion.div>
-          </main>
+          ))}
         </div>
+      )}
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════
+// REVIEWS TAB
+// ═══════════════════════════════════════════════
+function ReviewsTab() {
+  const [config, setConfig] = useState({ review_enabled: false, review_delay_days: 7, review_google_url: '', review_site_enabled: true, review_email_subject: '', review_email_body: '' })
+  const [requests, setRequests] = useState<any[]>([])
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+
+  useEffect(() => {
+    fetch('/api/agent/config').then(r => r.json()).then(d => { if (d.config) setConfig(c => ({ ...c, ...d.config })) })
+    fetch('/api/agent/reviews').then(r => r.json()).then(d => setRequests(d.requests || []))
+  }, [])
+
+  const save = async () => {
+    setSaving(true)
+    await fetch('/api/agent/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(config) })
+    setSaved(true); setTimeout(() => setSaved(false), 2500)
+    setSaving(false)
+  }
+
+  const statusColor: Record<string, string> = { pending: 'bg-yellow-100 text-yellow-700', sent: 'bg-green-100 text-green-700', clicked: 'bg-blue-100 text-blue-700' }
+  const statusLabel: Record<string, string> = { pending: 'Programat', sent: 'Trimis', clicked: 'Deschis' }
+
+  return (
+    <div className="space-y-5">
+      <Card className="border-0 shadow-sm rounded-2xl"><CardContent className="p-5 space-y-4">
+        <div className="flex items-center justify-between">
+          <div><p className="text-sm font-semibold text-gray-900">Colectare automată review-uri</p><p className="text-xs text-gray-500 mt-0.5">Email trimis automat după finalizarea comenzii</p></div>
+          <button onClick={() => setConfig(c => ({ ...c, review_enabled: !c.review_enabled }))}>
+            {config.review_enabled ? <ToggleRight className="h-7 w-7 text-green-500" /> : <ToggleLeft className="h-7 w-7 text-gray-300" />}
+          </button>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="text-xs font-semibold text-gray-700 mb-1 block">Zile după livrare</label>
+            <input type="number" min={1} max={30} value={config.review_delay_days} onChange={e => setConfig(c => ({ ...c, review_delay_days: Number(e.target.value) }))}
+              className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-gray-700 mb-1 block">Link Google Reviews</label>
+            <input value={config.review_google_url} onChange={e => setConfig(c => ({ ...c, review_google_url: e.target.value }))} placeholder="https://g.page/..."
+              className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          </div>
+        </div>
+
+        <div>
+          <label className="text-xs font-semibold text-gray-700 mb-1 block">Subiect email (opțional)</label>
+          <input value={config.review_email_subject} onChange={e => setConfig(c => ({ ...c, review_email_subject: e.target.value }))} placeholder="Cum a fost experiența ta? ⭐"
+            className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
+
+        <div>
+          <label className="text-xs font-semibold text-gray-700 mb-1 block">Mesaj personalizat (opțional)</label>
+          <textarea value={config.review_email_body} onChange={e => setConfig(c => ({ ...c, review_email_body: e.target.value }))}
+            placeholder="Lăsă un review și ajuți alți clienți să ia decizii mai bune..."
+            rows={3} className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
+        </div>
+
+        <Button onClick={save} disabled={saving} className="w-full bg-gray-900 hover:bg-gray-800 text-white rounded-xl h-10 text-sm gap-2">
+          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : saved ? <CheckCircle2 className="h-4 w-4" /> : <Save className="h-4 w-4" />}
+          {saving ? 'Salvez...' : saved ? 'Salvat!' : 'Salvează configurarea'}
+        </Button>
+
+        <div className="p-3 bg-amber-50 rounded-xl border border-amber-100">
+          <p className="text-xs font-semibold text-amber-800 mb-1">Setup webhook WooCommerce</p>
+          <p className="text-xs text-amber-700 mb-2">Adaugă în WooCommerce → Setări → Avansat → Webhooks:</p>
+          <code className="text-xs bg-amber-100 px-2 py-1 rounded block break-all">
+            {typeof window !== 'undefined' ? window.location.origin : 'https://app.hontrio.com'}/api/agent/reviews?userId=YOUR_USER_ID
+          </code>
+          <p className="text-xs text-amber-600 mt-1">Topic: Order updated · Status: Activ</p>
+        </div>
+      </CardContent></Card>
+
+      {/* Istoric requests */}
+      {requests.length > 0 && (
+        <Card className="border-0 shadow-sm rounded-2xl"><CardContent className="p-5">
+          <p className="text-sm font-semibold text-gray-900 mb-3">Istoric emailuri ({requests.length})</p>
+          <div className="space-y-2">
+            {requests.slice(0, 15).map((r: any) => (
+              <div key={r.id} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
+                <div>
+                  <p className="text-xs font-medium text-gray-700">{r.customer_email}</p>
+                  <p className="text-xs text-gray-400">{(r.product_names || []).slice(0, 2).join(', ')}</p>
+                </div>
+                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusColor[r.status] || 'bg-gray-100 text-gray-500'}`}>
+                  {statusLabel[r.status] || r.status}
+                </span>
+              </div>
+            ))}
+          </div>
+        </CardContent></Card>
+      )}
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════
+// MAIN PAGE
+// ═══════════════════════════════════════════════
+export default function InsightsPage() {
+  const [tab, setTab] = useState<'unanswered' | 'heatmap' | 'training' | 'reviews'>('unanswered')
+
+  const tabs = [
+    { id: 'unanswered', label: '❓ Fără răspuns', icon: AlertCircle },
+    { id: 'heatmap', label: '🔥 Heatmap produse', icon: TrendingUp },
+    { id: 'training', label: '🎓 Antrenament', icon: Star },
+    { id: 'reviews', label: '⭐ Review-uri', icon: Star },
+  ] as const
+
+  return (
+    <div className="space-y-5">
+      <div><h1 className="text-2xl font-bold text-gray-900">Insights & Antrenament</h1><p className="text-sm text-gray-500 mt-0.5">Îmbunătățește continuu agentul bazat pe date reale</p></div>
+
+      <div className="flex gap-1 bg-gray-100 rounded-xl p-1 overflow-x-auto">
+        {tabs.map(t => (
+          <button key={t.id} onClick={() => setTab(t.id)}
+            className={`flex-1 min-w-fit whitespace-nowrap py-2 px-3 rounded-lg text-xs font-medium transition-all ${tab === t.id ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+            {t.label}
+          </button>
+        ))}
       </div>
-    </TooltipProvider>
+
+      {tab === 'unanswered' && <UnansweredTab />}
+      {tab === 'heatmap' && <HeatmapTab />}
+      {tab === 'training' && <TrainingTab />}
+      {tab === 'reviews' && <ReviewsTab />}
+    </div>
   )
 }
