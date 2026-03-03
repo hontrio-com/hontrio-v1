@@ -15,43 +15,33 @@ export async function POST(
 
     const { id } = await params
     const userId = (session.user as any).id
-    const { message } = await request.json()
+    const { message, attachments } = await request.json()
 
-    if (!message || message.length > 5000) {
-      return NextResponse.json({ error: 'Mesajul este obligatoriu (max 5000 caractere)' }, { status: 400 })
+    if (!message && (!attachments || attachments.length === 0)) {
+      return NextResponse.json({ error: 'Mesajul sau un atașament este obligatoriu' }, { status: 400 })
+    }
+    if (message && message.length > 5000) {
+      return NextResponse.json({ error: 'Mesajul nu poate depăși 5000 caractere' }, { status: 400 })
     }
 
     const supabase = createAdminClient()
 
-    // Verify ticket exists
     const { data: ticket } = await supabase
-      .from('tickets')
-      .select('id, status')
-      .eq('id', id)
-      .single()
+      .from('tickets').select('id, status').eq('id', id).single()
 
-    if (!ticket) {
-      return NextResponse.json({ error: 'Tichet negăsit' }, { status: 404 })
-    }
+    if (!ticket) return NextResponse.json({ error: 'Tichet negăsit' }, { status: 404 })
 
     const { data: reply, error } = await supabase
       .from('ticket_replies')
-      .insert({
-        ticket_id: id,
-        user_id: userId,
-        message: message.trim(),
-        is_admin: true,
-      })
-      .select()
-      .single()
+      .insert({ ticket_id: id, user_id: userId, message: message?.trim() || '', is_admin: true, attachments: attachments || [] })
+      .select().single()
 
-    if (error) {
-      return NextResponse.json({ error: 'Eroare la trimiterea răspunsului' }, { status: 500 })
-    }
+    if (error) return NextResponse.json({ error: 'Eroare la trimiterea răspunsului' }, { status: 500 })
 
-    // Auto-update status to in_progress if it was open
     if (ticket.status === 'open') {
-      await supabase.from('tickets').update({ status: 'in_progress' }).eq('id', id)
+      await supabase.from('tickets').update({ status: 'in_progress', updated_at: new Date().toISOString() }).eq('id', id)
+    } else {
+      await supabase.from('tickets').update({ updated_at: new Date().toISOString() }).eq('id', id)
     }
 
     return NextResponse.json({ reply }, { status: 201 })

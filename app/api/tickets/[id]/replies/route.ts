@@ -22,15 +22,20 @@ export async function POST(
       return NextResponse.json({ error: 'Prea multe mesaje. Așteaptă puțin.' }, { status: 429 })
     }
 
-    const { message } = await request.json()
+    const { message, attachments } = await request.json()
 
-    if (!message || message.length > 5000) {
-      return NextResponse.json({ error: 'Mesajul este obligatoriu (max 5000 caractere)' }, { status: 400 })
+    if (!message && (!attachments || attachments.length === 0)) {
+      return NextResponse.json({ error: 'Mesajul sau un atașament este obligatoriu' }, { status: 400 })
+    }
+    if (message && message.length > 5000) {
+      return NextResponse.json({ error: 'Mesajul nu poate depăși 5000 caractere' }, { status: 400 })
+    }
+    if (attachments && attachments.length > 5) {
+      return NextResponse.json({ error: 'Maxim 5 atașamente per mesaj' }, { status: 400 })
     }
 
     const supabase = createAdminClient()
 
-    // Verify ticket belongs to user
     const { data: ticket } = await supabase
       .from('tickets')
       .select('id, status')
@@ -41,7 +46,6 @@ export async function POST(
     if (!ticket) {
       return NextResponse.json({ error: 'Tichet negăsit' }, { status: 404 })
     }
-
     if (ticket.status === 'closed') {
       return NextResponse.json({ error: 'Tichetul este închis' }, { status: 400 })
     }
@@ -51,8 +55,9 @@ export async function POST(
       .insert({
         ticket_id: id,
         user_id: userId,
-        message: message.trim(),
+        message: message?.trim() || '',
         is_admin: false,
+        attachments: attachments || [],
       })
       .select()
       .single()
@@ -61,9 +66,10 @@ export async function POST(
       return NextResponse.json({ error: 'Eroare la trimiterea răspunsului' }, { status: 500 })
     }
 
-    // Reopen ticket if it was resolved
     if (ticket.status === 'resolved') {
-      await supabase.from('tickets').update({ status: 'open' }).eq('id', id)
+      await supabase.from('tickets').update({ status: 'open', updated_at: new Date().toISOString() }).eq('id', id)
+    } else {
+      await supabase.from('tickets').update({ updated_at: new Date().toISOString() }).eq('id', id)
     }
 
     return NextResponse.json({ reply }, { status: 201 })

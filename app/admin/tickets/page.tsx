@@ -6,7 +6,7 @@ import {
   MessageSquare, ArrowLeft, Send, Loader2, Clock, CheckCircle,
   AlertCircle, ChevronRight, ChevronLeft, Shield, Search, X,
   HelpCircle, Bug, Lightbulb, CreditCard, Link2, User, Mail,
-  Tag, Zap,
+  Tag, Zap, Paperclip, FileText, Download, Upload,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -57,6 +57,91 @@ const categoryConfig: Record<string, { label: string; icon: any; color: string }
   integration: { label: 'Integrare', icon: Link2,      color: 'text-blue-600 bg-blue-50' },
 }
 
+// ─── Attachment Types ────────────────────────────────────────────────────────
+
+type Attachment = { url: string; name: string; size: number; type: string }
+type PendingFile = Attachment & { uploading: boolean; error?: string; localId: string }
+
+const ACCEPTED = 'image/jpeg,image/png,image/webp,image/gif,application/pdf,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword'
+const MAX_FILES = 5
+const MAX_SIZE  = 10 * 1024 * 1024
+
+function isImage(type: string) { return type.startsWith('image/') }
+function formatBytes(b: number) {
+  if (b < 1024) return b + ' B'
+  if (b < 1024 * 1024) return (b / 1024).toFixed(0) + ' KB'
+  return (b / (1024 * 1024)).toFixed(1) + ' MB'
+}
+
+function AttachmentChip({ att, onRemove }: { att: PendingFile | Attachment & { uploading?: boolean; error?: string; localId?: string }; onRemove?: () => void }) {
+  const img = isImage(att.type)
+  return (
+    <div className={`flex items-center gap-2 px-2.5 py-1.5 rounded-xl border text-xs max-w-[200px] ${'error' in att && att.error ? 'border-red-200 bg-red-50' : 'border-gray-200 bg-gray-50'}`}>
+      {img ? <img src={att.url} alt="" className="h-6 w-6 rounded object-cover shrink-0" /> : <FileText className="h-4 w-4 text-gray-400 shrink-0" />}
+      <span className="truncate text-gray-700 font-medium">{att.name}</span>
+      {'uploading' in att && att.uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin text-blue-400 shrink-0" />
+        : 'error' in att && att.error ? <span className="text-red-500 shrink-0">!</span>
+        : onRemove ? <button onClick={onRemove} className="text-gray-400 hover:text-red-500 shrink-0"><X className="h-3.5 w-3.5" /></button>
+        : <a href={att.url} target="_blank" rel="noopener" className="text-gray-400 hover:text-blue-500 shrink-0"><Download className="h-3.5 w-3.5" /></a>
+      }
+    </div>
+  )
+}
+
+function AttachmentGallery({ attachments }: { attachments: Attachment[] }) {
+  if (!attachments?.length) return null
+  const images = attachments.filter(a => isImage(a.type))
+  const files  = attachments.filter(a => !isImage(a.type))
+  return (
+    <div className="mt-2 space-y-2">
+      {images.length > 0 && <div className="flex flex-wrap gap-2">{images.map((att, i) => (<a key={i} href={att.url} target="_blank" rel="noopener"><img src={att.url} alt={att.name} className="h-24 w-24 rounded-xl object-cover border border-gray-200 hover:opacity-90 cursor-zoom-in" /></a>))}</div>}
+      {files.length > 0 && <div className="flex flex-wrap gap-2">{files.map((att, i) => <AttachmentChip key={i} att={att as any} />)}</div>}
+    </div>
+  )
+}
+
+function useAttachments() {
+  const [pending, setPending] = useState<PendingFile[]>([])
+  async function addFiles(files: FileList) {
+    const toAdd = Array.from(files).slice(0, MAX_FILES - pending.length)
+    for (const file of toAdd) {
+      if (file.size > MAX_SIZE) { alert(`"${file.name}" depășește 10MB`); continue }
+      const localId = Math.random().toString(36).slice(2)
+      const preview = isImage(file.type) ? URL.createObjectURL(file) : ''
+      setPending(p => [...p, { localId, name: file.name, size: file.size, type: file.type, url: preview, uploading: true }])
+      const fd = new FormData(); fd.append('file', file)
+      try {
+        const res = await fetch('/api/tickets/upload', { method: 'POST', body: fd })
+        const data = await res.json()
+        setPending(p => p.map(f => f.localId === localId ? { ...f, url: res.ok ? data.url : preview, uploading: false, error: res.ok ? undefined : data.error } : f))
+      } catch { setPending(p => p.map(f => f.localId === localId ? { ...f, uploading: false, error: 'Eroare upload' } : f)) }
+    }
+  }
+  function remove(localId: string) { setPending(p => p.filter(f => f.localId !== localId)) }
+  function clear() { setPending([]) }
+  const ready = pending.filter(f => !f.uploading && !f.error).map(({ url, name, size, type }) => ({ url, name, size, type }))
+  const uploading = pending.some(f => f.uploading)
+  return { pending, addFiles, remove, clear, ready, uploading }
+}
+
+function DropZone({ onFiles, disabled }: { onFiles: (f: FileList) => void; disabled?: boolean }) {
+  const [drag, setDrag] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
+  return (
+    <div onDragOver={e => { e.preventDefault(); setDrag(true) }} onDragLeave={() => setDrag(false)}
+      onDrop={e => { e.preventDefault(); setDrag(false); if (e.dataTransfer.files.length) onFiles(e.dataTransfer.files) }}
+      onClick={() => inputRef.current?.click()}
+      className={`flex items-center gap-3 px-4 py-3 rounded-xl border-2 border-dashed cursor-pointer transition-all ${drag ? 'border-blue-400 bg-blue-50' : 'border-gray-200 bg-gray-50 hover:border-blue-300'} ${disabled ? 'opacity-40 pointer-events-none' : ''}`}>
+      <Upload className="h-4 w-4 text-gray-400 shrink-0" />
+      <div>
+        <p className="text-xs font-medium text-gray-600">Adaugă fișiere <span className="text-blue-500">sau trage aici</span></p>
+        <p className="text-[10px] text-gray-400 mt-0.5">JPG, PNG, GIF, PDF, DOC · max 10MB · max {MAX_FILES}</p>
+      </div>
+      <input ref={inputRef} type="file" multiple accept={ACCEPTED} className="hidden" onChange={e => e.target.files && onFiles(e.target.files)} />
+    </div>
+  )
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function timeAgo(iso: string): string {
@@ -99,6 +184,7 @@ export default function AdminTicketsPage() {
   const [sendError, setSendError]     = useState('')
   const [updatingStatus, setUpdatingStatus] = useState(false)
   const repliesEndRef = useRef<HTMLDivElement>(null)
+  const replyAtts = useAttachments()
 
   useEffect(() => { fetchTickets() }, [statusFilter, page, search])
 
@@ -169,12 +255,12 @@ export default function AdminTicketsPage() {
       const res = await fetch('/api/admin/tickets/' + selected.id + '/replies', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: replyText }),
+        body: JSON.stringify({ message: replyText, attachments: replyAtts.ready }),
       })
       const data = await res.json()
       if (res.ok) {
         setReplies(prev => [...prev, { ...data.reply, users: { name: 'Admin', email: '' } }])
-        setReplyText('')
+        setReplyText(''); replyAtts.clear()
         // Auto-update status locally if was open
         if (selected.status === 'open') {
           setSelected({ ...selected, status: 'in_progress' })
@@ -304,6 +390,7 @@ export default function AdminTicketsPage() {
                   </span>
                 </div>
                 <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{reply.message}</p>
+                {(reply as any).attachments?.length > 0 && <AttachmentGallery attachments={(reply as any).attachments} />}
               </div>
             </motion.div>
           ))}
@@ -314,9 +401,7 @@ export default function AdminTicketsPage() {
         {/* Reply box */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 space-y-3">
           <div className="flex items-center gap-2">
-            <div className="h-7 w-7 rounded-full bg-blue-600 flex items-center justify-center">
-              <Shield className="h-3.5 w-3.5 text-white" />
-            </div>
+            <div className="h-7 w-7 rounded-full bg-blue-600 flex items-center justify-center"><Shield className="h-3.5 w-3.5 text-white" /></div>
             <p className="text-xs font-semibold text-gray-600">Răspunde ca Admin</p>
             {selected.status === 'open' && (
               <span className="text-[10px] text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full font-medium flex items-center gap-1">
@@ -324,27 +409,22 @@ export default function AdminTicketsPage() {
               </span>
             )}
           </div>
-          <textarea
-            value={replyText}
-            onChange={e => setReplyText(e.target.value)}
+          <textarea value={replyText} onChange={e => setReplyText(e.target.value)}
             placeholder="Scrie răspunsul pentru user..."
             className="w-full h-32 rounded-xl border border-gray-200 px-4 py-3 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-200 bg-gray-50"
-            maxLength={5000}
-            onKeyDown={e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) sendReply() }}
-          />
+            maxLength={5000} onKeyDown={e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) sendReply() }} />
+          <DropZone onFiles={replyAtts.addFiles} disabled={replyAtts.pending.length >= MAX_FILES} />
+          {replyAtts.pending.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {replyAtts.pending.map(f => <AttachmentChip key={f.localId} att={f} onRemove={() => replyAtts.remove(f.localId)} />)}
+            </div>
+          )}
           <div className="flex items-center justify-between">
             <span className="text-xs text-gray-400">{replyText.length}/5000 · Ctrl+Enter</span>
             <div className="flex items-center gap-3">
               {sendError && <span className="text-xs text-red-500">{sendError}</span>}
-              <Button
-                onClick={sendReply}
-                disabled={sending || !replyText.trim()}
-                className="bg-blue-600 hover:bg-blue-700 rounded-xl h-9 px-4 gap-2"
-              >
-                {sending
-                  ? <Loader2 className="h-4 w-4 animate-spin" />
-                  : <><Send className="h-4 w-4" />Trimite</>
-                }
+              <Button onClick={sendReply} disabled={sending || (!replyText.trim() && replyAtts.ready.length === 0) || replyAtts.uploading} className="bg-blue-600 hover:bg-blue-700 rounded-xl h-9 px-4 gap-2">
+                {sending || replyAtts.uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Send className="h-4 w-4" />Trimite</>}
               </Button>
             </div>
           </div>
