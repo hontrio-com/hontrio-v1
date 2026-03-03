@@ -169,11 +169,11 @@ async function searchProducts(query:string, userId:string, max=3, boostIds: stri
   if(!data?.length)return []
 
   return data
-    .map(p=>({...p,_s:scoreProduct(p,keywords)+(boostIds.includes(p.id)?15:0)}))
-    .filter(p=>p._s>=25)
-    .sort((a,b)=>b._s-a._s)
+    .map((p:any)=>({...p,_s:scoreProduct(p,keywords)+(boostIds.includes(p.id)?15:0)}))
+    .filter((p:any)=>p._s>=25)
+    .sort((a:any,b:any)=>b._s-a._s)
     .slice(0,max)
-    .map(p=>({
+    .map((p:any)=>({
       id:p.id, external_id:p.external_id,
       title:p.optimized_title||p.original_title,
       price:p.price, image:p.original_images?.[0]||null,
@@ -282,6 +282,10 @@ export async function POST(request:Request) {
     const {message, history=[], session_id, store_user_id, visitor_id, full_history=[]} = await request.json()
     if(!message||!store_user_id)return NextResponse.json({error:'Parametri lipsă'},{status:400})
 
+    // Base URL pentru apeluri interne
+    const reqUrl = new URL(request.url)
+    const baseUrl = `${reqUrl.protocol}//${reqUrl.host}`
+
     const supabase=createAdminClient()
     const {data:config}=await supabase.from('agent_configs').select('*').eq('user_id',store_user_id).single()
     if(!config?.is_active)return NextResponse.json({error:'Agent inactiv'},{status:403})
@@ -331,7 +335,7 @@ export async function POST(request:Request) {
       const externalIds = products.map(p => p.external_id).filter(Boolean) as string[]
       if(externalIds.length > 0) {
         try {
-          const stockRes = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/agent/stock`, {
+          const stockRes = await fetch(`${baseUrl}/api/agent/stock`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ userId: store_user_id, productIds: externalIds }),
@@ -346,7 +350,7 @@ export async function POST(request:Request) {
     if(parsed.order_query && parsed.intent === 'order_tracking') {
       try {
         const isEmail = parsed.order_query.includes('@')
-        const orderRes = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/agent/order`, {
+        const orderRes = await fetch(`${baseUrl}/api/agent/order`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

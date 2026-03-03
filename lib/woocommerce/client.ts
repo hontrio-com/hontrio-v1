@@ -107,10 +107,10 @@ export class WooCommerceClient {
     const results = await Promise.allSettled(
       productIds.map(id => this.getStockStatus(id))
     )
-    return results.map((r, i) => ({
-      id: productIds[i],
-      ...(r.status === 'fulfilled' ? r.value : { stock_status: 'unknown', error: true }),
-    }))
+    return results.map((r, i) => {
+      const base = r.status === 'fulfilled' ? r.value : { stock_status: 'unknown' as const, error: true, name: '', manage_stock: false, stock_quantity: null, low_stock_amount: null }
+      return { ...base, id: productIds[i] }
+    })
   }
 
   // Comenzi după număr de comandă sau ID
