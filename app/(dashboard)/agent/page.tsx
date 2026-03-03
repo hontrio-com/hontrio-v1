@@ -239,7 +239,7 @@ export default function AgentPage() {
   const [saved, setSaved] = useState(false)
   const [copied, setCopied] = useState(false)
   const [downloading, setDownloading] = useState(false)
-  const [activeTab, setActiveTab] = useState<'overview' | 'settings' | 'knowledge' | 'install'>('overview')
+  const [activeTab, setActiveTab] = useState<'overview' | 'settings' | 'knowledge' | 'notifications' | 'install'>('overview')
   const [activeSettingsTab, setActiveSettingsTab] = useState<'identity' | 'appearance' | 'advanced'>('identity')
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const avatarInputRef = useRef<HTMLInputElement>(null)
@@ -381,7 +381,7 @@ export default function AgentPage() {
       </div>
 
       <div className="flex gap-1 p-1 bg-gray-100 rounded-xl w-fit">
-        {[{ id: 'overview', label: 'Statistici', icon: TrendingUp }, { id: 'settings', label: 'Configurare', icon: Settings2 }, { id: 'knowledge', label: 'Cunoștințe', icon: BookOpen }, { id: 'install', label: 'Instalare', icon: ExternalLink }].map(tab => (
+        {[{ id: 'overview', label: 'Statistici', icon: TrendingUp }, { id: 'settings', label: 'Configurare', icon: Settings2 }, { id: 'knowledge', label: 'Cunoștințe', icon: BookOpen }, { id: 'notifications', label: 'Notificări', icon: Bell }, { id: 'install', label: 'Instalare', icon: ExternalLink }].map(tab => (
           <button key={tab.id} onClick={() => { setActiveTab(tab.id as any); if (tab.id === 'overview') loadAnalytics(); if (tab.id === 'knowledge') loadKnowledge() }}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === tab.id ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
             <tab.icon className="h-4 w-4" />{tab.label}
@@ -672,45 +672,7 @@ export default function AgentPage() {
 
             {activeSettingsTab === 'advanced' && (
               <div className="space-y-4">
-              {/* Notificări */}
-              <Card className="border-0 shadow-sm rounded-2xl"><CardContent className="p-5 space-y-4">
-                <div className="flex items-center gap-2 mb-1">
-                  <Bell className="h-4 w-4 text-blue-600" />
-                  <p className="text-sm font-semibold text-gray-900">Notificări email</p>
-                </div>
-                <p className="text-xs text-gray-400 -mt-2">Primești un email instant când un client are nevoie de ajutor uman.</p>
-                <div>
-                  <label className="text-xs font-semibold text-gray-700 mb-1 block">Email pentru notificări</label>
-                  <input value={config.notify_email || ''} onChange={e => setConfig(c => ({ ...c, notify_email: e.target.value }))}
-                    type="email" placeholder="tu@magazin.ro"
-                    className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                </div>
-                <div className="space-y-2">
-                  {[
-                    { key: 'notify_on_escalation', label: 'Client solicită agent uman', desc: 'Când vizitatorul cere să vorbească cu cineva' },
-                    { key: 'notify_on_problem', label: 'Problemă cu comanda', desc: 'Când vizitatorul raportează o problemă' },
-                  ].map(({ key, label, desc }) => (
-                    <div key={key} onClick={() => setConfig(c => ({ ...c, [key]: !(c as any)[key] }))}
-                      className="flex items-center justify-between p-3 rounded-xl border border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors">
-                      <div>
-                        <p className="text-xs font-medium text-gray-800">{label}</p>
-                        <p className="text-xs text-gray-400">{desc}</p>
-                      </div>
-                      <div className={`w-9 h-5 rounded-full transition-colors relative ${(config as any)[key] ? 'bg-blue-600' : 'bg-gray-200'}`}>
-                        <div className={`w-3.5 h-3.5 bg-white rounded-full absolute top-0.5 transition-all shadow-sm ${(config as any)[key] ? 'left-[18px]' : 'left-0.5'}`} />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                {!config.notify_email && (
-                  <p className="text-xs text-amber-600 flex items-center gap-1">⚠️ Adaugă un email ca să activezi notificările</p>
-                )}
-                {config.notify_email && (
-                  <p className="text-xs text-green-600 flex items-center gap-1">✓ Notificările vor fi trimise la <strong>{config.notify_email}</strong></p>
-                )}
-              </CardContent></Card>
-
-              {/* CSS Custom */}
+              {/* CSS Custom */
               <Card className="border-0 shadow-sm rounded-2xl"><CardContent className="p-5 space-y-4">
                 <div>
                   <label className="text-xs font-semibold text-gray-700 flex items-center gap-1.5 mb-1"><Code2 className="w-3.5 h-3.5 text-purple-500" />CSS Custom</label>
@@ -729,7 +691,6 @@ export default function AgentPage() {
                   </div>
                 </div>
               </CardContent></Card>
-              </div>
             )}
 
             <Button onClick={handleSave} disabled={saving} className="w-full bg-gray-900 hover:bg-gray-800 text-white rounded-xl h-11 gap-2">
@@ -746,6 +707,80 @@ export default function AgentPage() {
             </div>
             <WidgetPreview config={config} messages={previewMessages} onSend={sendPreview} loading={previewLoading} onToggle={() => setPreviewOpen(p => !p)} isOpen={previewOpen} />
             <p className="text-xs text-gray-400 text-center">Apasă butonul din preview ca să deschizi chat-ul și să testezi</p>
+          </div>
+        </div>
+      )}
+
+      {/* NOTIFICATIONS */}
+      {activeTab === 'notifications' && (
+        <div className="space-y-5">
+          {/* Email config */}
+          <Card className="border-0 shadow-sm rounded-2xl"><CardContent className="p-5 space-y-4">
+            <div className="flex items-center gap-2">
+              <Bell className="h-4 w-4 text-blue-600" />
+              <p className="text-sm font-semibold text-gray-900">Notificări email</p>
+            </div>
+            <p className="text-xs text-gray-500">Primești un email instant când un client are nevoie de ajutor uman sau raportează o problemă.</p>
+
+            <div>
+              <label className="text-xs font-semibold text-gray-700 mb-1.5 block">Email pentru notificări</label>
+              <input value={config.notify_email || ''} onChange={e => setConfig(c => ({ ...c, notify_email: e.target.value }))}
+                type="email" placeholder="tu@magazin.ro"
+                className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
+
+            <div className="space-y-2">
+              {[
+                { key: 'notify_on_escalation', label: '🔴 Client solicită agent uman', desc: 'Clientul cere să vorbească cu o persoană reală' },
+                { key: 'notify_on_problem', label: '⚠️ Problemă cu comanda', desc: 'Clientul raportează o problemă sau reclamație' },
+              ].map(({ key, label, desc }) => (
+                <div key={key} onClick={() => setConfig(c => ({ ...c, [key]: !(c as any)[key] }))}
+                  className="flex items-center justify-between p-3.5 rounded-xl border border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors">
+                  <div>
+                    <p className="text-sm font-medium text-gray-800">{label}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">{desc}</p>
+                  </div>
+                  <div className={`w-10 h-6 rounded-full transition-colors relative shrink-0 ${(config as any)[key] ? 'bg-blue-600' : 'bg-gray-200'}`}>
+                    <div className={`w-4 h-4 bg-white rounded-full absolute top-1 transition-all shadow-sm ${(config as any)[key] ? 'left-5' : 'left-1'}`} />
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {!config.notify_email ? (
+              <div className="flex items-center gap-2 p-3 bg-amber-50 rounded-xl">
+                <AlertCircle className="h-4 w-4 text-amber-500 shrink-0" />
+                <p className="text-xs text-amber-700">Adaugă o adresă de email ca să activezi notificările.</p>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 p-3 bg-green-50 rounded-xl">
+                <Check className="h-4 w-4 text-green-600 shrink-0" />
+                <p className="text-xs text-green-700">Notificările vor fi trimise la <strong>{config.notify_email}</strong></p>
+              </div>
+            )}
+
+            <Button onClick={handleSave} disabled={saving} className="w-full bg-gray-900 hover:bg-gray-800 text-white rounded-xl h-11 gap-2">
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : saved ? <Check className="h-4 w-4" /> : <Save className="h-4 w-4" />}
+              {saving ? 'Salvez...' : saved ? 'Salvat!' : 'Salvează'}
+            </Button>
+          </CardContent></Card>
+
+          {/* Info */}
+          <div className="flex gap-3 p-4 bg-blue-50 rounded-xl">
+            <Bell className="h-4 w-4 text-blue-600 shrink-0 mt-0.5" />
+            <div>
+              <p className="text-xs font-medium text-blue-800 mb-1">Cum funcționează?</p>
+              <p className="text-xs text-blue-600">Când un client spune "vreau să vorbesc cu cineva" sau raportează o problemă, primești imediat un email cu ultimele mesaje din conversație. Nu se trimit duplicate pentru aceeași conversație.</p>
+            </div>
+          </div>
+
+          {/* Requirement note */}
+          <div className="flex gap-3 p-4 bg-gray-50 rounded-xl">
+            <AlertCircle className="h-4 w-4 text-gray-400 shrink-0 mt-0.5" />
+            <div>
+              <p className="text-xs font-medium text-gray-600 mb-1">Cerință tehnică</p>
+              <p className="text-xs text-gray-500">Emailurile sunt trimise prin <strong>Resend</strong>. Asigură-te că variabila <code className="bg-gray-200 px-1 rounded">RESEND_API_KEY</code> este setată în Vercel.</p>
+            </div>
           </div>
         </div>
       )}
