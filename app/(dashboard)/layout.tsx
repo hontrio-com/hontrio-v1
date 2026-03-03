@@ -21,27 +21,26 @@ import { useCredits } from '@/hooks/use-credits'
 
 const menuSections = [
   {
-    label: 'Principal',
+    label: '',
     items: [
       { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
       { label: 'Produse', href: '/products', icon: Package },
     ]
   },
   {
-    label: 'Unelte AI',
+    label: '',
     items: [
-      { label: 'Imagini AI', href: '/images', icon: ImageIcon },
-      { label: 'Videoclipuri AI', href: '/videos', icon: Video },
-      { label: 'Optimizare SEO', href: '/seo', icon: Search },
       { label: 'AI Agent', href: '/agent', icon: Bot },
+      { label: 'Imagini AI', href: '/images', icon: ImageIcon },
+      { label: 'Optimizare SEO', href: '/seo', icon: Search },
     ]
   },
   {
-    label: 'Cont',
+    label: '',
     items: [
       { label: 'Abonament', href: '/credits', icon: CreditCard },
-      { label: 'Suport', href: '/support', icon: MessageSquare },
       { label: 'Setări', href: '/settings', icon: Settings },
+      { label: 'Suport', href: '/support', icon: MessageSquare },
     ]
   },
 ]
@@ -59,7 +58,6 @@ const searchablePages = [
   { label: 'Dashboard', href: '/dashboard', keywords: ['dashboard', 'acasă', 'home'] },
   { label: 'Produse', href: '/products', keywords: ['produse', 'products', 'catalog'] },
   { label: 'Imagini AI', href: '/images', keywords: ['imagini', 'images', 'generare', 'AI', 'foto', 'imagine'] },
-  { label: 'Videoclipuri AI', href: '/videos', keywords: ['video', 'videoclip', 'clip', 'reel', 'film'] },
   { label: 'Optimizare SEO', href: '/seo', keywords: ['seo', 'optimizare', 'scor', 'score'] },
   { label: 'AI Agent', href: '/agent', keywords: ['agent', 'chat', 'asistent', 'conversatie', 'bot', 'ai'] },
   { label: 'Triggeri', href: '/agent/triggers', keywords: ['triggeri', 'triggers', 'proactiv', 'exit', 'scroll'] },
@@ -171,11 +169,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
             <nav className={`flex-1 py-3 overflow-y-auto ${collapsed ? 'px-2' : 'px-3'}`}>
               {menuSections.map((section, si) => (
-                <div key={section.label} className={si > 0 ? 'mt-5' : ''}>
-                  {!collapsed && (
-                    <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-300 mb-2 px-3">{section.label}</p>
-                  )}
-                  {collapsed && si > 0 && <div className="mx-1 border-t border-gray-100 my-2" />}
+                <div key={si} className={si > 0 ? 'mt-1' : ''}>
+                  {si > 0 && <div className={`border-t border-gray-100 ${collapsed ? 'mx-1' : 'mx-2'} mb-1`} />}
                   <div className="space-y-0.5">
                     {section.items.map((item) => {
                       const isAgentItem = item.href === '/agent'
