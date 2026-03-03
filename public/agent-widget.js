@@ -12,7 +12,23 @@ if(!UID){console.warn('[Hontrio] userId lipsește');return;}
 var IS_R=POS!=='bottom-left';
 var BTN_S=SZ==='small'?48:SZ==='large'?64:56;
 var ICN_S=SZ==='small'?20:SZ==='large'?28:24;
-var isOpen=false,isLoading=false,msgs=[],sid='s'+Math.random().toString(36).slice(2,11);
+var isOpen=false,isLoading=false;
+
+// Session persistence — conversatia supravietuieste navigarii intre pagini
+// sessionStorage se sterge automat cand se inchide tab-ul
+var _SESS_KEY='_hc_'+UID;
+var _savedSession={msgs:[],sid:'',history:[]};
+try{
+  var _raw=sessionStorage.getItem(_SESS_KEY);
+  if(_raw)_savedSession=JSON.parse(_raw);
+}catch(e){}
+var msgs=_savedSession.msgs||[];
+var sid=_savedSession.sid||('s'+Math.random().toString(36).slice(2,11));
+// Salvează session la orice modificare
+function persistSession(){
+  try{sessionStorage.setItem(_SESS_KEY,JSON.stringify({msgs:msgs,sid:sid}));}catch(e){}
+}
+
 var vid;try{vid=localStorage.getItem('_hv')||'v'+Date.now().toString(36);localStorage.setItem('_hv',vid);}catch(e){vid='v'+Date.now().toString(36);}
 var unread=0,welcomed=false,agentName='Asistent';
 var triggerFired=false; // max 1 trigger per sesiune
@@ -488,8 +504,8 @@ function applyConfig(d){
 }
 
 // ── RENDER MESSAGES ──────────────────────────────────────────────────────────
-function renderMsg(role,text,extra){
-  msgs.push({role:role,content:text});
+function renderMsg(role,text,extra,silent){
+  if(!silent){msgs.push({role:role,content:text});persistSession();}
   var ms=document.getElementById('_h_ms');
   var row=document.createElement('div');row.className='_h_r '+(role==='user'?'u':'b');
   var bub=document.createElement('div');bub.className='_h_bb';bub.textContent=text;
@@ -610,15 +626,26 @@ function closeChat(){
 // ── WELCOME ──────────────────────────────────────────────────────────────────
 function buildWelcomeMsg(cfg,mem){
   var agName=agentName;
-  if(!mem||!mem.total_sessions||!mem.conversation_summary){
-    return (cfg&&cfg.welcome_message)||('Bună! Sunt '+agName+'. Cu ce te pot ajuta?');
-  }
+  var base=(cfg&&cfg.welcome_message)||('Bună! Sunt '+agName+'. Cu ce te pot ajuta?');
+  if(!mem||!mem.total_sessions)return base;
+  // Returning visitor — mesaj personalizat scurt, fără rezumatul conversației
   var days=Math.floor((Date.now()-new Date(mem.last_seen_at).getTime())/(1000*60*60*24));
-  var timeAgo=days===0?'astăzi mai devreme':days===1?'ieri':'acum '+days+' zile';
-  return 'Bună revenire! '+timeAgo+' '+mem.conversation_summary+' Cu ce te pot ajuta?';
+  if(days===0)return 'Bună revenire! Cu ce te mai pot ajuta?';
+  if(days===1)return 'Bună! Mă bucur că ești din nou pe aici. Cu ce te pot ajuta?';
+  return 'Bună! Ce mai cauți azi?';
 }
 
 function doWelcome(){
+  // Dacă există conversație salvată din această sesiune, redă-o
+  if(msgs.length>0){
+    var box=document.getElementById('_h_mb');
+    if(box)box.innerHTML='';
+    msgs.forEach(function(m){
+      renderMsg(m.role,m.content,null,true); // true = silent, fără push în msgs din nou
+    });
+    return;
+  }
+  // Conversație nouă — afișează welcome
   var mem=window._hMem||null;
   if(window._hCfg){
     var msg=buildWelcomeMsg(window._hCfg,mem);

@@ -69,16 +69,17 @@ export async function POST(request: Request) {
           messages: [
             {
               role: 'system',
-              content: `Ești un sistem de memorie pentru un chatbot de magazin online.
-Analizează această conversație și extrage:
-1. Un rezumat scurt (max 2 propoziții) despre ce a căutat / vrut vizitatorul
-2. Fapte cheie utile pentru conversații viitoare (max 5)
+              content: `Ești un sistem de memorie intern pentru un chatbot de magazin.
+Analizează conversația și extrage context INTERN pentru viitoare conversații.
+
+IMPORTANT: Rezumatul e folosit INTERN de AI ca context, NU e afișat clientului.
+Scrie rezumatul ca note interne, la persoana 1 din perspectiva clientului.
 
 Răspunde DOAR JSON:
 {
-  "summary": "Vizitatorul caută tigăi ceramice non-aderente, buget ~150 RON. A arătat interes în branduri premium.",
+  "summary": "Caut tigăi ceramice non-aderente, buget ~150 RON. Mă interesează branduri premium și livrare rapidă.",
   "facts": [
-    "caută tigăi ceramice",
+    "caută tigăi ceramice non-aderente",
     "buget aproximativ 150 RON",
     "preferă branduri premium",
     "interesat de livrare rapidă"
