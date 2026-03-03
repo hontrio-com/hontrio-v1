@@ -23,6 +23,29 @@ export async function GET(request: Request) {
       .gte('started_at', since)
       .order('started_at', { ascending: true })
 
+    // Fallback: also read from agent_conversations (older data source)
+    const { data: agentConvs } = await supabase
+      .from('agent_conversations')
+      .select('visitor_id, session_id, message_count, intent, products_shown, started_at, last_message_at')
+      .eq('user_id', userId)
+      .gte('started_at', since)
+      .order('started_at', { ascending: true })
+
+    // Merge: prefer visitor_sessions, supplement with agent_conversations
+    const sessionIds = new Set((sessions || []).map((s: any) => s.session_id))
+    const extraFromConvs = (agentConvs || [])
+      .filter((c: any) => !sessionIds.has(c.session_id))
+      .map((c: any) => ({
+        visitor_id: c.visitor_id,
+        session_id: c.session_id,
+        messages_count: c.message_count || 0,
+        intents: c.intent ? [c.intent] : [],
+        products_shown: c.products_shown || [],
+        search_queries: [],
+        started_at: c.started_at,
+        ended_at: c.last_message_at,
+      }))
+
     const { data: memory } = await supabase
       .from('visitor_memory')
       .select('visitor_id, total_sessions, return_count, preferred_categories, last_seen_at')
@@ -42,7 +65,7 @@ export async function GET(request: Request) {
       }
     }
 
-    const sess = sessions || []
+    const sess = [...(sessions || []), ...extraFromConvs]
 
     // 1. Conversații pe zile
     const byDay: Record<string, number> = {}

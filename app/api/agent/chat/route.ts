@@ -286,10 +286,21 @@ async function persistMemory(params: {
       return_count: existing ? (existing.return_count || 0) + 1 : 0,
     }, { onConflict: 'user_id,visitor_id' })
 
+    // Citim sesiunea existentă ca să acumulăm date între mesaje
+    const { data: existingSession } = await supabase
+      .from('visitor_sessions').select('intents, products_shown, search_queries, messages_count')
+      .eq('session_id', params.sessionId).single()
+
+    const accIntents = [...new Set([...(existingSession?.intents || []), params.intent])].filter(Boolean)
+    const accProducts = [...new Set([...(existingSession?.products_shown || []), ...params.productsShown])].filter(Boolean).slice(0, 50)
+    const accQueries = [...new Set([...(existingSession?.search_queries || []), ...params.searchQueries])].filter(Boolean).slice(0, 50)
+
     await supabase.from('visitor_sessions').upsert({
       user_id: params.userId, visitor_id: params.visitorId, session_id: params.sessionId,
-      messages_count: params.messages.length, intents: [params.intent],
-      products_shown: params.productsShown, search_queries: params.searchQueries,
+      messages_count: params.messages.length,
+      intents: accIntents,
+      products_shown: accProducts,
+      search_queries: accQueries,
       messages_log: params.messages, ended_at: new Date().toISOString(),
     }, { onConflict: 'session_id' })
   } catch (err) { console.error('[Memory persist]', err) }
