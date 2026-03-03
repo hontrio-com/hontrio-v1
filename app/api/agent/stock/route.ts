@@ -52,11 +52,11 @@ export async function POST(request: Request) {
 
     // Map: external_id -> stock info
     const stock: Record<string, any> = {}
-    for (const r of results) {
+    for (const r of results as any[]) {
       stock[r.id] = {
         available: r.stock_status === 'instock',
         status: r.stock_status,
-        quantity: r.stock_quantity,
+        quantity: r.stock_quantity ?? null,
         label: r.stock_status === 'instock'
           ? (r.stock_quantity != null ? `${r.stock_quantity} în stoc` : 'În stoc')
           : r.stock_status === 'onbackorder'
