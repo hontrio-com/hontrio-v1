@@ -409,7 +409,7 @@ export async function POST(request:Request) {
 
     const [catalog, memory, ragContext, trainingContext] = await Promise.all([
       buildCatalog(store_user_id),
-      loadVisitorMemory(store_user_id, visitor_id),
+      getVisitorMemory(store_user_id, visitor_id),
       searchKnowledge(message, store_user_id),
       searchTrainingCorrections(message, store_user_id),
     ])
