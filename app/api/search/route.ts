@@ -12,15 +12,14 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const q = searchParams.get('q')?.trim() || ''
 
-    if (q.length < 2) return NextResponse.json({ products: [], images: [], pages: [] })
+    if (q.length < 2) return NextResponse.json({ products: [], images: [] })
 
     const supabase = createAdminClient()
 
-    // Products + Images in parallel
     const [productsRes, imagesRes] = await Promise.all([
       supabase
         .from('products')
-        .select('id, original_title, optimized_title, category, seo_score, status, image_url')
+        .select('id, original_title, optimized_title, category, seo_score, status, original_images')
         .eq('user_id', userId)
         .or(`original_title.ilike.%${q}%,optimized_title.ilike.%${q}%,category.ilike.%${q}%`)
         .limit(6),
@@ -30,10 +29,16 @@ export async function GET(request: Request) {
         .select('id, product_id, image_url, style, created_at, products:product_id(original_title, optimized_title)')
         .eq('user_id', userId)
         .in('status', ['completed', 'published'])
-        .limit(5),
+        .limit(20),
     ])
 
-    // Filter images by product title match
+    const products = (productsRes.data || []).map((p: any) => ({
+      ...p,
+      thumbnail_url: Array.isArray(p.original_images) && p.original_images.length > 0
+        ? p.original_images[0]
+        : null,
+    }))
+
     const allImages = (imagesRes.data || []).map((img: any) => ({
       ...img,
       product_title: img.products?.optimized_title || img.products?.original_title || '',
@@ -43,11 +48,9 @@ export async function GET(request: Request) {
       (img.style || '').toLowerCase().includes(q.toLowerCase())
     ).slice(0, 5)
 
-    return NextResponse.json({
-      products: productsRes.data || [],
-      images: matchedImages,
-    })
-  } catch {
+    return NextResponse.json({ products, images: matchedImages })
+  } catch (err) {
+    console.error('[Search API]', err)
     return NextResponse.json({ error: 'Eroare internă' }, { status: 500 })
   }
 }

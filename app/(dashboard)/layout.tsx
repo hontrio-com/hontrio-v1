@@ -129,8 +129,8 @@ function SearchDropdown({
           {results.products.map((p: any) => (
             <button key={p.id} onClick={() => onNavigate('/seo/' + p.id)}
               className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-blue-50 transition-colors text-left group">
-              {p.image_url
-                ? <img src={p.image_url} alt="" className="h-9 w-9 rounded-lg object-cover shrink-0 border border-gray-100" />
+              {p.thumbnail_url
+                ? <img src={p.thumbnail_url} alt="" className="h-9 w-9 rounded-lg object-cover shrink-0 border border-gray-100" />
                 : <div className="h-9 w-9 rounded-lg bg-gray-100 flex items-center justify-center shrink-0"><Package className="h-4 w-4 text-gray-300" /></div>
               }
               <div className="flex-1 min-w-0">
