@@ -305,92 +305,6 @@ function LossCalculator({ customer, orders }: { customer: Customer; orders: Orde
   )
 }
 
-function IntelligenceReport({ customer, orders }: { customer: Customer; orders: Order[] }) {
-  const [loading, setLoading] = useState(false)
-  const [report, setReport] = useState<string | null>(null)
-
-  const generate = async () => {
-    setLoading(true)
-    const rate = customer.total_orders > 0 ? Math.round((customer.orders_collected / customer.total_orders) * 100) : 0
-    const context = `
-Client: ${customer.name || 'Necunoscut'} | Tel: ${customer.phone || '-'} | Email: ${customer.email || '-'}
-Scor risc: ${customer.risk_score}/100 | Label: ${customer.risk_label}
-Total comenzi: ${customer.total_orders} | Ridicate: ${customer.orders_collected} | Refuzate: ${customer.orders_refused} | Absent: ${customer.orders_not_home} | Anulate: ${customer.orders_cancelled}
-Rată ridicare: ${rate}%
-Blacklist local: ${customer.in_local_blacklist ? 'DA' : 'NU'} | Blacklist global: ${customer.in_global_blacklist ? 'DA' : 'NU'}
-Note operator: ${customer.operator_notes || 'Nicio notă'}
-Ultimele comenzi: ${orders.slice(0, 8).map(o => `#${o.order_number || o.external_order_id} ${o.total_value} RON ${o.order_status} ${o.payment_method} ${o.shipping_address || ''}`).join(' | ')}
-    `.trim()
-
-    try {
-      const res = await fetch('/api/risk/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ customer_context: context, customer_id: customer.id }),
-      })
-      const data = await res.json()
-      setReport(data.report || 'Nu s-a putut genera raportul.')
-    } catch {
-      setReport('Eroare la generarea raportului. Verificați conexiunea.')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  return (
-    <div className="space-y-3">
-      {!report && !loading && (
-        <button
-          onClick={generate}
-          className="w-full flex items-center justify-center gap-2.5 py-4 rounded-2xl bg-gradient-to-r from-gray-900 to-gray-700 text-white text-sm font-semibold hover:from-gray-800 hover:to-gray-600 transition-all shadow-lg shadow-gray-900/20"
-        >
-          <Brain className="h-4 w-4" />
-          Generează Raport Intelligence AI
-          <span className="text-[10px] opacity-50 ml-0.5">~2 credite</span>
-        </button>
-      )}
-      {loading && (
-        <div className="flex flex-col items-center justify-center gap-3 py-10">
-          <div className="h-8 w-8 border-2 border-gray-900 border-t-transparent rounded-full animate-spin" />
-          <div className="text-center">
-            <p className="text-sm font-medium text-gray-700">Analizez comportamentul...</p>
-            <p className="text-xs text-gray-400 mt-1">Verificare blacklist global · Pattern analysis · Risk prediction</p>
-          </div>
-        </div>
-      )}
-      {report && (
-        <motion.div
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-gray-50 rounded-2xl border border-gray-200 p-4 space-y-3"
-        >
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="h-7 w-7 rounded-xl bg-gray-900 flex items-center justify-center">
-                <Brain className="h-3.5 w-3.5 text-white" />
-              </div>
-              <div>
-                <span className="text-xs font-semibold text-gray-900">Raport Intelligence</span>
-                <span className="text-[10px] text-gray-400 ml-2">generat acum</span>
-              </div>
-            </div>
-            <button onClick={() => setReport(null)} className="text-gray-300 hover:text-gray-500 transition-colors">
-              <X className="h-3.5 w-3.5" />
-            </button>
-          </div>
-          <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-line">{report}</p>
-          <button
-            onClick={generate}
-            className="flex items-center gap-1.5 text-[11px] text-gray-400 hover:text-gray-600 transition-colors"
-          >
-            <RefreshCw className="h-3 w-3" />Regenerează
-          </button>
-        </motion.div>
-      )}
-    </div>
-  )
-}
-
 function CustomerBadges({ customer }: { customer: Customer }) {
   const badges = []
   const rate = customer.total_orders > 0 ? (customer.orders_collected / customer.total_orders) * 100 : 100
@@ -443,7 +357,7 @@ export default function RiskShieldPage() {
   const [customerOrders, setCustomerOrders] = useState<Order[]>([])
   const [showProfile, setShowProfile] = useState(false)
   const [activeTab, setActiveTab] = useState<'customers' | 'alerts' | 'analytics'>('customers')
-  const [profileTab, setProfileTab] = useState<'overview' | 'timeline' | 'addresses' | 'intel'>('overview')
+  const [profileTab, setProfileTab] = useState<'overview' | 'timeline' | 'addresses'>('overview')
   const [unreadAlerts, setUnreadAlerts] = useState(0)
   const [editNote, setEditNote] = useState('')
   const [savingNote, setSavingNote] = useState(false)
@@ -556,14 +470,25 @@ export default function RiskShieldPage() {
     setImportingHistory(false)
   }
 
-  const overrideLabel = async (customerId: string, label: string) => {
+  const overrideLabel = async (customerId: string, label: string | null) => {
     await fetch('/api/risk/customers', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ customer_id: customerId, label_override: label }),
     })
-    setCustomers(prev => prev.map(c => c.id === customerId ? { ...c, risk_label: label as any, manual_label_override: label } : c))
-    if (selectedCustomer?.id === customerId) setSelectedCustomer(prev => prev ? { ...prev, risk_label: label as any } : null)
+    // Dacă label e null, reîncărcăm clientul ca să obținem scorul real recalculat
+    if (label === null) {
+      await fetchCustomers(selectedStore)
+      if (selectedCustomer?.id === customerId) {
+        const res = await fetch(`/api/risk/customers?store_id=${selectedStore}&limit=200`)
+        const data = await res.json()
+        const updated = (data.customers || []).find((c: any) => c.id === customerId)
+        if (updated) setSelectedCustomer(updated)
+      }
+    } else {
+      setCustomers(prev => prev.map(c => c.id === customerId ? { ...c, risk_label: label as any, manual_label_override: label } : c))
+      if (selectedCustomer?.id === customerId) setSelectedCustomer(prev => prev ? { ...prev, risk_label: label as any, manual_label_override: label } : null)
+    }
   }
 
   const updateOrderStatus = async (orderId: string, status: string) => {
@@ -619,20 +544,20 @@ export default function RiskShieldPage() {
   const activeAlerts = alerts.filter(a => !a.is_resolved).length
 
   return (
-    <div className="space-y-5 pb-10">
+    <div className="space-y-3 sm:space-y-5 pb-10 px-3 sm:px-0">
 
       {/* ── Header ── */}
-      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex items-start justify-between">
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
         <div className="flex items-center gap-3">
           <div className="h-11 w-11 rounded-2xl bg-gray-900 flex items-center justify-center shadow-lg shadow-gray-900/20">
             <Shield className="h-5 w-5 text-white" />
           </div>
           <div>
-            <h1 className="text-2xl font-black text-gray-900 tracking-tight">Return Risk Shield</h1>
+            <h1 className="text-xl sm:text-2xl font-black text-gray-900 tracking-tight">Risk Shield</h1>
             <p className="text-xs text-gray-400 mt-0.5">Protecție retururi COD · Detectare fraudă · Intelligence global</p>
           </div>
         </div>
-        <div className="flex gap-2 items-center">
+        <div className="flex flex-wrap gap-2 items-center">
           {stores.length > 1 && (
             <select
               value={selectedStore}
@@ -656,7 +581,7 @@ export default function RiskShieldPage() {
       </motion.div>
 
       {/* ── Stats Row ── */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+      <div className="grid grid-cols-3 sm:grid-cols-3 lg:grid-cols-6 gap-1.5 sm:gap-2">
         {[
           { key: 'all', label: 'Total', value: totalCustomers, activeColor: '' },
           { key: 'blocked', label: 'Blocați', value: stats.blocked || 0, activeColor: 'text-red-400' },
@@ -679,7 +604,7 @@ export default function RiskShieldPage() {
                 isActive ? 'bg-gray-900 border-gray-900 shadow-lg shadow-gray-900/20' : 'bg-white border-gray-100 hover:border-gray-300 hover:shadow-sm'
               }`}
             >
-              <p className={`text-2xl font-black ${isActive ? (s.activeColor || 'text-white') : idleColors[s.key]}`}>{s.value}</p>
+              <p className={`text-xl sm:text-2xl font-black ${isActive ? (s.activeColor || 'text-white') : idleColors[s.key]}`}>{s.value}</p>
               <p className={`text-[10px] mt-0.5 uppercase tracking-wide ${isActive ? 'text-gray-400' : 'text-gray-400'}`}>{s.label}</p>
             </motion.button>
           )
@@ -687,7 +612,7 @@ export default function RiskShieldPage() {
       </div>
 
       {/* ── Tabs ── */}
-      <div className="flex gap-1 bg-gray-100 rounded-2xl p-1 w-fit">
+      <div className="flex gap-1 bg-gray-100 rounded-2xl p-1 w-full sm:w-fit overflow-x-auto">
         {[
           { key: 'customers', label: 'Clienți', icon: Users },
           { key: 'alerts', label: 'Alerte', icon: Bell, badge: unreadAlerts },
@@ -724,7 +649,7 @@ export default function RiskShieldPage() {
 
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
             {loading ? (
-              <div className="p-6 space-y-3">
+              <div className="p-3 sm:p-6 space-y-3">
                 {[1,2,3,4,5].map(i => <div key={i} className="h-16 bg-gray-50 rounded-xl animate-pulse" />)}
               </div>
             ) : customers.length === 0 ? (
@@ -834,7 +759,7 @@ export default function RiskShieldPage() {
                   <motion.div
                     key={alert.id}
                     initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.02 }}
-                    className={`flex items-start gap-4 px-5 py-4 hover:bg-gray-50/50 transition-colors ${!alert.is_read ? 'bg-amber-50/20' : ''}`}
+                    className={`flex items-start gap-3 px-3 sm:px-5 py-3 sm:py-4 hover:bg-gray-50/50 transition-colors ${!alert.is_read ? 'bg-amber-50/20' : ''}`}
                   >
                     <div className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 ${
                       alert.severity === 'critical' ? 'bg-red-600 shadow-lg shadow-red-500/20' :
@@ -868,7 +793,7 @@ export default function RiskShieldPage() {
       {/* ══ TAB: ANALYTICS ════════════════════════════════════════════════════ */}
       {activeTab === 'analytics' && (
         <div className="space-y-5">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 gap-2 sm:gap-3">
             <StatCard label="Rată risc ridicat" value={`${riskRate}%`} sub={`${(stats.blocked||0) + (stats.problematic||0)} clienți`} color={riskRate > 20 ? 'text-red-600' : 'text-gray-900'} icon={AlertTriangle} />
             <StatCard label="Rată ridicare comenzi" value={`${globalCollectionRate}%`} sub={`${totalCollected} din ${totalOrders} comenzi`} color={globalCollectionRate < 60 ? 'text-orange-600' : 'text-emerald-600'} icon={Shield} />
             <StatCard label="Rată refuzuri" value={`${globalRefusalRate}%`} sub={`${totalRefused} refuzate · ${totalNotHome} absent`} color={globalRefusalRate > 20 ? 'text-red-600' : 'text-gray-900'} icon={Eye} />
@@ -959,10 +884,10 @@ export default function RiskShieldPage() {
             <motion.div
               initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
               transition={{ type: 'spring', damping: 28, stiffness: 280 }}
-              className="fixed right-0 top-0 h-full w-full max-w-xl bg-white z-50 shadow-2xl flex flex-col overflow-hidden"
+              className="fixed inset-0 sm:right-0 sm:left-auto sm:top-0 h-full w-full sm:max-w-xl bg-white z-50 shadow-2xl flex flex-col overflow-hidden"
             >
               {/* Panel Header */}
-              <div className="bg-white border-b border-gray-100 px-5 py-4 flex items-start justify-between shrink-0">
+              <div className="bg-white border-b border-gray-100 px-4 py-3 sm:px-5 sm:py-4 flex items-start justify-between shrink-0">
                 <div className="flex items-start gap-3">
                   <div className={`h-12 w-12 rounded-2xl flex items-center justify-center font-black text-lg shrink-0 ${
                     selectedCustomer.risk_label === 'blocked' ? 'bg-red-600 text-white shadow-lg shadow-red-500/30' :
@@ -996,12 +921,11 @@ export default function RiskShieldPage() {
               </div>
 
               {/* Profile Sub-tabs */}
-              <div className="flex gap-0 border-b border-gray-100 px-5 shrink-0 bg-gray-50/50 overflow-x-auto">
+              <div className="flex gap-0 border-b border-gray-100 px-3 sm:px-5 shrink-0 bg-gray-50/50 overflow-x-auto scrollbar-none">
                 {[
                   { key: 'overview', label: 'Profil' },
                   { key: 'timeline', label: 'Istoric' },
                   { key: 'addresses', label: 'Adrese' },
-                  { key: 'intel', label: '🧠 Intelligence' },
                 ].map(tab => (
                   <button
                     key={tab.key}
@@ -1100,9 +1024,17 @@ export default function RiskShieldPage() {
                         })}
                       </div>
                       {selectedCustomer.manual_label_override && (
-                        <p className="text-[10px] text-amber-500 mt-2 flex items-center gap-1">
-                          <Pencil className="h-2.5 w-2.5" />Override manual activ
-                        </p>
+                        <div className="flex items-center justify-between mt-2">
+                          <p className="text-[10px] text-amber-500 flex items-center gap-1">
+                            <Pencil className="h-2.5 w-2.5" />Override manual activ
+                          </p>
+                          <button
+                            onClick={() => overrideLabel(selectedCustomer.id, null as any)}
+                            className="text-[10px] text-gray-400 hover:text-red-500 flex items-center gap-1 transition-colors"
+                          >
+                            <X className="h-2.5 w-2.5" />Șterge eticheta
+                          </button>
+                        </div>
                       )}
                     </div>
 
@@ -1190,51 +1122,7 @@ export default function RiskShieldPage() {
                   </div>
                 )}
 
-                {/* ── INTELLIGENCE ── */}
-                {profileTab === 'intel' && (
-                  <div className="p-5 space-y-5">
-                    <div className="flex items-start gap-3 bg-gradient-to-br from-gray-900 to-gray-700 rounded-2xl p-4 text-white">
-                      <Brain className="h-5 w-5 shrink-0 mt-0.5 text-gray-300" />
-                      <div>
-                        <p className="text-sm font-semibold">Analiză Comportamentală AI</p>
-                        <p className="text-xs text-gray-300 mt-1 leading-relaxed">Raport complet bazat pe istoricul comenzilor, pattern-uri de comportament și comparație cu baza de date globală Hontrio.</p>
-                      </div>
-                    </div>
 
-                    <IntelligenceReport customer={selectedCustomer} orders={customerOrders} />
-
-                    {/* Risk factors */}
-                    <div className="bg-gray-50 rounded-2xl p-4">
-                      <h4 className="text-[11px] text-gray-400 uppercase tracking-widest mb-3">Factori de Risc Detectați</h4>
-                      <div className="space-y-2">
-                        {[
-                          { condition: selectedCustomer.orders_refused >= 2, label: `${selectedCustomer.orders_refused} colete refuzate`, severity: 'high' },
-                          { condition: selectedCustomer.orders_not_home >= 3, label: `${selectedCustomer.orders_not_home} livrări eșuate`, severity: 'medium' },
-                          { condition: (collectionRate(selectedCustomer) ?? 100) < 50, label: `Rată ridicare scăzută: ${collectionRate(selectedCustomer)}%`, severity: 'high' },
-                          { condition: selectedCustomer.in_global_blacklist, label: 'Prezent în blacklist global Hontrio', severity: 'critical' },
-                          { condition: selectedCustomer.in_local_blacklist, label: 'Blocat manual în magazinul tău', severity: 'high' },
-                          { condition: selectedCustomer.orders_cancelled >= 3, label: `${selectedCustomer.orders_cancelled} comenzi anulate`, severity: 'medium' },
-                        ].filter(f => f.condition).map((f, i) => (
-                          <div key={i} className="flex items-center gap-2.5 p-2 rounded-xl bg-white border border-gray-100">
-                            <div className={`h-2 w-2 rounded-full shrink-0 ${f.severity === 'critical' ? 'bg-red-600' : f.severity === 'high' ? 'bg-orange-500' : 'bg-amber-400'}`} />
-                            <span className="text-xs text-gray-700 flex-1">{f.label}</span>
-                            <span className={`text-[10px] px-2 py-0.5 rounded-full ${
-                              f.severity === 'critical' ? 'bg-red-100 text-red-700' :
-                              f.severity === 'high' ? 'bg-orange-100 text-orange-700' :
-                              'bg-amber-100 text-amber-700'
-                            }`}>{f.severity}</span>
-                          </div>
-                        ))}
-                        {selectedCustomer.orders_refused < 2 && selectedCustomer.orders_not_home < 3 &&
-                         (collectionRate(selectedCustomer) ?? 100) >= 50 && !selectedCustomer.in_global_blacklist && !selectedCustomer.in_local_blacklist && (
-                          <p className="text-xs text-emerald-600 flex items-center gap-2 p-2">
-                            <CheckCircle2 className="h-3.5 w-3.5" />Niciun factor de risc major detectat
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                )}
 
               </div>
             </motion.div>

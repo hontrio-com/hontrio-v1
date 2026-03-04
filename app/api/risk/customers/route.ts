@@ -86,10 +86,27 @@ export async function PATCH(req: Request) {
 
     const updates: any = { manually_reviewed: true, updated_at: new Date().toISOString() }
     if (label_override !== undefined) {
-      updates.manual_label_override = label_override
-      updates.risk_label = label_override
-      updates.override_by = session.user.id
-      updates.override_at = new Date().toISOString()
+      if (label_override === null) {
+        // Sterge override-ul și restaurează scorul calculat automat
+        updates.manual_label_override = null
+        updates.override_by = null
+        updates.override_at = null
+        // Recalculează label din scorul existent
+        const { data: fullCustomer } = await supabase
+          .from('risk_customers')
+          .select('risk_score')
+          .eq('id', customer_id)
+          .single()
+        if (fullCustomer) {
+          const score = fullCustomer.risk_score || 0
+          updates.risk_label = score >= 81 ? 'blocked' : score >= 61 ? 'problematic' : score >= 41 ? 'watch' : 'trusted'
+        }
+      } else {
+        updates.manual_label_override = label_override
+        updates.risk_label = label_override
+        updates.override_by = session.user.id
+        updates.override_at = new Date().toISOString()
+      }
     }
     if (operator_notes !== undefined) updates.operator_notes = operator_notes
     if (in_local_blacklist !== undefined) updates.in_local_blacklist = in_local_blacklist

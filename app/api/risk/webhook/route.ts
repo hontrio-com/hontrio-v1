@@ -478,8 +478,23 @@ export async function POST(req: Request) {
               updated_at: new Date().toISOString(),
             }).eq('id', customer.id)
 
-            // Alertă dacă a devenit problematic după update status
-            if (['problematic', 'blocked'].includes(finalLabel)) {
+            // Alertă la refuz/retur — indiferent de label
+            if (['refused', 'returned', 'not_home'].includes(hontrioStatus) && oldStatus !== hontrioStatus) {
+              const refusalLabel = hontrioStatus === 'refused' ? 'Colet REFUZAT' : hontrioStatus === 'returned' ? 'Colet RETURNAT' : 'Absent la livrare'
+              await supabase.from('risk_alerts').insert({
+                store_id: storeId,
+                user_id: userId,
+                customer_id: customer.id,
+                order_id: existingOrder.id,
+                alert_type: 'delivery_failed',
+                severity: hontrioStatus === 'refused' ? 'warning' : 'info',
+                title: `${refusalLabel} — ${customerName || customerPhone || customerEmail}`,
+                description: `Comanda #${orderNumber || externalOrderId} marcată ca ${hontrioStatus}. Total refuzuri: ${(updatedCustomer.orders_refused || 0)}. Scor: ${result.score}/100`,
+              })
+            }
+
+            // Alertă dacă a devenit problematic/blocked după update status
+            else if (['problematic', 'blocked'].includes(finalLabel)) {
               await supabase.from('risk_alerts').insert({
                 store_id: storeId,
                 user_id: userId,
