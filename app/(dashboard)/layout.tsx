@@ -9,7 +9,7 @@ import {
   LayoutDashboard, Package, ImageIcon, Search, CreditCard, Settings,
   LogOut, Menu, X, ChevronRight, Shield, Sparkles, AlertTriangle,
   MessageSquare, Zap, Crown, ArrowUpRight, Coins, Video, Bot,
-  MessageCircle, TrendingUp,
+  MessageCircle, TrendingUp, FileText, Star, Tag, Clock, Loader2,
 } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
 import { Button } from '@/components/ui/button'
@@ -54,17 +54,177 @@ const agentSubMenu = [
   { label: 'Insights', href: '/agent/insights', icon: TrendingUp },
 ]
 
-const searchablePages = [
-  { label: 'Dashboard', href: '/dashboard', keywords: ['dashboard', 'acasă', 'home'] },
-  { label: 'Produse', href: '/products', keywords: ['produse', 'products', 'catalog'] },
-  { label: 'Imagini AI', href: '/images', keywords: ['imagini', 'images', 'generare', 'AI', 'foto', 'imagine'] },
-  { label: 'Optimizare SEO', href: '/seo', keywords: ['seo', 'optimizare', 'scor', 'score'] },
-  { label: 'AI Agent', href: '/agent', keywords: ['agent', 'chat', 'asistent', 'conversatie', 'bot', 'ai'] },
-  { label: 'Triggeri', href: '/agent/triggers', keywords: ['triggeri', 'triggers', 'proactiv', 'exit', 'scroll'] },
-  { label: 'Abonament', href: '/credits', keywords: ['credite', 'credits', 'abonament', 'plan', 'upgrade'] },
-  { label: 'Suport', href: '/support', keywords: ['suport', 'support', 'ajutor', 'tichet', 'help'] },
-  { label: 'Setări', href: '/settings', keywords: ['setari', 'settings', 'profil', 'parolă', 'magazin'] },
+const PAGES = [
+  { label: 'Dashboard',       href: '/dashboard',        icon: LayoutDashboard, keywords: ['dashboard', 'acasă', 'home'] },
+  { label: 'Produse',         href: '/products',         icon: Package,         keywords: ['produse', 'products', 'catalog'] },
+  { label: 'Imagini AI',      href: '/images',           icon: ImageIcon,       keywords: ['imagini', 'images', 'generare', 'AI', 'foto', 'imagine'] },
+  { label: 'Optimizare SEO',  href: '/seo',              icon: Search,          keywords: ['seo', 'optimizare', 'scor', 'score'] },
+  { label: 'AI Agent',        href: '/agent',            icon: Bot,             keywords: ['agent', 'chat', 'asistent', 'conversatie', 'bot', 'ai'] },
+  { label: 'Triggeri Agent',  href: '/agent/triggers',   icon: Zap,             keywords: ['triggeri', 'triggers', 'proactiv', 'exit', 'scroll'] },
+  { label: 'Inbox Agent',     href: '/agent/inbox',      icon: MessageCircle,   keywords: ['inbox', 'mesaje', 'conversatii'] },
+  { label: 'Abonament',       href: '/credits',          icon: CreditCard,      keywords: ['credite', 'credits', 'abonament', 'plan', 'upgrade', 'plata'] },
+  { label: 'Suport',          href: '/support',          icon: MessageSquare,   keywords: ['suport', 'support', 'ajutor', 'tichet', 'help'] },
+  { label: 'Setări',          href: '/settings',         icon: Settings,        keywords: ['setari', 'settings', 'profil', 'parolă', 'magazin', 'brand'] },
+  { label: 'Setări Brand',    href: '/settings?tab=brand', icon: Sparkles,      keywords: ['brand', 'ton', 'nisa', 'limba', 'business'] },
+  { label: 'Setări Credite',  href: '/settings?tab=credits', icon: CreditCard,  keywords: ['credite', 'tranzactii', 'pack', 'cumparare'] },
 ]
+
+// ─── Search Dropdown Component ────────────────────────────────────────────────
+
+const SEO_SCORE_COLOR = (score: number) => {
+  if (score === 0)  return 'bg-gray-100 text-gray-500'
+  if (score < 80)   return 'bg-amber-50 text-amber-600'
+  return 'bg-emerald-50 text-emerald-600'
+}
+
+const STYLE_LABELS: Record<string, string> = {
+  white_background: 'Fundal Alb',
+  lifestyle: 'Lifestyle',
+  premium_dark: 'Premium Dark',
+  artisan: 'Artisan',
+  seasonal: 'Sezonier',
+  manual: 'Custom',
+}
+
+function SearchDropdown({
+  results, loading, query, onNavigate
+}: {
+  results: { products: any[]; images: any[]; pages: any[] }
+  loading: boolean
+  query: string
+  onNavigate: (href: string) => void
+}) {
+  const hasProducts = results.products.length > 0
+  const hasImages   = results.images.length > 0
+  const hasPages    = results.pages.length > 0
+  const hasAny      = hasProducts || hasImages || hasPages
+
+  if (loading && !hasAny) {
+    return (
+      <div className="flex items-center gap-2 px-4 py-4 text-sm text-gray-400">
+        <Loader2 className="h-4 w-4 animate-spin" />Caută...
+      </div>
+    )
+  }
+
+  if (!hasAny) {
+    return (
+      <div className="px-4 py-5 text-center">
+        <Search className="h-8 w-8 text-gray-200 mx-auto mb-2" />
+        <p className="text-sm text-gray-400">Niciun rezultat pentru <span className="font-medium text-gray-600">"{query}"</span></p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="py-1">
+      {/* Products */}
+      {hasProducts && (
+        <div>
+          <div className="flex items-center gap-2 px-4 py-2 bg-gray-50">
+            <Package className="h-3.5 w-3.5 text-gray-400" />
+            <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Produse</span>
+            {loading && <Loader2 className="h-3 w-3 animate-spin text-gray-300 ml-auto" />}
+          </div>
+          {results.products.map((p: any) => (
+            <button key={p.id} onClick={() => onNavigate('/seo/' + p.id)}
+              className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-blue-50 transition-colors text-left group">
+              {p.image_url
+                ? <img src={p.image_url} alt="" className="h-9 w-9 rounded-lg object-cover shrink-0 border border-gray-100" />
+                : <div className="h-9 w-9 rounded-lg bg-gray-100 flex items-center justify-center shrink-0"><Package className="h-4 w-4 text-gray-300" /></div>
+              }
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-gray-800 truncate group-hover:text-blue-700">
+                  {p.optimized_title || p.original_title}
+                </p>
+                <div className="flex items-center gap-2 mt-0.5">
+                  {p.category && <span className="text-[10px] text-gray-400 flex items-center gap-1"><Tag className="h-2.5 w-2.5" />{p.category}</span>}
+                  <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${SEO_SCORE_COLOR(p.seo_score || 0)}`}>
+                    SEO {p.seo_score || 0}
+                  </span>
+                </div>
+              </div>
+              <ArrowUpRight className="h-3.5 w-3.5 text-gray-300 group-hover:text-blue-400 shrink-0" />
+            </button>
+          ))}
+          <button onClick={() => onNavigate('/products?search=' + encodeURIComponent(query))}
+            className="w-full flex items-center gap-2 px-4 py-2 text-xs text-blue-600 hover:bg-blue-50 transition-colors border-t border-gray-50">
+            <Search className="h-3 w-3" />
+            Vezi toate produsele cu "{query}"
+            <ArrowUpRight className="h-3 w-3 ml-auto" />
+          </button>
+        </div>
+      )}
+
+      {/* Images */}
+      {hasImages && (
+        <div>
+          <div className="flex items-center gap-2 px-4 py-2 bg-gray-50 border-t border-gray-100">
+            <ImageIcon className="h-3.5 w-3.5 text-gray-400" />
+            <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Imagini AI</span>
+          </div>
+          <div className="px-4 py-3 flex gap-2 overflow-x-auto">
+            {results.images.map((img: any) => (
+              <button key={img.id} onClick={() => onNavigate('/images')}
+                className="shrink-0 group relative rounded-xl overflow-hidden border border-gray-100 hover:border-blue-200 transition-all">
+                <img src={img.image_url} alt={img.product_title} className="h-20 w-20 object-cover" />
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all flex items-end">
+                  <div className="w-full p-1.5 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-all">
+                    <p className="text-[9px] text-white font-medium truncate">{img.product_title}</p>
+                    <p className="text-[8px] text-gray-300">{STYLE_LABELS[img.style] || img.style}</p>
+                  </div>
+                </div>
+              </button>
+            ))}
+            <button onClick={() => onNavigate('/images')}
+              className="shrink-0 h-20 w-20 rounded-xl border-2 border-dashed border-gray-200 hover:border-blue-300 flex flex-col items-center justify-center gap-1 text-gray-400 hover:text-blue-500 transition-all">
+              <ImageIcon className="h-5 w-5" />
+              <span className="text-[9px] font-medium">Toate</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Pages */}
+      {hasPages && (
+        <div>
+          <div className="flex items-center gap-2 px-4 py-2 bg-gray-50 border-t border-gray-100">
+            <FileText className="h-3.5 w-3.5 text-gray-400" />
+            <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Pagini</span>
+          </div>
+          {results.pages.map((p: any) => {
+            const PIcon = p.icon || FileText
+            return (
+              <button key={p.href} onClick={() => onNavigate(p.href)}
+                className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-blue-50 transition-colors text-left group">
+                <div className="h-7 w-7 rounded-lg bg-gray-100 group-hover:bg-blue-100 flex items-center justify-center shrink-0 transition-colors">
+                  <PIcon className="h-3.5 w-3.5 text-gray-500 group-hover:text-blue-600" />
+                </div>
+                <span className="text-sm text-gray-700 group-hover:text-blue-700 flex-1">{p.label}</span>
+                <ArrowUpRight className="h-3.5 w-3.5 text-gray-300 group-hover:text-blue-400 shrink-0" />
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Keyboard shortcut helper ──────────────────────────────────────────────────
+
+function useSearchShortcut(onOpen: () => void) {
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault()
+        onOpen()
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [onOpen])
+}
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { data: session } = useSession()
@@ -75,9 +235,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [searchQuery, setSearchQuery] = useState('')
   const [searchFocused, setSearchFocused] = useState(false)
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false)
+  const [searchResults, setSearchResults] = useState<{ products: any[]; images: any[]; pages: any[] }>({ products: [], images: [], pages: [] })
+  const [searchLoading, setSearchLoading] = useState(false)
   const searchRef = useRef<HTMLDivElement>(null)
+  const searchDebounce = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const { credits: userCredits, plan: userPlan, avatarUrl } = useCredits()
+
+  const searchInputRef = useRef<HTMLInputElement>(null)
+  useSearchShortcut(() => {
+    setSearchFocused(true)
+    searchInputRef.current?.focus()
+  })
 
   const userName = session?.user?.name || 'Utilizator'
   const userEmail = session?.user?.email || ''
@@ -98,12 +267,28 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       .catch(() => {})
   }, [session, userRole])
 
-  const searchResults = searchQuery.length > 0
-    ? searchablePages.filter(p =>
-        p.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p.keywords.some(k => k.toLowerCase().includes(searchQuery.toLowerCase()))
-      )
-    : []
+  // Search: pages are filtered locally, products+images fetched from API
+  useEffect(() => {
+    if (searchQuery.length < 2) {
+      setSearchResults({ products: [], images: [], pages: [] })
+      return
+    }
+    const matchedPages = PAGES.filter(p =>
+      p.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.keywords.some(k => k.toLowerCase().includes(searchQuery.toLowerCase()))
+    )
+    setSearchResults(prev => ({ ...prev, pages: matchedPages }))
+
+    if (searchDebounce.current) clearTimeout(searchDebounce.current)
+    searchDebounce.current = setTimeout(async () => {
+      setSearchLoading(true)
+      try {
+        const res = await fetch('/api/search?q=' + encodeURIComponent(searchQuery))
+        const data = await res.json()
+        setSearchResults(prev => ({ ...prev, products: data.products || [], images: data.images || [] }))
+      } catch {} finally { setSearchLoading(false) }
+    }, 300)
+  }, [searchQuery])
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -118,6 +303,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   useEffect(() => {
     setSearchFocused(false)
     setSearchQuery('')
+    setSearchResults({ products: [], images: [], pages: [] })
   }, [pathname])
 
   const navigateAndClose = (href: string) => {
@@ -394,6 +580,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <div className="relative">
                 <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-300 pointer-events-none" />
                 <input
+                  ref={searchInputRef}
                   type="text"
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
@@ -404,23 +591,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <kbd className="hidden md:flex absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded font-mono">⌘K</kbd>
               </div>
               <AnimatePresence>
-                {searchFocused && searchQuery.length > 0 && (
+                {searchFocused && searchQuery.length >= 2 && (
                   <motion.div
                     initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 4 }}
-                    className="absolute top-12 left-0 right-0 bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden z-50"
+                    className="absolute top-12 left-0 right-0 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden z-50 max-h-[520px] overflow-y-auto"
                   >
-                    {searchResults.length > 0 ? (
-                      searchResults.map(result => (
-                        <button key={result.href} onClick={() => navigateAndClose(result.href)}
-                          className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition-colors text-left">
-                          <Search className="h-3.5 w-3.5 text-gray-400" />
-                          {result.label}
-                          <ArrowUpRight className="h-3 w-3 text-gray-300 ml-auto" />
-                        </button>
-                      ))
-                    ) : (
-                      <div className="px-4 py-3 text-sm text-gray-400">Niciun rezultat</div>
-                    )}
+                    <SearchDropdown
+                      results={searchResults}
+                      loading={searchLoading}
+                      query={searchQuery}
+                      onNavigate={navigateAndClose}
+                    />
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -482,20 +663,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                       <X className="h-4 w-4" />
                     </button>
                   </div>
-                  {searchQuery.length > 0 && (
-                    <div className="mt-2 rounded-xl border border-gray-100 overflow-hidden">
-                      {searchResults.length > 0 ? (
-                        searchResults.map(result => (
-                          <button key={result.href} onClick={() => { navigateAndClose(result.href); setMobileSearchOpen(false) }}
-                            className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 text-left border-b border-gray-50 last:border-0">
-                            <Search className="h-3.5 w-3.5 text-gray-400" />
-                            {result.label}
-                            <ArrowUpRight className="h-3 w-3 text-gray-300 ml-auto" />
-                          </button>
-                        ))
-                      ) : (
-                        <div className="px-4 py-3 text-sm text-gray-400">Niciun rezultat</div>
-                      )}
+                  {searchQuery.length >= 2 && (
+                    <div className="mt-2 rounded-xl border border-gray-100 overflow-hidden max-h-[60vh] overflow-y-auto">
+                      <SearchDropdown
+                        results={searchResults}
+                        loading={searchLoading}
+                        query={searchQuery}
+                        onNavigate={(href) => { navigateAndClose(href); setMobileSearchOpen(false) }}
+                      />
                     </div>
                   )}
                 </motion.div>
