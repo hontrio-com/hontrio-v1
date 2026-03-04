@@ -39,10 +39,14 @@ export async function GET(req: Request) {
       .from('risk_customers')
       .select('risk_label')
       .eq('user_id', session.user.id)
-      .eq('store_id', store_id || '')
+
+    // Filtrare suplimentara dupa store_id daca e dat
+    const filteredStats = store_id
+      ? (labelStats || []).filter((r: any) => r.store_id === store_id)
+      : (labelStats || [])
 
     const stats = { trusted: 0, new: 0, watch: 0, problematic: 0, blocked: 0 }
-    ;(labelStats || []).forEach((r: any) => {
+    filteredStats.forEach((r: any) => {
       if (stats[r.risk_label as keyof typeof stats] !== undefined) {
         stats[r.risk_label as keyof typeof stats]++
       }

@@ -463,7 +463,9 @@ export default function RiskShieldPage() {
     try {
       const res = await fetch('/api/stores')
       const data = await res.json()
-      const storeList = data.stores || data || []
+      // /api/stores returneaza { store: {...} } singular, nu array
+      const store = data.store || data.stores?.[0] || null
+      const storeList = store ? [store] : []
       setStores(storeList)
       if (storeList.length > 0) setSelectedStore(storeList[0].id)
     } catch { setLoading(false) }
