@@ -592,6 +592,13 @@ export default function RiskShieldPage() {
               {stores.map(s => <option key={s.id} value={s.id}>{s.store_url}</option>)}
             </select>
           )}
+          <a
+            href="/api/risk/download-plugin"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-gray-900 text-white text-xs font-medium hover:bg-gray-800 transition-colors"
+          >
+            <Download className="h-3.5 w-3.5" />
+            Plugin WooCommerce
+          </a>
           <button onClick={() => { fetchCustomers(); fetchAlerts() }} className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-gray-200 text-xs text-gray-600 hover:bg-gray-50 transition-colors">
             <RefreshCw className="h-3.5 w-3.5" />Refresh
           </button>
