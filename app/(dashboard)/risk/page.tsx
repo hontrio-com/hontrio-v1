@@ -452,11 +452,14 @@ export default function RiskShieldPage() {
   const searchRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => { fetchStores() }, [])
-  useEffect(() => { if (selectedStore) { fetchCustomers(); fetchAlerts() } }, [selectedStore, labelFilter])
+
+  useEffect(() => {
+    if (selectedStore) { fetchCustomers(selectedStore); fetchAlerts(selectedStore) }
+  }, [selectedStore, labelFilter])
 
   useEffect(() => {
     if (searchRef.current) clearTimeout(searchRef.current)
-    searchRef.current = setTimeout(() => { if (selectedStore) fetchCustomers() }, 350)
+    searchRef.current = setTimeout(() => { if (selectedStore) fetchCustomers(selectedStore) }, 350)
     return () => { if (searchRef.current) clearTimeout(searchRef.current) }
   }, [search])
 
@@ -464,30 +467,35 @@ export default function RiskShieldPage() {
     try {
       const res = await fetch('/api/stores')
       const data = await res.json()
-      // /api/stores returneaza { store: {...} } singular, nu array
       const store = data.store || data.stores?.[0] || null
       const storeList = store ? [store] : []
       setStores(storeList)
       if (storeList.length > 0) setSelectedStore(storeList[0].id)
+      else setLoading(false)
     } catch { setLoading(false) }
   }
 
-  const fetchCustomers = async () => {
+  const fetchCustomers = async (sid?: string) => {
+    const storeId = sid || selectedStore
+    if (!storeId) return
     setLoading(true)
     try {
-      const params = new URLSearchParams({ store_id: selectedStore, limit: '100' })
+      const params = new URLSearchParams({ store_id: storeId, limit: '200' })
       if (labelFilter !== 'all') params.set('label', labelFilter)
       if (search) params.set('search', search)
       const res = await fetch(`/api/risk/customers?${params}`)
       const data = await res.json()
       setCustomers(data.customers || [])
       setStats(data.stats || {})
+      if (data.unreadAlerts !== undefined) setUnreadAlerts(data.unreadAlerts)
     } catch { } finally { setLoading(false) }
   }
 
-  const fetchAlerts = async () => {
+  const fetchAlerts = async (sid?: string) => {
+    const storeId = sid || selectedStore
+    if (!storeId) return
     try {
-      const res = await fetch(`/api/risk/alerts?store_id=${selectedStore}&limit=50`)
+      const res = await fetch(`/api/risk/alerts?store_id=${storeId}&limit=100`)
       const data = await res.json()
       setAlerts(data.alerts || [])
       setUnreadAlerts(data.unread || 0)
@@ -600,6 +608,15 @@ export default function RiskShieldPage() {
   const riskRate = totalCustomers > 0 ? Math.round(((stats.blocked || 0) + (stats.problematic || 0)) / totalCustomers * 100) : 0
   const watchRate = totalCustomers > 0 ? Math.round((stats.watch || 0) / totalCustomers * 100) : 0
   const trustedRate = totalCustomers > 0 ? Math.round(((stats.trusted || 0) + (stats.new || 0)) / totalCustomers * 100) : 0
+
+  // Statistici calculate din lista de clienți încărcați
+  const totalOrders = customers.reduce((s, c) => s + (c.total_orders || 0), 0)
+  const totalCollected = customers.reduce((s, c) => s + (c.orders_collected || 0), 0)
+  const totalRefused = customers.reduce((s, c) => s + (c.orders_refused || 0), 0)
+  const totalNotHome = customers.reduce((s, c) => s + (c.orders_not_home || 0), 0)
+  const globalCollectionRate = totalOrders > 0 ? Math.round((totalCollected / totalOrders) * 100) : 0
+  const globalRefusalRate = totalOrders > 0 ? Math.round(((totalRefused + totalNotHome) / totalOrders) * 100) : 0
+  const activeAlerts = alerts.filter(a => !a.is_resolved).length
 
   return (
     <div className="space-y-5 pb-10">
@@ -852,10 +869,10 @@ export default function RiskShieldPage() {
       {activeTab === 'analytics' && (
         <div className="space-y-5">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <StatCard label="Rată risc ridicat" value={`${riskRate}%`} sub="Blocat + Problematic" color={riskRate > 20 ? 'text-red-600' : 'text-gray-900'} icon={AlertTriangle} />
-            <StatCard label="Sub monitorizare" value={`${watchRate}%`} sub="Label Watch" color={watchRate > 30 ? 'text-amber-600' : 'text-gray-900'} icon={Eye} />
-            <StatCard label="Clienți de încredere" value={`${trustedRate}%`} sub="Trusted + Noi" color="text-emerald-600" icon={Shield} />
-            <StatCard label="Alerte active" value={alerts.filter(a => !a.is_resolved).length} sub={`${unreadAlerts} necitite`} icon={Bell} />
+            <StatCard label="Rată risc ridicat" value={`${riskRate}%`} sub={`${(stats.blocked||0) + (stats.problematic||0)} clienți`} color={riskRate > 20 ? 'text-red-600' : 'text-gray-900'} icon={AlertTriangle} />
+            <StatCard label="Rată ridicare comenzi" value={`${globalCollectionRate}%`} sub={`${totalCollected} din ${totalOrders} comenzi`} color={globalCollectionRate < 60 ? 'text-orange-600' : 'text-emerald-600'} icon={Shield} />
+            <StatCard label="Rată refuzuri" value={`${globalRefusalRate}%`} sub={`${totalRefused} refuzate · ${totalNotHome} absent`} color={globalRefusalRate > 20 ? 'text-red-600' : 'text-gray-900'} icon={Eye} />
+            <StatCard label="Alerte active" value={activeAlerts} sub={`${unreadAlerts} necitite`} color={activeAlerts > 0 ? 'text-red-600' : 'text-gray-900'} icon={Bell} />
           </div>
 
           <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">

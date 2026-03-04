@@ -34,25 +34,33 @@ export async function GET(req: Request) {
     const { data, count, error } = await query
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-    // Stats per label
-    const { data: labelStats } = await supabase
+    // Stats per label — query separat fara paginare, cu store_id inclus
+    let statsQuery = supabase
       .from('risk_customers')
-      .select('risk_label')
+      .select('risk_label, store_id')
       .eq('user_id', session.user.id)
 
-    // Filtrare suplimentara dupa store_id daca e dat
-    const filteredStats = store_id
-      ? (labelStats || []).filter((r: any) => r.store_id === store_id)
-      : (labelStats || [])
+    if (store_id) statsQuery = statsQuery.eq('store_id', store_id)
+
+    const { data: labelStats } = await statsQuery
 
     const stats = { trusted: 0, new: 0, watch: 0, problematic: 0, blocked: 0 }
-    filteredStats.forEach((r: any) => {
+    ;(labelStats || []).forEach((r: any) => {
       if (stats[r.risk_label as keyof typeof stats] !== undefined) {
         stats[r.risk_label as keyof typeof stats]++
       }
     })
 
-    return NextResponse.json({ customers: data || [], total: count || 0, stats, page, limit })
+    // Alerte necitite pentru acest store
+    let alertsQuery = supabase
+      .from('risk_alerts')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', session.user.id)
+      .eq('is_read', false)
+    if (store_id) alertsQuery = alertsQuery.eq('store_id', store_id)
+    const { count: unreadAlerts } = await alertsQuery
+
+    return NextResponse.json({ customers: data || [], total: count || 0, stats, unreadAlerts: unreadAlerts || 0, page, limit })
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 })
   }
