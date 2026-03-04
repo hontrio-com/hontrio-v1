@@ -49,7 +49,7 @@ type PromoText = {
 type ProductStep = 'select_image' | 'select_style' | 'generating' | 'done'
 type PromoStep = 'select_image' | 'select_style' | 'edit_text' | 'generating' | 'done'
 type MainTab = 'generator' | 'bulk' | 'brand' | 'gallery'
-type GenTab = 'product' | 'promo' | 'banner' | 'before_after'
+type GenTab = 'product' | 'promo'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const PRODUCT_STYLES = [
@@ -68,8 +68,6 @@ const PROMO_STYLES = [
   { value: 'dark_premium',      label: 'Dark Premium',      desc: 'Neon, dramatic',         cost: 4, gradient: 'from-gray-950 to-slate-900',  dark: true  },
   { value: 'gradient_pop',      label: 'Gradient Pop',      desc: 'Vibrant, social media',  cost: 4, gradient: 'from-pink-500 to-violet-600', dark: true  },
 ]
-const BANNER_ASPECTS = ['16:9', '4:3', '1:1', '2:1']
-const ALL_STYLES = [...PRODUCT_STYLES, ...PROMO_STYLES.map(s => ({ ...s, value: `promo_${s.value}` }))]
 
 function styleLabel(val: string) { return ALL_STYLES.find(s => s.value === val)?.label || val }
 function styleCost(val: string)  { return ALL_STYLES.find(s => s.value === val)?.cost || 3 }
@@ -831,273 +829,6 @@ function PromoGenerator({ onImageGenerated, brandKit }: { onImageGenerated: (img
   )
 }
 
-// ─── BANNER GENERATOR ─────────────────────────────────────────────────────────
-function BannerGenerator({ onImageGenerated }: { onImageGenerated: (img: GeneratedImage) => void }) {
-  const { credits } = useCredits()
-  const [categories, setCategories] = useState<{ id: string; name: string }[]>([])
-  const [selectedCategory, setSelectedCategory] = useState('')
-  const [bannerStyle, setBannerStyle] = useState('modern')
-  const [aspect, setAspect] = useState('16:9')
-  const [loading, setLoading] = useState(false)
-  const [loadingCats, setLoadingCats] = useState(true)
-  const [taskId, setTaskId] = useState<string | null>(null)
-  const [imageRecordId, setImageRecordId] = useState<string | null>(null)
-  const [step, setStep] = useState<'form'|'generating'|'done'>('form')
-  const [lastUrl, setLastUrl] = useState<string | null>(null)
-  const [error, setError] = useState('')
-  const [zoomUrl, setZoomUrl] = useState<string | null>(null)
-  const BANNER_COST = 5
-
-  useEffect(() => {
-    fetch('/api/products/categories').then(r=>r.json()).then(d => {
-      setCategories(d.categories || [])
-      setLoadingCats(false)
-    }).catch(() => setLoadingCats(false))
-  }, [])
-
-  const handleGenerate = async () => {
-    if (!selectedCategory) { setError('Selectează o categorie'); return }
-    setLoading(true); setError(''); setStep('generating'); setTaskId(null)
-    const res = await fetch('/api/generate/banner', { method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ category: selectedCategory, banner_style: bannerStyle, aspect_ratio: aspect }) })
-    const data = await res.json()
-    if (!res.ok) { setError(data.error||'Eroare'); setStep('form'); setLoading(false); return }
-    if (data.task_id) { setTaskId(data.task_id); setImageRecordId(data.image_record_id) }
-    else { handleDone([data.image?.generated_image_url]) }
-    triggerCreditsRefresh()
-    setLoading(false)
-  }
-
-  const handleDone = (urls: string[]) => {
-    if (!urls[0]) { setError('Generarea a eșuat'); setStep('form'); return }
-    setLastUrl(urls[0]); setStep('done')
-    onImageGenerated({ id: Date.now().toString(), product_id: '', style: `banner_${bannerStyle}`, generated_image_url: urls[0], original_image_url: null, status:'completed', credits_used: BANNER_COST, created_at: new Date().toISOString(), product_title: `Banner — ${selectedCategory}` })
-  }
-
-  const BANNER_STYLES = [
-    { value:'modern',    label:'Modern',    desc:'Clean, minimal, spațiu alb' },
-    { value:'seasonal',  label:'Sezonier',  desc:'Festiv, cadouri, ocazii' },
-    { value:'bold',      label:'Bold',      desc:'Energic, impact vizual maxim' },
-    { value:'luxury',    label:'Luxury',    desc:'Premium, elegant, rafinat' },
-  ]
-
-  return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-      <div className="px-5 py-4 border-b border-gray-100">
-        <h2 className="text-sm font-bold text-gray-900">Banner categorii</h2>
-        <p className="text-xs text-gray-400 mt-0.5">Bannere automate pentru paginile de categorie din magazin</p>
-      </div>
-      <div className="p-5">
-        <AnimatePresence mode="wait">
-          {step === 'form' && (
-            <motion.div key="form" initial={{opacity:0,y:6}} animate={{opacity:1,y:0}} exit={{opacity:0}} className="space-y-4">
-              {error && <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-100 rounded-xl text-sm text-red-600"><AlertCircle className="h-4 w-4 shrink-0"/>{error}</div>}
-              <div>
-                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 block">Categorie</label>
-                {loadingCats ? <div className="flex items-center gap-2 text-sm text-gray-400"><Loader2 className="h-4 w-4 animate-spin"/>Se încarcă categoriile...</div>
-                : categories.length > 0 ? (
-                  <div className="flex flex-wrap gap-2">
-                    {categories.map(c => (
-                      <button key={c.id} onClick={() => setSelectedCategory(c.name)}
-                        className={`text-sm px-3 py-1.5 rounded-xl border transition-all ${selectedCategory===c.name?'border-gray-900 bg-gray-900 text-white':'border-gray-200 text-gray-600 hover:border-gray-400'}`}>
-                        {c.name}
-                      </button>
-                    ))}
-                  </div>
-                ) : (
-                  <input value={selectedCategory} onChange={e=>setSelectedCategory(e.target.value)} placeholder="Ex: Electronice, Îmbrăcăminte..."
-                    className="w-full px-3 py-2.5 text-sm rounded-xl border border-gray-200 focus:outline-none focus:border-gray-400" />
-                )}
-              </div>
-              <div>
-                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 block">Stil banner</label>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  {BANNER_STYLES.map(s => (
-                    <button key={s.value} onClick={() => setBannerStyle(s.value)}
-                      className={`p-3 rounded-xl border-2 text-left transition-all ${bannerStyle===s.value?'border-gray-900 bg-gray-50':'border-gray-200 hover:border-gray-300'}`}>
-                      <p className="text-sm font-bold text-gray-900">{s.label}</p>
-                      <p className="text-xs text-gray-400 mt-0.5 leading-snug">{s.desc}</p>
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 block">Format</label>
-                <div className="flex gap-2">
-                  {BANNER_ASPECTS.map(a => (
-                    <button key={a} onClick={() => setAspect(a)}
-                      className={`px-4 py-2 rounded-xl border text-sm font-medium transition-all ${aspect===a?'border-gray-900 bg-gray-900 text-white':'border-gray-200 text-gray-600 hover:border-gray-400'}`}>
-                      {a}
-                    </button>
-                  ))}
-                </div>
-                <p className="text-xs text-gray-400 mt-1.5">16:9 = website · 1:1 = social media · 2:1 = email header</p>
-              </div>
-              <div className="flex justify-between items-center pt-1">
-                <p className="text-xs text-gray-400">{BANNER_COST} credite</p>
-                <Button onClick={handleGenerate} disabled={!selectedCategory||credits<BANNER_COST} className="bg-gray-900 hover:bg-gray-700 rounded-xl h-10 px-5 text-sm">
-                  <Wand2 className="h-4 w-4 mr-2"/>Generează banner
-                </Button>
-              </div>
-            </motion.div>
-          )}
-          {step === 'generating' && (
-            <motion.div key="gen" initial={{opacity:0}} animate={{opacity:1}}>
-              <GeneratingScreen taskId={taskId} imageRecordId={imageRecordId} onDone={handleDone} onError={err=>{setError(err);setStep('form')}} icon={Monitor} color="bg-gray-800" />
-            </motion.div>
-          )}
-          {step === 'done' && lastUrl && (
-            <motion.div key="done" initial={{opacity:0,y:6}} animate={{opacity:1,y:0}} className="space-y-4">
-              <div className="flex items-center gap-2 p-3 bg-emerald-50 border border-emerald-100 rounded-xl">
-                <CheckCircle className="h-4 w-4 text-emerald-600"/><p className="text-sm font-medium text-emerald-700">Banner generat!</p>
-              </div>
-              <div className="rounded-2xl overflow-hidden bg-gray-100 cursor-zoom-in" onClick={() => setZoomUrl(lastUrl)}>
-                <img src={lastUrl} alt="" className="w-full object-contain" />
-              </div>
-              <div className="flex gap-3 justify-center">
-                <button onClick={() => window.open(lastUrl,'_blank')} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gray-900 text-white text-sm font-medium hover:bg-gray-700"><Download className="h-4 w-4"/>Descarcă</button>
-                <button onClick={() => { setStep('form'); setLastUrl(null) }} className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-gray-200 text-gray-600 text-sm hover:bg-gray-50"><RefreshCw className="h-4 w-4"/>Alt banner</button>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-      <AnimatePresence>{zoomUrl && <ZoomModal url={zoomUrl} onClose={() => setZoomUrl(null)} />}</AnimatePresence>
-    </div>
-  )
-}
-
-// ─── BEFORE/AFTER TAB ────────────────────────────────────────────────────────
-function BeforeAfterTab() {
-  const [gallery, setGallery] = useState<GeneratedImage[]>([])
-  const [loading, setLoading] = useState(true)
-  const [selectedImg, setSelectedImg] = useState<GeneratedImage | null>(null)
-  const [beforeAfterData, setBeforeAfterData] = useState<{ before_url: string; after_url: string; composite_url?: string | null } | null>(null)
-  const [generating, setGenerating] = useState(false)
-  const [sliderPos, setSliderPos] = useState(50)
-  const [exportLoading, setExportLoading] = useState(false)
-  const containerRef = useRef<HTMLDivElement>(null)
-  const isDragging = useRef(false)
-
-  useEffect(() => {
-    fetch('/api/images')
-      .then(r => r.json())
-      .then(d => {
-        const imgs = (d.images || []).filter((img: GeneratedImage) =>
-          img.original_image_url &&
-          img.generated_image_url &&
-          img.generated_image_url !== img.original_image_url
-        )
-        setGallery(imgs)
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false))
-  }, [])
-
-  const handleSelect = async (img: GeneratedImage) => {
-    setSelectedImg(img); setGenerating(true); setBeforeAfterData(null); setSliderPos(50)
-    const res = await fetch('/api/generate/before-after', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ image_id: img.id }) })
-    const data = await res.json()
-    if (res.ok) setBeforeAfterData({ before_url: data.before_url, after_url: data.after_url, composite_url: data.composite_url })
-    setGenerating(false)
-  }
-
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isDragging.current || !containerRef.current) return
-    const rect = containerRef.current.getBoundingClientRect()
-    const x = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
-    setSliderPos(Math.round(x * 100))
-  }
-
-  const handleExport = async () => {
-    if (!beforeAfterData?.composite_url) {
-      // Client-side: download the after image
-      window.open(beforeAfterData?.after_url, '_blank'); return
-    }
-    setExportLoading(true)
-    const a = document.createElement('a'); a.href = beforeAfterData.composite_url
-    a.download = `before-after-${Date.now()}.jpg`; a.click()
-    setExportLoading(false)
-  }
-
-  return (
-    <div className="space-y-4">
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-        <h2 className="text-sm font-bold text-gray-900 mb-1">Before & After</h2>
-        <p className="text-xs text-gray-400">Slider interactiv + export imagine compusă pentru social media</p>
-      </div>
-
-      {!selectedImg ? (
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-          <div className="px-5 py-4 border-b border-gray-100">
-            <p className="text-xs font-bold text-gray-500">Alege o imagine din galerie</p>
-          </div>
-          {loading ? <div className="flex items-center justify-center p-8"><Loader2 className="h-5 w-5 animate-spin text-gray-400"/></div>
-          : gallery.length === 0 ? <div className="p-8 text-center text-sm text-gray-400">Generează mai întâi o imagine din tab-ul Generator</div>
-          : <div className="grid grid-cols-3 sm:grid-cols-4 gap-3 p-4">
-              {gallery.map(img => (
-                <button key={img.id} onClick={() => handleSelect(img)} className="group relative aspect-square rounded-xl overflow-hidden border border-gray-200 hover:border-gray-900 transition-all">
-                  <img src={img.generated_image_url} alt="" className="w-full h-full object-cover" />
-                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all flex items-center justify-center">
-                    <span className="opacity-0 group-hover:opacity-100 text-white text-xs font-bold">Selectează</span>
-                  </div>
-                </button>
-              ))}
-            </div>}
-        </div>
-      ) : (
-        <div className="space-y-4">
-          <div className="flex items-center gap-3">
-            <button onClick={() => { setSelectedImg(null); setBeforeAfterData(null) }} className="text-sm text-gray-400 hover:text-gray-600">← Înapoi</button>
-            <p className="text-sm font-semibold text-gray-800">{selectedImg.product_title}</p>
-          </div>
-
-          {generating && <div className="bg-white rounded-2xl border border-gray-100 p-8 flex items-center justify-center gap-3"><Loader2 className="h-5 w-5 animate-spin text-gray-400"/><p className="text-sm text-gray-500">Se generează composita...</p></div>}
-
-          {beforeAfterData && (
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-              <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-                <p className="text-xs font-bold text-gray-500 uppercase tracking-widest">Slider Before / After</p>
-                <div className="flex gap-2">
-                  <button onClick={handleExport} disabled={exportLoading} className="flex items-center gap-1.5 text-xs font-semibold text-gray-600 border border-gray-200 px-3 py-1.5 rounded-lg hover:bg-gray-50">
-                    {exportLoading?<Loader2 className="h-3 w-3 animate-spin"/>:<Download className="h-3 w-3"/>}Export imagine
-                  </button>
-                </div>
-              </div>
-              {/* Slider */}
-              <div ref={containerRef} className="relative aspect-square select-none cursor-col-resize"
-                onMouseMove={handleMouseMove} onMouseDown={() => isDragging.current=true}
-                onMouseUp={() => isDragging.current=false} onMouseLeave={() => isDragging.current=false}>
-                {/* Before */}
-                <img src={beforeAfterData.before_url} alt="Înainte" className="absolute inset-0 w-full h-full object-cover" />
-                {/* After - clip */}
-                <div className="absolute inset-0 overflow-hidden" style={{ clipPath: `inset(0 ${100-sliderPos}% 0 0)` }}>
-                  <img src={beforeAfterData.after_url} alt="După" className="w-full h-full object-cover" />
-                </div>
-                {/* Divider */}
-                <div className="absolute inset-y-0 pointer-events-none" style={{ left: `${sliderPos}%` }}>
-                  <div className="absolute inset-y-0 w-0.5 bg-white shadow-lg" style={{ left: '-1px' }} />
-                  <div className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-8 h-8 bg-white rounded-full shadow-xl flex items-center justify-center">
-                    <ChevronRight className="h-3 w-3 text-gray-600 -ml-0.5" />
-                    <ChevronRight className="h-3 w-3 text-gray-600 -ml-2.5 rotate-180" />
-                  </div>
-                </div>
-                {/* Labels */}
-                <div className="absolute bottom-3 left-3 text-[10px] font-black text-white bg-black/50 px-2 py-0.5 rounded-full backdrop-blur">ÎNAINTE</div>
-                <div className="absolute bottom-3 right-3 text-[10px] font-black text-white bg-gray-900/70 px-2 py-0.5 rounded-full backdrop-blur">DUPĂ AI</div>
-              </div>
-              {/* Slider control */}
-              <div className="p-4">
-                <input type="range" min={0} max={100} value={sliderPos} onChange={e => setSliderPos(Number(e.target.value))}
-                  className="w-full accent-gray-900" />
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  )
-}
 
 // ─── BULK TAB ─────────────────────────────────────────────────────────────────
 function BulkTab() {
@@ -1523,7 +1254,7 @@ function BrandTab() {
 
 // ─── GALLERY TAB ─────────────────────────────────────────────────────────────
 function GalleryTab({ gallery, onUpdate }: { gallery: GeneratedImage[]; onUpdate: () => void }) {
-  const [filter, setFilter] = useState<'all'|'product'|'promo'|'banner'|'published'>('all')
+  const [filter, setFilter] = useState<'all'|'product'|'promo'|'published'>('all')
   const [search, setSearch] = useState('')
   const [preview, setPreview] = useState<GeneratedImage | null>(null)
   const [publishing, setPublishing] = useState<string | null>(null)
@@ -1531,9 +1262,8 @@ function GalleryTab({ gallery, onUpdate }: { gallery: GeneratedImage[]; onUpdate
 
   const filtered = gallery.filter(img => {
     const isPromo = img.style.startsWith('promo_')
-    const isBanner = img.style.startsWith('banner_')
     const isPublished = !!img.wc_published_at
-    const matchFilter = filter==='all' || (filter==='promo'&&isPromo) || (filter==='banner'&&isBanner) || (filter==='published'&&isPublished) || (filter==='product'&&!isPromo&&!isBanner)
+    const matchFilter = filter==='all' || (filter==='promo'&&isPromo) || (filter==='published'&&isPublished) || (filter==='product'&&!isPromo)
     const matchSearch = !search || img.product_title?.toLowerCase().includes(search.toLowerCase())
     return matchFilter && matchSearch
   })
@@ -1564,7 +1294,6 @@ function GalleryTab({ gallery, onUpdate }: { gallery: GeneratedImage[]; onUpdate
     { value:'all', label:'Toate' },
     { value:'product', label:'Produs' },
     { value:'promo', label:'Promo' },
-    { value:'banner', label:'Banner' },
     { value:'published', label:'Publicate' },
   ]
 
@@ -1613,8 +1342,8 @@ function GalleryTab({ gallery, onUpdate }: { gallery: GeneratedImage[]; onUpdate
                     <img src={img.generated_image_url} alt={img.product_title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                     {/* Badges */}
                     <div className="absolute top-2 left-2 flex gap-1 flex-wrap">
-                      <Badge className={`border-0 text-[10px] ${isPromo?'bg-gray-700/80 text-white':isBanner?'bg-blue-700/80 text-white':'bg-black/50 text-white'} backdrop-blur`}>
-                        {isPromo?'Promo':isBanner?'Banner':styleLabel(img.style)}
+                      <Badge className={`border-0 text-[10px] ${isPromo?'bg-gray-700/80 text-white':'bg-black/50 text-white'} backdrop-blur`}>
+                        {isPromo?'Promo':styleLabel(img.style)}
                       </Badge>
                       {isPublished && <Badge className="border-0 text-[10px] bg-emerald-600/80 text-white backdrop-blur">Live</Badge>}
                     </div>
@@ -1750,10 +1479,8 @@ export default function ImagesPage() {
   ]
 
   const GEN_TABS: { value: GenTab; label: string; badge?: string }[] = [
-    { value: 'product',     label: 'Imagine Produs' },
-    { value: 'promo',       label: 'Poster Promo' },
-    { value: 'banner',      label: 'Banner Categorie' },
-    { value: 'before_after',label: 'Before & After' },
+    { value: 'product', label: 'Imagine Produs' },
+    { value: 'promo',   label: 'Poster Promo' },
   ]
 
   return (
@@ -1822,16 +1549,6 @@ export default function ImagesPage() {
               {genTab === 'promo' && (
                 <motion.div key="gen-promo" initial={{opacity:0,y:4}} animate={{opacity:1,y:0}} exit={{opacity:0}}>
                   <PromoGenerator onImageGenerated={handleNewImage} brandKit={brandKit} />
-                </motion.div>
-              )}
-              {genTab === 'banner' && (
-                <motion.div key="gen-banner" initial={{opacity:0,y:4}} animate={{opacity:1,y:0}} exit={{opacity:0}}>
-                  <BannerGenerator onImageGenerated={handleNewImage} />
-                </motion.div>
-              )}
-              {genTab === 'before_after' && (
-                <motion.div key="gen-ba" initial={{opacity:0,y:4}} animate={{opacity:1,y:0}} exit={{opacity:0}}>
-                  <BeforeAfterTab />
                 </motion.div>
               )}
             </AnimatePresence>
