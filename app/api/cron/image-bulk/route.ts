@@ -137,7 +137,7 @@ export async function GET(request: Request) {
           description: `Bulk imagine ${style}: ${productTitle}`,
           reference_type: 'image_generation', reference_id: imgRecord.id,
         })
-        await supabase.from('image_bulk_jobs').update({ credits_used: supabase.raw(`credits_used + ${creditCost}`) }).eq('id', item.job_id)
+        await supabase.rpc('increment_bulk_credits', { job_id: item.job_id, amount: creditCost })
 
         // Auto-publish to WooCommerce if enabled
         if (job.auto_publish && product.external_id) {
