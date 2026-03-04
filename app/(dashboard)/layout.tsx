@@ -32,7 +32,7 @@ const menuSections = [
     items: [
       { label: 'AI Agent', href: '/agent', icon: Bot },
       { label: 'Imagini AI', href: '/images', icon: ImageIcon },
-      { label: 'Optimizare SEO', href: '/seo', icon: Search },
+      { label: 'SEO', href: '/seo', icon: Search },
     ]
   },
   {
@@ -52,6 +52,11 @@ const agentSubMenu = [
   { label: 'Triggeri', href: '/agent/triggers', icon: Zap },
   { label: 'Inbox', href: '/agent/inbox', icon: MessageCircle },
   { label: 'Insights', href: '/agent/insights', icon: TrendingUp },
+]
+
+const seoSubMenu = [
+  { label: 'Optimizare SEO', href: '/seo', icon: Search },
+  { label: 'Analiză Competitori', href: '/seo/competitor', icon: TrendingUp },
 ]
 
 const PAGES = [
@@ -253,6 +258,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const userInitial = userName[0]?.toUpperCase() || 'U'
   const userRole = (session?.user as any)?.role || 'user'
   const isAgentSection = pathname.startsWith('/agent')
+  const isSeoSection = pathname.startsWith('/seo')
 
   useEffect(() => {
     if (!session?.user) return
@@ -360,11 +366,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   <div className="space-y-0.5">
                     {section.items.map((item) => {
                       const isAgentItem = item.href === '/agent'
-                      const isActive = !isAgentItem && (
+                      const isSeoItem = item.href === '/seo'
+                      const isActive = !isAgentItem && !isSeoItem && (
                         pathname === item.href ||
                         (item.href !== '/dashboard' && pathname.startsWith(item.href))
                       )
                       const isAgentActive = isAgentItem && isAgentSection
+                      const isSeoActive = isSeoItem && isSeoSection
 
                       const content = (
                         <div key={item.href}>
@@ -373,18 +381,65 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                             onClick={() => setSidebarOpen(false)}
                             className={`group flex items-center gap-3 rounded-xl text-sm font-medium transition-all duration-200
                               ${collapsed ? 'justify-center p-2.5' : 'px-3 py-2.5'}
-                              ${(isActive || isAgentActive) ? 'bg-blue-50 text-blue-600 shadow-sm shadow-blue-100' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50'}
+                              ${(isActive || isAgentActive || isSeoActive) ? 'bg-blue-50 text-blue-600 shadow-sm shadow-blue-100' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50'}
                             `}
                           >
-                            <item.icon className={`h-[18px] w-[18px] shrink-0 transition-colors ${(isActive || isAgentActive) ? 'text-blue-600' : 'text-gray-400 group-hover:text-gray-600'}`} />
+                            <item.icon className={`h-[18px] w-[18px] shrink-0 transition-colors ${(isActive || isAgentActive || isSeoActive) ? 'text-blue-600' : 'text-gray-400 group-hover:text-gray-600'}`} />
                             {!collapsed && <span>{item.label}</span>}
                             {!collapsed && isAgentItem && (
                               <ChevronRight className={`ml-auto h-3.5 w-3.5 transition-transform duration-200 ${isAgentSection ? 'rotate-90 text-blue-400' : 'text-gray-300'}`} />
                             )}
-                            {!collapsed && !isAgentItem && isActive && (
+                            {!collapsed && isSeoItem && (
+                              <ChevronRight className={`ml-auto h-3.5 w-3.5 transition-transform duration-200 ${isSeoSection ? 'rotate-90 text-blue-400' : 'text-gray-300'}`} />
+                            )}
+                            {!collapsed && !isAgentItem && !isSeoItem && isActive && (
                               <div className="ml-auto h-1.5 w-1.5 rounded-full bg-blue-600" />
                             )}
                           </Link>
+
+                          {/* Submeniu SEO expandat - sidebar normal */}
+                          {isSeoItem && isSeoSection && !collapsed && (
+                            <div className="mt-1 ml-3 border-l-2 border-blue-100 pl-2 space-y-0.5 pb-1">
+                              {seoSubMenu.map(sub => {
+                                const isSubActive = sub.href === '/seo/competitor'
+                                  ? pathname.startsWith('/seo/competitor')
+                                  : pathname === '/seo' || (pathname.startsWith('/seo/') && !pathname.startsWith('/seo/competitor'))
+                                return (
+                                  <Link key={sub.href} href={sub.href}
+                                    onClick={() => setSidebarOpen(false)}
+                                    className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm font-medium transition-all
+                                      ${isSubActive ? 'bg-blue-50 text-blue-600' : 'text-gray-400 hover:text-gray-700 hover:bg-gray-50'}`}>
+                                    <sub.icon className={`h-3.5 w-3.5 shrink-0 ${isSubActive ? 'text-blue-500' : 'text-gray-300'}`} />
+                                    <span>{sub.label}</span>
+                                    {isSubActive && <div className="ml-auto h-1.5 w-1.5 rounded-full bg-blue-600" />}
+                                  </Link>
+                                )
+                              })}
+                            </div>
+                          )}
+
+                          {/* Submeniu SEO - sidebar collapsed */}
+                          {isSeoItem && isSeoSection && collapsed && (
+                            <div className="mt-1 space-y-0.5">
+                              {seoSubMenu.map(sub => {
+                                const isSubActive = sub.href === '/seo/competitor'
+                                  ? pathname.startsWith('/seo/competitor')
+                                  : pathname === '/seo' || (pathname.startsWith('/seo/') && !pathname.startsWith('/seo/competitor'))
+                                return (
+                                  <Tooltip key={sub.href}>
+                                    <TooltipTrigger asChild>
+                                      <Link href={sub.href}
+                                        className={`flex items-center justify-center p-2.5 rounded-xl transition-all
+                                          ${isSubActive ? 'bg-blue-50 text-blue-600' : 'text-gray-400 hover:text-gray-700 hover:bg-gray-50'}`}>
+                                        <sub.icon className="h-[18px] w-[18px]" />
+                                      </Link>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="right" sideOffset={10}>{sub.label}</TooltipContent>
+                                  </Tooltip>
+                                )
+                              })}
+                            </div>
+                          )}
 
                           {/* Submeniu expandat - sidebar normal */}
                           {isAgentItem && isAgentSection && !collapsed && (
@@ -428,7 +483,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         </div>
                       )
 
-                      return collapsed && !isAgentItem ? (
+                      return collapsed && !isAgentItem && !isSeoItem ? (
                         <Tooltip key={item.href}>
                           <TooltipTrigger asChild><div>{content}</div></TooltipTrigger>
                           <TooltipContent side="right" sideOffset={10}>{item.label}</TooltipContent>

@@ -7,7 +7,7 @@ import {
   ChevronLeft, Sparkles, Save, RotateCcw, Upload, Loader2,
   CheckCircle, XCircle, AlertTriangle, Eye, EyeOff, ArrowRight,
   RefreshCw, Globe, Check, Copy, History, ExternalLink,
-  Smartphone, Monitor, Code2, Link2, TrendingUp, Hash,
+  Smartphone, Monitor, Code2, Link2, Hash,
   ChevronDown, Clock,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -31,11 +31,6 @@ type HistoryVersion = {
   id: string; label: string; created_at: string; seo_score: number
   optimized_title: string | null; meta_description: string | null; focus_keyword: string | null
 }
-type CompetitorResult = {
-  title: string; meta_description: string; h1: string; headings: string[]
-  focus_keywords: string[]; strengths: string[]; weaknesses: string[]; opportunities: string[]
-}
-
 // ─── Live SEO Score ────────────────────────────────────────────────────────────
 function calcLiveScore(s: Record<SectionKey, SectionState>) {
   const title  = s.title.current.trim()
@@ -470,224 +465,6 @@ function LongDescPreview({ html }: { html: string }) {
   )
 }
 
-// ─── COMPETITOR TAB — full page experience ────────────────────────────────────
-function CompetitorTab({ productId, product }: { productId: string; product: Product }) {
-  const [url, setUrl] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [result, setResult] = useState<CompetitorResult | null>(null)
-  const [error, setError] = useState('')
-  const [history, setHistory] = useState<{ url: string; result: CompetitorResult; date: string }[]>([])
-
-  async function analyze() {
-    if (!url.trim()) return
-    setLoading(true); setError(''); setResult(null)
-    try {
-      const res = await fetch('/api/seo/competitor', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ competitor_url: url.trim(), product_id: productId }),
-      })
-      const data = await res.json()
-      if (!res.ok) { setError(data.error || 'Eroare'); return }
-      const r = data.analysis as CompetitorResult
-      setResult(r)
-      setHistory(prev => [{ url: url.trim(), result: r, date: new Date().toLocaleTimeString('ro-RO', { hour: '2-digit', minute: '2-digit' }) }, ...prev].slice(0, 5))
-    } catch { setError('Eroare de rețea') } finally { setLoading(false) }
-  }
-
-  // My current values for comparison
-  const myTitle = product.optimized_title || product.original_title || ''
-  const myMeta  = product.meta_description || ''
-
-  return (
-    <div className="space-y-5">
-      {/* Input area */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="px-5 py-4 border-b border-gray-100 bg-gradient-to-r from-indigo-50 to-purple-50">
-          <div className="flex items-center gap-2 mb-1">
-            <TrendingUp className="h-5 w-5 text-indigo-600" />
-            <h2 className="font-bold text-gray-900">Analiză Competitor</h2>
-            <Badge className="text-[10px] bg-indigo-100 text-indigo-600 border-0 hover:bg-indigo-100">3 credite</Badge>
-          </div>
-          <p className="text-xs text-gray-500 leading-relaxed">
-            Introdu URL-ul unui competitor pentru același produs. Compari titlu, meta description, keywords și structura de conținut — și primești recomandări concrete de depășit.
-          </p>
-        </div>
-        <div className="p-4">
-          <div className="flex gap-2 flex-wrap sm:flex-nowrap">
-            <input value={url} onChange={e => setUrl(e.target.value)} onKeyDown={e => e.key === 'Enter' && analyze()}
-              placeholder="https://competitor.ro/produs-similar"
-              className="flex-1 min-w-0 h-10 px-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-indigo-300 transition-colors" />
-            <Button onClick={analyze} disabled={loading || !url.trim()}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl gap-2 px-5 shrink-0 whitespace-nowrap h-10">
-              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <TrendingUp className="h-4 w-4" />}
-              {loading ? 'Analizez...' : 'Analizează'}
-            </Button>
-          </div>
-          {error && <p className="text-xs text-red-500 flex items-center gap-1.5 mt-2"><XCircle className="h-3.5 w-3.5 shrink-0" />{error}</p>}
-
-          {/* Quick history pills */}
-          {history.length > 0 && (
-            <div className="flex gap-2 mt-3 flex-wrap">
-              <span className="text-[10px] text-gray-400 self-center">Recente:</span>
-              {history.map((h, i) => (
-                <button key={i} onClick={() => { setUrl(h.url); setResult(h.result) }}
-                  className="text-[10px] text-indigo-600 bg-indigo-50 px-2 py-1 rounded-lg hover:bg-indigo-100 transition-colors truncate max-w-[140px]">
-                  {new URL(h.url).hostname}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Loading state */}
-      {loading && (
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-10 text-center">
-          <Loader2 className="h-8 w-8 animate-spin text-indigo-500 mx-auto mb-3" />
-          <p className="text-gray-600 font-medium text-sm">Analizez pagina competitorului...</p>
-          <p className="text-gray-400 text-xs mt-1">Extrag titlu, meta, structura, keywords</p>
-        </div>
-      )}
-
-      {/* Results */}
-      {result && !loading && (
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
-
-          {/* Side-by-side comparison */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-            <div className="px-5 py-3.5 border-b border-gray-100 bg-gray-50/60">
-              <h3 className="font-semibold text-gray-900 text-sm">Comparație directă</h3>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-gray-100">
-              {/* My product */}
-              <div className="p-4 sm:p-5">
-                <div className="flex items-center gap-2 mb-4">
-                  <div className="w-2 h-2 rounded-full bg-blue-500"></div>
-                  <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Produsul tău</span>
-                </div>
-                <div className="space-y-3">
-                  <div>
-                    <p className="text-[10px] text-gray-400 font-medium uppercase tracking-wide mb-1">Titlu</p>
-                    <p className={`text-sm font-medium ${myTitle ? 'text-gray-800' : 'text-gray-300 italic'}`}>{myTitle || 'Necompletat'}</p>
-                    {myTitle && <p className={`text-[10px] mt-0.5 font-medium ${myTitle.length >= 50 && myTitle.length <= 70 ? 'text-emerald-600' : 'text-amber-500'}`}>{myTitle.length} caractere {myTitle.length >= 50 && myTitle.length <= 70 ? '✓' : '(ideal 50-70)'}</p>}
-                  </div>
-                  <div>
-                    <p className="text-[10px] text-gray-400 font-medium uppercase tracking-wide mb-1">Meta Description</p>
-                    <p className={`text-xs leading-relaxed ${myMeta ? 'text-gray-700' : 'text-gray-300 italic'}`}>{myMeta || 'Necompletată'}</p>
-                    {myMeta && <p className={`text-[10px] mt-0.5 font-medium ${myMeta.length >= 120 && myMeta.length <= 155 ? 'text-emerald-600' : 'text-amber-500'}`}>{myMeta.length} caractere {myMeta.length >= 120 && myMeta.length <= 155 ? '✓' : '(ideal 120-155)'}</p>}
-                  </div>
-                </div>
-              </div>
-              {/* Competitor */}
-              <div className="p-4 sm:p-5 bg-gray-50/40">
-                <div className="flex items-center gap-2 mb-4">
-                  <div className="w-2 h-2 rounded-full bg-red-400"></div>
-                  <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Competitor</span>
-                  <span className="text-[10px] text-gray-400 truncate">{url ? new URL(url).hostname : ''}</span>
-                </div>
-                <div className="space-y-3">
-                  <div>
-                    <p className="text-[10px] text-gray-400 font-medium uppercase tracking-wide mb-1">Titlu</p>
-                    <p className={`text-sm font-medium ${result.title ? 'text-gray-800' : 'text-gray-300 italic'}`}>{result.title || 'Nedetectat'}</p>
-                    {result.title && <p className={`text-[10px] mt-0.5 font-medium ${result.title.length >= 50 && result.title.length <= 70 ? 'text-emerald-600' : 'text-amber-500'}`}>{result.title.length} caractere {result.title.length >= 50 && result.title.length <= 70 ? '✓' : '(ideal 50-70)'}</p>}
-                  </div>
-                  <div>
-                    <p className="text-[10px] text-gray-400 font-medium uppercase tracking-wide mb-1">Meta Description</p>
-                    <p className={`text-xs leading-relaxed ${result.meta_description ? 'text-gray-700' : 'text-gray-300 italic'}`}>{result.meta_description || 'Nedetectată'}</p>
-                    {result.meta_description && <p className={`text-[10px] mt-0.5 font-medium ${result.meta_description.length >= 120 && result.meta_description.length <= 155 ? 'text-emerald-600' : 'text-amber-500'}`}>{result.meta_description.length} caractere {result.meta_description.length >= 120 && result.meta_description.length <= 155 ? '✓' : '(ideal 120-155)'}</p>}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Keywords + Headings */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {result.focus_keywords?.length > 0 && (
-              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-                <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">Keywords competitor</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {result.focus_keywords.map((kw, i) => (
-                    <span key={i} className="text-xs bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-lg font-medium">{kw}</span>
-                  ))}
-                </div>
-              </div>
-            )}
-            {result.headings?.length > 0 && (
-              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-                <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">Structură headings</p>
-                <div className="space-y-1.5">
-                  {result.headings.slice(0, 6).map((h, i) => (
-                    <p key={i} className="text-xs text-gray-700 flex items-start gap-1.5">
-                      <span className="text-[10px] text-gray-400 font-mono bg-gray-100 px-1 rounded mt-0.5 shrink-0">H{i === 0 ? '1' : '2'}</span>
-                      <span className="truncate">{h}</span>
-                    </p>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Strengths / Opportunities */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {result.strengths?.length > 0 && (
-              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-                <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
-                  <span className="text-base">💪</span>Puncte forte competitor
-                </p>
-                <div className="space-y-2">
-                  {result.strengths.map((s, i) => (
-                    <div key={i} className="flex items-start gap-2 text-xs text-gray-700">
-                      <CheckCircle className="h-3.5 w-3.5 text-emerald-500 shrink-0 mt-0.5" />{s}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-            {result.opportunities?.length > 0 && (
-              <div className="bg-indigo-50 rounded-2xl border border-indigo-100 p-4">
-                <p className="text-xs font-bold text-indigo-600 uppercase tracking-wider mb-3 flex items-center gap-1.5">
-                  <span className="text-base">🚀</span>Ce poți face mai bine
-                </p>
-                <div className="space-y-2">
-                  {result.opportunities.map((o, i) => (
-                    <div key={i} className="flex items-start gap-2 text-xs text-indigo-800 bg-white/60 rounded-lg px-2.5 py-2">
-                      <ArrowRight className="h-3.5 w-3.5 text-indigo-500 shrink-0 mt-0.5" />{o}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Weaknesses if present */}
-          {result.weaknesses?.length > 0 && (
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-              <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
-                <span className="text-base">⚠️</span>Puncte slabe competitor
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {result.weaknesses.map((w, i) => (
-                  <span key={i} className="text-xs bg-amber-50 text-amber-700 px-2.5 py-1 rounded-lg border border-amber-100">{w}</span>
-                ))}
-              </div>
-            </div>
-          )}
-        </motion.div>
-      )}
-
-      {/* Empty state */}
-      {!result && !loading && !error && (
-        <div className="bg-white rounded-2xl border border-dashed border-gray-200 p-10 text-center">
-          <TrendingUp className="h-10 w-10 text-gray-200 mx-auto mb-3" />
-          <p className="text-gray-500 font-medium text-sm">Nicio analiză efectuată</p>
-          <p className="text-gray-400 text-xs mt-1">Introdu URL-ul unui competitor și apasă Analizează</p>
-        </div>
-      )}
-    </div>
-  )
-}
-
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 export default function ProductSEOPage() {
   const params = useParams(); const router = useRouter()
@@ -697,7 +474,7 @@ export default function ProductSEOPage() {
   const [generatingAll, setGeneratingAll] = useState(false); const [credits, setCredits] = useState<number | null>(null)
   const [previewMode, setPreviewMode] = useState<'desktop' | 'mobile'>('desktop')
   const [scoreCollapsed, setScoreCollapsed] = useState(false)
-  const [activeTab, setActiveTab] = useState<'editor' | 'competitor'>('editor')
+  const [activeTab] = useState<'editor'>('editor')
 
   const [sections, setSections] = useState<Record<SectionKey, SectionState>>({
     title:             { current: '', original: '', modified: null, generating: false, saved: false },
@@ -885,26 +662,7 @@ export default function ProductSEOPage() {
         </AnimatePresence>
       </motion.div>
 
-      {/* ── Tabs: Editor | Competitor ── */}
-      <div className="flex gap-1 p-1 bg-gray-100 rounded-xl w-fit">
-        {[
-          { id: 'editor', label: 'Editor SEO' },
-          { id: 'competitor', label: '🔍 Analiză Competitor' },
-        ].map(tab => (
-          <button key={tab.id} onClick={() => setActiveTab(tab.id as any)}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${activeTab === tab.id ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
-      {/* ── COMPETITOR TAB ── */}
-      {activeTab === 'competitor' && product && (
-        <CompetitorTab productId={productId} product={product} />
-      )}
-
       {/* ── EDITOR TAB ── */}
-      {activeTab === 'editor' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
 
           {/* Left: editors */}
@@ -987,7 +745,6 @@ export default function ProductSEOPage() {
             </motion.div>
           </div>
         </div>
-      )}
 
       {/* ── Sticky bottom bar ── */}
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
