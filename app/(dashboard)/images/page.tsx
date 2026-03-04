@@ -79,7 +79,7 @@ function getCurrentSeason(): { label: string; style: string; reason: string } | 
   const m = new Date().getMonth() + 1
   if (m === 11) return { label: 'Black Friday', style: 'bold_dynamic', reason: 'Noiembrie — sezon Black Friday' }
   if (m === 12) return { label: 'Crăciun', style: 'seasonal', reason: 'Decembrie — sezon Crăciun' }
-  if (m === 2) return { label: "Valentine's Day", style: 'elegant_luxury', reason: 'Februarie — Valentine's Day' }
+  if (m === 2) return { label: "Valentine Day", style: 'elegant_luxury', reason: 'Februarie — Valentine Day' }
   if (m >= 3 && m <= 5) return { label: 'Primăvară', style: 'lifestyle', reason: 'Sezon de primăvară' }
   if (m >= 6 && m <= 8) return { label: 'Vară', style: 'lifestyle', reason: 'Sezon de vară' }
   return null
