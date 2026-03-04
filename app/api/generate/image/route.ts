@@ -650,19 +650,36 @@ export async function POST(request: Request) {
       // ── PASUL 2: Nano Banana Pro generează imaginea ──────────────────────
       const kie = new KieClient()
 
+      const numVariants = body.num_variants || 1
       const taskId = await kie.createImageTask(detailedPrompt, [refImageUrl], {
         aspect_ratio: '1:1',
         resolution: '1K',
         output_format: 'png',
       })
 
-      const resultUrls = await kie.waitForTask(taskId)
+      // Save task_id so SSE progress endpoint can poll it
+      await supabase
+        .from('generated_images')
+        .update({ seed: taskId })
+        .eq('id', imageRecord!.id)
 
-      if (!resultUrls || resultUrls.length === 0) {
-        throw new Error('Nu s-a generat nicio imagine')
-      }
+      markJobDone(jobKey)
 
-      generatedUrl = resultUrls[0]
+      // Return task_id immediately — client uses SSE /api/generate/progress to track
+      return NextResponse.json({
+        success: true,
+        task_id: taskId,
+        image_record_id: imageRecord!.id,
+        mode: 'async', // client should open SSE stream
+        image: {
+          id: imageRecord!.id,
+          style,
+          credits_used: creditCost,
+          status: 'processing',
+        },
+        credits_remaining: user.credits - creditCost,
+      })
+
     } catch (err) {
       markJobDone(jobKey)
 
@@ -678,6 +695,8 @@ export async function POST(request: Request) {
       )
     }
 
+    // NOTE: credits are deducted by the SSE progress endpoint on completion
+    // to avoid charging for failed generations. Keep this block for legacy sync calls.
     markJobDone(jobKey)
     const processingTime = Date.now() - startTime
 

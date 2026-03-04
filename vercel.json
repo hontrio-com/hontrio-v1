@@ -3,6 +3,10 @@
     {
       "path": "/api/cron/competitor-monitor",
       "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/cron/image-bulk",
+      "schedule": "*/5 * * * *"
     }
   ]
 }
