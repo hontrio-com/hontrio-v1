@@ -8,7 +8,7 @@ import NotificationBell from '@/components/notification-bell'
 import {
   LayoutDashboard,
   Shield, Package, ImageIcon, Search, CreditCard, Settings,
-  LogOut, Menu, X, ChevronRight, Shield, Sparkles, AlertTriangle,
+  LogOut, Menu, X, ChevronRight, Sparkles, AlertTriangle,
   MessageSquare, Zap, Crown, ArrowUpRight, Coins, Video, Bot,
   MessageCircle, TrendingUp, FileText, Star, Tag, Clock, Loader2,
 } from 'lucide-react'
