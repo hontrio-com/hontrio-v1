@@ -10,7 +10,11 @@ function verifyWooSignature(body: string, signature: string, secret: string): bo
       .createHmac('sha256', secret)
       .update(body, 'utf8')
       .digest('base64')
-    return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected))
+    // timingSafeEqual necesită buffere de aceeași lungime
+    const sigBuf = Buffer.from(signature)
+    const expBuf = Buffer.from(expected)
+    if (sigBuf.length !== expBuf.length) return false
+    return crypto.timingSafeEqual(sigBuf, expBuf)
   } catch {
     return false
   }
@@ -60,49 +64,65 @@ export async function POST(req: Request) {
     const signature = req.headers.get('x-wc-webhook-signature') || ''
     const topic = req.headers.get('x-wc-webhook-topic') || ''
     const webhookId = req.headers.get('x-wc-webhook-id') || ''
+    const sourceUrl = req.headers.get('x-wc-webhook-source') || ''
+
+    console.log('[Risk Webhook] IN:', { topic, webhookId, sourceUrl, sig: signature.slice(0,20), bodyLen: rawBody.length })
 
     // Parsează body
     let order: any
     try {
       order = JSON.parse(rawBody)
     } catch {
+      console.log('[Risk Webhook] Invalid JSON')
       return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
     }
+
+    console.log('[Risk Webhook] Order:', order?.id, order?.status, order?.billing?.email, order?.billing?.phone)
 
     const supabase = createAdminClient()
 
     // ─── Găsește store-ul după webhook_secret ─────────────────────────────────
-    const { data: storesList } = await supabase
+    const { data: storesList, error: storesErr } = await supabase
       .from('stores')
       .select('id, user_id, store_url, webhook_secret')
       .not('webhook_secret', 'is', null)
+
+    console.log('[Risk Webhook] Stores with secret:', storesList?.length, storesErr?.message)
 
     if (!storesList || storesList.length === 0) {
       return NextResponse.json({ error: 'No webhook configured' }, { status: 404 })
     }
 
-    // Găsim store-ul potrivit verificând semnătura cu fiecare secret
+    // 1. Verifică semnătura HMAC
     let matchedStore: any = null
     for (const s of storesList) {
-      if (s.webhook_secret && verifyWooSignature(rawBody, signature, s.webhook_secret)) {
-        matchedStore = s
-        break
-      }
+      const valid = verifyWooSignature(rawBody, signature, s.webhook_secret)
+      console.log('[Risk Webhook] Store', s.store_url, 'sig valid:', valid)
+      if (valid) { matchedStore = s; break }
     }
 
-    // Dacă nu găsim prin semnătură, încearcă după store_url din header
-    if (!matchedStore) {
-      const sourceUrl = req.headers.get('x-wc-webhook-source') || ''
-      if (sourceUrl) {
-        matchedStore = storesList.find(s =>
-          s.store_url && sourceUrl.includes(s.store_url.replace(/^https?:\/\//, ''))
+    // 2. Fallback: source URL header
+    if (!matchedStore && sourceUrl) {
+      matchedStore = storesList.find(s =>
+        s.store_url && sourceUrl.replace(/\/$/, '').includes(
+          s.store_url.replace(/^https?:\/\//, '').replace(/\/$/, '')
         )
-      }
+      )
+      if (matchedStore) console.log('[Risk Webhook] Matched by sourceUrl')
+    }
+
+    // 3. Ultimul fallback: dacă e un singur magazin
+    if (!matchedStore && storesList.length === 1) {
+      console.log('[Risk Webhook] Single store fallback')
+      matchedStore = storesList[0]
     }
 
     if (!matchedStore) {
+      console.log('[Risk Webhook] No store matched — 401')
       return NextResponse.json({ error: 'Store not found or invalid signature' }, { status: 401 })
     }
+
+    console.log('[Risk Webhook] Matched:', matchedStore.store_url)
 
     // Aduce setările Risk pentru store-ul găsit
     const { data: riskSettings } = await supabase
