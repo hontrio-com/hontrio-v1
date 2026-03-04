@@ -3,6 +3,40 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/auth.config'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { calculateRiskScore, hashIdentifier, type CustomerHistory, type OrderContext } from '@/lib/risk/engine'
+import { openai } from '@/lib/openai/client'
+
+// ─── GET: AI Intelligence Report pentru un client ─────────────────────────────
+export async function GET(req: Request) {
+  try {
+    const session = await getServerSession(authOptions)
+    if (!session?.user) return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
+
+    const { searchParams } = new URL(req.url)
+    const customer_context = searchParams.get('customer_context')
+
+    if (!customer_context) return NextResponse.json({ error: 'customer_context necesar' }, { status: 400 })
+
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      max_tokens: 400,
+      messages: [
+        {
+          role: 'system',
+          content: `Ești un sistem de analiză risc pentru magazine online din România. Analizezi comportamentul clienților și dai recomandări clare. Răspunde concis în română, în 3-4 paragrafe scurte. Nu folosi liste sau bullets. Fii direct și specific.`,
+        },
+        {
+          role: 'user',
+          content: `Analizează acest profil de client și oferă: (1) evaluarea riscului, (2) pattern-urile de comportament identificate, (3) recomandarea ta clară (procesează / ține în așteptare / blochează).\n\n${customer_context}`,
+        },
+      ],
+    })
+
+    const report = completion.choices[0]?.message?.content || 'Nu s-a putut genera raportul.'
+    return NextResponse.json({ report })
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message }, { status: 500 })
+  }
+}
 
 export async function POST(req: Request) {
   try {
@@ -10,6 +44,30 @@ export async function POST(req: Request) {
     if (!session?.user) return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
 
     const body = await req.json()
+
+    // ─── Intelligence Report AI ───────────────────────────────────────────────
+    if (body.customer_context) {
+      const completion = await openai.chat.completions.create({
+        model: 'gpt-4o-mini',
+        max_tokens: 400,
+        messages: [
+          {
+            role: 'system',
+            content: 'Ești un sistem de analiză risc pentru magazine online din România. Analizezi comportamentul clienților și dai recomandări clare. Răspunde concis în română, în 3-4 paragrafe scurte. Nu folosi liste sau bullets. Fii direct și specific.',
+          },
+          {
+            role: 'user',
+            content: `Analizează acest profil de client și oferă: (1) evaluarea riscului, (2) pattern-urile de comportament identificate, (3) recomandarea ta clară (procesează / ține în așteptare / blochează).\n\n${body.customer_context}`,
+          },
+        ],
+      })
+      const report = completion.choices[0]?.message?.content || 'Nu s-a putut genera raportul.'
+      const supabaseAi = createAdminClient()
+      await supabaseAi.rpc('decrement_credits', { user_id: (session.user as any).id, amount: 2 })
+      return NextResponse.json({ report })
+    }
+
+    // ─── Analiză comandă nouă ─────────────────────────────────────────────────
     const {
       store_id,
       external_order_id,
