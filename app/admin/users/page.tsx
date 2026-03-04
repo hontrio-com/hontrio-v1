@@ -330,12 +330,12 @@ export default function AdminUsersPage() {
       <motion.div {...fadeInUp} transition={{ duration: 0.3 }}>
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Utilizatori</h1>
+            <h1 className="text-2xl font-bold text-gray-900 tracking-tight font-mono">Utilizatori</h1>
             <p className="text-gray-500 text-sm mt-0.5">{users.length} utilizatori înregistrați</p>
           </div>
           <Button
             onClick={() => setShowGlobalNotifyModal(true)}
-            className="bg-blue-600 hover:bg-blue-700 rounded-xl h-10 px-4 text-sm"
+            className="bg-gray-900 hover:bg-gray-800 text-white rounded-xl h-10 px-4 text-sm"
           >
             <Bell className="h-4 w-4 mr-2" />
             Notificare globală
@@ -351,7 +351,7 @@ export default function AdminUsersPage() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
             className={`flex items-center gap-3 p-4 rounded-xl ${
-              message.type === 'success' ? 'bg-green-50 border border-green-100 text-green-700' : 'bg-red-50 border border-red-100 text-red-700'
+              message.type === 'success' ? 'bg-gray-50 border border-gray-200 text-gray-800' : 'bg-gray-900 text-white border border-gray-900'
             }`}
           >
             {message.type === 'success' ? <CheckCircle className="h-5 w-5 shrink-0" /> : <AlertCircle className="h-5 w-5 shrink-0" />}
@@ -382,7 +382,7 @@ export default function AdminUsersPage() {
             <SlidersHorizontal className="h-4 w-4 mr-1.5" />
             Filtre
             {activeFilters > 0 && (
-              <span className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-blue-600 text-white text-[10px] flex items-center justify-center">
+              <span className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-gray-900 text-white text-[10px] flex items-center justify-center">
                 {activeFilters}
               </span>
             )}
@@ -404,7 +404,7 @@ export default function AdminUsersPage() {
                     key={p}
                     onClick={() => setPlanFilter(p)}
                     className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                      planFilter === p ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                      planFilter === p ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                     }`}
                   >
                     {p === 'all' ? 'Toate' : p}
@@ -418,7 +418,7 @@ export default function AdminUsersPage() {
                     key={r}
                     onClick={() => setRoleFilter(r)}
                     className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                      roleFilter === r ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                      roleFilter === r ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                     }`}
                   >
                     {r === 'all' ? 'Toate' : r}
@@ -449,11 +449,9 @@ export default function AdminUsersPage() {
                     >
                       <div className="flex items-center gap-3">
                         <div className={`h-10 w-10 rounded-xl flex items-center justify-center ${
-                          user.role === 'admin'
-                            ? 'bg-gradient-to-br from-red-500 to-rose-600'
-                            : 'bg-gradient-to-br from-blue-500 to-indigo-500'
+                          user.role === 'admin' ? 'bg-gray-900' : 'bg-gray-100'
                         }`}>
-                          <span className="text-sm font-medium text-white">
+                          <span className={`text-sm font-bold ${user.role === 'admin' ? 'text-white' : 'text-gray-700'}`}>
                             {user.name?.[0]?.toUpperCase() || user.email[0]?.toUpperCase()}
                           </span>
                         </div>
@@ -604,7 +602,7 @@ export default function AdminUsersPage() {
                       </div>
                       <div className="flex gap-1.5">
                         {[10, 20, 50, 100, 500].map(amount => (
-                          <button key={amount} onClick={() => setCreditAmount(String(amount))} className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-all ${creditAmount === String(amount) ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
+                          <button key={amount} onClick={() => setCreditAmount(String(amount))} className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-all ${creditAmount === String(amount) ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
                             {amount}
                           </button>
                         ))}
