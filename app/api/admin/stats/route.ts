@@ -17,9 +17,9 @@ const COST_PER_IMAGE_GENERATION = 0.10
 // ===== PLAN PRICES (EUR/month) =====
 const PLAN_PRICES: Record<string, number> = {
   free: 0,
-  starter: 49,
-  professional: 99,
-  enterprise: 249,
+  starter: 99,
+  professional: 249,
+  enterprise: 499,
 }
 
 export async function GET() {
@@ -104,17 +104,15 @@ export async function GET() {
     let monthlyCreditPackRevenue = 0
     ;(monthlyPurchases || []).forEach(t => {
       if (t.reference_type === 'subscription' || t.reference_type === 'subscription_renewal') {
-        // Estimate revenue from credits: find which plan gives this amount
-        if (t.amount === 200) monthlySubscriptionRevenue += 49
-        else if (t.amount === 500) monthlySubscriptionRevenue += 99
-        else if (t.amount === 2000) monthlySubscriptionRevenue += 249
+        if (t.amount === 250) monthlySubscriptionRevenue += 99
+        else if (t.amount === 750) monthlySubscriptionRevenue += 249
+        else if (t.amount === 2000) monthlySubscriptionRevenue += 499
       } else if (t.reference_type === 'credit_purchase') {
-        // Estimate credit pack revenue based on amount
-        if (t.amount === 50) monthlyCreditPackRevenue += 15
-        else if (t.amount === 100) monthlyCreditPackRevenue += 25
-        else if (t.amount === 250) monthlyCreditPackRevenue += 50
-        else if (t.amount === 500) monthlyCreditPackRevenue += 85
-        else if (t.amount === 1000) monthlyCreditPackRevenue += 150
+        if (t.amount === 50) monthlyCreditPackRevenue += 39
+        else if (t.amount === 100) monthlyCreditPackRevenue += 69
+        else if (t.amount === 300) monthlyCreditPackRevenue += 159
+        else if (t.amount === 500) monthlyCreditPackRevenue += 249
+        else if (t.amount === 1000) monthlyCreditPackRevenue += 399
       }
     })
 
@@ -171,15 +169,15 @@ export async function GET() {
     let totalRevenue = 0
     ;(allPurchases || []).forEach(t => {
       if (t.reference_type === 'subscription' || t.reference_type === 'subscription_renewal') {
-        if (t.amount === 200) totalRevenue += 49
-        else if (t.amount === 500) totalRevenue += 99
-        else if (t.amount === 2000) totalRevenue += 249
+        if (t.amount === 250) totalRevenue += 99
+        else if (t.amount === 750) totalRevenue += 249
+        else if (t.amount === 2000) totalRevenue += 499
       } else if (t.reference_type === 'credit_purchase') {
-        if (t.amount === 50) totalRevenue += 15
-        else if (t.amount === 100) totalRevenue += 25
-        else if (t.amount === 250) totalRevenue += 50
-        else if (t.amount === 500) totalRevenue += 85
-        else if (t.amount === 1000) totalRevenue += 150
+        if (t.amount === 50) totalRevenue += 39
+        else if (t.amount === 100) totalRevenue += 69
+        else if (t.amount === 300) totalRevenue += 159
+        else if (t.amount === 500) totalRevenue += 249
+        else if (t.amount === 1000) totalRevenue += 399
       }
     })
 

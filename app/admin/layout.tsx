@@ -5,26 +5,22 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import {
-  ArrowLeft,
-  Users,
-  BarChart3,
-  DollarSign,
-  Shield,
-  Sparkles,
-  Activity,
-  Settings,
-  Package,
-  MessageSquare,
+  ArrowLeft, Users, BarChart3, DollarSign, Shield, Activity,
+  MessageSquare, TrendingUp, Wifi, AlertTriangle, Send,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 
 const adminMenuItems = [
   { label: 'Statistici', href: '/admin/stats', icon: BarChart3 },
+  { label: 'Financiar', href: '/admin/financial', icon: TrendingUp },
   { label: 'Utilizatori', href: '/admin/users', icon: Users },
   { label: 'Tichete', href: '/admin/tickets', icon: MessageSquare },
   { label: 'Costuri API', href: '/admin/costs', icon: DollarSign },
   { label: 'Activitate', href: '/admin/activity', icon: Activity },
+  { label: 'Health', href: '/admin/health', icon: Wifi },
+  { label: 'Error Log', href: '/admin/errors', icon: AlertTriangle },
+  { label: 'Broadcast', href: '/admin/broadcast', icon: Send },
 ]
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -47,11 +43,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </Button>
 
         <div className="flex items-center gap-2">
-          <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-red-500 to-rose-600 flex items-center justify-center">
+          <div className="h-7 w-7 rounded-lg bg-gray-900 flex items-center justify-center">
             <Shield className="h-3.5 w-3.5 text-white" />
           </div>
           <span className="text-sm font-bold text-gray-900">Admin Panel</span>
-          <Badge className="bg-red-100 text-red-700 border-0 text-[10px]">Admin</Badge>
+          <Badge className="bg-gray-900 text-white border-0 text-[10px]">Admin</Badge>
         </div>
 
         <div className="flex-1" />
@@ -75,9 +71,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                       : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50'
                   }`}
                 >
-                  <item.icon className={`h-[18px] w-[18px] ${isActive ? 'text-red-600' : 'text-gray-400'}`} />
+                  <item.icon className={`h-[18px] w-[18px] ${isActive ? 'text-white' : 'text-gray-400'}`} />
                   {item.label}
-                  {isActive && <div className="ml-auto h-1.5 w-1.5 rounded-full bg-red-600" />}
+                  {isActive && <div className="ml-auto h-1.5 w-1.5 rounded-full bg-white" />}
                 </Link>
               )
             })}
