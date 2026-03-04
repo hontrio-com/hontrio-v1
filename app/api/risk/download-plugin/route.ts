@@ -20,28 +20,23 @@ export async function GET() {
     // Ia store-ul utilizatorului
     const { data: store } = await supabase
       .from('stores')
-      .select('id, store_url, store_name')
+      .select('id, store_url, webhook_secret')
       .eq('user_id', userId)
       .single()
 
     if (!store) return NextResponse.json({ error: 'Niciun magazin conectat' }, { status: 404 })
 
-    // Generează sau recuperează webhook_secret unic per magazin
-    const { data: settings } = await supabase
-      .from('risk_store_settings')
-      .select('webhook_secret')
-      .eq('store_id', store.id)
-      .single()
-
-    let webhookSecret = settings?.webhook_secret
+    // Generează sau recuperează webhook_secret din tabelul stores
+    let webhookSecret = store.webhook_secret
     if (!webhookSecret) {
       webhookSecret = crypto.randomBytes(32).toString('hex')
       await supabase
-        .from('risk_store_settings')
-        .upsert({ store_id: store.id, user_id: userId, webhook_secret: webhookSecret })
+        .from('stores')
+        .update({ webhook_secret: webhookSecret })
+        .eq('id', store.id)
     }
 
-    const storeName = store.store_name || store.store_url || 'Magazinul tău'
+    const storeName = store.store_url || 'Magazinul tău'
     const pluginSlug = 'hontrio-risk-shield'
     const webhookUrl = `${apiBase}/api/risk/webhook`
 

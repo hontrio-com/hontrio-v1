@@ -72,49 +72,59 @@ export async function POST(req: Request) {
     const supabase = createAdminClient()
 
     // ─── Găsește store-ul după webhook_secret ─────────────────────────────────
-    // Căutăm în risk_store_settings webhook_secret asociat
-    const { data: settings } = await supabase
-      .from('risk_store_settings')
-      .select('*, stores(id, user_id, store_url)')
+    const { data: storesList } = await supabase
+      .from('stores')
+      .select('id, user_id, store_url, webhook_secret')
       .not('webhook_secret', 'is', null)
 
-    if (!settings || settings.length === 0) {
+    if (!storesList || storesList.length === 0) {
       return NextResponse.json({ error: 'No webhook configured' }, { status: 404 })
     }
 
     // Găsim store-ul potrivit verificând semnătura cu fiecare secret
-    let matchedSettings: any = null
-    for (const s of settings) {
+    let matchedStore: any = null
+    for (const s of storesList) {
       if (s.webhook_secret && verifyWooSignature(rawBody, signature, s.webhook_secret)) {
-        matchedSettings = s
+        matchedStore = s
         break
       }
     }
 
     // Dacă nu găsim prin semnătură, încearcă după store_url din header
-    if (!matchedSettings) {
+    if (!matchedStore) {
       const sourceUrl = req.headers.get('x-wc-webhook-source') || ''
       if (sourceUrl) {
-        matchedSettings = settings.find(s =>
-          s.stores?.store_url && sourceUrl.includes(
-            s.stores.store_url.replace(/^https?:\/\//, '')
-          )
+        matchedStore = storesList.find(s =>
+          s.store_url && sourceUrl.includes(s.store_url.replace(/^https?:\/\//, ''))
         )
       }
     }
 
-    if (!matchedSettings) {
+    if (!matchedStore) {
       return NextResponse.json({ error: 'Store not found or invalid signature' }, { status: 401 })
     }
 
-    const storeId = matchedSettings.store_id
-    const userId = matchedSettings.stores?.user_id
-    const rules = matchedSettings.custom_rules || {}
-    const storeSettings = {
-      ...rules,
-      score_watch_threshold: matchedSettings.score_watch_threshold || 41,
-      score_problematic_threshold: matchedSettings.score_problematic_threshold || 61,
-      score_blocked_threshold: matchedSettings.score_blocked_threshold || 81,
+    // Aduce setările Risk pentru store-ul găsit
+    const { data: riskSettings } = await supabase
+      .from('risk_store_settings')
+      .select('*')
+      .eq('store_id', matchedStore.id)
+      .single()
+
+    const storeId = matchedStore.id
+    const userId = matchedStore.user_id
+    const matchedSettings = {
+      ...riskSettings,
+      store_id: storeId,
+      stores: matchedStore,
+      participate_in_global_blacklist: riskSettings?.participate_in_global_blacklist ?? true,
+      alert_on_blocked: riskSettings?.alert_on_blocked ?? true,
+      alert_on_problematic: riskSettings?.alert_on_problematic ?? true,
+      alert_on_watch: riskSettings?.alert_on_watch ?? false,
+      score_watch_threshold: riskSettings?.score_watch_threshold ?? 41,
+      score_problematic_threshold: riskSettings?.score_problematic_threshold ?? 61,
+      score_blocked_threshold: riskSettings?.score_blocked_threshold ?? 81,
+      custom_rules: riskSettings?.custom_rules || {},
     }
 
     // ─── Procesează în funcție de topic ──────────────────────────────────────
@@ -241,7 +251,7 @@ export async function POST(req: Request) {
               globalReportCount,
             }
 
-            const result = calculateRiskScore(history, orderCtx, storeSettings)
+            const result = calculateRiskScore(history, orderCtx, matchedSettings)
             const finalLabel = customer.manual_label_override || result.label
 
             await supabase.from('risk_customers').update({
@@ -339,7 +349,7 @@ export async function POST(req: Request) {
           globalReportCount,
         }
 
-        const result = calculateRiskScore(history, orderCtx, storeSettings)
+        const result = calculateRiskScore(history, orderCtx, matchedSettings)
         const finalLabel = customer?.manual_label_override || result.label
 
         // Upsert client
