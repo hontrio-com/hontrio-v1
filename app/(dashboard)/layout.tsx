@@ -6,7 +6,8 @@ import { usePathname, useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import NotificationBell from '@/components/notification-bell'
 import {
-  LayoutDashboard, Package, ImageIcon, Search, CreditCard, Settings,
+  LayoutDashboard,
+  Shield, Package, ImageIcon, Search, CreditCard, Settings,
   LogOut, Menu, X, ChevronRight, Shield, Sparkles, AlertTriangle,
   MessageSquare, Zap, Crown, ArrowUpRight, Coins, Video, Bot,
   MessageCircle, TrendingUp, FileText, Star, Tag, Clock, Loader2,
@@ -33,6 +34,7 @@ const menuSections = [
       { label: 'AI Agent', href: '/agent', icon: Bot },
       { label: 'Imagini AI', href: '/images', icon: ImageIcon },
       { label: 'SEO', href: '/seo', icon: Search },
+      { label: 'Risk Shield', href: '/risk', icon: Shield },
     ]
   },
   {
@@ -65,6 +67,7 @@ const PAGES = [
   { label: 'Imagini AI',      href: '/images',           icon: ImageIcon,       keywords: ['imagini', 'images', 'generare', 'AI', 'foto', 'imagine'] },
   { label: 'Optimizare SEO',  href: '/seo',              icon: Search,          keywords: ['seo', 'optimizare', 'scor', 'score'] },
   { label: 'AI Agent',        href: '/agent',            icon: Bot,             keywords: ['agent', 'chat', 'asistent', 'conversatie', 'bot', 'ai'] },
+  { label: 'Risk Shield',     href: '/risk',             icon: Shield,          keywords: ['risk', 'retur', 'frauda', 'blacklist', 'clienti problematici', 'shield'] },
   { label: 'Triggeri Agent',  href: '/agent/triggers',   icon: Zap,             keywords: ['triggeri', 'triggers', 'proactiv', 'exit', 'scroll'] },
   { label: 'Inbox Agent',     href: '/agent/inbox',      icon: MessageCircle,   keywords: ['inbox', 'mesaje', 'conversatii'] },
   { label: 'Abonament',       href: '/credits',          icon: CreditCard,      keywords: ['credite', 'credits', 'abonament', 'plan', 'upgrade', 'plata'] },
