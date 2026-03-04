@@ -69,6 +69,7 @@ const PROMO_STYLES = [
   { value: 'gradient_pop',      label: 'Gradient Pop',      desc: 'Vibrant, social media',  cost: 4, gradient: 'from-pink-500 to-violet-600', dark: true  },
 ]
 
+const ALL_STYLES = [...PRODUCT_STYLES, ...PROMO_STYLES.map(s => ({ ...s, value: `promo_${s.value}` }))]
 function styleLabel(val: string) { return ALL_STYLES.find(s => s.value === val)?.label || val }
 function styleCost(val: string)  { return ALL_STYLES.find(s => s.value === val)?.cost || 3 }
 
