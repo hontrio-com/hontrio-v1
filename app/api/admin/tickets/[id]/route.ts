@@ -29,11 +29,30 @@ export async function GET(
 
     const { data: replies } = await supabase
       .from('ticket_replies')
-      .select('id, message, is_admin, created_at, attachments, users!inner(name, email)')
+      .select('id, user_id, message, is_admin, created_at, attachments')
       .eq('ticket_id', id)
       .order('created_at', { ascending: true })
 
-    return NextResponse.json({ ticket, replies: replies || [] })
+    // Fetch user names separately to avoid join breaking JSONB columns
+    const userIds = [...new Set((replies || []).map((r: any) => r.user_id).filter(Boolean))]
+    let usersMap: Record<string, { name: string; email: string }> = {}
+    if (userIds.length > 0) {
+      const { data: users } = await supabase
+        .from('users')
+        .select('id, name, email')
+        .in('id', userIds)
+      for (const u of (users || [])) {
+        usersMap[u.id] = { name: u.name, email: u.email }
+      }
+    }
+
+    const enrichedReplies = (replies || []).map((r: any) => ({
+      ...r,
+      attachments: r.attachments || [],
+      users: usersMap[r.user_id] || { name: r.is_admin ? 'Admin' : 'User', email: '' },
+    }))
+
+    return NextResponse.json({ ticket, replies: enrichedReplies })
   } catch {
     return NextResponse.json({ error: 'Eroare internă' }, { status: 500 })
   }
