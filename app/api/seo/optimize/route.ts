@@ -15,6 +15,23 @@ const CREDIT_COSTS: Record<string, number> = {
   focus_keyword: 1,
 }
 
+// ─── TONE DESCRIPTIONS ───────────────────────────────────────────────────────
+const TONE_DESCRIPTIONS: Record<string, string> = {
+  professional: 'profesional și de încredere — limbaj serios, faptic, orientat pe calitate și expertiză',
+  friendly:     'prietenos și cald — limbaj accesibil, ton conversațional, aproape de client',
+  luxury:       'premium și sofisticat — limbaj elegant, exclusivist, orientat pe experiență și rafinament',
+  casual:       'relaxat și informal — limbaj direct, simplu, fără formalisme',
+}
+
+function buildBrandContext(user: any): string {
+  const lines: string[] = []
+  if (user?.business_name) lines.push(`Magazin: ${user.business_name}`)
+  if (user?.niche) lines.push(`Nișă/Industrie: ${user.niche}`)
+  if (user?.brand_tone) lines.push(`Ton comunicare: ${TONE_DESCRIPTIONS[user.brand_tone] || user.brand_tone}`)
+  if (user?.brand_language === 'en') lines.push('Limbă: Engleză — scrie tot conținutul în Engleză')
+  return lines.length > 0 ? `\n\nIDENTITATEA BRANDULUI:\n${lines.join('\n')}` : ''
+}
+
 // ─── MASTER SEO SYSTEM PROMPT ─────────────────────────────────────────────────
 // Based on Google Search Quality Guidelines, E-E-A-T principles, and eCommerce best practices
 const SEO_SYSTEM_PROMPT = `Ești un expert SEO senior specializat în eCommerce pentru piața românească, cu cunoștințe avansate despre:
@@ -249,12 +266,18 @@ export async function POST(request: Request) {
       )
     }
 
-    // Load product
+    // Load product + brand settings
     const { data: product } = await supabase
       .from('products')
       .select('*')
       .eq('id', product_id)
       .eq('user_id', userId)
+      .single()
+
+    const { data: userProfile } = await supabase
+      .from('users')
+      .select('business_name, brand_tone, brand_language, niche')
+      .eq('id', userId)
       .single()
 
     if (!product) {
@@ -267,11 +290,17 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Secțiune invalidă' }, { status: 400 })
     }
 
+    // Inject brand context into system prompt
+    const brandCtx = buildBrandContext(userProfile)
+    const systemPrompt = brandCtx
+      ? SEO_SYSTEM_PROMPT + brandCtx + '\n\nRespectă STRICT tonul și limba specificată pentru brand în tot conținutul generat.'
+      : SEO_SYSTEM_PROMPT
+
     // Generate with GPT-4o
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o',
       messages: [
-        { role: 'system', content: SEO_SYSTEM_PROMPT },
+        { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },
       ],
       temperature: 0.6,

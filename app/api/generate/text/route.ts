@@ -30,10 +30,10 @@ export async function POST(request: Request) {
     const { product_id } = await request.json()
     const supabase = createAdminClient()
 
-    // Verifica creditele
+    // Verifica creditele + ia setarile de brand
     const { data: user } = await supabase
       .from('users')
-      .select('credits')
+      .select('credits, business_name, brand_tone, brand_language, niche')
       .eq('id', userId)
       .single()
 
@@ -79,6 +79,12 @@ export async function POST(request: Request) {
         description: product.original_description,
         category: product.category,
         price: product.price,
+        brand: {
+          businessName: user.business_name,
+          tone: user.brand_tone,
+          language: user.brand_language,
+          niche: user.niche,
+        },
       })
     } finally {
       markJobDone(jobKey)

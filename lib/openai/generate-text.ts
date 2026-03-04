@@ -5,6 +5,12 @@ type ProductInput = {
   description: string
   category: string | null
   price: number | null
+  brand?: {
+    businessName?: string | null
+    tone?: string | null
+    language?: string | null
+    niche?: string | null
+  }
 }
 
 type GeneratedText = {
@@ -17,10 +23,36 @@ type GeneratedText = {
   seo_suggestions: string[]
 }
 
-export async function generateProductText(product: ProductInput): Promise<GeneratedText> {
-  const prompt = `Ești un expert în eCommerce, SEO și copywriting pentru magazine online din România.
+const TONE_DESCRIPTIONS: Record<string, string> = {
+  professional: 'profesional și de încredere — limbaj serios, faptic, orientat pe calitate și expertiză',
+  friendly:     'prietenos și cald — limbaj accesibil, ton conversațional, aproape de client',
+  luxury:       'premium și sofisticat — limbaj elegant, exclusivist, orientat pe experiență și rafinament',
+  casual:       'relaxat și informal — limbaj direct, simplu, fără formalisme',
+}
 
-Analizează produsul de mai jos și generează conținut optimizat pentru conversie și SEO.
+export async function generateProductText(product: ProductInput): Promise<GeneratedText> {
+  const tone = product.brand?.tone || 'professional'
+  const language = product.brand?.language || 'ro'
+  const niche = product.brand?.niche
+  const businessName = product.brand?.businessName
+
+  const brandContext = [
+    businessName && `Magazin: ${businessName}`,
+    niche && `Nișă/Industrie: ${niche}`,
+    `Tonul comunicării: ${TONE_DESCRIPTIONS[tone] || TONE_DESCRIPTIONS.professional}`,
+    language === 'en' ? 'Limba: Engleză' : 'Limba: Română',
+  ].filter(Boolean).join('\n')
+
+  const langInstruction = language === 'en'
+    ? 'Write ALL content in English.'
+    : 'Scrie TOT conținutul în limba română.'
+
+  const prompt = `Ești un expert în eCommerce, SEO și copywriting pentru magazine online.
+
+IDENTITATE BRAND:
+${brandContext}
+
+${langInstruction}
 
 PRODUS:
 - Titlu: ${product.title}
@@ -35,19 +67,17 @@ Răspunde STRICT în format JSON valid, fără markdown, fără backticks, exact
   "optimized_title": "Titlu optimizat SEO (50-70 caractere, include cuvinte cheie relevante)",
   "meta_description": "Meta description optimizată (maxim 155 caractere, include call-to-action)",
   "optimized_short_description": "Descriere scurtă orientată pe conversie (2-3 propoziții, cu beneficiul principal și call-to-action)",
-  "optimized_long_description": "Descriere lungă HTML structurată cu secțiuni: prezentare produs, mod de utilizare, de ce să alegi acest produs. Folosește taguri <h3>, <p>, <ul>, <li>. Minimum 200 cuvinte.",
+  "optimized_long_description": "Descriere lungă HTML structurată cu secțiuni. Folosește taguri <h3>, <p>, <ul>, <li>. Minimum 200 cuvinte.",
   "benefits": ["Beneficiu 1 clar formulat din perspectiva clientului", "Beneficiu 2", "Beneficiu 3", "Beneficiu 4", "Beneficiu 5"],
   "seo_score": 85,
   "seo_suggestions": ["Sugestie 1 pentru îmbunătățire SEO", "Sugestie 2"]
 }
 
 IMPORTANT:
-- Scrie totul în limba română
+- Respectă STRICT tonul brandului specificat mai sus
 - Titlul trebuie să conțină cuvinte cheie relevante pentru căutări
 - Descrierea scurtă trebuie să convingă clientul să cumpere
-- Descrierea lungă trebuie să fie HTML valid și profesional
 - Beneficiile trebuie formulate din perspectiva clientului (ce câștigă el)
-- Scorul SEO trebuie să reflecte calitatea conținutului generat (0-100)
 - Răspunde DOAR cu JSON valid, nimic altceva`
 
   const response = await openai.chat.completions.create({
@@ -58,16 +88,10 @@ IMPORTANT:
   })
 
   const content = response.choices[0].message.content || ''
-
-  // Curata raspunsul de eventuale backticks
-  const cleaned = content
-    .replace(/```json\n?/g, '')
-    .replace(/```\n?/g, '')
-    .trim()
+  const cleaned = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
 
   try {
-    const parsed = JSON.parse(cleaned) as GeneratedText
-    return parsed
+    return JSON.parse(cleaned) as GeneratedText
   } catch (err) {
     console.error('Failed to parse OpenAI response:', content)
     throw new Error('Răspunsul AI nu a putut fi procesat')
