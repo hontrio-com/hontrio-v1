@@ -670,9 +670,15 @@ export async function POST(req: Request) {
           if (customerEmail) await upsertGlobal('email_hash', customerEmail)
         }
 
-        // Import istoric complet din WooCommerce pentru clienți noi
-        if (isNewCustomer && customerId && matchedStore.api_key) {
-          const existingIds = new Set([externalOrderId])
+        // Sincronizează istoricul complet din WooCommerce — pentru orice comandă nouă
+        if (customerId && matchedStore.api_key) {
+          // Ia comenzile deja existente ca să nu facem duplicate
+          const { data: existingOrders } = await supabase
+            .from('risk_orders')
+            .select('external_order_id')
+            .eq('customer_id', customerId)
+          const existingIds = new Set((existingOrders || []).map((o: any) => o.external_order_id))
+
           importCustomerHistory({
             supabase,
             store: {
@@ -687,7 +693,7 @@ export async function POST(req: Request) {
             email: customerEmail,
             existingOrderIds: existingIds,
           }).catch(e => console.error('[Risk] History import failed:', e))
-          // Non-blocking: nu așteptăm, continuăm imediat
+          // Non-blocking — răspundem imediat, importul rulează în background
         }
 
         return NextResponse.json({
@@ -696,7 +702,7 @@ export async function POST(req: Request) {
           score: result.score,
           label: finalLabel,
           customer_id: customerId,
-          history_import: isNewCustomer ? 'triggered' : 'skipped',
+          history_import: 'triggered',
         })
       }
     }
