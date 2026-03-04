@@ -712,7 +712,7 @@ export async function POST(request: Request) {
       .eq('id', imageRecord!.id)
 
     // ── Scade creditele ────────────────────────────────────────────────────
-    const newCredits = user.credits - creditCost
+    const newCredits = (user?.credits ?? 0) - creditCost
     await supabase
       .from('users')
       .update({ credits: newCredits })
