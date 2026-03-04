@@ -62,12 +62,7 @@ const seoSubMenu = [
   { label: 'Analiză Competitori', href: '/seo/competitor', icon: TrendingUp },
 ]
 
-const riskSubMenu = [
-  { label: 'Clienți & Risc', href: '/risk', icon: Shield },
-  { label: 'Alerte', href: '/risk/alerts', icon: Bell },
-  { label: 'Analytics', href: '/risk/analytics', icon: BarChart3 },
-  { label: 'Setări', href: '/risk/settings', icon: Settings },
-]
+
 
 const PAGES = [
   { label: 'Dashboard',       href: '/dashboard',        icon: LayoutDashboard, keywords: ['dashboard', 'acasă', 'home'] },
@@ -379,14 +374,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     {section.items.map((item) => {
                       const isAgentItem = item.href === '/agent'
                       const isSeoItem = item.href === '/seo'
-                      const isRiskItem = item.href === '/risk'
-                      const isActive = !isAgentItem && !isSeoItem && !isRiskItem && (
+                      const isActive = !isAgentItem && !isSeoItem && (
                         pathname === item.href ||
                         (item.href !== '/dashboard' && pathname.startsWith(item.href))
                       )
                       const isAgentActive = isAgentItem && isAgentSection
                       const isSeoActive = isSeoItem && isSeoSection
-                      const isRiskActive = isRiskItem && isRiskSection
 
                       const content = (
                         <div key={item.href}>
@@ -395,10 +388,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                             onClick={() => setSidebarOpen(false)}
                             className={`group flex items-center gap-3 rounded-xl text-sm font-medium transition-all duration-200
                               ${collapsed ? 'justify-center p-2.5' : 'px-3 py-2.5'}
-                              ${(isActive || isAgentActive || isSeoActive || isRiskActive) ? 'bg-blue-50 text-blue-600 shadow-sm shadow-blue-100' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50'}
+                              ${(isActive || isAgentActive || isSeoActive) ? 'bg-blue-50 text-blue-600 shadow-sm shadow-blue-100' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50'}
                             `}
                           >
-                            <item.icon className={`h-[18px] w-[18px] shrink-0 transition-colors ${(isActive || isAgentActive || isSeoActive || isRiskActive) ? 'text-blue-600' : 'text-gray-400 group-hover:text-gray-600'}`} />
+                            <item.icon className={`h-[18px] w-[18px] shrink-0 transition-colors ${(isActive || isAgentActive || isSeoActive) ? 'text-blue-600' : 'text-gray-400 group-hover:text-gray-600'}`} />
                             {!collapsed && <span>{item.label}</span>}
                             {!collapsed && isAgentItem && (
                               <ChevronRight className={`ml-auto h-3.5 w-3.5 transition-transform duration-200 ${isAgentSection ? 'rotate-90 text-blue-400' : 'text-gray-300'}`} />
@@ -406,10 +399,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                             {!collapsed && isSeoItem && (
                               <ChevronRight className={`ml-auto h-3.5 w-3.5 transition-transform duration-200 ${isSeoSection ? 'rotate-90 text-blue-400' : 'text-gray-300'}`} />
                             )}
-                            {!collapsed && isRiskItem && (
-                              <ChevronRight className={`ml-auto h-3.5 w-3.5 transition-transform duration-200 ${isRiskSection ? 'rotate-90 text-blue-400' : 'text-gray-300'}`} />
-                            )}
-                            {!collapsed && !isAgentItem && !isSeoItem && !isRiskItem && isActive && (
+                            {!collapsed && !isAgentItem && !isSeoItem && isActive && (
                               <div className="ml-auto h-1.5 w-1.5 rounded-full bg-blue-600" />
                             )}
                           </Link>
@@ -442,47 +432,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                 const isSubActive = sub.href === '/seo/competitor'
                                   ? pathname.startsWith('/seo/competitor')
                                   : pathname === '/seo' || (pathname.startsWith('/seo/') && !pathname.startsWith('/seo/competitor'))
-                                return (
-                                  <Tooltip key={sub.href}>
-                                    <TooltipTrigger asChild>
-                                      <Link href={sub.href}
-                                        className={`flex items-center justify-center p-2.5 rounded-xl transition-all
-                                          ${isSubActive ? 'bg-blue-50 text-blue-600' : 'text-gray-400 hover:text-gray-700 hover:bg-gray-50'}`}>
-                                        <sub.icon className="h-[18px] w-[18px]" />
-                                      </Link>
-                                    </TooltipTrigger>
-                                    <TooltipContent side="right" sideOffset={10}>{sub.label}</TooltipContent>
-                                  </Tooltip>
-                                )
-                              })}
-                            </div>
-                          )}
-
-                          {/* Submeniu Risk - sidebar normal */}
-                          {isRiskItem && isRiskSection && !collapsed && (
-                            <div className="mt-1 ml-3 border-l-2 border-blue-100 pl-2 space-y-0.5 pb-1">
-                              {riskSubMenu.map(sub => {
-                                const isSubActive = pathname === sub.href ||
-                                  (sub.href === '/risk' && pathname === '/risk')
-                                return (
-                                  <Link key={sub.href} href={sub.href}
-                                    onClick={() => setSidebarOpen(false)}
-                                    className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm font-medium transition-all
-                                      ${isSubActive ? 'bg-blue-50 text-blue-600' : 'text-gray-400 hover:text-gray-700 hover:bg-gray-50'}`}>
-                                    <sub.icon className={`h-3.5 w-3.5 shrink-0 ${isSubActive ? 'text-blue-500' : 'text-gray-300'}`} />
-                                    <span>{sub.label}</span>
-                                    {isSubActive && <div className="ml-auto h-1.5 w-1.5 rounded-full bg-blue-600" />}
-                                  </Link>
-                                )
-                              })}
-                            </div>
-                          )}
-
-                          {/* Submeniu Risk - sidebar collapsed */}
-                          {isRiskItem && isRiskSection && collapsed && (
-                            <div className="mt-1 space-y-0.5">
-                              {riskSubMenu.map(sub => {
-                                const isSubActive = pathname === sub.href
                                 return (
                                   <Tooltip key={sub.href}>
                                     <TooltipTrigger asChild>
@@ -541,7 +490,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         </div>
                       )
 
-                      return collapsed && !isAgentItem && !isSeoItem && !isRiskItem ? (
+                      return collapsed && !isAgentItem && !isSeoItem ? (
                         <Tooltip key={item.href}>
                           <TooltipTrigger asChild><div>{content}</div></TooltipTrigger>
                           <TooltipContent side="right" sideOffset={10}>{item.label}</TooltipContent>
