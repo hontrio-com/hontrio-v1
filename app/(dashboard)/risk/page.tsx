@@ -447,6 +447,7 @@ export default function RiskShieldPage() {
   const [unreadAlerts, setUnreadAlerts] = useState(0)
   const [editNote, setEditNote] = useState('')
   const [savingNote, setSavingNote] = useState(false)
+  const [importingHistory, setImportingHistory] = useState(false)
   const [updatingOrder, setUpdatingOrder] = useState<string | null>(null)
   const searchRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -515,6 +516,36 @@ export default function RiskShieldPage() {
     })
     setSelectedCustomer({ ...selectedCustomer, operator_notes: editNote })
     setSavingNote(false)
+  }
+
+  const importHistory = async () => {
+    if (!selectedCustomer) return
+    setImportingHistory(true)
+    try {
+      const res = await fetch('/api/risk/import-history', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ customer_id: selectedCustomer.id }),
+      })
+      const data = await res.json()
+      if (data.ok) {
+        // Reîncarcă comenzile și clientul
+        const ordersRes = await fetch(`/api/risk/orders?store_id=${selectedStore}&customer_id=${selectedCustomer.id}&limit=100`)
+        const ordersData = await ordersRes.json()
+        setCustomerOrders(ordersData.orders || [])
+        // Actualizează datele clientului în listă
+        setCustomers(prev => prev.map(c => c.id === selectedCustomer.id
+          ? { ...c, risk_score: data.new_score, risk_label: data.new_label, total_orders: ordersData.orders?.length || c.total_orders }
+          : c
+        ))
+        alert(`✓ Import complet: ${data.total_in_woocommerce} comenzi găsite în WooCommerce, ${data.imported} noi importate.`)
+      } else {
+        alert('Eroare: ' + (data.error || 'necunoscută'))
+      }
+    } catch (e) {
+      alert('Eroare la import')
+    }
+    setImportingHistory(false)
   }
 
   const overrideLabel = async (customerId: string, label: string) => {
@@ -1099,12 +1130,30 @@ export default function RiskShieldPage() {
                   <div className="p-5 space-y-4">
                     <div className="flex items-center justify-between">
                       <h4 className="text-sm font-semibold text-gray-900">Istoricul Comenzilor</h4>
-                      <span className="text-[11px] text-gray-400 font-mono bg-gray-100 px-2.5 py-1 rounded-full">{customerOrders.length} comenzi</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[11px] text-gray-400 font-mono bg-gray-100 px-2.5 py-1 rounded-full">{customerOrders.length} comenzi</span>
+                        <button
+                          onClick={importHistory}
+                          disabled={importingHistory}
+                          className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-50 text-blue-600 text-[11px] font-medium hover:bg-blue-100 transition-colors disabled:opacity-50"
+                        >
+                          <RefreshCw className={`h-3 w-3 ${importingHistory ? 'animate-spin' : ''}`} />
+                          {importingHistory ? 'Se importă...' : 'Sincronizează WooCommerce'}
+                        </button>
+                      </div>
                     </div>
                     {customerOrders.length === 0 ? (
                       <div className="py-12 text-center">
                         <Package className="h-8 w-8 text-gray-200 mx-auto mb-2" />
-                        <p className="text-sm text-gray-400">Nicio comandă înregistrată</p>
+                        <p className="text-sm text-gray-400 mb-3">Nicio comandă înregistrată</p>
+                        <button
+                          onClick={importHistory}
+                          disabled={importingHistory}
+                          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors mx-auto disabled:opacity-50"
+                        >
+                          <RefreshCw className={`h-3.5 w-3.5 ${importingHistory ? 'animate-spin' : ''}`} />
+                          {importingHistory ? 'Se importă din WooCommerce...' : 'Importă istoricul din WooCommerce'}
+                        </button>
                       </div>
                     ) : (
                       <Timeline orders={customerOrders} onUpdateStatus={updateOrderStatus} updatingOrder={updatingOrder} />

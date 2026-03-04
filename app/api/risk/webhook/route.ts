@@ -1,8 +1,14 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { calculateRiskScore, hashIdentifier, type CustomerHistory, type OrderContext } from '@/lib/risk/engine'
-import { WooCommerceClient } from '@/lib/woocommerce/client'
+import { decrypt } from '@/lib/security/encryption'
 import crypto from 'crypto'
+
+// ─── Decriptează credențialele stocate ───────────────────────────────────────
+function safeDecrypt(val: string | null): string {
+  if (!val) return ''
+  try { return val.includes(':') ? decrypt(val) : val } catch { return val }
+}
 
 // ─── Import istoricul complet al unui client din WooCommerce ─────────────────
 async function importCustomerHistory(params: {
@@ -15,53 +21,80 @@ async function importCustomerHistory(params: {
 }) {
   const { supabase, store, customerId, phone, email, existingOrderIds } = params
 
-  if (!store.api_key || !store.api_secret) return // Fără credențiale API nu putem face import
+  const ck = safeDecrypt(store.api_key)
+  const cs = safeDecrypt(store.api_secret)
+  if (!ck || !cs) {
+    console.log('[Risk] No API credentials for store', store.id)
+    return
+  }
 
   try {
-    const woo = new WooCommerceClient({
-      store_url: store.store_url,
-      consumer_key: store.api_key,
-      consumer_secret: store.api_secret,
-    })
+    const baseUrl = store.store_url.replace(/\/$/, '')
+    const auth = 'Basic ' + Buffer.from(`${ck}:${cs}`).toString('base64')
 
-    // Colectăm toate comenzile după email și telefon
+    const fetchOrders = async (params: Record<string, string>) => {
+      const url = new URL(`${baseUrl}/wp-json/wc/v3/orders`)
+      Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v))
+      const res = await fetch(url.toString(), {
+        headers: { 'Authorization': auth, 'Content-Type': 'application/json' },
+      })
+      if (!res.ok) throw new Error(`WooCommerce API ${res.status}: ${await res.text()}`)
+      const data = await res.json()
+      const totalPages = parseInt(res.headers.get('x-wp-totalpages') || '1')
+      return { data, totalPages }
+    }
+
     const allWooOrders: any[] = []
     const seen = new Set<number>()
 
-    // Căutare după email
+    // Căutare după billing_email — param direct WooCommerce
     if (email) {
-      const byEmail = await woo.getOrdersByEmail(email, 100)
-      for (const o of byEmail) {
-        if (!seen.has(o.id)) { seen.add(o.id); allWooOrders.push(o) }
+      let page = 1
+      while (true) {
+        const { data, totalPages } = await fetchOrders({
+          billing_email: email, per_page: '100', page: String(page), orderby: 'date', order: 'desc',
+        })
+        for (const o of data) { if (!seen.has(o.id)) { seen.add(o.id); allWooOrders.push(o) } }
+        if (page >= totalPages) break
+        page++
       }
     }
 
-    // Căutare după telefon
+    // Căutare după telefon via search
     if (phone) {
-      const byPhone = await woo.searchOrders(phone, 100)
-      for (const o of byPhone) {
-        if (!seen.has(o.id)) { seen.add(o.id); allWooOrders.push(o) }
+      const cleanPhone = phone.replace(/\s+/g, '')
+      let page = 1
+      while (true) {
+        const { data, totalPages } = await fetchOrders({
+          search: cleanPhone, per_page: '100', page: String(page), orderby: 'date', order: 'desc',
+        })
+        for (const o of data) {
+          // Verifică că e chiar telefonul clientului (search e fuzzy)
+          const bPhone = (o.billing?.phone || '').replace(/\s+/g, '')
+          if (bPhone.includes(cleanPhone) || cleanPhone.includes(bPhone)) {
+            if (!seen.has(o.id)) { seen.add(o.id); allWooOrders.push(o) }
+          }
+        }
+        if (page >= totalPages) break
+        page++
       }
     }
 
+    console.log(`[Risk] WooCommerce returned ${allWooOrders.length} orders for email:${email} phone:${phone}`)
     if (allWooOrders.length === 0) return
 
-    // Calculează contoare din istoricul WooCommerce
     let ordersCollected = 0, ordersRefused = 0, ordersNotHome = 0, ordersCancelled = 0
     const ordersToInsert: any[] = []
 
     for (const wooOrder of allWooOrders) {
       const extId = String(wooOrder.id)
-      if (existingOrderIds.has(extId)) continue // Nu duplicăm ce există deja
+      if (existingOrderIds.has(extId)) continue
 
       const status = mapWooStatus(wooOrder.status || 'pending')
-      if (isCollected(status)) ordersCollected++
-      else if (isRefused(status)) ordersRefused++
-      else if (isNotHome(status)) ordersNotHome++
+      if (isCollected(status))  ordersCollected++
+      else if (isRefused(status))   ordersRefused++
+      else if (isNotHome(status))   ordersNotHome++
       else if (isCancelled(status)) ordersCancelled++
-
-      const paymentMethod = extractPaymentMethod(wooOrder)
-      const shippingAddress = extractShippingAddress(wooOrder)
 
       ordersToInsert.push({
         store_id: store.id,
@@ -72,8 +105,8 @@ async function importCustomerHistory(params: {
         customer_phone: wooOrder.billing?.phone || phone,
         customer_email: wooOrder.billing?.email || email,
         customer_name: [wooOrder.billing?.first_name, wooOrder.billing?.last_name].filter(Boolean).join(' ') || null,
-        shipping_address: shippingAddress,
-        payment_method: paymentMethod,
+        shipping_address: extractShippingAddress(wooOrder),
+        payment_method: extractPaymentMethod(wooOrder),
         total_value: parseFloat(wooOrder.total || '0'),
         currency: wooOrder.currency || 'RON',
         order_status: status,
@@ -84,36 +117,52 @@ async function importCustomerHistory(params: {
       })
     }
 
-    // Insert în batch
-    if (ordersToInsert.length > 0) {
-      await supabase.from('risk_orders').upsert(ordersToInsert, { onConflict: 'store_id,external_order_id' })
+    if (ordersToInsert.length === 0) return
+
+    // Insert în batch de 50
+    for (let i = 0; i < ordersToInsert.length; i += 50) {
+      await supabase.from('risk_orders')
+        .upsert(ordersToInsert.slice(i, i + 50), { onConflict: 'store_id,external_order_id' })
     }
 
-    // Actualizează contoarele clientului cu istoricul importat
-    if (ordersCollected > 0 || ordersRefused > 0 || ordersNotHome > 0 || ordersCancelled > 0) {
-      const { data: currentCustomer } = await supabase
-        .from('risk_customers')
-        .select('orders_collected, orders_refused, orders_not_home, orders_cancelled, total_orders')
-        .eq('id', customerId)
-        .single()
+    // Recalculează contoarele și scorul
+    const { data: cur } = await supabase
+      .from('risk_customers').select('*').eq('id', customerId).single()
 
-      if (currentCustomer) {
-        const totalHistoric = ordersToInsert.length
-        await supabase.from('risk_customers').update({
-          orders_collected: (currentCustomer.orders_collected || 0) + ordersCollected,
-          orders_refused:   (currentCustomer.orders_refused || 0) + ordersRefused,
-          orders_not_home:  (currentCustomer.orders_not_home || 0) + ordersNotHome,
-          orders_cancelled: (currentCustomer.orders_cancelled || 0) + ordersCancelled,
-          total_orders:     (currentCustomer.total_orders || 0) + totalHistoric,
-          updated_at: new Date().toISOString(),
-        }).eq('id', customerId)
+    if (cur) {
+      const newCollected = (cur.orders_collected || 0) + ordersCollected
+      const newRefused   = (cur.orders_refused || 0) + ordersRefused
+      const newNotHome   = (cur.orders_not_home || 0) + ordersNotHome
+      const newCancelled = (cur.orders_cancelled || 0) + ordersCancelled
+      const newTotal     = (cur.total_orders || 0) + ordersToInsert.length
+
+      const history: CustomerHistory = {
+        totalOrders: newTotal, ordersCollected: newCollected, ordersRefused: newRefused,
+        ordersNotHome: newNotHome, ordersCancelled: newCancelled, ordersToday: 0,
+        lastOrderAt: cur.last_order_at, firstOrderAt: cur.first_order_at,
+        accountCreatedAt: null, phoneValidated: !!(phone?.match(/^07\d{8}$/)),
+        isNewAccount: false, addressChanges: 1,
       }
+      const orderCtx: OrderContext = {
+        paymentMethod: 'cod', totalValue: 0, currency: 'RON',
+        orderedAt: cur.last_order_at || new Date().toISOString(),
+        customerEmail: email || '', shippingAddress: '',
+        inGlobalBlacklist: cur.in_global_blacklist || false, globalReportCount: 0,
+      }
+      const result = calculateRiskScore(history, orderCtx, {})
+      const finalLabel = cur.manual_label_override || result.label
+
+      await supabase.from('risk_customers').update({
+        orders_collected: newCollected, orders_refused: newRefused,
+        orders_not_home: newNotHome,   orders_cancelled: newCancelled,
+        total_orders: newTotal,        risk_score: result.score,
+        risk_label: finalLabel,        updated_at: new Date().toISOString(),
+      }).eq('id', customerId)
     }
 
-    console.log(`[Risk Webhook] Imported ${ordersToInsert.length} historical orders for customer ${customerId}`)
+    console.log(`[Risk] Imported ${ordersToInsert.length} historical orders for customer ${customerId}`)
   } catch (err) {
-    // Import-ul istoricului e best-effort — nu blocăm fluxul principal
-    console.error('[Risk Webhook] History import error:', err)
+    console.error('[Risk] History import error:', err)
   }
 }
 
