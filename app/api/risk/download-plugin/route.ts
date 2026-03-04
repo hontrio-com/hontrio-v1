@@ -44,41 +44,46 @@ export async function GET() {
 /**
  * Plugin Name: Hontrio Risk Shield${storeName ? ' — ' + storeName : ''}
  * Plugin URI: https://hontrio.com
- * Description: Sincronizare automată comenzi WooCommerce cu Hontrio Risk Shield. Detectare clienți problematici în timp real.
- * Version: 1.0.0
+ * Description: Sincronizare automată comenzi WooCommerce cu Hontrio Risk Shield.
+ * Version: 1.0.2
  * Author: Hontrio
  * Author URI: https://hontrio.com
  * License: GPL2
  * Text Domain: hontrio-risk
- * Requires at least: 5.0
- * Requires PHP: 7.4
- * WC requires at least: 5.0
  */
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-define( 'HONTRIO_RISK_VERSION',    '1.0.0' );
+define( 'HONTRIO_RISK_VERSION',    '1.0.2' );
 define( 'HONTRIO_RISK_API_BASE',   '${apiBase}' );
 define( 'HONTRIO_RISK_WEBHOOK_URL','${webhookUrl}' );
 define( 'HONTRIO_RISK_SECRET',     '${webhookSecret}' );
 define( 'HONTRIO_RISK_STORE_ID',   '${store.id}' );
 
-// ── ACTIVARE: înregistrează webhook-urile WooCommerce ────────────────────────
+// ── La activare: setează un flag, webhook-urile se înregistrează la primul init
+// (register_activation_hook rulează înainte ca WooCommerce să fie încărcat complet)
 register_activation_hook( __FILE__, 'hontrio_risk_activate' );
 function hontrio_risk_activate() {
-    hontrio_risk_register_webhooks();
+    update_option( 'hontrio_risk_needs_setup', true );
     set_transient( 'hontrio_risk_activated', true, 60 );
 }
 
-// ── DEZACTIVARE: șterge webhook-urile ───────────────────────────────────────
 register_deactivation_hook( __FILE__, 'hontrio_risk_deactivate' );
 function hontrio_risk_deactivate() {
     hontrio_risk_delete_webhooks();
 }
 
-// ── Înregistrare webhooks ────────────────────────────────────────────────────
+// ── La fiecare init: dacă e nevoie de setup, înregistrează webhooks ──────────
+add_action( 'woocommerce_loaded', 'hontrio_risk_maybe_setup' );
+function hontrio_risk_maybe_setup() {
+    if ( ! get_option( 'hontrio_risk_needs_setup' ) ) return;
+    hontrio_risk_register_webhooks();
+    delete_option( 'hontrio_risk_needs_setup' );
+}
+
+// ── Înregistrare webhooks via WooCommerce REST API ───────────────────────────
 function hontrio_risk_register_webhooks() {
-    if ( ! class_exists( 'WC_Webhook' ) ) return;
+    if ( ! function_exists( 'wc_get_webhook' ) ) return;
 
     $topics = array(
         'order.created' => 'Hontrio Risk — Comandă nouă',
@@ -88,12 +93,15 @@ function hontrio_risk_register_webhooks() {
     $existing = get_option( 'hontrio_risk_webhook_ids', array() );
 
     foreach ( $topics as $topic => $name ) {
-        // Evită duplicatele
+        // Verifică dacă există deja și e activ
         if ( ! empty( $existing[ $topic ] ) ) {
-            $existing_wh = wc_get_webhook( $existing[ $topic ] );
-            if ( $existing_wh && $existing_wh->get_status() === 'active' ) continue;
+            $wh = wc_get_webhook( intval( $existing[ $topic ] ) );
+            if ( $wh && $wh->get_id() && $wh->get_status() === 'active' ) {
+                continue;
+            }
         }
 
+        // Creează webhook nou
         $webhook = new WC_Webhook();
         $webhook->set_name( $name );
         $webhook->set_topic( $topic );
@@ -101,9 +109,12 @@ function hontrio_risk_register_webhooks() {
         $webhook->set_secret( HONTRIO_RISK_SECRET );
         $webhook->set_status( 'active' );
         $webhook->set_api_version( 'wp_api_v3' );
+        $webhook->set_user_id( get_current_user_id() ?: 1 );
         $id = $webhook->save();
 
-        $existing[ $topic ] = $id;
+        if ( $id ) {
+            $existing[ $topic ] = $id;
+        }
     }
 
     update_option( 'hontrio_risk_webhook_ids', $existing );
@@ -113,109 +124,105 @@ function hontrio_risk_register_webhooks() {
 function hontrio_risk_delete_webhooks() {
     $ids = get_option( 'hontrio_risk_webhook_ids', array() );
     foreach ( $ids as $id ) {
-        $webhook = wc_get_webhook( $id );
+        $webhook = wc_get_webhook( intval( $id ) );
         if ( $webhook ) $webhook->delete( true );
     }
     delete_option( 'hontrio_risk_webhook_ids' );
 }
 
 // ── Notice activare ──────────────────────────────────────────────────────────
-add_action( 'admin_notices', 'hontrio_risk_activation_notice' );
-function hontrio_risk_activation_notice() {
-    if ( ! get_transient( 'hontrio_risk_activated' ) ) return;
-    ?>
-    <div class="notice notice-success is-dismissible">
-        <p>
-            <strong>Hontrio Risk Shield</strong> activat cu succes! 
-            Comenzile noi vor fi analizate automat.
-            <a href="<?php echo esc_url( HONTRIO_RISK_API_BASE . '/risk' ); ?>" target="_blank">
-                Vezi dashboard →
-            </a>
-        </p>
-    </div>
-    <?php
-    delete_transient( 'hontrio_risk_activated' );
+add_action( 'admin_notices', 'hontrio_risk_notices' );
+function hontrio_risk_notices() {
+    $webhook_ids = get_option( 'hontrio_risk_webhook_ids', array() );
+
+    if ( get_transient( 'hontrio_risk_activated' ) ) {
+        delete_transient( 'hontrio_risk_activated' );
+        ?>
+        <div class="notice notice-info is-dismissible">
+            <p><strong>Hontrio Risk Shield</strong> activat. Webhook-urile se înregistrează automat... 
+            <a href="<?php echo esc_url( admin_url('admin.php?page=hontrio-risk') ); ?>">Verifică status →</a></p>
+        </div>
+        <?php
+    }
+
+    if ( ! empty( $webhook_ids ) && count( $webhook_ids ) >= 2 ) {
+        // Webhook-uri active — nu afișa nimic
+        return;
+    }
 }
 
-// ── Pagină de setări în admin ────────────────────────────────────────────────
+// ── Pagină de setări ─────────────────────────────────────────────────────────
 add_action( 'admin_menu', 'hontrio_risk_admin_menu' );
 function hontrio_risk_admin_menu() {
-    add_submenu_page(
-        'woocommerce',
-        'Hontrio Risk Shield',
-        'Risk Shield',
-        'manage_woocommerce',
-        'hontrio-risk',
-        'hontrio_risk_settings_page'
-    );
+    add_submenu_page( 'woocommerce', 'Hontrio Risk Shield', 'Risk Shield',
+        'manage_woocommerce', 'hontrio-risk', 'hontrio_risk_settings_page' );
 }
 
 function hontrio_risk_settings_page() {
-    $webhook_ids = get_option( 'hontrio_risk_webhook_ids', array() );
-    $status = ! empty( $webhook_ids ) ? 'Activ ✓' : 'Inactiv';
-    $color  = ! empty( $webhook_ids ) ? '#12b76a' : '#f04438';
+    // Procesează acțiunea de re-înregistrare manuală
+    if ( isset( \\$_POST['hontrio_action'] ) && \\$_POST['hontrio_action'] === 'reregister'
+        && check_admin_referer('hontrio_reregister') ) {
+        hontrio_risk_delete_webhooks();
+        hontrio_risk_register_webhooks();
+        echo '<div class="notice notice-success"><p>Webhook-uri re-înregistrate!</p></div>';
+    }
+
+    \\$webhook_ids = get_option( 'hontrio_risk_webhook_ids', array() );
+    \\$has_webhooks = count( \\$webhook_ids ) >= 2;
     ?>
     <div class="wrap">
-        <h1>Hontrio Risk Shield</h1>
-        <table class="form-table">
+        <h1>🛡️ Hontrio Risk Shield</h1>
+        <table class="form-table widefat" style="max-width:600px">
             <tr>
-                <th>Status Sincronizare</th>
-                <td><span style="color:<?php echo $color; ?>; font-weight:600"><?php echo $status; ?></span></td>
+                <th>Status</th>
+                <td>
+                    <?php if ( \\$has_webhooks ) : ?>
+                        <span style="color:#12b76a;font-weight:700">● Activ — comenzile se sincronizează</span>
+                    <?php else : ?>
+                        <span style="color:#f04438;font-weight:700">● Inactiv — niciun webhook înregistrat</span>
+                    <?php endif; ?>
+                </td>
             </tr>
             <tr>
                 <th>Webhook URL</th>
-                <td><code><?php echo esc_html( HONTRIO_RISK_WEBHOOK_URL ); ?></code></td>
+                <td><code style="font-size:11px"><?php echo esc_html( HONTRIO_RISK_WEBHOOK_URL ); ?></code></td>
             </tr>
             <tr>
-                <th>Store ID</th>
-                <td><code><?php echo esc_html( HONTRIO_RISK_STORE_ID ); ?></code></td>
-            </tr>
-            <tr>
-                <th>Webhook-uri active</th>
+                <th>Webhooks înregistrate</th>
                 <td>
-                    <?php if ( ! empty( $webhook_ids ) ) : ?>
-                        <?php foreach ( $webhook_ids as $topic => $id ) : ?>
-                            <div><?php echo esc_html( $topic ); ?> → ID: <?php echo intval( $id ); ?></div>
+                    <?php if ( ! empty( \\$webhook_ids ) ) : ?>
+                        <?php foreach ( \\$webhook_ids as \\$topic => \\$id ) :
+                            \\$wh = wc_get_webhook( intval(\\$id) );
+                            \\$active = \\$wh && \\$wh->get_status() === 'active';
+                        ?>
+                        <div>
+                            <span style="color:<?php echo \\$active ? '#12b76a' : '#f04438'; ?>">●</span>
+                            <?php echo esc_html(\\$topic); ?> (ID: <?php echo intval(\\$id); ?>)
+                        </div>
                         <?php endforeach; ?>
                     <?php else : ?>
-                        <span style="color:#f04438">Niciun webhook înregistrat</span>
+                        <em style="color:#f04438">Niciun webhook — apasă butonul de mai jos</em>
                     <?php endif; ?>
                 </td>
             </tr>
         </table>
-        <p>
-            <a href="<?php echo esc_url( HONTRIO_RISK_API_BASE . '/risk' ); ?>" 
+
+        <p style="margin-top:20px">
+            <a href="<?php echo esc_url( HONTRIO_RISK_API_BASE . '/risk' ); ?>"
                class="button button-primary" target="_blank">
-                Deschide Dashboard Risk Shield
+                Deschide Dashboard →
             </a>
-            <button type="button" class="button" onclick="hontrioRiskReRegister()">
-                Re-înregistrează Webhook-uri
-            </button>
+            &nbsp;
+            <form method="post" style="display:inline">
+                <?php wp_nonce_field('hontrio_reregister'); ?>
+                <input type="hidden" name="hontrio_action" value="reregister">
+                <button type="submit" class="button">
+                    <?php echo \\$has_webhooks ? 'Re-înregistrează Webhook-uri' : '⚡ Înregistrează Webhook-uri acum'; ?>
+                </button>
+            </form>
         </p>
-        <script>
-        function hontrioRiskReRegister() {
-            if (!confirm('Ești sigur? Webhook-urile existente vor fi șterse și recreate.')) return;
-            jQuery.post(ajaxurl, {
-                action: 'hontrio_risk_reregister',
-                nonce: '<?php echo wp_create_nonce("hontrio_risk_reregister"); ?>'
-            }, function(r) {
-                if (r.success) { alert('Webhook-uri re-înregistrate cu succes!'); location.reload(); }
-                else alert('Eroare: ' + (r.data || 'necunoscută'));
-            });
-        }
-        </script>
     </div>
     <?php
-}
-
-// ── AJAX: re-înregistrare ────────────────────────────────────────────────────
-add_action( 'wp_ajax_hontrio_risk_reregister', 'hontrio_risk_ajax_reregister' );
-function hontrio_risk_ajax_reregister() {
-    check_ajax_referer( 'hontrio_risk_reregister', 'nonce' );
-    if ( ! current_user_can( 'manage_woocommerce' ) ) wp_send_json_error( 'Permisiuni insuficiente' );
-    hontrio_risk_delete_webhooks();
-    hontrio_risk_register_webhooks();
-    wp_send_json_success();
 }
 `
 
