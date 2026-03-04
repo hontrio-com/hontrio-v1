@@ -70,8 +70,8 @@ const plans = [
     description: 'Ideal pentru magazine mici',
     icon: Zap,
     color: 'blue',
-    credits: 150,
-    features: ['150 credite / lună', 'Generare text AI nelimitată', 'Toate stilurile de imagini', '1 magazin conectat', 'Suport prioritar', 'Analiză SEO completă'],
+    credits: 250,
+    features: ['250 credite / lună', 'Generare text AI nelimitată', 'Toate stilurile de imagini', '1 magazin conectat', 'Suport prioritar', 'Analiză SEO completă'],
     limitations: [],
     popular: false,
   },
@@ -83,8 +83,8 @@ const plans = [
     description: 'Pentru magazine în creștere',
     icon: Rocket,
     color: 'indigo',
-    credits: 400,
-    features: ['400 credite / lună', 'Tot ce include Starter', 'Generare în masă (batch)', '3 magazine conectate', 'Suport prioritar 24/7', 'Rapoarte avansate'],
+    credits: 750,
+    features: ['750 credite / lună', 'Tot ce include Starter', 'Generare în masă (batch)', '3 magazine conectate', 'Suport prioritar 24/7', 'Rapoarte avansate'],
     limitations: [],
     popular: true,
   },
@@ -96,19 +96,19 @@ const plans = [
     description: 'Pentru operațiuni la scară mare',
     icon: Crown,
     color: 'purple',
-    credits: 1000,
-    features: ['1000 credite / lună', 'Tot ce include Professional', 'Magazine nelimitate', 'Manager de cont dedicat', 'SLA garantat 99.9%', 'Integrări custom', 'Training personalizat', 'Facturare personalizată'],
+    credits: 2000,
+    features: ['2000 credite / lună', 'Tot ce include Professional', 'Magazine nelimitate', 'Manager de cont dedicat', 'SLA garantat 99.9%', 'Integrări custom', 'Training personalizat', 'Facturare personalizată'],
     limitations: [],
     popular: false,
   },
 ]
 
 const creditPacks = [
-  { id: 'pack_50',   credits: 50,   price: 29,  perCredit: 0.58, popular: false },
-  { id: 'pack_100',  credits: 100,  price: 49,  perCredit: 0.49, popular: false },
-  { id: 'pack_300',  credits: 300,  price: 119, perCredit: 0.40, popular: true  },
-  { id: 'pack_500',  credits: 500,  price: 179, perCredit: 0.36, popular: false },
-  { id: 'pack_1000', credits: 1000, price: 299, perCredit: 0.30, popular: false },
+  { id: 'pack_50',   credits: 50,   price: 39,  perCredit: 0.78, popular: false },
+  { id: 'pack_100',  credits: 100,  price: 69,  perCredit: 0.69, popular: false },
+  { id: 'pack_300',  credits: 300,  price: 159, perCredit: 0.53, popular: true  },
+  { id: 'pack_500',  credits: 500,  price: 249, perCredit: 0.50, popular: false },
+  { id: 'pack_1000', credits: 1000, price: 399, perCredit: 0.40, popular: false },
 ]
 
 function SubscriptionPageInner() {
