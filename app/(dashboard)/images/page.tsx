@@ -239,21 +239,14 @@ function ImageSourceSelector({ selectedProduct, setSelectedProduct, selectedProd
 
 // ─── SSE Progress Hook ────────────────────────────────────────────────────────
 function useGenerationProgress(taskId: string | null, imageRecordId: string | null, onDone: (urls: string[]) => void, onError: (msg: string) => void) {
-  const [pct, setPct] = useState(0)
-  const [label, setLabel] = useState('Inițializare...')
-  const [phase, setPhase] = useState('waiting')
-  const esRef = useRef<EventSource | null>(null)
-
   useEffect(() => {
     if (!taskId) return
     const url = `/api/generate/progress?task_id=${taskId}${imageRecordId ? `&image_record_id=${imageRecordId}` : ''}`
     const es = new EventSource(url)
-    esRef.current = es
     es.onmessage = (e) => {
       try {
         const data = JSON.parse(e.data)
-        if (data.type === 'progress') { setPct(data.pct || 0); setLabel(data.label || ''); setPhase(data.state || '') }
-        if (data.type === 'done') { es.close(); onDone(data.urls || [data.primary_url]); setPct(100) }
+        if (data.type === 'done') { es.close(); onDone(data.urls || [data.primary_url]) }
         if (data.type === 'error') { es.close(); onError(data.message || 'Eroare') }
         if (data.type === 'timeout') { es.close(); onError('Timeout — revino în câteva minute') }
       } catch {}
@@ -261,48 +254,32 @@ function useGenerationProgress(taskId: string | null, imageRecordId: string | nu
     es.onerror = () => { es.close(); onError('Conexiunea a fost întreruptă') }
     return () => { es.close() }
   }, [taskId])
-
-  return { pct, label, phase }
 }
 
-// ─── Generating Screen with real progress ────────────────────────────────────
+// ─── Generating Screen ────────────────────────────────────────────────────────
 function GeneratingScreen({ taskId, imageRecordId, onDone, onError, icon: Icon = Sparkles, color = 'bg-gray-900', variantCount = 1 }: {
   taskId: string | null; imageRecordId: string | null
   onDone: (urls: string[]) => void; onError: (msg: string) => void
   icon?: any; color?: string; variantCount?: number
 }) {
-  const { pct, label, phase } = useGenerationProgress(taskId, imageRecordId, onDone, onError)
-  const stages = [
-    { key: 'waiting',    label: 'Coadă',      done: pct > 10 },
-    { key: 'queuing',    label: 'Pregătire',  done: pct > 20 },
-    { key: 'generating', label: 'Generare',   done: pct >= 100 },
-  ]
+  useGenerationProgress(taskId, imageRecordId, onDone, onError)
   return (
-    <div className="flex flex-col items-center py-12 text-center">
-      <div className="relative mb-6">
-        <div className={`h-20 w-20 rounded-2xl ${color} flex items-center justify-center`}>
-          <Icon className="h-9 w-9 text-white" />
+    <div className="flex flex-col items-center py-16 text-center">
+      <div className="relative mb-8">
+        <div className={`h-24 w-24 rounded-3xl ${color} flex items-center justify-center shadow-2xl`}>
+          <Icon className="h-11 w-11 text-white" />
         </div>
-        <div className={`absolute inset-0 rounded-2xl ${color} animate-ping opacity-15`} />
+        <div className={`absolute inset-0 rounded-3xl ${color} animate-ping opacity-15`} />
       </div>
-      {/* Progress bar */}
-      <div className="w-64 mb-5">
-        <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-          <motion.div className="h-full bg-gray-900 rounded-full" initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ duration: 0.5 }} />
-        </div>
-        <div className="flex justify-between mt-1.5">
-          {stages.map(s => (
-            <span key={s.key} className={`text-[10px] font-bold ${s.done ? 'text-gray-900' : 'text-gray-300'}`}>{s.label}</span>
-          ))}
-        </div>
+      <h2 className="text-xl font-bold text-gray-900 mb-2">AI generează imaginea...</h2>
+      <p className="text-sm text-gray-500 mb-6">
+        GPT construiește promptul detaliat → Nano Banana Pro generează
+        {variantCount > 1 && <span className="ml-1 font-medium text-gray-700">{variantCount} variante</span>}
+      </p>
+      <div className="flex items-center gap-2 px-4 py-2 bg-gray-50 rounded-full border border-gray-100">
+        <Loader2 className="h-4 w-4 animate-spin text-gray-500" />
+        <span className="text-sm text-gray-500">20 – 60 secunde</span>
       </div>
-      <p className="text-sm font-semibold text-gray-900 mb-1">{label || 'AI construiește imaginea...'}</p>
-      <p className="text-xs text-gray-400">{pct}% complet · {variantCount > 1 ? `${variantCount} variante` : '1 imagine'}</p>
-      {!taskId && (
-        <div className="flex items-center gap-2 text-xs text-gray-400 mt-3">
-          <Loader2 className="h-3.5 w-3.5 animate-spin" /> Se pornește generarea...
-        </div>
-      )}
     </div>
   )
 }
@@ -405,11 +382,22 @@ function ProductGenerator({ onImageGenerated, brandKit }: { onImageGenerated: (i
     } catch { setError('Eroare de conexiune.'); setStep('select_style') }
   }
 
-  const handleDone = (urls: string[], recId?: string) => {
+  const handleDone = async (urls: string[], recId?: string) => {
     if (!urls[0]) { setError('Imaginea nu a putut fi generată'); setStep('select_style'); return }
-    setLastUrls(urls); setSelectedVariant(0); setImageRecordId(recId || imageRecordId)
+    const finalId = recId || imageRecordId
+    setLastUrls(urls); setSelectedVariant(0); setImageRecordId(finalId)
+    // Fetch real record from DB
+    if (finalId) {
+      try {
+        const res = await fetch('/api/images')
+        const data = await res.json()
+        const found = (data.images || []).find((img: GeneratedImage) => img.id === finalId)
+        if (found) { onImageGenerated(found); setStep('done'); return }
+      } catch {}
+    }
+    // Fallback to local object
     const newImg: GeneratedImage = {
-      id: recId || imageRecordId || Date.now().toString(),
+      id: finalId || Date.now().toString(),
       product_id: selectedProduct?.id || '',
       style: selectedStyle!, generated_image_url: urls[0],
       original_image_url: activeImage, status: 'completed',
@@ -670,10 +658,19 @@ function PromoGenerator({ onImageGenerated, brandKit }: { onImageGenerated: (img
     } catch { setError('Eroare de conexiune.'); setStep('edit_text') }
   }
 
-  const handleDone = (urls: string[], recId?: string) => {
+  const handleDone = async (urls: string[], recId?: string) => {
     if (!urls[0]) { setError('Generarea a eșuat'); setStep('edit_text'); return }
-    setLastUrl(urls[0]); setImageRecordId(recId || imageRecordId)
-    onImageGenerated({ id: recId || Date.now().toString(), product_id: selectedProduct?.id||'', style: `promo_${selectedStyle}`, generated_image_url: urls[0], original_image_url: activeImage, status:'completed', credits_used: PROMO_COST, created_at: new Date().toISOString(), product_title: selectedProduct?.optimized_title||selectedProduct?.original_title||'Upload' })
+    const finalId = recId || imageRecordId
+    setLastUrl(urls[0]); setImageRecordId(finalId)
+    if (finalId) {
+      try {
+        const res = await fetch('/api/images')
+        const data = await res.json()
+        const found = (data.images || []).find((img: GeneratedImage) => img.id === finalId)
+        if (found) { onImageGenerated(found); setStep('done'); return }
+      } catch {}
+    }
+    onImageGenerated({ id: finalId || Date.now().toString(), product_id: selectedProduct?.id||'', style: `promo_${selectedStyle}`, generated_image_url: urls[0], original_image_url: activeImage, status:'completed', credits_used: PROMO_COST, created_at: new Date().toISOString(), product_title: selectedProduct?.optimized_title||selectedProduct?.original_title||'Upload' })
     setStep('done')
   }
 
@@ -983,10 +980,18 @@ function BeforeAfterTab() {
   const isDragging = useRef(false)
 
   useEffect(() => {
-    fetch('/api/images').then(r=>r.json()).then(d => {
-      setGallery((d.images||[]).filter((img: GeneratedImage) => img.original_image_url && img.status==='completed'))
-      setLoading(false)
-    })
+    fetch('/api/images')
+      .then(r => r.json())
+      .then(d => {
+        const imgs = (d.images || []).filter((img: GeneratedImage) =>
+          img.original_image_url &&
+          img.generated_image_url &&
+          img.generated_image_url !== img.original_image_url
+        )
+        setGallery(imgs)
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false))
   }, [])
 
   const handleSelect = async (img: GeneratedImage) => {
@@ -1729,7 +1734,12 @@ export default function ImagesPage() {
   useEffect(() => { fetchGallery(); fetchBrandKit() }, [fetchGallery, fetchBrandKit])
 
   const handleNewImage = (img: GeneratedImage) => {
-    setGallery(prev => [img, ...prev])
+    setGallery(prev => {
+      const exists = prev.find(i => i.id === img.id)
+      return exists ? prev.map(i => i.id === img.id ? img : i) : [img, ...prev]
+    })
+    // Refresh from DB after 2s to confirm saved record
+    setTimeout(() => fetchGallery(), 2000)
   }
 
   const MAIN_TABS: { value: MainTab; label: string; icon: any }[] = [
