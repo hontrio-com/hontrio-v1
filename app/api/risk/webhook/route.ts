@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { calculateRiskScore, hashIdentifier, type CustomerHistory, type OrderContext } from '@/lib/risk/engine'
+import { calculateRiskScore, hashIdentifier, recalibrateWeights, DEFAULT_ML_WEIGHTS, type CustomerHistory, type OrderContext, type MLWeights } from '@/lib/risk/engine'
+import { sendRiskAlert } from '@/lib/risk/notifications'
+import { findClusterMatches, extractCity, type ClusterCandidate } from '@/lib/risk/cluster'
 import { decrypt } from '@/lib/security/encryption'
 import crypto from 'crypto'
 
@@ -252,6 +254,38 @@ function extractPaymentMethod(order: any): 'cod' | 'card' | 'bank_transfer' {
   if (method.includes('cod') || method.includes('cash')) return 'cod'
   if (method.includes('card') || method.includes('stripe') || method.includes('paypal')) return 'card'
   return 'bank_transfer'
+}
+
+// ─── Cluster detection helper ─────────────────────────────────────────────────
+async function runClusterDetection(
+  supabase: any,
+  candidate: ClusterCandidate,
+  storeId: string,
+  userId: string
+): Promise<void> {
+  try {
+    const { data: clusterPool } = await supabase
+      .from('risk_customers')
+      .select('id,name,phone,email')
+      .eq('store_id', storeId)
+      .neq('id', candidate.id)
+      .limit(200)
+    if (!clusterPool || clusterPool.length === 0) return
+    const candidates: ClusterCandidate[] = clusterPool.map((c: any) => ({
+      id: c.id, name: c.name, phone: c.phone, email: c.email,
+      shipping_address: null, city: null,
+    }))
+    const matches = findClusterMatches(candidate, candidates, 0.75)
+    if (matches.length > 0) {
+      const clusterLinks = matches.slice(0, 3).map(m => ({
+        store_id: storeId, user_id: userId, customer_id: candidate.id,
+        action: 'cluster_match',
+        old_value: JSON.stringify({ similarity: m.similarity, reasons: m.matchReason }),
+        new_value: m.matchedCustomerId,
+      }))
+      await supabase.from('risk_audit_log').insert(clusterLinks)
+    }
+  } catch {}
 }
 
 export async function POST(req: Request) {
@@ -659,6 +693,28 @@ export async function POST(req: Request) {
               title: `Comandă nouă — client ${finalLabel}: ${customerName || customerPhone || customerEmail}`,
               description: `Scor: ${result.score}/100. ${topFlags ? 'Motive: ' + topFlags : ''}`,
             })
+
+            // Trimite email instant dacă e activat
+            if (matchedSettings.alert_email && matchedSettings.email_alerts_enabled !== false) {
+              const baseUrl = process.env.NEXTAUTH_URL || 'https://app.hontrio.com'
+              sendRiskAlert({
+                to: matchedSettings.alert_email,
+                storeName: matchedStore.store_url.replace(/^https?:\/\//, '').replace(/\/$/, ''),
+                storeUrl: matchedStore.store_url,
+                customerName,
+                customerPhone,
+                customerEmail,
+                riskScore: result.score,
+                riskLabel: finalLabel,
+                orderNumber: orderNumber || externalOrderId,
+                orderValue: totalValue,
+                currency,
+                flags: result.flags.slice(0, 5),
+                recommendation: result.recommendation,
+                refusalProbability: result.refusalProbability,
+                dashboardUrl: `${baseUrl}/risk`,
+              }).catch(e => console.error('[Risk] Email alert failed:', e))
+            }
           }
         }
 
@@ -711,11 +767,21 @@ export async function POST(req: Request) {
           // Non-blocking — răspundem imediat, importul rulează în background
         }
 
+        // Identity clustering — non-blocking, fara await
+        if (customerId && (customerPhone || customerEmail)) {
+          void runClusterDetection(supabase, {
+            id: customerId, name: customerName, phone: customerPhone,
+            email: customerEmail, shipping_address: shippingAddress,
+            city: extractCity(shippingAddress),
+          }, storeId, userId)
+        }
+
         return NextResponse.json({
           ok: true,
           action: 'order_created',
           score: result.score,
           label: finalLabel,
+          refusal_probability: result.refusalProbability,
           customer_id: customerId,
           history_import: 'triggered',
         })

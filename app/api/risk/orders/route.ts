@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/auth.config'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { recalibrateWeights, DEFAULT_ML_WEIGHTS, type MLWeights } from '@/lib/risk/engine'
 
 export async function GET(req: Request) {
   try {
@@ -120,6 +121,46 @@ export async function PATCH(req: Request) {
       old_value: order.order_status,
       new_value: order_status,
     })
+
+    // ML Calibrare automată la finalizarea comenzii
+    const terminalStatuses = ['collected', 'refused', 'returned', 'not_home', 'cancelled']
+    if (terminalStatuses.includes(order_status) && order.customer_id) {
+      try {
+        // Ia comanda cu flag-urile originale
+        const { data: fullOrder } = await supabase
+          .from('risk_orders')
+          .select('risk_score_at_order, risk_flags')
+          .eq('id', order_id)
+          .single()
+
+        const { data: customer } = await supabase
+          .from('risk_customers')
+          .select('risk_label')
+          .eq('id', order.customer_id)
+          .single()
+
+        const { data: settings } = await supabase
+          .from('risk_store_settings')
+          .select('ml_weights')
+          .eq('store_id', order.store_id)
+          .single()
+
+        const currentWeights: MLWeights = settings?.ml_weights || { ...DEFAULT_ML_WEIGHTS }
+        const flagsActivated = (fullOrder?.risk_flags || []).map((f: any) => f.code).filter(Boolean)
+        const predictedLabel = customer?.risk_label || 'new'
+
+        const newWeights = recalibrateWeights(currentWeights, predictedLabel, order_status as any, flagsActivated)
+
+        await supabase.from('risk_store_settings').upsert({
+          store_id: order.store_id,
+          user_id: session.user.id,
+          ml_weights: newWeights,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'store_id' })
+      } catch (mlErr) {
+        console.error('[Risk ML] Calibration error:', mlErr)
+      }
+    }
 
     return NextResponse.json({ ok: true })
   } catch (err: any) {

@@ -12,6 +12,8 @@ import {
   Activity, Target, AlertCircle, ChevronLeft,
   Sparkles, Brain, Hash, Fingerprint, Navigation,
   DollarSign, Percent, TriangleAlert, UserX, Award,
+  TrendingUp as TrendUp, Layers, Settings, Cpu,
+  Link2, Network, AlertOctagon, Wallet, ArrowDown, ArrowUp,
 } from 'lucide-react'
 import { LABEL_CONFIG } from '@/lib/risk/engine'
 
@@ -40,6 +42,29 @@ type Alert = {
 }
 
 type Store = { id: string; store_url: string; platform: string }
+
+type FinancialData = {
+  period: number; currency: string
+  loss: { productLoss: number; shippingLoss: number; returnShippingLoss: number; repackagingLoss: number; totalLoss: number }
+  prevLoss: { totalLoss: number }
+  blockedValue: number
+  collectionRate: number; refusalRate: number; prevRefusalRate: number; refusalRateChange: number
+  totalOrders: number; refusedCount: number; collectedCount: number; cancelledCount: number
+  projectedMonthlyLoss: number
+  daily: Array<{ date: string; refused: number; collected: number; refusalValue: number; refusalRate: number }>
+  topLossCustomers: Array<{ id: string; name: string | null; phone: string | null; risk_score: number; risk_label: string; orders_refused: number; total_orders: number; totalLoss: number; lossOrders: number }>
+}
+
+type HeatmapPoint = {
+  county: string; name: string; lat: number; lng: number
+  total: number; refused: number; collected: number
+  refusalRate: number; totalValue: number; refusedValue: number; riskLevel: string
+}
+
+type ClusterMatch = {
+  matchedCustomerId: string; similarity: number; matchReason: string[]
+  customer: { id: string; name: string | null; phone: string | null; email: string | null; risk_score: number; risk_label: string; orders_refused: number; total_orders: number } | null
+}
 
 // ─── CONSTANTS ───────────────────────────────────────────────────────────────
 
@@ -342,6 +367,302 @@ function timeAgo(dateStr: string) {
   return `${Math.floor(d / 30)}l`
 }
 
+
+// ─── CLUSTER TAB COMPONENT ────────────────────────────────────────────────────
+function ClusterTab({ storeId, customers, onOpenProfile }: {
+  storeId: string
+  customers: Array<{ id: string; name: string | null; phone: string | null; risk_score: number; risk_label: string }>
+  onOpenProfile: (id: string) => void
+}) {
+  const [loading, setLoading] = useState(false)
+  const [clusters, setClusters] = useState<any[]>([])
+  const [ran, setRan] = useState(false)
+
+  const runClustering = async () => {
+    setLoading(true)
+    try {
+      const res = await fetch('/api/risk/cluster', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ store_id: storeId }),
+      })
+      const data = await res.json()
+      setClusters(data.clusters || [])
+      setRan(true)
+    } catch {}
+    setLoading(false)
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-sm font-semibold text-gray-700">Detectare Identități Multiple</h2>
+          <p className="text-xs text-gray-400 mt-0.5">Clienți care comandă cu telefoane sau emailuri diferite</p>
+        </div>
+        <button onClick={runClustering} disabled={loading}
+          className="flex items-center gap-2 px-4 py-2 bg-gray-900 text-white text-sm rounded-xl hover:bg-gray-800 disabled:opacity-50">
+          <Layers className={`h-4 w-4 ${loading ? 'animate-pulse' : ''}`} />
+          {loading ? 'Analizez...' : 'Rulează Analiza'}
+        </button>
+      </div>
+
+      {!ran && !loading && (
+        <div className="bg-gray-50 rounded-2xl p-8 text-center border-2 border-dashed border-gray-200">
+          <Network className="h-10 w-10 text-gray-300 mx-auto mb-3" />
+          <p className="text-sm font-medium text-gray-600 mb-1">Analiză Clustering Identitate</p>
+          <p className="text-xs text-gray-400 mb-4 max-w-xs mx-auto">
+            Algoritmul detectează clienți care folosesc date diferite (telefon, email, nume) dar par a fi aceeași persoană, bazat pe similaritate nume + adresă.
+          </p>
+          <button onClick={runClustering} className="px-5 py-2 bg-gray-900 text-white text-sm rounded-xl hover:bg-gray-800">
+            Pornește analiza
+          </button>
+        </div>
+      )}
+
+      {loading && (
+        <div className="flex flex-col items-center justify-center py-16 gap-3">
+          <div className="h-8 w-8 border-2 border-gray-900 border-t-transparent rounded-full animate-spin" />
+          <p className="text-sm text-gray-500">Procesez {customers.length} clienți...</p>
+        </div>
+      )}
+
+      {ran && !loading && clusters.length === 0 && (
+        <div className="text-center py-12">
+          <CheckCircle2 className="h-10 w-10 text-emerald-200 mx-auto mb-3" />
+          <p className="text-sm font-medium text-gray-600">Niciun cluster detectat</p>
+          <p className="text-xs text-gray-400 mt-1">Nu au fost identificate identități multiple suspecte</p>
+        </div>
+      )}
+
+      {clusters.length > 0 && (
+        <div className="space-y-3">
+          <p className="text-xs text-gray-500">{clusters.length} grupuri de identități similare detectate</p>
+          {clusters.map((cluster, i) => (
+            <div key={i} className={`bg-white border rounded-2xl p-4 ${cluster.riskLevel === 'high' ? 'border-red-200' : 'border-amber-200'}`}>
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <span className={`h-2 w-2 rounded-full ${cluster.riskLevel === 'high' ? 'bg-red-500' : 'bg-amber-400'}`} />
+                  <span className="text-sm font-semibold text-gray-900">{cluster.memberCount} identități similare</span>
+                </div>
+                <div className="flex items-center gap-2 text-xs text-gray-500">
+                  <span className="text-red-600 font-bold">{cluster.combinedRefusals} refuzuri combinate</span>
+                  <span>·</span>
+                  <span>Scor max: {cluster.maxRiskScore}</span>
+                </div>
+              </div>
+              <div className="space-y-2">
+                {cluster.members.map((m: any) => (
+                  <div key={m.id}
+                    className="flex items-center gap-3 p-2 rounded-xl bg-gray-50 hover:bg-gray-100 cursor-pointer"
+                    onClick={() => onOpenProfile(m.id)}>
+                    <div className={`h-8 w-8 rounded-xl flex items-center justify-center text-xs font-bold ${m.risk_label === 'blocked' ? 'bg-red-600 text-white' : m.risk_label === 'problematic' ? 'bg-orange-500 text-white' : 'bg-gray-200 text-gray-700'}`}>
+                      {(m.name || m.phone || '?')[0].toUpperCase()}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium text-gray-900 truncate">{m.name || '—'}</p>
+                      <p className="text-[11px] text-gray-400 truncate">{m.phone || m.email || m.id.slice(0, 8)}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${m.risk_label === 'blocked' ? 'bg-red-100 text-red-700' : m.risk_label === 'problematic' ? 'bg-orange-100 text-orange-700' : 'bg-gray-100 text-gray-600'}`}>
+                        {m.risk_score}
+                      </span>
+                      <ChevronRight className="h-3 w-3 text-gray-300" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── SETTINGS TAB COMPONENT ───────────────────────────────────────────────────
+function SettingsTab({ settings, mlAccuracy, mlTotalPredictions, savingSettings, onSave }: {
+  settings: any
+  mlAccuracy: number | null
+  mlTotalPredictions: number
+  savingSettings: boolean
+  onSave: (updates: any) => Promise<void>
+}) {
+  const [local, setLocal] = useState<any>(settings || {})
+
+  // Sync cu settings parent
+  if (settings && JSON.stringify(settings) !== JSON.stringify(local) && Object.keys(local).length < 5) {
+    setLocal(settings)
+  }
+
+  const set = (key: string, val: any) => setLocal((prev: any) => ({ ...prev, [key]: val }))
+
+  const handleSave = async () => {
+    await onSave(local)
+  }
+
+  if (!settings) return (
+    <div className="flex items-center justify-center py-16">
+      <div className="h-6 w-6 border-2 border-gray-300 border-t-transparent rounded-full animate-spin" />
+    </div>
+  )
+
+  return (
+    <div className="space-y-5 max-w-2xl">
+
+      {/* Notificări Email */}
+      <div className="bg-white border border-gray-100 rounded-2xl p-5">
+        <h3 className="text-sm font-semibold text-gray-900 mb-4 flex items-center gap-2">
+          <Bell className="h-4 w-4" />Notificări Email
+        </h3>
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs text-gray-500 mb-1 block">Email pentru alerte</label>
+            <input type="email" value={local.alert_email || ''} onChange={e => set('alert_email', e.target.value)}
+              placeholder="email@magazin.ro"
+              className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-gray-400" />
+          </div>
+          {[
+            { key: 'email_alerts_enabled', label: 'Alerte instant per comandă riscantă' },
+            { key: 'alert_on_blocked', label: 'Alertă pentru clienți Blocați' },
+            { key: 'alert_on_problematic', label: 'Alertă pentru clienți Problematici' },
+            { key: 'alert_on_watch', label: 'Alertă pentru clienți Watch' },
+            { key: 'weekly_report_enabled', label: 'Raport săptămânal (luni 08:00)' },
+          ].map(item => (
+            <div key={item.key} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
+              <span className="text-sm text-gray-700">{item.label}</span>
+              <button onClick={() => set(item.key, !local[item.key])}
+                className={`relative w-11 h-6 rounded-full transition-colors ${local[item.key] ? 'bg-gray-900' : 'bg-gray-200'}`}>
+                <span className={`absolute top-1 h-4 w-4 rounded-full bg-white shadow transition-all ${local[item.key] ? 'left-6' : 'left-1'}`} />
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Praguri scor */}
+      <div className="bg-white border border-gray-100 rounded-2xl p-5">
+        <h3 className="text-sm font-semibold text-gray-900 mb-4 flex items-center gap-2">
+          <Target className="h-4 w-4" />Praguri Scor Risc
+        </h3>
+        <div className="space-y-4">
+          {[
+            { key: 'score_watch_threshold', label: 'Prag Watch', color: 'text-amber-600', bg: 'bg-amber-50' },
+            { key: 'score_problematic_threshold', label: 'Prag Problematic', color: 'text-orange-600', bg: 'bg-orange-50' },
+            { key: 'score_blocked_threshold', label: 'Prag Blocat', color: 'text-red-600', bg: 'bg-red-50' },
+          ].map(item => (
+            <div key={item.key} className="flex items-center gap-4">
+              <span className="text-xs text-gray-500 w-36 shrink-0">{item.label}</span>
+              <input type="range" min={20} max={95} step={1}
+                value={local[item.key] || 50}
+                onChange={e => set(item.key, parseInt(e.target.value))}
+                className="flex-1" />
+              <span className={`text-sm font-bold w-10 text-right ${item.color}`}>{local[item.key]}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Reguli detecție */}
+      <div className="bg-white border border-gray-100 rounded-2xl p-5">
+        <h3 className="text-sm font-semibold text-gray-900 mb-4 flex items-center gap-2">
+          <Shield className="h-4 w-4" />Reguli Detecție
+        </h3>
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs text-gray-500 mb-1 block">Max comenzi/zi</label>
+              <input type="number" min={1} max={20} value={local.max_orders_per_day || 3}
+                onChange={e => set('max_orders_per_day', parseInt(e.target.value))}
+                className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-gray-400" />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 mb-1 block">Rată min ridicare (%)</label>
+              <input type="number" min={10} max={100} value={local.min_collection_rate_pct || 50}
+                onChange={e => set('min_collection_rate_pct', parseInt(e.target.value))}
+                className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-gray-400" />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 mb-1 block">Prag COD valoare mare (RON)</label>
+              <input type="number" min={100} value={local.flag_high_value_cod_ron || 500}
+                onChange={e => set('flag_high_value_cod_ron', parseInt(e.target.value))}
+                className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-gray-400" />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 mb-1 block">Cont nou (zile)</label>
+              <input type="number" min={0} max={30} value={local.flag_new_account_days || 7}
+                onChange={e => set('flag_new_account_days', parseInt(e.target.value))}
+                className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-gray-400" />
+            </div>
+          </div>
+          {[
+            { key: 'flag_night_orders', label: 'Detectează comenzi de noapte (00:00-06:00)' },
+            { key: 'flag_temp_email', label: 'Detectează emailuri temporare' },
+            { key: 'participate_in_global_blacklist', label: 'Participă la blacklist global Hontrio' },
+          ].map(item => (
+            <div key={item.key} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
+              <span className="text-sm text-gray-700">{item.label}</span>
+              <button onClick={() => set(item.key, !local[item.key])}
+                className={`relative w-11 h-6 rounded-full transition-colors ${local[item.key] ? 'bg-gray-900' : 'bg-gray-200'}`}>
+                <span className={`absolute top-1 h-4 w-4 rounded-full bg-white shadow transition-all ${local[item.key] ? 'left-6' : 'left-1'}`} />
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ML Model */}
+      <div className="bg-white border border-gray-100 rounded-2xl p-5">
+        <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+          <Cpu className="h-4 w-4" />Scoring Adaptiv (ML)
+        </h3>
+        <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl mb-3">
+          <div className="h-14 w-14 rounded-2xl bg-gray-900 flex items-center justify-center">
+            <span className="text-white text-xl font-black">{mlAccuracy !== null ? `${mlAccuracy}%` : '—'}</span>
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-gray-900">Acuratețe model</p>
+            <p className="text-xs text-gray-500 mt-0.5">{mlTotalPredictions} predicții procesate</p>
+            {mlTotalPredictions < 20 && (
+              <p className="text-[10px] text-amber-500 mt-1">⚡ Modelul se calibrează — minim 20 comenzi finalizate</p>
+            )}
+          </div>
+        </div>
+        <p className="text-xs text-gray-400 leading-relaxed">
+          Modelul ML ajustează automat ponderea fiecărui semnal de risc în funcție de rezultatele reale ale comenzilor tale.
+          Cu cât mai multe comenzi sunt finalizate (ridicate sau refuzate), cu atât predicțiile devin mai precise pentru magazinul tău specific.
+        </p>
+      </div>
+
+      {/* Costuri transport pentru calcul pierderi */}
+      <div className="bg-white border border-gray-100 rounded-2xl p-5">
+        <h3 className="text-sm font-semibold text-gray-900 mb-4 flex items-center gap-2">
+          <Wallet className="h-4 w-4" />Costuri Transport (pentru calcul pierderi)
+        </h3>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="text-xs text-gray-500 mb-1 block">Cost livrare (RON)</label>
+            <input type="number" min={0} value={local.shipping_cost_ron || 15}
+              onChange={e => set('shipping_cost_ron', parseInt(e.target.value))}
+              className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-gray-400" />
+          </div>
+          <div>
+            <label className="text-xs text-gray-500 mb-1 block">Cost retur (RON)</label>
+            <input type="number" min={0} value={local.return_shipping_cost_ron || 12}
+              onChange={e => set('return_shipping_cost_ron', parseInt(e.target.value))}
+              className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-gray-400" />
+          </div>
+        </div>
+      </div>
+
+      <button onClick={handleSave} disabled={savingSettings}
+        className="w-full py-3 bg-gray-900 text-white text-sm font-semibold rounded-2xl hover:bg-gray-800 disabled:opacity-50 transition-colors">
+        {savingSettings ? 'Salvare...' : 'Salvează toate setările'}
+      </button>
+    </div>
+  )
+}
+
 // ─── MAIN PAGE ────────────────────────────────────────────────────────────────
 
 export default function RiskShieldPage() {
@@ -356,13 +677,26 @@ export default function RiskShieldPage() {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
   const [customerOrders, setCustomerOrders] = useState<Order[]>([])
   const [showProfile, setShowProfile] = useState(false)
-  const [activeTab, setActiveTab] = useState<'customers' | 'alerts' | 'analytics'>('customers')
-  const [profileTab, setProfileTab] = useState<'overview' | 'timeline' | 'addresses'>('overview')
+  const [activeTab, setActiveTab] = useState<'customers' | 'alerts' | 'financial' | 'heatmap' | 'clusters' | 'analytics' | 'settings'>('customers')
+  const [profileTab, setProfileTab] = useState<'overview' | 'timeline' | 'addresses' | '360'>('overview')
   const [unreadAlerts, setUnreadAlerts] = useState(0)
   const [editNote, setEditNote] = useState('')
   const [savingNote, setSavingNote] = useState(false)
   const [importingHistory, setImportingHistory] = useState(false)
   const [updatingOrder, setUpdatingOrder] = useState<string | null>(null)
+  // New feature states
+  const [financialData, setFinancialData] = useState<FinancialData | null>(null)
+  const [financialPeriod, setFinancialPeriod] = useState(30)
+  const [loadingFinancial, setLoadingFinancial] = useState(false)
+  const [heatmapData, setHeatmapData] = useState<HeatmapPoint[]>([])
+  const [nationalRefusalRate, setNationalRefusalRate] = useState(0)
+  const [loadingHeatmap, setLoadingHeatmap] = useState(false)
+  const [clusterMatches, setClusterMatches] = useState<ClusterMatch[]>([])
+  const [loadingCluster, setLoadingCluster] = useState(false)
+  const [mlAccuracy, setMlAccuracy] = useState<number | null>(null)
+  const [mlTotalPredictions, setMlTotalPredictions] = useState(0)
+  const [storeSettings, setStoreSettings] = useState<any>(null)
+  const [savingSettings, setSavingSettings] = useState(false)
   const searchRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => { fetchStores() }, [])
@@ -370,6 +704,15 @@ export default function RiskShieldPage() {
   useEffect(() => {
     if (selectedStore) { fetchCustomers(selectedStore); fetchAlerts(selectedStore) }
   }, [selectedStore, labelFilter])
+
+  // Fetch data when switching to new tabs
+  useEffect(() => {
+    if (!selectedStore) return
+    if (activeTab === 'financial' && !financialData) fetchFinancial()
+    if (activeTab === 'heatmap' && heatmapData.length === 0) fetchHeatmap()
+    if (activeTab === 'settings' && !storeSettings) fetchStoreSettings()
+    if (activeTab === 'analytics') fetchMLStats()
+  }, [activeTab, selectedStore])
 
   useEffect(() => {
     if (searchRef.current) clearTimeout(searchRef.current)
@@ -489,6 +832,76 @@ export default function RiskShieldPage() {
       setCustomers(prev => prev.map(c => c.id === customerId ? { ...c, risk_label: label as any, manual_label_override: label } : c))
       if (selectedCustomer?.id === customerId) setSelectedCustomer(prev => prev ? { ...prev, risk_label: label as any, manual_label_override: label } : null)
     }
+  }
+
+  const fetchFinancial = async (period?: number) => {
+    if (!selectedStore) return
+    const p = period || financialPeriod
+    setLoadingFinancial(true)
+    try {
+      const res = await fetch(`/api/risk/financial?store_id=${selectedStore}&period=${p}`)
+      const data = await res.json()
+      setFinancialData(data)
+    } catch {}
+    setLoadingFinancial(false)
+  }
+
+  const fetchHeatmap = async () => {
+    if (!selectedStore) return
+    setLoadingHeatmap(true)
+    try {
+      const res = await fetch(`/api/risk/heatmap?store_id=${selectedStore}&period=90`)
+      const data = await res.json()
+      setHeatmapData(data.heatmap || [])
+      setNationalRefusalRate(data.nationalRefusalRate || 0)
+    } catch {}
+    setLoadingHeatmap(false)
+  }
+
+  const fetchClusterForCustomer = async (customerId: string) => {
+    if (!selectedStore) return
+    setLoadingCluster(true)
+    try {
+      const res = await fetch(`/api/risk/cluster?customer_id=${customerId}&store_id=${selectedStore}`)
+      const data = await res.json()
+      setClusterMatches(data.matches || [])
+    } catch {}
+    setLoadingCluster(false)
+  }
+
+  const fetchMLStats = async () => {
+    if (!selectedStore) return
+    try {
+      const res = await fetch(`/api/risk/ml-calibrate?store_id=${selectedStore}`)
+      const data = await res.json()
+      setMlAccuracy(data.accuracy)
+      setMlTotalPredictions(data.totalPredictions || 0)
+    } catch {}
+  }
+
+  const fetchStoreSettings = async () => {
+    if (!selectedStore) return
+    try {
+      const res = await fetch(`/api/risk/store-settings?store_id=${selectedStore}`)
+      const data = await res.json()
+      setStoreSettings(data.settings)
+      setMlAccuracy(data.mlAccuracy)
+      setMlTotalPredictions(data.mlTotalPredictions || 0)
+    } catch {}
+  }
+
+  const saveStoreSettings = async (updates: any) => {
+    if (!selectedStore) return
+    setSavingSettings(true)
+    try {
+      await fetch('/api/risk/store-settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ store_id: selectedStore, ...updates }),
+      })
+      setStoreSettings((prev: any) => ({ ...prev, ...updates }))
+    } catch {}
+    setSavingSettings(false)
   }
 
   const updateOrderStatus = async (orderId: string, status: string) => {
@@ -616,7 +1029,11 @@ export default function RiskShieldPage() {
         {[
           { key: 'customers', label: 'Clienți', icon: Users },
           { key: 'alerts', label: 'Alerte', icon: Bell, badge: unreadAlerts },
+          { key: 'financial', label: 'Financiar', icon: DollarSign },
+          { key: 'heatmap', label: 'Heatmap', icon: MapPin },
+          { key: 'clusters', label: 'Clustere', icon: Network },
           { key: 'analytics', label: 'Analytics', icon: BarChart3 },
+          { key: 'settings', label: 'Setări', icon: Settings },
         ].map(tab => (
           <button
             key={tab.key}
@@ -791,6 +1208,233 @@ export default function RiskShieldPage() {
       )}
 
       {/* ══ TAB: ANALYTICS ════════════════════════════════════════════════════ */}
+      {/* ══ TAB: FINANCIAL ══════════════════════════════════════════════════════ */}
+      {activeTab === 'financial' && (
+        <div className="space-y-4">
+          {/* Period selector */}
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-gray-700">Raport Financiar Pierderi</h2>
+            <div className="flex gap-1 bg-gray-100 rounded-xl p-1">
+              {[7, 30, 90].map(p => (
+                <button key={p}
+                  onClick={() => { setFinancialPeriod(p); fetchFinancial(p) }}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${financialPeriod === p ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}
+                >{p}z</button>
+              ))}
+            </div>
+          </div>
+
+          {loadingFinancial ? (
+            <div className="flex items-center justify-center py-16">
+              <div className="h-8 w-8 border-2 border-gray-900 border-t-transparent rounded-full animate-spin" />
+            </div>
+          ) : financialData ? (
+            <>
+              {/* Total pierderi hero */}
+              <div className="bg-gray-900 rounded-2xl p-5 text-white">
+                <p className="text-xs text-gray-400 uppercase tracking-widest mb-1">Pierderi totale ({financialData.period} zile)</p>
+                <div className="flex items-end gap-3 mb-4">
+                  <p className="text-4xl font-black">{financialData.loss.totalLoss.toLocaleString()} RON</p>
+                  {financialData.refusalRateChange !== 0 && (
+                    <span className={`text-sm font-medium pb-1 flex items-center gap-1 ${financialData.refusalRateChange > 0 ? 'text-red-400' : 'text-emerald-400'}`}>
+                      {financialData.refusalRateChange > 0 ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
+                      {Math.abs(financialData.refusalRateChange)}% față de perioada anterioară
+                    </span>
+                  )}
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {[
+                    { label: 'Valoare marfă', val: financialData.loss.productLoss },
+                    { label: 'Transport dus', val: financialData.loss.shippingLoss },
+                    { label: 'Transport întors', val: financialData.loss.returnShippingLoss },
+                    { label: 'Reimpachetare', val: financialData.loss.repackagingLoss },
+                  ].map(item => (
+                    <div key={item.label} className="bg-white/10 rounded-xl p-3">
+                      <p className="text-xl font-bold">{item.val.toLocaleString()}</p>
+                      <p className="text-xs text-gray-400 mt-0.5">{item.label}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* KPI row */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                <div className="bg-white border border-gray-100 rounded-2xl p-4">
+                  <p className="text-2xl font-black text-emerald-600">{financialData.collectionRate}%</p>
+                  <p className="text-xs text-gray-500 mt-1">Rată ridicare</p>
+                </div>
+                <div className="bg-white border border-gray-100 rounded-2xl p-4">
+                  <p className={`text-2xl font-black ${financialData.refusalRate > 20 ? 'text-red-600' : 'text-gray-900'}`}>{financialData.refusalRate}%</p>
+                  <p className="text-xs text-gray-500 mt-1">Rată refuz</p>
+                </div>
+                <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-4 col-span-2 sm:col-span-1">
+                  <p className="text-2xl font-black text-emerald-700">{financialData.blockedValue.toLocaleString()} RON</p>
+                  <p className="text-xs text-emerald-600 mt-1">💰 Pierderi evitate</p>
+                </div>
+              </div>
+
+              {/* Proiecție lunară */}
+              <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-center gap-4">
+                <AlertOctagon className="h-8 w-8 text-amber-500 shrink-0" />
+                <div>
+                  <p className="text-sm font-bold text-amber-900">Proiecție lunară: {financialData.projectedMonthlyLoss.toLocaleString()} RON pierderi</p>
+                  <p className="text-xs text-amber-700 mt-0.5">Calculat din ritmul ultimelor 7 zile · Fără intervenție Risk Shield</p>
+                </div>
+              </div>
+
+              {/* Trending zilnic (mini chart) */}
+              {financialData.daily.length > 0 && (
+                <div className="bg-white border border-gray-100 rounded-2xl p-4">
+                  <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-3">Refuzuri zilnice</h3>
+                  <div className="flex items-end gap-1 h-20">
+                    {financialData.daily.slice(-30).map((d, i) => {
+                      const maxVal = Math.max(...financialData.daily.slice(-30).map(x => x.refused), 1)
+                      const h = d.refused > 0 ? Math.max((d.refused / maxVal) * 100, 8) : 2
+                      return (
+                        <div key={i} className="flex-1 flex flex-col items-center gap-0.5 group relative">
+                          <div
+                            className={`w-full rounded-t transition-all ${d.refused > 0 ? 'bg-red-400 group-hover:bg-red-500' : 'bg-gray-100'}`}
+                            style={{ height: `${h}%` }}
+                          />
+                          <div className="absolute bottom-full mb-1 hidden group-hover:block bg-gray-900 text-white text-[10px] px-2 py-1 rounded whitespace-nowrap z-10">
+                            {d.date.slice(5)}: {d.refused} refuzuri
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Top clienți cu pierderi */}
+              {financialData.topLossCustomers.length > 0 && (
+                <div className="bg-white border border-gray-100 rounded-2xl p-4">
+                  <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-3">Top clienți după pierderi cauzate</h3>
+                  <div className="space-y-2">
+                    {financialData.topLossCustomers.map((c, i) => (
+                      <div key={c.id} className="flex items-center gap-3 p-2 rounded-xl hover:bg-gray-50 cursor-pointer"
+                        onClick={() => { const cust = customers.find(x => x.id === c.id); if (cust) openProfile(cust) }}>
+                        <span className="text-xl font-black text-gray-200 w-6 text-center">{i+1}</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-gray-900 truncate">{c.name || c.phone || '—'}</p>
+                          <p className="text-xs text-gray-400">{c.lossOrders} colete refuzate</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm font-bold text-red-600">{c.totalLoss.toLocaleString()} RON</p>
+                          <RiskBadge label={c.risk_label as any} score={c.risk_score} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="text-center py-16">
+              <DollarSign className="h-10 w-10 text-gray-200 mx-auto mb-3" />
+              <button onClick={() => fetchFinancial()} className="px-4 py-2 bg-gray-900 text-white text-sm rounded-xl">Încarcă datele financiare</button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ══ TAB: HEATMAP ════════════════════════════════════════════════════════ */}
+      {activeTab === 'heatmap' && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-sm font-semibold text-gray-700">Heatmap Geografic Risc</h2>
+              <p className="text-xs text-gray-400 mt-0.5">Rată refuz pe județe · ultimele 90 zile</p>
+            </div>
+            <button onClick={fetchHeatmap} disabled={loadingHeatmap}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-gray-100 text-gray-600 text-xs hover:bg-gray-200 disabled:opacity-50">
+              <RefreshCw className={`h-3.5 w-3.5 ${loadingHeatmap ? 'animate-spin' : ''}`} />Actualizează
+            </button>
+          </div>
+
+          {loadingHeatmap ? (
+            <div className="flex items-center justify-center py-16">
+              <div className="h-8 w-8 border-2 border-gray-900 border-t-transparent rounded-full animate-spin" />
+            </div>
+          ) : heatmapData.length > 0 ? (
+            <>
+              {/* Legendă */}
+              <div className="flex items-center gap-4 text-xs text-gray-500">
+                <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded bg-emerald-400 inline-block" />Scăzut (&lt;15%)</span>
+                <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded bg-amber-400 inline-block" />Mediu (15-30%)</span>
+                <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded bg-red-500 inline-block" />Ridicat (&gt;30%)</span>
+                <span className="ml-auto text-gray-400">Media națională: <strong className="text-gray-600">{nationalRefusalRate}%</strong></span>
+              </div>
+
+              {/* Lista județe sortată */}
+              <div className="bg-white border border-gray-100 rounded-2xl overflow-hidden">
+                <div className="grid grid-cols-[1fr_auto_auto_auto] gap-0 text-[11px] text-gray-500 uppercase tracking-wider px-4 py-2 bg-gray-50 border-b border-gray-100">
+                  <span>Județ</span>
+                  <span className="text-right pr-4">Comenzi</span>
+                  <span className="text-right pr-4">Refuzuri</span>
+                  <span className="text-right">Rată</span>
+                </div>
+                <div className="divide-y divide-gray-50 max-h-96 overflow-y-auto">
+                  {heatmapData.map(point => (
+                    <div key={point.county} className="grid grid-cols-[1fr_auto_auto_auto] gap-0 px-4 py-3 items-center hover:bg-gray-50">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className={`h-2 w-2 rounded-full shrink-0 ${point.riskLevel === 'high' ? 'bg-red-500' : point.riskLevel === 'medium' ? 'bg-amber-400' : 'bg-emerald-400'}`} />
+                          <span className="text-sm font-medium text-gray-900">{point.name}</span>
+                        </div>
+                        <div className="ml-4 mt-0.5 h-1.5 w-32 bg-gray-100 rounded-full overflow-hidden">
+                          <div className={`h-full rounded-full transition-all ${point.riskLevel === 'high' ? 'bg-red-400' : point.riskLevel === 'medium' ? 'bg-amber-400' : 'bg-emerald-400'}`}
+                            style={{ width: `${Math.min(point.refusalRate * 2, 100)}%` }} />
+                        </div>
+                      </div>
+                      <span className="text-xs text-gray-500 text-right pr-4">{point.total}</span>
+                      <span className="text-xs text-gray-700 text-right pr-4">{point.refused}</span>
+                      <span className={`text-sm font-bold text-right ${point.riskLevel === 'high' ? 'text-red-600' : point.riskLevel === 'medium' ? 'text-amber-600' : 'text-emerald-600'}`}>
+                        {point.refusalRate}%
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Top 3 județe cu risc */}
+              <div className="grid grid-cols-3 gap-2">
+                {heatmapData.slice(0, 3).map((p, i) => (
+                  <div key={p.county} className={`rounded-2xl p-3 border ${p.riskLevel === 'high' ? 'bg-red-50 border-red-100' : 'bg-amber-50 border-amber-100'}`}>
+                    <p className="text-[10px] text-gray-500 mb-1">#{i+1} risc maxim</p>
+                    <p className="text-sm font-bold text-gray-900">{p.name}</p>
+                    <p className={`text-xl font-black mt-1 ${p.riskLevel === 'high' ? 'text-red-600' : 'text-amber-600'}`}>{p.refusalRate}%</p>
+                    <p className="text-[10px] text-gray-400 mt-0.5">{p.refused}/{p.total} comenzi</p>
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : (
+            <div className="text-center py-16">
+              <MapPin className="h-10 w-10 text-gray-200 mx-auto mb-3" />
+              <p className="text-sm text-gray-400 mb-3">Nu există date suficiente pentru heatmap</p>
+              <p className="text-xs text-gray-300">Adresele din comenzile tale trebuie să conțină numele orașului</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ══ TAB: CLUSTERS ═══════════════════════════════════════════════════════ */}
+      {activeTab === 'clusters' && (
+        <ClusterTab storeId={selectedStore} customers={customers} onOpenProfile={(id) => { const c = customers.find(x => x.id === id); if (c) openProfile(c) }} />
+      )}
+
+      {/* ══ TAB: SETTINGS ═══════════════════════════════════════════════════════ */}
+      {activeTab === 'settings' && (
+        <SettingsTab
+          settings={storeSettings}
+          mlAccuracy={mlAccuracy}
+          mlTotalPredictions={mlTotalPredictions}
+          savingSettings={savingSettings}
+          onSave={saveStoreSettings}
+        />
+      )}
+
       {activeTab === 'analytics' && (
         <div className="space-y-5">
           <div className="grid grid-cols-2 gap-2 sm:gap-3">
@@ -926,6 +1570,7 @@ export default function RiskShieldPage() {
                   { key: 'overview', label: 'Profil' },
                   { key: 'timeline', label: 'Istoric' },
                   { key: 'addresses', label: 'Adrese' },
+                  { key: '360', label: '360°' },
                 ].map(tab => (
                   <button
                     key={tab.key}
