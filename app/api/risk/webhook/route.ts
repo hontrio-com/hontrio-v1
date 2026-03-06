@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { calculateRiskScore, hashIdentifier, recalibrateWeights, DEFAULT_ML_WEIGHTS, type CustomerHistory, type OrderContext, type MLWeights } from '@/lib/risk/engine'
 import { sendRiskAlert } from '@/lib/risk/notifications'
-import { findClusterMatches, extractCity, type ClusterCandidate } from '@/lib/risk/cluster'
+import { findClusterMatches, extractCity, normalizeRomanian, stringSimilarity, type ClusterCandidate } from '@/lib/risk/cluster'
 import { decrypt } from '@/lib/security/encryption'
 import crypto from 'crypto'
 
@@ -396,25 +396,59 @@ export async function POST(req: Request) {
         return NextResponse.json({ ok: true, skipped: 'no_contact_info' })
       }
 
-      // Caută clientul existent
+      // Caută clientul existent — logică strictă de identitate
+      // Un client = combinație unică phone + email + name
+      // Același telefon, alt nume = client NOU (identitate diferită)
       let customer: any = null
+      const normalizedIncomingName = customerName ? normalizeRomanian(customerName) : null
+
       if (customerPhone) {
-        const { data } = await supabase
+        const { data: phoneMatches } = await supabase
           .from('risk_customers')
           .select('*')
           .eq('store_id', storeId)
           .eq('phone', customerPhone)
-          .single()
-        customer = data
+
+        if (phoneMatches && phoneMatches.length > 0) {
+          if (!normalizedIncomingName) {
+            customer = phoneMatches[0]
+          } else {
+            customer = phoneMatches.find((c: any) => {
+              if (!c.name) return true
+              return stringSimilarity(normalizedIncomingName, normalizeRomanian(c.name)) >= 0.85
+            }) || null
+          }
+        }
       }
+
       if (!customer && customerEmail) {
-        const { data } = await supabase
+        const { data: emailMatches } = await supabase
           .from('risk_customers')
           .select('*')
           .eq('store_id', storeId)
           .eq('email', customerEmail)
-          .single()
-        customer = data
+
+        if (emailMatches && emailMatches.length > 0) {
+          if (!normalizedIncomingName) {
+            customer = emailMatches[0]
+          } else {
+            customer = emailMatches.find((c: any) => {
+              if (!c.name) return true
+              return stringSimilarity(normalizedIncomingName, normalizeRomanian(c.name)) >= 0.85
+            }) || null
+          }
+        }
+      }
+
+      // Câți clienți diferiți au același telefon (pentru flag multiple_identities)
+      let samePhoneCount = 0
+      if (customerPhone) {
+        const { count } = await supabase
+          .from('risk_customers')
+          .select('id', { count: 'exact', head: true })
+          .eq('store_id', storeId)
+          .eq('phone', customerPhone)
+        samePhoneCount = count || 0
       }
 
       // Verifică dacă comanda există deja (pentru update)
@@ -604,6 +638,7 @@ export async function POST(req: Request) {
           phoneValidated: !!(customerPhone?.match(/^(07\d{8}|02\d{8}|03\d{8})$/)),
           isNewAccount: !customer,
           addressChanges,
+          uniquePhoneCount: samePhoneCount > 1 ? samePhoneCount : undefined,
         }
 
         const orderCtx: OrderContext = {
@@ -623,7 +658,7 @@ export async function POST(req: Request) {
           user_id: userId,
           phone: customerPhone || customer?.phone,
           email: customerEmail || customer?.email,
-          name: customerName || customer?.name,
+          name: customer ? (customer.name || customerName) : customerName,
           risk_score: result.score,
           risk_label: finalLabel,
           total_orders: (customer?.total_orders || 0) + 1,

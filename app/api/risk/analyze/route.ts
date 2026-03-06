@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/auth.config'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { calculateRiskScore, hashIdentifier, type CustomerHistory, type OrderContext } from '@/lib/risk/engine'
+import { normalizeRomanian, stringSimilarity } from '@/lib/risk/cluster'
 import { openai } from '@/lib/openai/client'
 
 // ─── GET: AI Intelligence Report pentru un client ─────────────────────────────
@@ -126,25 +127,66 @@ export async function POST(req: Request) {
       score_blocked_threshold: settings?.score_blocked_threshold || 81,
     }
 
-    // Caută sau creează profilul clientului
+    // ─── Caută profilul clientului — logică strictă de identitate ──────────────
+    // Un client = combinație unică phone + email + name (normalizat)
+    // Același telefon dar alt nume = client diferit (flag multiple_identities)
     let customer: any = null
+    const normalizedIncomingName = customer_name ? normalizeRomanian(customer_name) : null
+
     if (customer_phone) {
-      const { data } = await supabase
+      // Ia TOȚI clienții cu același telefon din acest magazin
+      const { data: phoneMatches } = await supabase
         .from('risk_customers')
         .select('*')
         .eq('store_id', store_id)
         .eq('phone', customer_phone)
-        .single()
-      customer = data
+
+      if (phoneMatches && phoneMatches.length > 0) {
+        if (!normalizedIncomingName) {
+          // Fără nume — folosim primul match cu același telefon
+          customer = phoneMatches[0]
+        } else {
+          // Cu nume — căutăm match exact sau foarte similar (>85%)
+          const exactMatch = phoneMatches.find((c: any) => {
+            if (!c.name) return true // client fără nume stocat = same identity
+            return stringSimilarity(normalizedIncomingName, normalizeRomanian(c.name)) >= 0.85
+          })
+          customer = exactMatch || null
+          // Dacă nu am match de nume = client NOU cu același telefon (identitate diferită)
+        }
+      }
     }
+
+    // Fallback pe email dacă nu am găsit după telefon
     if (!customer && customer_email) {
-      const { data } = await supabase
+      const { data: emailMatches } = await supabase
         .from('risk_customers')
         .select('*')
         .eq('store_id', store_id)
         .eq('email', customer_email)
-        .single()
-      customer = data
+
+      if (emailMatches && emailMatches.length > 0) {
+        if (!normalizedIncomingName) {
+          customer = emailMatches[0]
+        } else {
+          const exactMatch = emailMatches.find((c: any) => {
+            if (!c.name) return true
+            return stringSimilarity(normalizedIncomingName, normalizeRomanian(c.name)) >= 0.85
+          })
+          customer = exactMatch || null
+        }
+      }
+    }
+
+    // Detectează câți clienți diferiți folosesc același telefon (pentru flag multiple_identities)
+    let samePhoneCount = 0
+    if (customer_phone) {
+      const { count } = await supabase
+        .from('risk_customers')
+        .select('id', { count: 'exact', head: true })
+        .eq('store_id', store_id)
+        .eq('phone', customer_phone)
+      samePhoneCount = count || 0
     }
 
     // Comenzi azi pentru același client
@@ -214,6 +256,8 @@ export async function POST(req: Request) {
       phoneValidated: !!(customer_phone && customer_phone.match(/^(07\d{8}|02\d{8}|03\d{8})$/)),
       isNewAccount: !customer,
       addressChanges,
+      // Câți clienți diferiți folosesc același telefon — activează flagul multiple_identities
+      uniquePhoneCount: samePhoneCount > 1 ? samePhoneCount : undefined,
     }
 
     const orderCtx: OrderContext = {
@@ -234,12 +278,16 @@ export async function POST(req: Request) {
     const finalLabel = customer?.manual_label_override || result.label
 
     // Upsert client
+    // IMPORTANT: name nu suprascrie niciodată numele existent al unui client deja înregistrat
+    // — același client poate comanda cu variatii minore de nume (Ion vs Ioan)
+    // — dar un client existent nu își schimbă identitatea
     const customerData = {
       store_id,
       user_id: session.user.id,
       phone: customer_phone || customer?.phone,
       email: customer_email || customer?.email,
-      name: customer_name || customer?.name,
+      // Păstrează numele original al clientului existent; pentru client nou, folosim numele din comandă
+      name: customer ? (customer.name || customer_name) : customer_name,
       risk_score: result.score,
       risk_label: finalLabel,
       total_orders: (customer?.total_orders || 0) + 1,
