@@ -121,7 +121,7 @@ Răspunde STRICT JSON valid cu raportul complet:
   }
 }
 
-// GET - list past reports
+// GET - list past reports (cu report_data complet pentru redeschidere)
 export async function GET(request: Request) {
   try {
     const session = await getServerSession(authOptions)
@@ -129,16 +129,44 @@ export async function GET(request: Request) {
     const userId = (session.user as any).id
     const supabase = createAdminClient()
 
+    const { searchParams } = new URL(request.url)
+    const reportId = searchParams.get('id')
+
+    // Daca se cere un raport specific (redeschidere), returneaza-l complet
+    if (reportId) {
+      const { data, error } = await supabase
+        .from('competitor_reports')
+        .select('id, competitor_url, generated_at, report_data')
+        .eq('id', reportId)
+        .eq('user_id', userId)
+        .single()
+
+      if (error || !data) return NextResponse.json({ error: 'Raport negasit' }, { status: 404 })
+      return NextResponse.json({ report: data.report_data })
+    }
+
+    // Lista toate rapoartele — doar campurile de preview (fara report_data complet)
     const { data, error } = await supabase
       .from('competitor_reports')
-      .select('id, competitor_url, generated_at, report_data->overall_winner, report_data->my_score, report_data->competitor_score')
+      .select('id, competitor_url, generated_at, report_data')
       .eq('user_id', userId)
       .order('generated_at', { ascending: false })
       .limit(20)
 
     if (error) return NextResponse.json({ reports: [] })
-    return NextResponse.json({ reports: data || [] })
+
+    // Extrage campurile de preview din report_data
+    const reports = (data || []).map((r: any) => ({
+      id: r.id,
+      competitor_url: r.competitor_url,
+      generated_at: r.generated_at,
+      overall_winner: r.report_data?.overall_winner || null,
+      my_score: r.report_data?.my_score || 0,
+      competitor_score: r.report_data?.competitor_score || 0,
+    }))
+
+    return NextResponse.json({ reports })
   } catch {
-    return NextResponse.json({ error: 'Eroare internă' }, { status: 500 })
+    return NextResponse.json({ error: 'Eroare interna' }, { status: 500 })
   }
 }

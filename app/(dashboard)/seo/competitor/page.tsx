@@ -447,6 +447,11 @@ function TabMonitor({ competitorUrl }: { competitorUrl: string }) {
     setAlerts(prev => prev.map(a => ({...a, is_read: true})))
   }
 
+  async function markOneRead(id: string) {
+    await fetch('/api/competitor/alerts', { method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ ids: [id] }) })
+    setAlerts(prev => prev.map(a => a.id===id ? {...a, is_read: true} : a))
+  }
+
   async function loadSnapshots(monitorId: string) {
     if (snapshots[monitorId]) return
     const res = await fetch(`/api/competitor/snapshots?monitor_id=${monitorId}&limit=30`)
@@ -582,7 +587,15 @@ function TabMonitor({ competitorUrl }: { competitorUrl: string }) {
                         </div>
                       )}
                     </div>
-                    <span className="text-[10px] text-gray-400 shrink-0">{new Date(a.created_at).toLocaleDateString('ro-RO')}</span>
+                    <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-[10px] text-gray-400">{new Date(a.created_at).toLocaleDateString('ro-RO')}</span>
+                    {!a.is_read && (
+                      <button onClick={()=>markOneRead(a.id)}
+                        className="text-[9px] font-semibold text-gray-400 hover:text-gray-600 bg-gray-100 hover:bg-gray-200 px-1.5 py-0.5 rounded transition-colors whitespace-nowrap">
+                        Citit
+                      </button>
+                    )}
+                  </div>
                   </div>
                 )
               })}
@@ -967,6 +980,15 @@ function TabReports({ myUrl, competitorUrl, result }: { myUrl:string; competitor
     setPastReports(data.reports||[])
   }
 
+  async function openReport(id: string) {
+    const res = await fetch(`/api/competitor/reports?id=${id}`)
+    const data = await res.json()
+    if(res.ok && data.report) {
+      setReport(data.report)
+      window.scrollTo({top:0,behavior:'smooth'})
+    }
+  }
+
   async function generate() {
     if(!result){setError('Ruleaza mai intai analiza Overview');return}
     setGenerating(true);setError('')
@@ -1123,11 +1145,22 @@ function TabReports({ myUrl, competitorUrl, result }: { myUrl:string; competitor
               <div key={r.id} className="flex items-center gap-4 px-5 py-3.5">
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-medium text-gray-700 truncate">{hn(r.competitor_url)}</p>
-                  <p className="text-[10px] text-gray-400">{new Date(r.generated_at).toLocaleDateString('ro-RO')}</p>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <p className="text-[10px] text-gray-400">{new Date(r.generated_at).toLocaleDateString('ro-RO')}</p>
+                    {(r.my_score||r.competitor_score) ? (
+                      <p className="text-[10px] text-gray-400">· {r.my_score} vs {r.competitor_score}</p>
+                    ) : null}
+                  </div>
                 </div>
-                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${r.overall_winner==='tu'?'text-emerald-600 bg-emerald-50':r.overall_winner==='competitor'?'text-red-500 bg-red-50':'text-gray-400 bg-gray-100'}`}>
-                  {r.overall_winner==='tu'?'Tu':r.overall_winner==='competitor'?'Competitor':'Egal'}
-                </span>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${r.overall_winner==='tu'?'text-emerald-600 bg-emerald-50':r.overall_winner==='competitor'?'text-red-500 bg-red-50':'text-gray-400 bg-gray-100'}`}>
+                    {r.overall_winner==='tu'?'Tu':r.overall_winner==='competitor'?'Competitor':'Egal'}
+                  </span>
+                  <button onClick={()=>openReport(r.id)}
+                    className="text-[10px] font-semibold text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-2.5 py-1 rounded-lg transition-colors">
+                    Deschide
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -1188,19 +1221,25 @@ export default function CompetitorPage() {
   }
 
   async function analyze() {
-    if(!myUrl.trim()||!competitorUrl.trim()) return
+    if(!competitorUrl.trim()) return
     setLoading(true);setError('');setResult(null)
     try {
-      const [a,b] = await Promise.all([
-        fetch('/api/seo/competitor',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({competitor_url:myUrl,product_id:null})}),
+      // Magazinul propriu: din DB — gratuit, 0 credite
+      // Competitorul: AI pe pagina live — 3 credite
+      const [myRes, theirRes] = await Promise.all([
+        fetch('/api/competitor/analyze-my-store'),
         fetch('/api/seo/competitor',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({competitor_url:competitorUrl,product_id:null})}),
       ])
-      const ad=await a.json(), bd=await b.json()
-      if(!a.ok){setError(ad.error||'Nu pot accesa magazinul tau');setLoading(false);return}
-      if(!b.ok){setError(bd.error||'Nu pot accesa URL-ul competitorului');setLoading(false);return}
+      const myData=await myRes.json(), theirData=await theirRes.json()
 
-      const my: StoreAnalysis = {url:myUrl,...ad.analysis}
-      const them: StoreAnalysis = {url:competitorUrl,...bd.analysis}
+      if(!myRes.ok){setError(myData.error||'Eroare la incarcarea magazinului tau');setLoading(false);return}
+      if(!theirRes.ok){setError(theirData.error||'Nu pot accesa URL-ul competitorului');setLoading(false);return}
+
+      // Actualizeaza myUrl cu URL-ul real al magazinului din DB
+      if(myData.store_url && !myUrl) setMyUrl(myData.store_url)
+
+      const my: StoreAnalysis = {url:myUrl||myData.store_url||'',...myData.analysis}
+      const them: StoreAnalysis = {url:competitorUrl,...theirData.analysis}
       const ms=calcCompetitorScore(my), ts=calcCompetitorScore(them)
 
       const titleOk=(s:StoreAnalysis)=>s.title?.length>=50&&s.title?.length<=70
@@ -1295,7 +1334,13 @@ export default function CompetitorPage() {
 
         {/* Info strip */}
         <div className="px-5 py-3 border-t border-gray-50 bg-gray-50/40 flex gap-4 flex-wrap">
-          {['Titlu & Meta','Keywords','Core Web Vitals','USP & Pricing','Monitoring','Rapoarte PDF'].map(t=>(
+          {[
+            'Magazin tău: gratuit (din DB)',
+            'Competitor: 3 credite',
+            'Keywords gap: 2 credite',
+            'Pricing & USP: 2 credite',
+            'Raport Battle: 3 credite',
+          ].map(t=>(
             <span key={t} className="text-[10px] text-gray-400 font-medium">{t}</span>
           ))}
         </div>
