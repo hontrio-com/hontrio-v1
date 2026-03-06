@@ -62,8 +62,22 @@ export async function POST(req: Request) {
         ],
       })
       const report = completion.choices[0]?.message?.content || 'Nu s-a putut genera raportul.'
+
+      // Deduce 2 credite — același pattern folosit în toate rutele
       const supabaseAi = createAdminClient()
-      await supabaseAi.rpc('decrement_credits', { user_id: (session.user as any).id, amount: 2 })
+      const userId = (session.user as any).id
+      const { data: userCredits } = await supabaseAi
+        .from('users').select('credits').eq('id', userId).single()
+      if (userCredits && userCredits.credits >= 2) {
+        const newBalance = userCredits.credits - 2
+        await supabaseAi.from('users').update({ credits: newBalance }).eq('id', userId)
+        await supabaseAi.from('credit_transactions').insert({
+          user_id: userId, type: 'usage', amount: -2, balance_after: newBalance,
+          description: 'AI Intelligence Report — Risk Shield',
+          reference_type: 'risk_ai_report',
+        })
+      }
+
       return NextResponse.json({ report })
     }
 

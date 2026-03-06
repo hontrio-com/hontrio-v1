@@ -52,10 +52,30 @@ export async function GET(req: Request) {
     if (store_id) q = q.eq('store_id', store_id)
     const { data: allCustomers } = await q
 
-    // Ia ultima adresă pentru fiecare
+    // Ia ultima adresă de livrare pentru fiecare client — esențial pentru similaritate adresă
+    const customerIds = (allCustomers || []).map((c: any) => c.id)
+    let addressMap: Record<string, string | null> = {}
+
+    if (customerIds.length > 0) {
+      // Ia ultima comandă per client cu o singură query
+      const { data: lastOrders } = await supabase
+        .from('risk_orders')
+        .select('customer_id, shipping_address')
+        .in('customer_id', customerIds)
+        .order('ordered_at', { ascending: false })
+
+      // Păstrează doar ultima adresă per client (prima din lista sortată desc)
+      for (const o of (lastOrders || [])) {
+        if (o.customer_id && !addressMap[o.customer_id]) {
+          addressMap[o.customer_id] = o.shipping_address || null
+        }
+      }
+    }
+
     const candidateList: ClusterCandidate[] = (allCustomers || []).map((c: any) => ({
       id: c.id, name: c.name, phone: c.phone, email: c.email,
-      shipping_address: null, city: null,
+      shipping_address: addressMap[c.id] || null,
+      city: extractCity(addressMap[c.id] || null),
     }))
 
     const matches = findClusterMatches(targetCandidate, candidateList, 0.72)

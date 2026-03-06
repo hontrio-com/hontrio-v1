@@ -697,6 +697,7 @@ export async function POST(req: Request) {
             // Trimite email instant dacă e activat
             if (matchedSettings.alert_email && matchedSettings.email_alerts_enabled !== false) {
               const baseUrl = process.env.NEXTAUTH_URL || 'https://app.hontrio.com'
+              // Fire-and-forget cu logging explicit — nu blocăm răspunsul webhook-ului
               sendRiskAlert({
                 to: matchedSettings.alert_email,
                 storeName: matchedStore.store_url.replace(/^https?:\/\//, '').replace(/\/$/, ''),
@@ -713,7 +714,11 @@ export async function POST(req: Request) {
                 recommendation: result.recommendation,
                 refusalProbability: result.refusalProbability,
                 dashboardUrl: `${baseUrl}/risk`,
-              }).catch(e => console.error('[Risk] Email alert failed:', e))
+              }).then(() => {
+                console.log('[Risk] Email alert sent to', matchedSettings.alert_email)
+              }).catch(e => {
+                console.error('[Risk] Email alert FAILED for order', externalOrderId, ':', e?.message || e)
+              })
             }
           }
         }

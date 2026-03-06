@@ -68,7 +68,7 @@ export async function PATCH(req: Request) {
       updated_at: new Date().toISOString(),
     }).eq('id', order_id)
 
-    // Update customer statistics
+    // Actualizează statisticile clientului și recalculează scorul complet
     if (order.customer_id) {
       const { data: customer } = await supabase
         .from('risk_customers')
@@ -79,32 +79,75 @@ export async function PATCH(req: Request) {
       if (customer) {
         const statUpdates: any = {}
         if (order_status === 'collected') statUpdates.orders_collected = (customer.orders_collected || 0) + 1
-        if (order_status === 'refused') statUpdates.orders_refused = (customer.orders_refused || 0) + 1
-        if (order_status === 'not_home') statUpdates.orders_not_home = (customer.orders_not_home || 0) + 1
+        if (order_status === 'refused')   statUpdates.orders_refused   = (customer.orders_refused   || 0) + 1
+        if (order_status === 'not_home')  statUpdates.orders_not_home  = (customer.orders_not_home  || 0) + 1
         if (order_status === 'cancelled') statUpdates.orders_cancelled = (customer.orders_cancelled || 0) + 1
 
         if (Object.keys(statUpdates).length) {
-          // Recalculează risk score cu noile statistici
-          const newHistory = {
-            ...customer,
-            ...statUpdates,
+          // Statistici actualizate pentru recalculare
+          const updatedStats = { ...customer, ...statUpdates }
+
+          // Recalculare completă a scorului cu engine-ul real (nu delta simplu)
+          const { calculateRiskScore } = await import('@/lib/risk/engine')
+
+          // Ia setările magazinului pentru praguri
+          const { data: storeSettings } = await supabase
+            .from('risk_store_settings')
+            .select('score_watch_threshold, score_problematic_threshold, score_blocked_threshold, custom_rules, ml_weights')
+            .eq('store_id', order.store_id)
+            .single()
+
+          const rules = {
+            ...(storeSettings?.custom_rules || {}),
+            score_watch_threshold: storeSettings?.score_watch_threshold || 41,
+            score_problematic_threshold: storeSettings?.score_problematic_threshold || 61,
+            score_blocked_threshold: storeSettings?.score_blocked_threshold || 81,
+            ml_weights: storeSettings?.ml_weights,
           }
-          const collectionRate = newHistory.total_orders > 0
-            ? (newHistory.orders_collected / newHistory.total_orders) * 100
-            : 100
 
-          // Ajustare simplă a scorului după outcome
-          let scoreDelta = 0
-          if (order_status === 'collected') scoreDelta = -5   // reducere risc după ridicare
-          if (order_status === 'refused') scoreDelta = 15
-          if (order_status === 'not_home') scoreDelta = 5
-          if (order_status === 'cancelled') scoreDelta = 10
+          // Ia comanda curentă pentru context
+          const { data: fullOrder } = await supabase
+            .from('risk_orders')
+            .select('payment_method, total_value, currency, ordered_at, customer_email, shipping_address')
+            .eq('id', order_id)
+            .single()
 
-          const newScore = Math.min(Math.max((customer.risk_score || 0) + scoreDelta, 0), 100)
+          const history = {
+            totalOrders: updatedStats.total_orders || 0,
+            ordersCollected: updatedStats.orders_collected || 0,
+            ordersRefused: updatedStats.orders_refused || 0,
+            ordersNotHome: updatedStats.orders_not_home || 0,
+            ordersCancelled: updatedStats.orders_cancelled || 0,
+            ordersToday: 0,
+            lastOrderAt: updatedStats.last_order_at,
+            firstOrderAt: updatedStats.first_order_at,
+            accountCreatedAt: null,
+            phoneValidated: !!(updatedStats.phone?.match(/^(07\d{8}|02\d{8}|03\d{8})$/)),
+            isNewAccount: false,
+            addressChanges: 0,
+            avgOrderValue: updatedStats.avg_order_value,
+          }
+
+          const orderCtx = {
+            paymentMethod: (fullOrder?.payment_method || 'cod') as any,
+            totalValue: fullOrder?.total_value || 0,
+            currency: fullOrder?.currency || 'RON',
+            orderedAt: fullOrder?.ordered_at || new Date().toISOString(),
+            customerEmail: fullOrder?.customer_email || updatedStats.email || '',
+            shippingAddress: fullOrder?.shipping_address || '',
+            inGlobalBlacklist: updatedStats.in_global_blacklist || false,
+            globalReportCount: 0,
+          }
+
+          const recalcResult = calculateRiskScore(history, orderCtx, rules)
+
+          // Păstrează override-ul manual dacă există
+          const finalLabel = updatedStats.manual_label_override || recalcResult.label
 
           await supabase.from('risk_customers').update({
             ...statUpdates,
-            risk_score: newScore,
+            risk_score: recalcResult.score,
+            risk_label: finalLabel,
             updated_at: new Date().toISOString(),
           }).eq('id', order.customer_id)
         }
