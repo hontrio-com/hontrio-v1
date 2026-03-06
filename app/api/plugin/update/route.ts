@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 
-export const PLUGIN_VERSION = '2.0.0'
-export const PLUGIN_SLUG    = 'hontrio'
+import { PLUGIN_VERSION, PLUGIN_SLUG } from '../config'
+
 
 function isNewer(latest: string, current: string): boolean {
   const p = (v: string) => v.split('.').map(Number)

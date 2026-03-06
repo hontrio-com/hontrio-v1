@@ -7,7 +7,7 @@ import { join } from 'path'
 import { tmpdir } from 'os'
 import archiver from 'archiver'
 import crypto from 'crypto'
-import { PLUGIN_VERSION, PLUGIN_SLUG } from '../update/route'
+import { PLUGIN_VERSION, PLUGIN_SLUG } from '../config'
 
 function buildPluginPhp(cfg: {
   apiBase: string, userId: string, storeId: string, storeName: string,
