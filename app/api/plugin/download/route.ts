@@ -2,11 +2,8 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/auth.config'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { createWriteStream, mkdirSync, writeFileSync, readFileSync, rmSync } from 'fs'
-import { join } from 'path'
-import { tmpdir } from 'os'
-import archiver from 'archiver'
 import crypto from 'crypto'
+import JSZip from 'jszip'
 import { PLUGIN_VERSION, PLUGIN_SLUG } from '../config'
 
 function buildPluginPhp(cfg: {
@@ -43,7 +40,7 @@ function buildPluginPhp(cfg: {
   o(`define( 'HONTRIO_WIDGET_POS',     '${widgetPos}' );`)
   o('')
 
-  // Activare/dezactivare
+  // Activare / Dezactivare
   o("register_activation_hook( __FILE__, 'hontrio_activate' );")
   o('function hontrio_activate() {')
   o("    update_option( 'hontrio_needs_setup', true );")
@@ -94,7 +91,7 @@ function buildPluginPhp(cfg: {
   o('}')
   o('')
 
-  // AI Agent widget
+  // AI Agent widget — injectat în frontend
   o("add_action( 'wp_footer', 'hontrio_inject_widget' );")
   o('function hontrio_inject_widget() {')
   o('    if ( is_admin() ) return; ?>')
@@ -112,8 +109,7 @@ function buildPluginPhp(cfg: {
   o('}')
   o('')
 
-  // ── AUTO-UPDATE ─────────────────────────────────────────────────────────────
-  // Aceasta sectiune face sa apara butonul "Actualizează" in WordPress → Plugins
+  // Auto-update WordPress — butonul "Actualizează" apare nativ
   o("add_filter( 'pre_set_site_transient_update_plugins', 'hontrio_check_update' );")
   o('function hontrio_check_update( $transient ) {')
   o('    if ( empty( $transient->checked ) ) return $transient;')
@@ -131,7 +127,6 @@ function buildPluginPhp(cfg: {
   o('    return $transient;')
   o('}')
   o('')
-  // Informatii plugin (click "View details" in WP)
   o("add_filter( 'plugins_api', 'hontrio_plugin_info', 20, 3 );")
   o('function hontrio_plugin_info( $result, $action, $args ) {')
   o("    if ( $action !== 'plugin_information' || $args->slug !== 'hontrio' ) return $result;")
@@ -160,11 +155,11 @@ function buildPluginPhp(cfg: {
   o('        hontrio_delete_webhooks(); hontrio_register_webhooks();')
   o("        echo '<div class=\"notice notice-success\"><p>✓ Webhook-uri re-înregistrate!</p></div>';")
   o('    }')
-  o("    $ids   = get_option( 'hontrio_webhook_ids', array() );")
-  o('    $ok    = count( $ids ) >= 2;')
-  o("    $dash  = HONTRIO_API_BASE; ?>")
+  o("    $ids  = get_option( 'hontrio_webhook_ids', array() );")
+  o('    $ok   = count( $ids ) >= 2;')
+  o("    $dash = HONTRIO_API_BASE; ?>")
   o('    <div class="wrap" style="max-width:680px">')
-  o(`        <h1>🛡️ Hontrio <span style="font-size:13px;font-weight:normal;color:#6b7280">v<?php echo HONTRIO_VERSION; ?></span></h1>`)
+  o('        <h1>🛡️ Hontrio <span style="font-size:13px;font-weight:normal;color:#6b7280">v<?php echo HONTRIO_VERSION; ?></span></h1>')
   o('        <p><a href="<?php echo esc_url($dash); ?>" target="_blank">Deschide dashboard →</a></p>')
   o('        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:20px 0">')
   o('            <div style="border:1px solid #e5e7eb;border-radius:8px;padding:16px">')
@@ -195,7 +190,8 @@ function buildPluginPhp(cfg: {
   o('    <?php')
   o('}')
   o('')
-  // Admin notice dupa activare
+
+  // Admin notice după activare
   o("add_action( 'admin_notices', 'hontrio_notice' );")
   o('function hontrio_notice() {')
   o("    if ( ! get_transient( 'hontrio_just_activated' ) ) return;")
@@ -215,7 +211,7 @@ export async function GET() {
     const session = await getServerSession(authOptions)
     if (!session?.user) return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
 
-    const userId  = (session.user as any).id
+    const userId   = (session.user as any).id
     const supabase = createAdminClient()
     const apiBase  = process.env.NEXT_PUBLIC_APP_URL || 'https://hontrio.com'
 
@@ -226,6 +222,7 @@ export async function GET() {
 
     if (!store) return NextResponse.json({ error: 'Niciun magazin conectat.' }, { status: 404 })
 
+    // Generează webhook_secret dacă nu există
     let secret = store.webhook_secret
     if (!secret) {
       secret = crypto.randomBytes(32).toString('hex')
@@ -233,37 +230,30 @@ export async function GET() {
     }
 
     const php = buildPluginPhp({
-      apiBase, userId, storeId: store.id,
-      storeName:   store.store_name || store.store_url?.replace(/^https?:\/\//,'').replace(/\/$/,'') || '',
+      apiBase,
+      userId,
+      storeId:      store.id,
+      storeName:    store.store_name || store.store_url?.replace(/^https?:\/\//,'').replace(/\/$/,'') || '',
       webhookSecret: secret,
-      agentName:   config?.agent_name    || 'Asistent Hontrio',
-      widgetColor: config?.widget_color  || '#2563eb',
-      widgetPos:   config?.widget_position || 'bottom-right',
+      agentName:    config?.agent_name      || 'Asistent Hontrio',
+      widgetColor:  config?.widget_color    || '#2563eb',
+      widgetPos:    config?.widget_position || 'bottom-right',
     })
 
-    const tmpDir    = join(tmpdir(), `hontrio-${userId.slice(0,8)}`)
-    const pluginDir = join(tmpDir, PLUGIN_SLUG)
-    mkdirSync(pluginDir, { recursive: true })
-    writeFileSync(join(pluginDir, `${PLUGIN_SLUG}.php`), php)
-
-    const zipPath = join(tmpDir, `${PLUGIN_SLUG}.zip`)
-    await new Promise<void>((res, rej) => {
-      const out = createWriteStream(zipPath)
-      const arc = archiver('zip', { zlib: { level: 6 } })
-      out.on('close', res); arc.on('error', rej)
-      arc.pipe(out)
-      arc.file(join(pluginDir, `${PLUGIN_SLUG}.php`), { name: `${PLUGIN_SLUG}/${PLUGIN_SLUG}.php` })
-      arc.finalize()
+    // Creează ZIP in-memory cu JSZip (fără fs/tmp — compatibil Vercel)
+    const zip = new JSZip()
+    zip.folder(PLUGIN_SLUG)!.file(`${PLUGIN_SLUG}.php`, php)
+    const zipBuffer = await zip.generateAsync({
+      type: 'nodebuffer',
+      compression: 'DEFLATE',
+      compressionOptions: { level: 6 },
     })
 
-    const buf = readFileSync(zipPath)
-    try { rmSync(tmpDir, { recursive: true }) } catch {}
-
-    return new NextResponse(buf, {
+    return new NextResponse(zipBuffer as unknown as BodyInit, {
       headers: {
         'Content-Type':        'application/zip',
         'Content-Disposition': `attachment; filename="${PLUGIN_SLUG}.zip"`,
-        'Content-Length':      String(buf.length),
+        'Content-Length':      String(zipBuffer.length),
       }
     })
   } catch (err: any) {
