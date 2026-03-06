@@ -267,7 +267,7 @@ export async function GET() {
     const apiBase  = process.env.NEXT_PUBLIC_APP_URL || 'https://hontrio.com'
 
     const [storeRes, configRes] = await Promise.all([
-      supabase.from('stores').select('id, store_url, store_name, webhook_secret').eq('user_id', userId).single(),
+      supabase.from('stores').select('id, store_url, webhook_secret').eq('user_id', userId).single(),
       supabase.from('agent_configs').select('agent_name, widget_color, widget_position').eq('user_id', userId).single(),
     ])
     const store  = storeRes.data
@@ -284,7 +284,7 @@ export async function GET() {
 
     const php = buildPluginPhp({
       apiBase, userId, storeId: store.id,
-      storeName:    store.store_name || store.store_url?.replace(/^https?:\/\//,'').replace(/\/$/,'') || '',
+      storeName:    store.store_url?.replace(/^https?:\/\//,'').replace(/\/$/,'') || '',
       webhookSecret: secret,
       agentName:    config?.agent_name      || 'Asistent Hontrio',
       widgetColor:  config?.widget_color    || '#2563eb',
