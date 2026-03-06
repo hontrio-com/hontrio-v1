@@ -112,17 +112,26 @@ export async function POST(req: Request) {
     const allWooOrders: any[] = []
     const seen = new Set<number>()
 
+    console.log('[ImportHistory] Customer:', { id: customer_id, phone: customer.phone, email: customer.email, store: store.store_url })
+
     // ── Căutare după email (parametru direct WooCommerce — precis) ────────────
     if (customer.email) {
       let page = 1
-      while (page <= 10) { // max 1000 comenzi
-        const { data, totalPages } = await fetchOrders({
-          billing_email: customer.email,
-          per_page: '100', page: String(page),
-          orderby: 'date', order: 'desc',
-        })
-        for (const o of data) {
-          // Verifică strict că emailul din comandă = emailul clientului
+      while (page <= 10) {
+        let result: any
+        try {
+          result = await fetchOrders({
+            billing_email: customer.email,
+            per_page: '100', page: String(page),
+            orderby: 'date', order: 'desc',
+          })
+        } catch (fetchErr: any) {
+          console.error('[ImportHistory] Email fetch error:', fetchErr.message)
+          break
+        }
+        const { data, totalPages } = result
+        console.log(`[ImportHistory] Email search page ${page}/${totalPages}: ${data?.length || 0} comenzi`)
+        for (const o of (data || [])) {
           if (orderBelongsToCustomer(o, null, customer.email)) {
             if (!seen.has(o.id)) { seen.add(o.id); allWooOrders.push(o) }
           }
@@ -137,13 +146,20 @@ export async function POST(req: Request) {
       const cleanPhone = customer.phone.replace(/\s+/g, '')
       let page = 1
       while (page <= 10) {
-        const { data, totalPages } = await fetchOrders({
-          search: cleanPhone,
-          per_page: '100', page: String(page),
-          orderby: 'date', order: 'desc',
-        })
-        for (const o of data) {
-          // Verifică STRICT că telefonul din comandă = telefonul clientului
+        let result: any
+        try {
+          result = await fetchOrders({
+            search: cleanPhone,
+            per_page: '100', page: String(page),
+            orderby: 'date', order: 'desc',
+          })
+        } catch (fetchErr: any) {
+          console.error('[ImportHistory] Phone fetch error:', fetchErr.message)
+          break
+        }
+        const { data, totalPages } = result
+        console.log(`[ImportHistory] Phone search page ${page}/${totalPages}: ${data?.length || 0} comenzi brute, cleanPhone=${cleanPhone}`)
+        for (const o of (data || [])) {
           if (orderBelongsToCustomer(o, customer.phone, null)) {
             if (!seen.has(o.id)) { seen.add(o.id); allWooOrders.push(o) }
           }
@@ -152,6 +168,8 @@ export async function POST(req: Request) {
         page++
       }
     }
+
+    console.log('[ImportHistory] Total găsite după filtrare strictă:', allWooOrders.length)
 
     // ── Procesează comenzile găsite ───────────────────────────────────────────
     const ordersToInsert: any[] = []
@@ -273,6 +291,7 @@ export async function POST(req: Request) {
       updated: allWooOrders.length - ordersToInsert.length,
       skipped_other_customer: skippedOtherCustomer,
       total_found_in_woo: allWooOrders.length,
+      total_in_woocommerce: allWooOrders.length,  // alias pentru compatibilitate UI
       total_in_db: totalOrders,
       new_score: result.score,
       new_label: finalLabel,
