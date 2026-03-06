@@ -24,8 +24,9 @@ type Product = {
   optimized_short_description: string | null; optimized_long_description: string | null
 }
 
-const effectiveScore = (p: Product) =>
-  p.seo_score > 0 ? p.seo_score : (p.optimized_title || p.meta_description || p.focus_keyword) ? 60 : 0
+// Foloseste scorul real din DB — calculat la sync (initial) si la save (dupa optimizare)
+// Nu mai exista hack-ul cu 60; scorul e intotdeauna real
+const effectiveScore = (p: Product) => p.seo_score || 0
 
 const scoreStyle = (s: number) => ({
   text: s >= 80 ? 'text-emerald-600' : s >= 50 ? 'text-amber-600' : s > 0 ? 'text-red-500' : 'text-gray-300',

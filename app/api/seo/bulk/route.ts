@@ -4,137 +4,164 @@ import { authOptions } from '@/lib/auth/auth.config'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { openai } from '@/lib/openai/client'
 import { rateLimitExpensive } from '@/lib/security/rate-limit'
+import { calculateSeoScore } from '@/lib/seo/score'
 
-const CREDIT_COST = 3
+// Costul per produs la bulk (= 5 credite, acelasi ca "all" sections individual)
+const CREDIT_COST_PER_PRODUCT = 5
+
+const SEO_BULK_SYSTEM_PROMPT = `Esti un expert SEO senior specializat in eCommerce pentru piata romaneasca.
+Generezi continut SEO complet si de calitate pentru produse WooCommerce.
+Raspunzi INTOTDEAUNA STRICT cu JSON valid, fara markdown, fara backticks, fara text in afara JSON-ului.`
+
+function buildBulkPrompt(product: any): string {
+  const title = product.original_title || ''
+  const description = (product.original_description || '').replace(/<[^>]*>/g, '').substring(0, 600)
+  const shortDesc = (product.original_short_description || '').replace(/<[^>]*>/g, '').substring(0, 200)
+  const category = product.category || 'Nespecificata'
+  const price = product.price ? `${product.price} RON` : ''
+
+  return `PRODUS:\nTitlu: "${title}"\nCategorie: ${category}${price ? `\nPret: ${price}` : ''}\n${shortDesc ? `Descriere scurta: ${shortDesc}` : ''}\n${description ? `Descriere: ${description}` : ''}\n\nGenereaza toate campurile SEO pentru acest produs. Returneaza STRICT JSON:\n{\n  "optimized_title": "titlu 50-70 caractere, natural si persuasiv",\n  "meta_description": "meta max 155 caractere cu CTA",\n  "optimized_short_description": "2-4 propozitii care conving la cumparare",\n  "optimized_long_description": "HTML structurat cu h3/ul/li, min 200 cuvinte",\n  "focus_keyword": "2-4 cuvinte cheie principale",\n  "secondary_keywords": ["keyword1", "keyword2", "keyword3"],\n  "seo_suggestions": ["sugestie practica 1", "sugestie practica 2"]\n}`
+}
 
 export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user) return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
+    }
 
     const userId = (session.user as any).id
-    const limit = rateLimitExpensive(userId, 'competitor')
-    if (!limit.success) return NextResponse.json({ error: 'Prea multe cereri.' }, { status: 429 })
-
-    const { competitor_url, product_id } = await request.json()
-    if (!competitor_url) return NextResponse.json({ error: 'URL competitor lipsește' }, { status: 400 })
-
-    // Validate URL
-    let parsed: URL
-    try { parsed = new URL(competitor_url) } catch {
-      return NextResponse.json({ error: 'URL invalid' }, { status: 400 })
+    const limit = rateLimitExpensive(userId, 'seo-bulk')
+    if (!limit.success) {
+      return NextResponse.json({ error: 'Prea multe cereri. Asteapta un minut.' }, { status: 429 })
     }
+
+    const { product_ids } = await request.json()
+
+    if (!Array.isArray(product_ids) || product_ids.length === 0) {
+      return NextResponse.json({ error: 'product_ids lipsesc sau gol' }, { status: 400 })
+    }
+
+    const ids = product_ids.slice(0, 20)
+    const totalCost = ids.length * CREDIT_COST_PER_PRODUCT
 
     const supabase = createAdminClient()
 
-    // Check credits
     const { data: user } = await supabase
-      .from('users').select('credits').eq('id', userId).single()
+      .from('users')
+      .select('credits')
+      .eq('id', userId)
+      .single()
 
-    if (!user || user.credits < CREDIT_COST) {
-      return NextResponse.json({ error: `Credite insuficiente. Necesare: ${CREDIT_COST}` }, { status: 400 })
+    if (!user || user.credits < totalCost) {
+      return NextResponse.json(
+        { error: `Credite insuficiente. Necesare: ${totalCost} (${ids.length} produse x ${CREDIT_COST_PER_PRODUCT} cr.)` },
+        { status: 400 }
+      )
     }
 
-    // Fetch competitor page
-    let html = ''
-    try {
-      const res = await fetch(competitor_url, {
-        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)' },
-        signal: AbortSignal.timeout(10000),
+    const { data: products } = await supabase
+      .from('products')
+      .select('*')
+      .in('id', ids)
+      .eq('user_id', userId)
+
+    if (!products || products.length === 0) {
+      return NextResponse.json({ error: 'Niciun produs valid' }, { status: 404 })
+    }
+
+    let succeeded = 0
+    let failed = 0
+    let creditsUsed = 0
+
+    for (const product of products) {
+      try {
+        const prompt = buildBulkPrompt(product)
+
+        const completion = await openai.chat.completions.create({
+          model: 'gpt-4o-mini',
+          messages: [
+            { role: 'system', content: SEO_BULK_SYSTEM_PROMPT },
+            { role: 'user', content: prompt },
+          ],
+          temperature: 0.5,
+          max_tokens: 2000,
+        })
+
+        const raw = completion.choices[0].message.content?.trim() || '{}'
+        const cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
+
+        let result: Record<string, any>
+        try {
+          result = JSON.parse(cleaned)
+        } catch {
+          console.error(`[SEO Bulk] JSON parse error for product ${product.id}:`, cleaned.substring(0, 200))
+          failed++
+          continue
+        }
+
+        const { score } = calculateSeoScore({
+          title:            result.optimized_title || product.original_title || '',
+          metaDescription:  result.meta_description || '',
+          shortDescription: result.optimized_short_description || '',
+          longDescription:  result.optimized_long_description || '',
+          focusKeyword:     result.focus_keyword || '',
+        })
+
+        const { error: saveErr } = await supabase
+          .from('products')
+          .update({
+            optimized_title:             result.optimized_title || null,
+            meta_description:            result.meta_description || null,
+            optimized_short_description: result.optimized_short_description || null,
+            optimized_long_description:  result.optimized_long_description || null,
+            focus_keyword:               result.focus_keyword || null,
+            secondary_keywords:          result.secondary_keywords || null,
+            seo_suggestions:             result.seo_suggestions || null,
+            seo_score:                   score,
+            status:                      'optimized',
+          })
+          .eq('id', product.id)
+          .eq('user_id', userId)
+
+        if (saveErr) {
+          console.error(`[SEO Bulk] DB save error for ${product.id}:`, saveErr.message)
+          failed++
+          continue
+        }
+
+        succeeded++
+        creditsUsed += CREDIT_COST_PER_PRODUCT
+
+      } catch (err: any) {
+        console.error(`[SEO Bulk] Error for product ${product.id}:`, err?.message)
+        failed++
+      }
+    }
+
+    if (creditsUsed > 0) {
+      const newBalance = user.credits - creditsUsed
+      await supabase.from('users').update({ credits: newBalance }).eq('id', userId)
+      await supabase.from('credit_transactions').insert({
+        user_id:         userId,
+        type:            'usage',
+        amount:          -creditsUsed,
+        balance_after:   newBalance,
+        description:     `SEO Bulk — ${succeeded} produse optimizate`,
+        reference_type:  'seo_bulk',
       })
-      if (!res.ok) return NextResponse.json({ error: `Pagina competitorului returnează ${res.status}` }, { status: 400 })
-      html = await res.text()
-    } catch {
-      return NextResponse.json({ error: 'Nu se poate accesa URL-ul competitorului' }, { status: 400 })
     }
-
-    // Extract key SEO elements from HTML
-    const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i)
-    const metaDescMatch = html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']+)["']/i) ||
-                          html.match(/<meta[^>]*content=["']([^"']+)["'][^>]*name=["']description["']/i)
-    const h1Match = html.match(/<h1[^>]*>([^<]+)<\/h1>/i)
-    const h2Matches = [...html.matchAll(/<h2[^>]*>([^<]+)<\/h2>/gi)].map(m => m[1]).slice(0, 5)
-    const h3Matches = [...html.matchAll(/<h3[^>]*>([^<]+)<\/h3>/gi)].map(m => m[1]).slice(0, 8)
-
-    // Strip HTML tags and get body text
-    const bodyText = html
-      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
-      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
-      .replace(/<[^>]+>/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim()
-      .substring(0, 3000)
-
-    const competitorData = {
-      title: titleMatch?.[1]?.trim() || '',
-      meta_description: metaDescMatch?.[1]?.trim() || '',
-      h1: h1Match?.[1]?.trim() || '',
-      h2s: h2Matches,
-      h3s: h3Matches,
-      body_preview: bodyText,
-    }
-
-    // Use AI to extract insights
-    const prompt = `Analizează aceste date extrase de pe pagina unui competitor eCommerce și extrage insight-uri SEO valoroase.
-
-DATE COMPETITOR:
-Titlu: "${competitorData.title}"
-Meta Description: "${competitorData.meta_description}"
-H1: "${competitorData.h1}"
-H2-uri: ${JSON.stringify(competitorData.h2s)}
-H3-uri: ${JSON.stringify(competitorData.h3s)}
-Text preview: "${competitorData.body_preview.substring(0, 1500)}"
-
-Răspunde STRICT în JSON valid:
-{
-  "title": "${competitorData.title}",
-  "meta_description": "${competitorData.meta_description}",
-  "h1": "${competitorData.h1}",
-  "headings": ${JSON.stringify([...competitorData.h2s, ...competitorData.h3s])},
-  "focus_keywords": ["keyword1", "keyword2", "keyword3"],
-  "keyword_density": {"keyword1": 2.3, "keyword2": 1.1},
-  "content_length_estimate": 450,
-  "strengths": ["Punct forte 1", "Punct forte 2", "Punct forte 3"],
-  "weaknesses": ["Punct slab 1", "Punct slab 2"],
-  "opportunities": ["Ce poți face mai bine 1", "Ce poți face mai bine 2", "Ce poți face mai bine 3"]
-}`
-
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [{ role: 'user', content: prompt }],
-      temperature: 0.3,
-      max_tokens: 800,
-    })
-
-    const raw = completion.choices[0].message.content?.trim() || '{}'
-    const cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
-
-    let analysis: any
-    try {
-      analysis = JSON.parse(cleaned)
-    } catch {
-      // Return raw data even if AI parse fails
-      analysis = competitorData
-    }
-
-    // Deduct credits
-    const newBalance = user.credits - CREDIT_COST
-    await supabase.from('users').update({ credits: newBalance }).eq('id', userId)
-    await supabase.from('credit_transactions').insert({
-      user_id: userId, type: 'usage', amount: -CREDIT_COST, balance_after: newBalance,
-      description: `Analiză competitor: ${parsed.hostname}`,
-      reference_type: 'competitor_analysis',
-      reference_id: product_id || null,
-    })
 
     return NextResponse.json({
-      success: true,
-      competitor_url,
-      analysis,
-      credits_remaining: newBalance,
+      success:           true,
+      succeeded,
+      failed,
+      credits_used:      creditsUsed,
+      credits_remaining: user.credits - creditsUsed,
     })
-  } catch (err) {
-    console.error('[Competitor]', err)
-    return NextResponse.json({ error: 'Eroare internă' }, { status: 500 })
+
+  } catch (err: any) {
+    console.error('[SEO Bulk] Error:', err)
+    return NextResponse.json({ error: 'Eroare interna' }, { status: 500 })
   }
 }

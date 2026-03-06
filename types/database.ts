@@ -33,17 +33,23 @@ export type Product = {
   original_title: string | null
   optimized_title: string | null
   original_description: string | null
+  original_short_description: string | null   // short_description din WooCommerce
   optimized_short_description: string | null
   optimized_long_description: string | null
   benefits: string[] | null
   specifications: Record<string, string> | null
-  meta_description: string | null
-  seo_score: number
-  seo_suggestions: Record<string, string>[] | null
+  meta_description: string | null             // initial: din Yoast/RankMath la sync; ulterior: optimizat Hontrio
+  focus_keyword: string | null                // initial: din Yoast la sync; ulterior: optimizat Hontrio
+  secondary_keywords: string[] | null
+  seo_score: number                           // calculat real la sync si la fiecare save
+  seo_suggestions: string[] | null
   original_images: string[] | null
+  thumbnail_url: string | null                // enriched la fetch, nu in DB
   status: 'draft' | 'optimized' | 'published'
   category: string | null
   price: number | null
+  parent_id: string | null
+  variant_name: string | null
   created_at: string
   updated_at: string
   published_at: string | null

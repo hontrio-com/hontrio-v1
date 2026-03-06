@@ -67,11 +67,15 @@ export async function GET() {
       ? Math.round(productsWithScore.reduce((sum, p) => sum + p.seo_score, 0) / productsWithScore.length)
       : 0
 
-    const seoGreen = allProductStats.filter(p => p.seo_score >= 80).length
+    // Scorul SEO e acum real si calculat din sync (initial) sau save (dupa optimizare)
+    // Toate produsele au un scor real — inclusiv cele neoptimizate manual
+    const seoGreen  = allProductStats.filter(p => p.seo_score >= 80).length
     const seoYellow = allProductStats.filter(p => p.seo_score >= 50 && p.seo_score < 80).length
-    const seoRed = allProductStats.filter(p => p.seo_score > 0 && p.seo_score < 50).length
+    const seoRed    = allProductStats.filter(p => p.seo_score < 50).length
 
-    const worstProduct = allProductStats.filter(p => p.seo_score > 0 && p.seo_score < 60).sort((a, b) => a.seo_score - b.seo_score)[0] || null
+    const worstProduct = allProductStats
+      .filter(p => p.seo_score < 60)
+      .sort((a, b) => a.seo_score - b.seo_score)[0] || null
 
     const hasStore = !!storeRes.data
     const hasSyncedProducts = totalProducts > 0

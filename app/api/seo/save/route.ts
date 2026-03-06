@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/auth.config'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { calculateSeoScore, stripHtml } from '@/lib/seo/score'
 
 // Fields that can be saved via SEO optimizer
 const ALLOWED_FIELDS = [
@@ -13,6 +14,7 @@ const ALLOWED_FIELDS = [
   'secondary_keywords',
   'seo_score',
   'seo_suggestions',
+  'original_short_description',
 ]
 
 export async function POST(request: Request) {
@@ -62,6 +64,7 @@ export async function POST(request: Request) {
         secondary_keywords: null,
         seo_score: null,
         seo_suggestions: null,
+        original_short_description: null,
       }
 
       const revertValue = revertMap[field]
@@ -98,21 +101,16 @@ export async function POST(request: Request) {
     // Auto-update status
     safeUpdate.status = 'optimized'
 
-    // Calculeaza seo_score pe baza campurilor completate
+    // Calculeaza seo_score live folosind aceeasi logica din lib/seo/score.ts
     const mergedProduct = { ...product, ...safeUpdate }
-    let score = 0
-    if (mergedProduct.optimized_title) {
-      const tLen = mergedProduct.optimized_title.length
-      score += tLen >= 50 && tLen <= 70 ? 25 : 15
-    }
-    if (mergedProduct.meta_description) {
-      const mLen = mergedProduct.meta_description.length
-      score += mLen >= 120 && mLen <= 155 ? 25 : 15
-    }
-    if (mergedProduct.optimized_short_description) score += 15
-    if (mergedProduct.optimized_long_description) score += 20
-    if (mergedProduct.focus_keyword) score += 15
-    if (score > 0) safeUpdate.seo_score = Math.min(score, 100)
+    const { score } = calculateSeoScore({
+      title:            mergedProduct.optimized_title || mergedProduct.original_title || '',
+      metaDescription:  mergedProduct.meta_description || '',
+      shortDescription: mergedProduct.optimized_short_description || mergedProduct.original_short_description || '',
+      longDescription:  mergedProduct.optimized_long_description || mergedProduct.original_description || '',
+      focusKeyword:     mergedProduct.focus_keyword || '',
+    })
+    safeUpdate.seo_score = score
 
     const { error: updateError } = await supabase
       .from('products')

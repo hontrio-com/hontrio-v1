@@ -68,10 +68,31 @@ export async function POST(
       wooProduct.regular_price = String(product.price)
     }
 
+    // Meta description — Yoast SEO + Rank Math + AIOSEO
     if (product.meta_description) {
       wooProduct.meta_data.push(
-        { key: '_yoast_wpseo_metadesc', value: product.meta_description },
-        { key: 'rank_math_description', value: product.meta_description }
+        { key: '_yoast_wpseo_metadesc',   value: product.meta_description },
+        { key: 'rank_math_description',   value: product.meta_description },
+        { key: '_aioseo_description',     value: product.meta_description },
+        { key: '_seopress_titles_desc',   value: product.meta_description },
+      )
+    }
+
+    // Titlu SEO (Yoast / Rank Math) — separat de titlul produsului
+    if (product.optimized_title) {
+      wooProduct.meta_data.push(
+        { key: '_yoast_wpseo_title',      value: product.optimized_title },
+        { key: 'rank_math_title',         value: product.optimized_title },
+        { key: '_aioseo_title',           value: product.optimized_title },
+        { key: '_seopress_titles_title',  value: product.optimized_title },
+      )
+    }
+
+    // Focus keyword (Yoast / Rank Math)
+    if (product.focus_keyword) {
+      wooProduct.meta_data.push(
+        { key: '_yoast_wpseo_focuskw',    value: product.focus_keyword },
+        { key: 'rank_math_focus_keyword', value: product.focus_keyword },
       )
     }
 

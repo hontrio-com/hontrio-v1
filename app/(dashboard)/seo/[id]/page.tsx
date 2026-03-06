@@ -32,27 +32,33 @@ type HistoryVersion = {
   optimized_title: string | null; meta_description: string | null; focus_keyword: string | null
 }
 // ─── Live SEO Score ────────────────────────────────────────────────────────────
+// ─── calcLiveScore ────────────────────────────────────────────────────────────
+// Identic algoritmic cu lib/seo/score.ts calculateSeoScore.
+// Client component — nu poate importa direct din lib, dar logica e sincronizata.
 function calcLiveScore(s: Record<SectionKey, SectionState>) {
   const title  = s.title.current.trim()
   const meta   = s.meta_description.current.trim()
-  const short  = s.short_description.current.replace(/<[^>]*>/g, '').trim()
-  const long   = s.long_description.current.replace(/<[^>]*>/g, '').trim()
+  const short  = s.short_description.current.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
+  const long   = s.long_description.current.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
   const kw     = s.focus_keyword.current.trim().toLowerCase()
-  const tLen = title.length, mLen = meta.length
-  const longWords = long.split(/\s+/).filter(Boolean).length
-  const allText = (short + ' ' + long).toLowerCase()
+
+  const tLen       = title.length
+  const mLen       = meta.length
+  const longWords  = long.split(/\s+/).filter(Boolean).length
+  const allText    = (short + ' ' + long).toLowerCase()
   const totalWords = allText.split(/\s+/).filter(Boolean).length || 1
-  const kwCount = kw ? allText.split(kw).length - 1 : 0
-  const density = kw ? (kwCount / totalWords) * 100 : 0
+  const kwCount    = kw ? allText.split(kw).length - 1 : 0
+  const density    = kw ? (kwCount / totalWords) * 100 : 0
+
   const checks = [
-    { label: `Titlu 50-70 car. (${tLen})`, pts: tLen >= 50 && tLen <= 70 ? 15 : tLen > 0 ? 7 : 0, max: 15, ok: tLen >= 50 && tLen <= 70 },
-    { label: 'Keyword în titlu', pts: kw && title.toLowerCase().includes(kw) ? 10 : !kw ? 5 : 0, max: 10, ok: !kw || title.toLowerCase().includes(kw) },
-    { label: `Meta 120-155 car. (${mLen})`, pts: mLen >= 120 && mLen <= 155 ? 15 : mLen > 0 ? 7 : 0, max: 15, ok: mLen >= 120 && mLen <= 155 },
-    { label: 'Keyword în meta', pts: kw && meta.toLowerCase().includes(kw) ? 10 : !kw ? 5 : 0, max: 10, ok: !kw || meta.toLowerCase().includes(kw) },
-    { label: 'Descriere scurtă', pts: short.length >= 80 ? 15 : short.length > 0 ? 7 : 0, max: 15, ok: short.length >= 80 },
-    { label: `Desc. lungă 200+ cuv. (${longWords})`, pts: longWords >= 200 ? 20 : longWords > 0 ? 8 : 0, max: 20, ok: longWords >= 200 },
-    { label: 'Focus keyword setat', pts: kw.length >= 2 ? 8 : 0, max: 8, ok: kw.length >= 2 },
-    { label: `Density ${density.toFixed(1)}% (0.5-2.5%)`, pts: density >= 0.5 && density <= 2.5 ? 7 : 0, max: 7, ok: density >= 0.5 && density <= 2.5 },
+    { label: `Titlu 50-70 car. (${tLen})`,           pts: tLen >= 50 && tLen <= 70 ? 15 : tLen > 0 ? 7 : 0,     max: 15, ok: tLen >= 50 && tLen <= 70 },
+    { label: 'Keyword în titlu',                      pts: kw && title.toLowerCase().includes(kw) ? 10 : !kw ? 5 : 0, max: 10, ok: !kw || title.toLowerCase().includes(kw) },
+    { label: `Meta 120-155 car. (${mLen})`,           pts: mLen >= 120 && mLen <= 155 ? 15 : mLen > 0 ? 7 : 0,   max: 15, ok: mLen >= 120 && mLen <= 155 },
+    { label: 'Keyword în meta',                       pts: kw && meta.toLowerCase().includes(kw) ? 10 : !kw ? 5 : 0, max: 10, ok: !kw || meta.toLowerCase().includes(kw) },
+    { label: 'Descriere scurtă',                      pts: short.length >= 80 ? 15 : short.length > 0 ? 7 : 0,   max: 15, ok: short.length >= 80 },
+    { label: `Desc. lungă 200+ cuv. (${longWords})`,  pts: longWords >= 200 ? 20 : longWords > 0 ? 8 : 0,         max: 20, ok: longWords >= 200 },
+    { label: 'Focus keyword setat',                   pts: kw.length >= 2 ? 8 : 0,                                max: 8,  ok: kw.length >= 2 },
+    { label: `Density ${density.toFixed(1)}% (0.5-2.5%)`, pts: density >= 0.5 && density <= 2.5 ? 7 : 0,         max: 7,  ok: density >= 0.5 && density <= 2.5 },
   ]
   return { score: Math.min(100, checks.reduce((a, c) => a + c.pts, 0)), breakdown: checks }
 }
@@ -496,7 +502,7 @@ export default function ProductSEOPage() {
       setSections({
         title:             { current: p.optimized_title || p.original_title || '', original: p.original_title || '', modified: null, generating: false, saved: !!p.optimized_title },
         meta_description:  { current: p.meta_description || '', original: '', modified: null, generating: false, saved: !!p.meta_description },
-        short_description: { current: p.optimized_short_description || '', original: p.original_short_description || p.original_description?.replace(/<[^>]*>/g, '').substring(0, 300) || '', modified: null, generating: false, saved: !!p.optimized_short_description },
+        short_description: { current: p.optimized_short_description || p.original_short_description || '', original: p.original_short_description || '', modified: null, generating: false, saved: !!p.optimized_short_description },
         long_description:  { current: p.optimized_long_description || p.original_description || '', original: p.original_description || '', modified: null, generating: false, saved: !!p.optimized_long_description },
         focus_keyword:     { current: p.focus_keyword || '', original: '', modified: null, generating: false, saved: !!p.focus_keyword },
       })

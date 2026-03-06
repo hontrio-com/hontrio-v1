@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth/auth.config'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { openai } from '@/lib/openai/client'
 import { rateLimitExpensive } from '@/lib/security/rate-limit'
+import { calculateSeoScore } from '@/lib/seo/score'
 
 // ─── CREDIT COSTS ─────────────────────────────────────────────────────────────
 const CREDIT_COSTS: Record<string, number> = {
@@ -330,6 +331,19 @@ export async function POST(request: Request) {
       reference_type: 'seo_optimization',
       reference_id: product_id,
     })
+
+    // Daca sectiunea e 'all', suprascrie seo_score cu calculul nostru real
+    // (nu cel estimat de GPT care poate fi incorect/exagerat)
+    if (section === 'all' && result) {
+      const { score: realScore } = calculateSeoScore({
+        title:            result.optimized_title || product.original_title || '',
+        metaDescription:  result.meta_description || '',
+        shortDescription: result.optimized_short_description || '',
+        longDescription:  result.optimized_long_description || '',
+        focusKeyword:     result.focus_keyword || '',
+      })
+      result.seo_score = realScore
+    }
 
     return NextResponse.json({ success: true, result, credits_remaining: newBalance })
   } catch (err) {
