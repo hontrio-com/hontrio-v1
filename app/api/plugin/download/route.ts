@@ -271,7 +271,7 @@ export async function GET() {
       supabase.from('agent_configs').select('agent_name, widget_color, widget_position').eq('user_id', userId).single(),
     ])
 
-    if (!store) return NextResponse.json({ error: 'Niciun magazin conectat.' }, { status: 404 })
+    if (!store) return NextResponse.json({ error: 'Niciun magazin conectat. Conectează un magazin din Setări → Integrări.' }, { status: 400 })
 
     let secret = store.webhook_secret
     if (!secret) {

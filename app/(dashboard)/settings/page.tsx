@@ -337,7 +337,7 @@ export default function SettingsPage() {
   async function handleDownloadPlugin() {
     setDownloadingPlugin(true)
     try {
-      const res = await fetch('/api/plugin/download')
+      const res = await fetch('/api/plugin/download', { credentials: 'include' })
       if (!res.ok) { showMsg('error', 'Eroare la generarea pluginului'); return }
       const blob = await res.blob()
       const url = URL.createObjectURL(blob)
