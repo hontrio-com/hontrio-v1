@@ -981,7 +981,7 @@ export default function RiskShieldPage() {
             </select>
           )}
           <a
-            href="/api/risk/download-plugin"
+            href="/settings?tab=plugin"
             className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-gray-900 text-white text-xs font-medium hover:bg-gray-800 transition-colors"
           >
             <Download className="h-3.5 w-3.5" />

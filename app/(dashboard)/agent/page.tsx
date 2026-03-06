@@ -351,7 +351,7 @@ export default function AgentPage() {
   const downloadPlugin = async () => {
     setDownloading(true)
     try {
-      const res = await fetch('/api/agent/download-plugin'); if (!res.ok) throw new Error()
+      const res = await fetch('/api/plugin/download'); if (!res.ok) throw new Error()
       const blob = await res.blob(); const url = URL.createObjectURL(blob)
       const a = document.createElement('a'); a.href = url; a.download = 'hontrio-agent.zip'; a.click(); URL.revokeObjectURL(url)
     } catch { alert('Eroare la descărcare.') } finally { setDownloading(false) }
@@ -900,11 +900,11 @@ export default function AgentPage() {
             <div className="bg-gradient-to-br from-slate-800 to-slate-900 p-6">
               <div className="flex items-start gap-4">
                 <div className="h-12 w-12 rounded-2xl bg-blue-500/20 border border-blue-400/30 flex items-center justify-center shrink-0 text-2xl">🔌</div>
-                <div><p className="text-white font-bold text-base">Plugin WordPress — instalare 1 click</p><p className="text-slate-400 text-sm mt-1">Descarcă pluginul pre-configurat și uploadează-l direct în WordPress.</p></div>
+                <div><p className="text-white font-bold text-base">Plugin WordPress — instalare 1 click</p><p className="text-slate-400 text-sm mt-1">Pluginul unificat Hontrio include AI Agent + Risk Shield. Se descarcă din Setări.</p></div>
               </div>
-              <Button onClick={downloadPlugin} disabled={downloading} className="mt-5 w-full bg-blue-500 hover:bg-blue-400 text-white rounded-xl h-11 gap-2 font-semibold text-sm">
-                {downloading ? <><Loader2 className="h-4 w-4 animate-spin" />Se generează...</> : <><ArrowUpRight className="h-4 w-4" />Descarcă hontrio-agent.zip</>}
-              </Button>
+              <a href="/settings?tab=plugin" className="mt-5 w-full bg-blue-500 hover:bg-blue-400 text-white rounded-xl h-11 gap-2 font-semibold text-sm flex items-center justify-center">
+                <ArrowUpRight className="h-4 w-4 mr-2" />Descarcă din Setări → Plugin WP
+              </a>
             </div>
             <div className="p-5 space-y-3">
               {[{ step: '1', text: 'Descarcă ZIP-ul' }, { step: '2', text: 'WordPress → Plugins → Add New → Upload Plugin' }, { step: '3', text: 'Selectează ZIP și Install Now' }, { step: '4', text: 'Activate Plugin — gata!' }].map(s => (

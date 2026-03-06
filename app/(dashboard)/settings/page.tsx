@@ -9,7 +9,7 @@ import {
   ExternalLink, Eye, EyeOff, Save, Globe, Bell, Lock, Key,
   Mail, Camera, Unplug, Package, Sparkles, CreditCard,
   TrendingDown, TrendingUp, Zap, ArrowRight, ShoppingBag,
-  CheckCircle2, XCircle, Wifi, WifiOff,
+  CheckCircle2, XCircle, Wifi, WifiOff, Download, Bot, RefreshCcw,
 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -332,6 +332,22 @@ export default function SettingsPage() {
   const memberSince = profile?.created_at ? new Date(profile.created_at).toLocaleDateString('ro-RO', { year: 'numeric', month: 'long' }) : ''
   const pwStrength  = PASSWORD_STRENGTH(passwordForm.newPassword)
 
+  const [downloadingPlugin, setDownloadingPlugin] = useState(false)
+
+  async function handleDownloadPlugin() {
+    setDownloadingPlugin(true)
+    try {
+      const res = await fetch('/api/plugin/download')
+      if (!res.ok) { showMsg('error', 'Eroare la generarea pluginului'); return }
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url; a.download = 'hontrio.zip'; a.click()
+      URL.revokeObjectURL(url)
+    } catch { showMsg('error', 'Eroare la descărcare') }
+    finally { setDownloadingPlugin(false) }
+  }
+
   const tabItems = [
     { value: 'general',      label: 'General',    icon: User },
     { value: 'brand',        label: 'Brand & AI', icon: Sparkles },
@@ -339,6 +355,7 @@ export default function SettingsPage() {
     { value: 'credits',      label: 'Credite',    icon: CreditCard },
     { value: 'security',     label: 'Securitate', icon: Shield },
     { value: 'preferences',  label: 'Preferințe', icon: SlidersHorizontal },
+    { value: 'plugin',       label: 'Plugin WP',  icon: Download },
   ]
 
   if (loading) return (
@@ -931,6 +948,118 @@ export default function SettingsPage() {
                 <CardContent className="p-5">
                   <div className="flex items-center gap-2 mb-2"><SlidersHorizontal className="h-4 w-4 text-blue-600" /><span className="text-sm font-semibold text-blue-900">Despre preferințe</span></div>
                   <p className="text-xs text-blue-700 leading-relaxed">Optimizarea automată va folosi credite din contul tău la fiecare sincronizare. Asigură-te că ai credite suficiente dacă activezi această opțiune.</p>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </TabsContent>
+
+        {/* ═══════════ PLUGIN WORDPRESS ═══════════ */}
+        <TabsContent value="plugin" className="mt-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2 space-y-4">
+
+              {/* Card principal descărcare */}
+              <Card className="rounded-2xl border-0 shadow-sm">
+                <CardContent className="p-6">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
+                      <Download className="h-5 w-5 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-semibold text-gray-900">Plugin Hontrio pentru WordPress</h3>
+                      <p className="text-xs text-gray-400">Un singur plugin — AI Agent + Risk Shield</p>
+                    </div>
+                  </div>
+
+                  {/* Ce include */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
+                    {[
+                      { icon: Bot,    color: 'bg-purple-50 text-purple-600', title: 'AI Agent', desc: 'Widget conversațional injectat automat în frontend' },
+                      { icon: Shield, color: 'bg-blue-50 text-blue-600',   title: 'Risk Shield', desc: 'Webhooks order.created + order.updated înregistrate automat' },
+                      { icon: RefreshCcw, color: 'bg-green-50 text-green-600', title: 'Auto-update', desc: 'Butonul „Actualizează" apare direct în WordPress → Plugins' },
+                      { icon: Zap,    color: 'bg-amber-50 text-amber-600',  title: 'Instalare 1 click', desc: 'Upload ZIP, activează, gata — fără configurare manuală' },
+                    ].map((item, i) => (
+                      <div key={i} className="flex items-start gap-3 p-3.5 bg-gray-50 rounded-xl">
+                        <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 ${item.color}`}>
+                          <item.icon className="h-4 w-4" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-900">{item.title}</p>
+                          <p className="text-xs text-gray-400 leading-relaxed">{item.desc}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <Button
+                    onClick={handleDownloadPlugin}
+                    disabled={downloadingPlugin || !store}
+                    className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 rounded-xl h-11 px-8 text-sm font-medium"
+                  >
+                    {downloadingPlugin
+                      ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Se generează...</>
+                      : <><Download className="h-4 w-4 mr-2" />Descarcă hontrio.zip</>
+                    }
+                  </Button>
+                  {!store && (
+                    <p className="text-xs text-amber-600 mt-2 flex items-center gap-1">
+                      ⚠️ Conectează mai întâi un magazin din tab-ul <strong>Integrări</strong>
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Pași instalare */}
+              <Card className="rounded-2xl border-0 shadow-sm">
+                <CardContent className="p-5">
+                  <h3 className="text-sm font-semibold text-gray-900 mb-4">Cum instalezi pluginul</h3>
+                  <div className="space-y-3">
+                    {[
+                      { step: '1', text: 'Descarcă fișierul hontrio.zip de mai sus' },
+                      { step: '2', text: 'În WordPress Admin → Plugins → Adaugă nou → Încarcă plugin' },
+                      { step: '3', text: 'Selectează hontrio.zip și apasă „Instalează acum"' },
+                      { step: '4', text: 'Activează pluginul — webhooks și widget-ul se configurează automat' },
+                      { step: '5', text: 'Viitoarele actualizări apar direct în WordPress → Plugins → Actualizează' },
+                    ].map((item) => (
+                      <div key={item.step} className="flex items-start gap-3">
+                        <span className="h-6 w-6 rounded-full bg-blue-100 text-blue-700 text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">{item.step}</span>
+                        <p className="text-sm text-gray-600">{item.text}</p>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Sidebar */}
+            <div className="space-y-4">
+              <Card className="rounded-2xl border-0 shadow-sm bg-gradient-to-br from-green-50 to-emerald-50">
+                <CardContent className="p-5">
+                  <div className="flex items-center gap-2 mb-3">
+                    <RefreshCcw className="h-4 w-4 text-green-600" />
+                    <span className="text-sm font-semibold text-green-900">Cum funcționează auto-update</span>
+                  </div>
+                  <p className="text-xs text-green-700 leading-relaxed">
+                    WordPress verifică zilnic automat dacă există o versiune nouă. Când lansăm o actualizare, apare butonul <strong>„Actualizează"</strong> în secțiunea Plugins — exact ca orice alt plugin din WordPress.org. Nu trebuie să descarci manual niciodată din nou.
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card className="rounded-2xl border-0 shadow-sm">
+                <CardContent className="p-5">
+                  <h3 className="text-sm font-semibold text-gray-900 mb-3">Ce se configurează automat</h3>
+                  <div className="space-y-2">
+                    {[
+                      '✓ User ID și Store ID embedduite în plugin',
+                      '✓ Webhook secret unic per magazin',
+                      '✓ Webhook URL setat la hontrio.com',
+                      '✓ Culoare și poziție widget AI Agent',
+                      '✓ Pagină admin Hontrio în WordPress',
+                    ].map((item, i) => (
+                      <p key={i} className="text-xs text-gray-600">{item}</p>
+                    ))}
+                  </div>
                 </CardContent>
               </Card>
             </div>
