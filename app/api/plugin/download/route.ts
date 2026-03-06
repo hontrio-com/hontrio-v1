@@ -266,12 +266,15 @@ export async function GET() {
     const supabase = createAdminClient()
     const apiBase  = process.env.NEXT_PUBLIC_APP_URL || 'https://hontrio.com'
 
-    const [{ data: store }, { data: config }] = await Promise.all([
+    const [storeRes, configRes] = await Promise.all([
       supabase.from('stores').select('id, store_url, store_name, webhook_secret').eq('user_id', userId).single(),
       supabase.from('agent_configs').select('agent_name, widget_color, widget_position').eq('user_id', userId).single(),
     ])
+    const store  = storeRes.data
+    const config = configRes.data
 
-    if (!store) return NextResponse.json({ error: 'Niciun magazin conectat. Conectează un magazin din Setări → Integrări.' }, { status: 400 })
+    console.log('[Plugin Download] userId:', userId, 'store:', store, 'storeErr:', storeRes.error)
+    if (!store) return NextResponse.json({ error: 'Niciun magazin conectat. userId=' + userId + ' err=' + storeRes.error?.message }, { status: 400 })
 
     let secret = store.webhook_secret
     if (!secret) {
