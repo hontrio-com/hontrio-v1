@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { calculateRiskScore, hashIdentifier, type CustomerHistory, type OrderContext } from '@/lib/risk/engine'
 import { sendRiskAlert } from '@/lib/risk/notifications'
-import { normalizeRomanian, stringSimilarity, extractCity, findClusterMatches, type ClusterCandidate } from '@/lib/risk/cluster'
+import { normalizeRomanian, extractCity, findClusterMatches, type ClusterCandidate } from '@/lib/risk/cluster'
 import { decrypt } from '@/lib/security/encryption'
 import crypto from 'crypto'
 
@@ -31,7 +31,9 @@ function mapStatus(s: string): string {
     livrata: 'collected', refuzata: 'refused', returnata: 'returned',
     expediat: 'shipped', 'in-livrare': 'shipped', nepreluat: 'not_home',
   }
-  const n = s.toLowerCase().replace(/[ăâ]/g,'a').replace(/î/g,'i').replace(/[șs]/g,'s').replace(/[țt]/g,'t')
+  const n = s.toLowerCase()
+    .replace(/[ăâ]/g,'a').replace(/î/g,'i')
+    .replace(/[șs]/g,'s').replace(/[țt]/g,'t')
   return m[n] || m[s.toLowerCase()] || 'pending'
 }
 
@@ -49,55 +51,179 @@ function extractPayment(order: any): 'cod'|'card'|'bank_transfer' {
   return 'bank_transfer'
 }
 
-function phoneLast9(p: string): string {
-  return p.replace(/\s/g,'').replace(/^\+40/,'0').slice(-9)
+// Normalizare telefon: intotdeauna ultimele 9 cifre, fara spatii
+// +40757123456 → 757123456, 0757123456 → 757123456, 0040757... → 757123456
+function normalizePhone(p: string): string {
+  const digits = p.replace(/\D/g, '')        // doar cifre
+  return digits.slice(-9)                    // ultimele 9 — universal
 }
 
-// ─── Găsire client cu identitate strictă ─────────────────────────────────────
-// Regulă: același telefon (ultimele 9 cifre) ȘI nume similar (≥85%) = același client
-// Același telefon dar alt nume = CLIENT NOU (altă persoană)
-// Fără nume = match pe telefon/email indiferent de nume
-async function findCustomer(
-  supabase: any, storeId: string,
-  phone: string|null, email: string|null, name: string|null
-): Promise<any|null> {
-  const normName = name ? normalizeRomanian(name) : null
+// ─── findOrCreateCustomer — sursa de adevar pentru identitate ─────────────────
+//
+// REGULA UNICA: acelasi telefon (last9) SAU acelasi email = ACELASI CLIENT
+// Nu conteaza numele, nu conteaza prefixul (+40 vs 0 vs 0040)
+// Primul match castiga — phone are prioritate fata de email
+//
+async function findOrCreateCustomer(
+  supabase: any,
+  storeId: string,
+  userId: string,
+  phone: string | null,
+  email: string | null,
+  name: string | null,
+  firstOrderAt: string,
+): Promise<{ customer: any; isNew: boolean }> {
 
-  // Intotdeauna cauta pe ultimele 9 cifre — independenta de prefix (+40 vs 0)
-  if (phone) {
-    const last9 = phoneLast9(phone)
-    const { data: allRows } = await supabase
-      .from('risk_customers').select('*').eq('store_id', storeId)
+  const phoneNorm = phone ? normalizePhone(phone) : null
+  const emailNorm = email ? email.toLowerCase().trim() : null
 
-    const byPhone = (allRows||[]).filter((c: any) =>
-      c.phone && phoneLast9(c.phone) === last9
-    )
+  // ── Cauta clientul existent ───────────────────────────────────────────────
+  // Ia toti clientii magazinului o singura data (eficient pentru magazine mici/medii)
+  const { data: allCustomers } = await supabase
+    .from('risk_customers')
+    .select('*')
+    .eq('store_id', storeId)
 
-    if (byPhone.length) {
-      if (!normName) return byPhone[0]
-      // Cauta unul cu acelasi nume (≥85% similaritate)
-      const hit = byPhone.find((c: any) =>
-        !c.name || stringSimilarity(normName, normalizeRomanian(c.name)) >= 0.85
-      )
-      if (hit) return hit
-      // Telefon match dar alt nume = alta persoana, nu returnam
-      return null
-    }
+  const pool = allCustomers || []
+
+  let found: any = null
+
+  // Prioritate 1: match telefon (last9)
+  if (phoneNorm) {
+    found = pool.find((c: any) =>
+      c.phone && normalizePhone(c.phone) === phoneNorm
+    ) || null
   }
 
-  if (email) {
-    const { data: rows } = await supabase
-      .from('risk_customers').select('*')
-      .eq('store_id', storeId).eq('email', email.toLowerCase())
-    if (rows?.length) {
-      if (!normName) return rows[0]
-      return rows.find((c: any) =>
-        !c.name || stringSimilarity(normName, normalizeRomanian(c.name)) >= 0.85
-      ) || null
-    }
+  // Prioritate 2: match email exact (daca nu s-a gasit prin telefon)
+  if (!found && emailNorm) {
+    found = pool.find((c: any) =>
+      c.email && c.email.toLowerCase().trim() === emailNorm
+    ) || null
   }
 
-  return null
+  if (found) {
+    return { customer: found, isNew: false }
+  }
+
+  // ── Creeaza client nou ────────────────────────────────────────────────────
+  const { data: newC, error } = await supabase
+    .from('risk_customers')
+    .insert({
+      store_id:   storeId,
+      user_id:    userId,
+      phone:      phone  || null,
+      email:      emailNorm || null,
+      name:       name   || null,
+      risk_score: 0,
+      risk_label: 'new',
+      total_orders:      0,
+      orders_collected:  0,
+      orders_refused:    0,
+      orders_not_home:   0,
+      orders_cancelled:  0,
+      last_order_at:   firstOrderAt,
+      first_order_at:  firstOrderAt,
+      in_local_blacklist:  false,
+      in_global_blacklist: false,
+      manually_reviewed:   false,
+      updated_at: new Date().toISOString(),
+    })
+    .select('*')
+    .single()
+
+  if (error || !newC) {
+    // Race condition: altcineva a creat clientul intre timp — incearca din nou
+    console.warn('[Webhook] Insert conflict, retrying lookup:', error?.message)
+    const { data: retry } = await supabase
+      .from('risk_customers')
+      .select('*')
+      .eq('store_id', storeId)
+
+    const retryPool = retry || []
+    let retryFound: any = null
+    if (phoneNorm) retryFound = retryPool.find((c: any) => c.phone && normalizePhone(c.phone) === phoneNorm) || null
+    if (!retryFound && emailNorm) retryFound = retryPool.find((c: any) => c.email && c.email.toLowerCase().trim() === emailNorm) || null
+    if (retryFound) return { customer: retryFound, isNew: false }
+
+    throw new Error('Nu s-a putut crea/găsi clientul: ' + error?.message)
+  }
+
+  return { customer: newC, isNew: true }
+}
+
+// ─── Recalculeaza scorul clientului din DB — sursa de adevar ─────────────────
+async function recalcCustomer(
+  supabase: any,
+  customerId: string,
+  storeId: string,
+  phone: string | null,
+  email: string | null,
+  pm: 'cod'|'card'|'bank_transfer',
+  value: number,
+  curr: string,
+  ordAt: string,
+  addr: string,
+  settings: any,
+): Promise<{ score: number; label: string; flags: any[]; recommendation: string; refusalProbability: number }> {
+  const { data: allOrders } = await supabase
+    .from('risk_orders')
+    .select('order_status, shipping_address')
+    .eq('customer_id', customerId)
+    .eq('store_id', storeId)
+
+  const orders = allOrders || []
+  let tc=0, tr=0, tn=0, tcan=0
+  const addrs = new Set<string>()
+
+  for (const o of orders) {
+    if (o.order_status === 'collected') tc++
+    else if (['refused','returned'].includes(o.order_status)) tr++
+    else if (o.order_status === 'not_home') tn++
+    else if (o.order_status === 'cancelled') tcan++
+    if (o.shipping_address) addrs.add(o.shipping_address.trim().toLowerCase())
+  }
+
+  const { data: cust } = await supabase
+    .from('risk_customers').select('*').eq('id', customerId).single()
+
+  const hist: CustomerHistory = {
+    totalOrders:     orders.length,
+    ordersCollected: tc,
+    ordersRefused:   tr,
+    ordersNotHome:   tn,
+    ordersCancelled: tcan,
+    ordersToday:     0,
+    lastOrderAt:     cust?.last_order_at  || null,
+    firstOrderAt:    cust?.first_order_at || null,
+    accountCreatedAt: null,
+    phoneValidated:  !!(phone?.match(/^(07\d{8}|02\d{8}|03\d{8})$/)),
+    isNewAccount:    orders.length <= 1,
+    addressChanges:  addrs.size,
+  }
+
+  const ctx: OrderContext = {
+    paymentMethod: pm, totalValue: value, currency: curr, orderedAt: ordAt,
+    customerEmail: email || '', shippingAddress: addr,
+    inGlobalBlacklist: cust?.in_global_blacklist || false, globalReportCount: 0,
+  }
+
+  const result = calculateRiskScore(hist, ctx, settings)
+
+  // Actualizeaza clientul cu contoarele corecte din DB
+  const finalLabel = cust?.manual_label_override || result.label
+  await supabase.from('risk_customers').update({
+    total_orders:      orders.length,
+    orders_collected:  tc,
+    orders_refused:    tr,
+    orders_not_home:   tn,
+    orders_cancelled:  tcan,
+    risk_score:  result.score,
+    risk_label:  finalLabel,
+    updated_at:  new Date().toISOString(),
+  }).eq('id', customerId)
+
+  return { ...result, label: finalLabel }
 }
 
 // ─── Import istoric WooCommerce (background, non-blocking) ───────────────────
@@ -113,6 +239,7 @@ async function importHistory(params: {
   try {
     const base = storeUrl.replace(/\/$/, '')
     const auth = 'Basic ' + Buffer.from(`${ck}:${cs}`).toString('base64')
+    const phoneNorm = phone ? normalizePhone(phone) : null
 
     const fetchPage = async (qp: Record<string,string>) => {
       const url = new URL(`${base}/wp-json/wc/v3/orders`)
@@ -125,12 +252,12 @@ async function importHistory(params: {
     const seen = new Set<number>()
     const wooOrders: any[] = []
 
-    // Cauta dupa email (cel mai precis - parametru direct WooCommerce)
     if (email) {
       for (let p=1; p<=5; p++) {
         const { data, pages } = await fetchPage({ billing_email: email, per_page:'100', page:String(p), orderby:'date', order:'desc' })
         for (const o of (data||[])) {
-          if (!seen.has(o.id) && (o.billing?.email||'').toLowerCase() === email.toLowerCase()) {
+          const bEmail = (o.billing?.email||'').toLowerCase()
+          if (!seen.has(o.id) && bEmail === email.toLowerCase()) {
             seen.add(o.id); wooOrders.push(o)
           }
         }
@@ -138,16 +265,13 @@ async function importHistory(params: {
       }
     }
 
-    // Cauta dupa telefon — filtru strict dupa rezultate
     if (phone) {
-      const clean = phone.replace(/\s/g,'')
-      const last9 = phoneLast9(phone)
       for (let p=1; p<=5; p++) {
-        const { data, pages } = await fetchPage({ search: clean, per_page:'100', page:String(p), orderby:'date', order:'desc' })
+        const { data, pages } = await fetchPage({ search: phone.replace(/\s/g,''), per_page:'100', page:String(p), orderby:'date', order:'desc' })
         for (const o of (data||[])) {
           if (!seen.has(o.id)) {
             const bPhone = (o.billing?.phone||'').replace(/\s/g,'')
-            if (bPhone && phoneLast9(bPhone) === last9) {
+            if (bPhone && phoneNorm && normalizePhone(bPhone) === phoneNorm) {
               seen.add(o.id); wooOrders.push(o)
             }
           }
@@ -158,40 +282,28 @@ async function importHistory(params: {
 
     if (!wooOrders.length) return
 
-    // Ia comenzile existente din TOT store-ul (nu doar ale clientului)
     const { data: existing } = await supabase
-      .from('risk_orders').select('external_order_id, customer_id').eq('store_id', storeId)
-    const existMap = new Map<string,string>((existing||[]).map((o:any) => [String(o.external_order_id), o.customer_id]))
+      .from('risk_orders').select('external_order_id').eq('store_id', storeId)
+    const existSet = new Set<string>((existing||[]).map((o:any) => String(o.external_order_id)))
 
     const toInsert: any[] = []
     for (const woo of wooOrders) {
       const extId = String(woo.id)
-      const status = mapStatus(woo.status||'pending')
-      const owner = existMap.get(extId)
-
-      if (owner) {
-        // Comanda exista deja la ACEST client — actualizeaza status
-        if (owner === customerId) {
-          await supabase.from('risk_orders')
-            .update({ order_status: status, updated_at: new Date().toISOString() })
-            .eq('store_id', storeId).eq('external_order_id', extId)
-        }
-        // La alt client — nu atingem
-        continue
-      }
-
+      if (existSet.has(extId)) continue
       const b = woo.billing||{}, s = woo.shipping||{}
-      const pm = (woo.payment_method||'').toLowerCase()
+      const pm2 = (woo.payment_method||'').toLowerCase()
       toInsert.push({
         store_id: storeId, user_id: userId, customer_id: customerId,
         external_order_id: extId, order_number: woo.number ? String(woo.number) : null,
         customer_phone: b.phone||phone, customer_email: b.email||email,
         customer_name: [b.first_name,b.last_name].filter(Boolean).join(' ')||null,
         shipping_address: [s.address_1||b.address_1, s.city||b.city, s.country||b.country].filter(Boolean).join(', '),
-        payment_method: pm.includes('cod')||pm.includes('cash') ? 'cod' : pm.includes('card') ? 'card' : 'bank_transfer',
+        payment_method: pm2.includes('cod')||pm2.includes('cash') ? 'cod' : pm2.includes('card') ? 'card' : 'bank_transfer',
         total_value: parseFloat(woo.total||'0'), currency: woo.currency||'RON',
-        order_status: status, risk_score_at_order: 0, risk_flags: [],
-        ordered_at: woo.date_created||new Date().toISOString(), updated_at: new Date().toISOString(),
+        order_status: mapStatus(woo.status||'pending'),
+        risk_score_at_order: 0, risk_flags: [],
+        ordered_at: woo.date_created||new Date().toISOString(),
+        updated_at: new Date().toISOString(),
       })
     }
 
@@ -199,7 +311,7 @@ async function importHistory(params: {
       await supabase.from('risk_orders').insert(toInsert.slice(i, i+50))
     }
 
-    // Recalculeaza contoarele din DB — sursa de adevar
+    // Recalculeaza contoarele din DB dupa import
     const { data: mine } = await supabase.from('risk_orders')
       .select('order_status').eq('customer_id', customerId).eq('store_id', storeId)
     let tc=0,tr=0,tn=0,tcan=0
@@ -211,11 +323,12 @@ async function importHistory(params: {
     }
     await supabase.from('risk_customers').update({
       total_orders: (mine||[]).length,
-      orders_collected: tc, orders_refused: tr, orders_not_home: tn, orders_cancelled: tcan,
+      orders_collected: tc, orders_refused: tr,
+      orders_not_home: tn, orders_cancelled: tcan,
       updated_at: new Date().toISOString(),
     }).eq('id', customerId)
 
-    console.log(`[Webhook] Imported ${toInsert.length} historical orders for ${customerId}`)
+    console.log(`[Webhook] Imported ${toInsert.length} historical orders for customer ${customerId}`)
   } catch (e: any) {
     console.error('[Webhook] History import error:', e.message)
   }
@@ -232,7 +345,7 @@ export async function POST(req: Request) {
   const signature = req.headers.get('x-wc-webhook-signature') || ''
   const sourceUrl = req.headers.get('x-wc-webhook-source') || ''
 
-  console.log('[Webhook] topic:', topic, 'body:', rawBody.length, 'bytes')
+  console.log('[Webhook] topic:', topic, 'bytes:', rawBody.length)
 
   if (!['order.created','order.updated'].includes(topic)) {
     return NextResponse.json({ ok: true, skipped: topic })
@@ -245,7 +358,7 @@ export async function POST(req: Request) {
 
   const supabase = createAdminClient()
 
-  // Găsește store-ul după HMAC sau source URL
+  // ── Gaseste store-ul ──────────────────────────────────────────────────────
   const { data: stores } = await supabase
     .from('stores').select('id, user_id, store_url, webhook_secret, api_key, api_secret')
     .not('webhook_secret', 'is', null)
@@ -258,7 +371,9 @@ export async function POST(req: Request) {
   }
   if (!store && sourceUrl) {
     store = stores.find((s: any) =>
-      s.store_url && sourceUrl.replace(/\/$/,'').includes(s.store_url.replace(/^https?:\/\//,'').replace(/\/$/,''))
+      s.store_url && sourceUrl.replace(/\/$/,'').includes(
+        s.store_url.replace(/^https?:\/\//,'').replace(/\/$/,'')
+      )
     )
   }
   if (!store && stores.length === 1) store = stores[0]
@@ -267,8 +382,9 @@ export async function POST(req: Request) {
   const storeId = store.id
   const userId  = store.user_id
 
-  // Setarile Risk Shield
-  const { data: rs } = await supabase.from('risk_store_settings').select('*').eq('store_id', storeId).single()
+  // ── Setari Risk Shield ────────────────────────────────────────────────────
+  const { data: rs } = await supabase
+    .from('risk_store_settings').select('*').eq('store_id', storeId).single()
   const settings = {
     participate_in_global_blacklist: rs?.participate_in_global_blacklist ?? true,
     alert_on_blocked:     rs?.alert_on_blocked     ?? true,
@@ -283,9 +399,9 @@ export async function POST(req: Request) {
     ml_weights: rs?.ml_weights,
   }
 
-  // Date din comanda WooCommerce
+  // ── Date din comanda WooCommerce ──────────────────────────────────────────
   const phone   = (order.billing?.phone || '').replace(/\s/g,'') || null
-  const email   = (order.billing?.email || '').toLowerCase()     || null
+  const email   = (order.billing?.email || '').toLowerCase().trim() || null
   const name    = [order.billing?.first_name, order.billing?.last_name].filter(Boolean).join(' ') || null
   const addr    = extractAddress(order)
   const pm      = extractPayment(order)
@@ -296,14 +412,16 @@ export async function POST(req: Request) {
   const orderNr = order.number ? String(order.number) : null
   const status  = mapStatus(order.status||'pending')
 
-  if (!phone && !email) return NextResponse.json({ ok: true, skipped: 'no_contact' })
+  if (!phone && !email) {
+    return NextResponse.json({ ok: true, skipped: 'no_contact' })
+  }
 
-  // Verifica daca comanda exista deja in DB
+  // ── Verifica daca comanda exista deja ─────────────────────────────────────
   const { data: existingOrder } = await supabase
     .from('risk_orders').select('id, order_status, customer_id')
     .eq('store_id', storeId).eq('external_order_id', extId).single()
 
-  // ─── ORDER.UPDATED — comanda exista deja ─────────────────────────────────────
+  // ─── ORDER.UPDATED ────────────────────────────────────────────────────────
   if (topic === 'order.updated' && existingOrder) {
     if (existingOrder.order_status === status) {
       return NextResponse.json({ ok: true, action: 'no_change' })
@@ -313,82 +431,51 @@ export async function POST(req: Request) {
       .update({ order_status: status, updated_at: new Date().toISOString() })
       .eq('id', existingOrder.id)
 
-    // Actualizeaza contoarele clientului
     if (existingOrder.customer_id) {
-      const { data: cust } = await supabase.from('risk_customers').select('*')
-        .eq('id', existingOrder.customer_id).single()
-      if (cust) {
-        const old = existingOrder.order_status
-        // Recalculeaza din DB — nu delta
-        const { data: allOrders } = await supabase.from('risk_orders')
-          .select('order_status').eq('customer_id', cust.id).eq('store_id', storeId)
-        let tc=0,tr=0,tn=0,tcan=0
-        for (const o of (allOrders||[])) {
-          if (o.order_status==='collected') tc++
-          else if (['refused','returned'].includes(o.order_status)) tr++
-          else if (o.order_status==='not_home') tn++
-          else if (o.order_status==='cancelled') tcan++
-        }
-        const hist: CustomerHistory = {
-          totalOrders: (allOrders||[]).length, ordersCollected: tc, ordersRefused: tr,
-          ordersNotHome: tn, ordersCancelled: tcan, ordersToday: 0,
-          lastOrderAt: cust.last_order_at, firstOrderAt: cust.first_order_at,
-          accountCreatedAt: null, phoneValidated: !!(phone?.match(/^07\d{8}$/)),
-          isNewAccount: false, addressChanges: 0,
-        }
-        const ctx: OrderContext = {
-          paymentMethod: pm, totalValue: value, currency: curr, orderedAt: ordAt,
-          customerEmail: email||'', shippingAddress: addr,
-          inGlobalBlacklist: cust.in_global_blacklist||false, globalReportCount: 0,
-        }
-        const recalc = calculateRiskScore(hist, ctx, settings)
-        const label  = cust.manual_label_override || recalc.label
-        await supabase.from('risk_customers').update({
-          orders_collected: tc, orders_refused: tr, orders_not_home: tn, orders_cancelled: tcan,
-          total_orders: (allOrders||[]).length,
-          risk_score: recalc.score, risk_label: label, updated_at: new Date().toISOString(),
-        }).eq('id', cust.id)
+      const result = await recalcCustomer(
+        supabase, existingOrder.customer_id, storeId,
+        phone, email, pm, value, curr, ordAt, addr, settings
+      )
 
-        if (['refused','returned','not_home'].includes(status) && !['refused','returned','not_home'].includes(old)) {
-          await supabase.from('risk_alerts').insert({
-            store_id: storeId, user_id: userId, customer_id: cust.id, order_id: existingOrder.id,
-            alert_type: 'delivery_failed', severity: status==='refused'?'warning':'info',
-            title: `Livrare eșuată — ${name||phone||email}`,
-            description: `Comanda #${orderNr||extId} → ${status}. Scor: ${recalc.score}/100`,
-          })
-        }
+      // Alerta livrare esuata
+      const failStatuses = ['refused','returned','not_home']
+      if (failStatuses.includes(status) && !failStatuses.includes(existingOrder.order_status)) {
+        await supabase.from('risk_alerts').insert({
+          store_id: storeId, user_id: userId,
+          customer_id: existingOrder.customer_id, order_id: existingOrder.id,
+          alert_type: 'delivery_failed',
+          severity: status === 'refused' ? 'warning' : 'info',
+          title: `Livrare eșuată — ${name||phone||email}`,
+          description: `Comanda #${orderNr||extId} → ${status}. Scor: ${result.score}/100`,
+        })
       }
     }
+
     return NextResponse.json({ ok: true, action: 'updated', status })
   }
 
-  // ─── DUPLICAT — order.created dar comanda exista deja ────────────────────────
+  // ─── DUPLICAT ─────────────────────────────────────────────────────────────
   if (existingOrder) {
     console.log('[Webhook] Duplicate order.created for', extId, '— skipping')
     return NextResponse.json({ ok: true, action: 'duplicate_skipped' })
   }
 
-  // ─── ORDER.CREATED — comanda noua ────────────────────────────────────────────
-  const customer = await findCustomer(supabase, storeId, phone, email, name)
+  // ─── ORDER.CREATED — comanda noua ─────────────────────────────────────────
 
-  // Statistici pentru scor
-  const todayStart = new Date(); todayStart.setHours(0,0,0,0)
-  let ordersToday = 0
-  const todayFilter = [phone?`customer_phone.eq.${phone}`:null, email?`customer_email.eq.${email}`:null].filter(Boolean).join(',')
-  if (todayFilter) {
-    const { count } = await supabase.from('risk_orders')
-      .select('id', { count:'exact', head:true }).eq('store_id', storeId)
-      .gte('ordered_at', todayStart.toISOString()).or(todayFilter)
-    ordersToday = count||0
-  }
+  // Gaseste sau creeaza clientul — REGULA UNICA: phone last9 OR email
+  const { customer, isNew } = await findOrCreateCustomer(
+    supabase, storeId, userId, phone, email, name, ordAt
+  )
+  const customerId = customer.id
 
-  let addressChanges = 0
-  if (customer) {
-    const { data: addrs } = await supabase.from('risk_orders')
-      .select('shipping_address').eq('customer_id', customer.id).not('shipping_address','is',null)
-    addressChanges = new Set((addrs||[]).map((a:any) => (a.shipping_address||'').trim().toLowerCase())).size
-  }
+  // Actualizează name + phone + email pe client dacă lipsesc
+  const custUpdates: any = { last_order_at: ordAt, updated_at: new Date().toISOString() }
+  if (!customer.name && name)   custUpdates.name  = name
+  if (!customer.phone && phone) custUpdates.phone = phone
+  if (!customer.email && email) custUpdates.email = emailNorm(email)
+  await supabase.from('risk_customers').update(custUpdates).eq('id', customerId)
 
+  // Blacklist global
   let inGlobalBlacklist = false, globalReportCount = 0
   if (settings.participate_in_global_blacklist) {
     for (const val of [phone, email].filter(Boolean)) {
@@ -397,83 +484,52 @@ export async function POST(req: Request) {
         .select('report_count').or(`phone_hash.eq.${hash},email_hash.eq.${hash}`).single()
       if (gb) { inGlobalBlacklist = true; globalReportCount = Math.max(globalReportCount, gb.report_count) }
     }
+    if (inGlobalBlacklist) {
+      await supabase.from('risk_customers')
+        .update({ in_global_blacklist: true }).eq('id', customerId)
+    }
   }
 
-  const history: CustomerHistory = {
-    totalOrders:     customer?.total_orders    || 0,
-    ordersCollected: customer?.orders_collected || 0,
-    ordersRefused:   customer?.orders_refused   || 0,
-    ordersNotHome:   customer?.orders_not_home  || 0,
-    ordersCancelled: customer?.orders_cancelled || 0,
-    ordersToday, addressChanges,
-    lastOrderAt:  customer?.last_order_at || null,
-    firstOrderAt: customer?.first_order_at || null,
-    accountCreatedAt: null,
-    phoneValidated: !!(phone?.match(/^(07\d{8}|02\d{8}|03\d{8})$/)),
-    isNewAccount: !customer,
-  }
-  const orderCtx: OrderContext = {
-    paymentMethod: pm, totalValue: value, currency: curr, orderedAt: ordAt,
-    customerEmail: email||'', shippingAddress: addr,
-    inGlobalBlacklist, globalReportCount,
-  }
-
-  const result     = calculateRiskScore(history, orderCtx, settings)
-  const finalLabel = customer?.manual_label_override || result.label
-
-  // Salveaza/actualizeaza clientul
-  const custPayload = {
-    store_id: storeId, user_id: userId,
-    phone:    phone  || customer?.phone,
-    email:    email  || customer?.email,
-    name:     customer ? (customer.name || name) : name,   // NU suprascriem numele existent
-    risk_score: result.score, risk_label: finalLabel,
-    total_orders:     (customer?.total_orders||0) + 1,
-    orders_collected:  customer?.orders_collected  || 0,
-    orders_refused:    customer?.orders_refused    || 0,
-    orders_not_home:   customer?.orders_not_home   || 0,
-    orders_cancelled:  customer?.orders_cancelled  || 0,
-    last_order_at:  ordAt,
-    first_order_at: customer?.first_order_at || ordAt,
-    in_global_blacklist: inGlobalBlacklist,
-    updated_at: new Date().toISOString(),
-  }
-
-  let customerId = customer?.id
-  if (customer) {
-    await supabase.from('risk_customers').update(custPayload).eq('id', customer.id)
-  } else {
-    const { data: newC } = await supabase.from('risk_customers')
-      .insert(custPayload).select('id').single()
-    customerId = newC?.id
-  }
-
-  // INSERT comanda — NU upsert (am verificat mai sus ca nu exista)
+  // Insereaza comanda
   const { data: riskOrder } = await supabase.from('risk_orders').insert({
     store_id: storeId, user_id: userId, customer_id: customerId,
     external_order_id: extId, order_number: orderNr,
     customer_phone: phone, customer_email: email, customer_name: name,
     shipping_address: addr, payment_method: pm,
     total_value: value, currency: curr, order_status: status,
-    risk_score_at_order: result.score, risk_flags: result.flags,
+    risk_score_at_order: 0, risk_flags: [],
     ordered_at: ordAt, updated_at: new Date().toISOString(),
   }).select('id').single()
 
+  // Recalculeaza scorul din DB (acum include si comanda tocmai inserata)
+  const result = await recalcCustomer(
+    supabase, customerId, storeId,
+    phone, email, pm, value, curr, ordAt, addr, settings
+  )
+
+  // Update risk_score_at_order pe comanda inserata
+  if (riskOrder?.id) {
+    await supabase.from('risk_orders').update({
+      risk_score_at_order: result.score,
+      risk_flags: result.flags,
+    }).eq('id', riskOrder.id)
+  }
+
   // Alerte
   const shouldAlert =
-    (finalLabel==='blocked'     && settings.alert_on_blocked     !== false) ||
-    (finalLabel==='problematic' && settings.alert_on_problematic !== false) ||
-    (finalLabel==='watch'       && settings.alert_on_watch       === true)
+    (result.label === 'blocked'     && settings.alert_on_blocked     !== false) ||
+    (result.label === 'problematic' && settings.alert_on_problematic !== false) ||
+    (result.label === 'watch'       && settings.alert_on_watch       === true)
 
   if (shouldAlert) {
-    const topFlags = result.flags.slice(0,3).map((f:any)=>f.label).join(', ')
+    const topFlags = result.flags.slice(0,3).map((f:any) => f.label).join(', ')
     await supabase.from('risk_alerts').insert({
       store_id: storeId, user_id: userId,
       customer_id: customerId, order_id: riskOrder?.id,
-      alert_type: finalLabel==='blocked'?'blocked_customer':'new_problematic_order',
-      severity:   finalLabel==='blocked'?'critical':finalLabel==='problematic'?'warning':'info',
-      title: `Comandă nouă — client ${finalLabel}: ${name||phone||email}`,
-      description: `Scor: ${result.score}/100. ${topFlags?'Motive: '+topFlags:''}`,
+      alert_type: result.label === 'blocked' ? 'blocked_customer' : 'new_problematic_order',
+      severity:   result.label === 'blocked' ? 'critical' : result.label === 'problematic' ? 'warning' : 'info',
+      title: `Comandă nouă — client ${result.label}: ${name||phone||email}`,
+      description: `Scor: ${result.score}/100. ${topFlags ? 'Motive: '+topFlags : ''}`,
     })
 
     if (settings.alert_email && settings.email_alerts_enabled !== false) {
@@ -481,7 +537,7 @@ export async function POST(req: Request) {
         to: settings.alert_email,
         storeName: store.store_url.replace(/^https?:\/\//,'').replace(/\/$/,''),
         storeUrl: store.store_url, customerName: name, customerPhone: phone,
-        customerEmail: email, riskScore: result.score, riskLabel: finalLabel,
+        customerEmail: email, riskScore: result.score, riskLabel: result.label,
         orderNumber: orderNr||extId, orderValue: value, currency: curr,
         flags: result.flags.slice(0,5), recommendation: result.recommendation,
         refusalProbability: result.refusalProbability,
@@ -490,7 +546,7 @@ export async function POST(req: Request) {
     }
   }
 
-  // Blacklist global
+  // Blacklist global — update daca scor >= 61
   if (settings.participate_in_global_blacklist && result.score >= 61) {
     const upsertBl = async (field: 'phone_hash'|'email_hash', val: string) => {
       const hash = hashIdentifier(val)
@@ -498,19 +554,22 @@ export async function POST(req: Request) {
         .select('id, report_count').eq(field, hash).single()
       if (ex) {
         await supabase.from('risk_global_blacklist').update({
-          report_count: ex.report_count+1, last_reported_at: new Date().toISOString(),
-          global_risk_score: Math.min(ex.report_count*20, 100),
+          report_count: ex.report_count + 1,
+          last_reported_at: new Date().toISOString(),
+          global_risk_score: Math.min(ex.report_count * 20, 100),
         }).eq('id', ex.id)
       } else {
-        await supabase.from('risk_global_blacklist').insert({ [field]: hash, report_count:1, global_risk_score:20 })
+        await supabase.from('risk_global_blacklist').insert({
+          [field]: hash, report_count: 1, global_risk_score: 20,
+        })
       }
     }
     if (phone) await upsertBl('phone_hash', phone)
     if (email) await upsertBl('email_hash', email)
   }
 
-  // Import istoric din WooCommerce — DOAR pentru client nou, non-blocking
-  if (!customer && customerId && store.api_key) {
+  // Import istoric — DOAR pentru client nou, non-blocking
+  if (isNew && store.api_key) {
     importHistory({
       supabase, storeId, userId, customerId,
       storeUrl: store.store_url, apiKey: store.api_key, apiSecret: store.api_secret,
@@ -546,10 +605,16 @@ export async function POST(req: Request) {
     })()
   }
 
+  console.log(`[Webhook] Done: customer=${customerId} isNew=${isNew} score=${result.score} label=${result.label}`)
+
   return NextResponse.json({
     ok: true, action: 'created',
-    score: result.score, label: finalLabel,
+    score: result.score, label: result.label,
     refusal_probability: result.refusalProbability,
-    customer_id: customerId, is_new_customer: !customer,
+    customer_id: customerId, is_new_customer: isNew,
   })
+}
+
+function emailNorm(e: string): string {
+  return e.toLowerCase().trim()
 }
