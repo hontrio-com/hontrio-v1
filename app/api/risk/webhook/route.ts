@@ -63,34 +63,25 @@ async function findCustomer(
 ): Promise<any|null> {
   const normName = name ? normalizeRomanian(name) : null
 
+  // Intotdeauna cauta pe ultimele 9 cifre — independenta de prefix (+40 vs 0)
   if (phone) {
     const last9 = phoneLast9(phone)
-    const { data: rows } = await supabase
-      .from('risk_customers').select('*')
-      .eq('store_id', storeId)
-      .eq('phone', phone)
-    
-    if (rows?.length) {
-      if (!normName) return rows[0]
-      const hit = rows.find((c: any) =>
+    const { data: allRows } = await supabase
+      .from('risk_customers').select('*').eq('store_id', storeId)
+
+    const byPhone = (allRows||[]).filter((c: any) =>
+      c.phone && phoneLast9(c.phone) === last9
+    )
+
+    if (byPhone.length) {
+      if (!normName) return byPhone[0]
+      // Cauta unul cu acelasi nume (≥85% similaritate)
+      const hit = byPhone.find((c: any) =>
         !c.name || stringSimilarity(normName, normalizeRomanian(c.name)) >= 0.85
       )
       if (hit) return hit
-      // Telefon identic, nume diferit = altă persoană, nu returnăm nimic
+      // Telefon match dar alt nume = alta persoana, nu returnam
       return null
-    }
-
-    // Încearcă și cu ultimele 9 cifre (prefix internațional diferit)
-    const { data: rows2 } = await supabase
-      .from('risk_customers').select('*').eq('store_id', storeId)
-    const byLast9 = (rows2||[]).filter((c: any) =>
-      c.phone && phoneLast9(c.phone) === last9
-    )
-    if (byLast9.length) {
-      if (!normName) return byLast9[0]
-      return byLast9.find((c: any) =>
-        !c.name || stringSimilarity(normName, normalizeRomanian(c.name)) >= 0.85
-      ) || null
     }
   }
 
