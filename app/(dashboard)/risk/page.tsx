@@ -1118,7 +1118,7 @@ export default function RiskShieldPage() {
             </div>
           )}
         </motion.div>
-      )
+      )}
 
       {/* ── Stats Row ── */}
       <div className="grid grid-cols-3 sm:grid-cols-3 lg:grid-cols-6 gap-1.5 sm:gap-2">
