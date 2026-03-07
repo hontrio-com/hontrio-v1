@@ -135,12 +135,22 @@ export async function GET(req: Request) {
                   supabase, storeId, userId, wcCustId, phone, email, name, ordAt
                 )
 
-                // Update customer dates + contact info
+                // Update customer contact info
+                // For guests: always update name/phone to latest order (WooCommerce shows latest)
+                // For registered: only fill missing fields
                 const upd: any = { updated_at: new Date().toISOString() }
                 let need = false
-                if (!customer.name && name) { upd.name = name; need = true }
-                if (!customer.phone && phone) { upd.phone = phone; need = true }
-                if (!customer.email && email) { upd.email = email; need = true }
+                if (customer.is_guest) {
+                  // Guest: always update to latest data
+                  if (name) { upd.name = name; need = true }
+                  if (phone) { upd.phone = phone; need = true }
+                  if (email) { upd.email = email; need = true }
+                } else {
+                  // Registered: only fill missing
+                  if (!customer.name && name) { upd.name = name; need = true }
+                  if (!customer.phone && phone) { upd.phone = phone; need = true }
+                  if (!customer.email && email) { upd.email = email; need = true }
+                }
                 if (ordAt && (!customer.first_order_at || new Date(ordAt) < new Date(customer.first_order_at))) {
                   upd.first_order_at = ordAt; need = true
                 }

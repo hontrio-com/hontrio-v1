@@ -111,9 +111,16 @@ export async function POST(req: Request) {
 
   // Update contact info
   const upd: any = { last_order_at: ordAt, updated_at: new Date().toISOString() }
-  if (!customer.name && name) upd.name = name
-  if (!customer.phone && phone) upd.phone = phone
-  if (!customer.email && email) upd.email = email
+  // Guest: always update to latest. Registered: only fill missing.
+  if (customer.is_guest) {
+    if (name) upd.name = name
+    if (phone) upd.phone = phone
+    if (email) upd.email = email
+  } else {
+    if (!customer.name && name) upd.name = name
+    if (!customer.phone && phone) upd.phone = phone
+    if (!customer.email && email) upd.email = email
+  }
   await supabase.from('risk_customers').update(upd).eq('id', cid)
 
   // Insert order
