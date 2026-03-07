@@ -93,8 +93,24 @@ export async function resolveCustomer(
   }
 
   // ── GUEST ORDER (no customer_id) ────────────────────────────────────────
-  // Fiecare guest order creează un client guest separat.
-  // NU facem merge automat pe phone/email — asta e treaba clustering-ului.
+  // WooCommerce grupează guest orders pe email în pagina Customers.
+  // Facem la fel: dacă există deja un guest customer cu același email, îl refolosim.
+  const em = email?.toLowerCase().trim() || null
+
+  if (em) {
+    const { data: existingGuest } = await supabase.from('risk_customers')
+      .select('*')
+      .eq('store_id', storeId)
+      .eq('is_guest', true)
+      .ilike('email', em)
+      .limit(1)
+
+    if (existingGuest?.[0]) {
+      return { customer: existingGuest[0], isNew: false }
+    }
+  }
+
+  // Nu există guest cu acest email — creează nou
   const { data: guest, error } = await supabase.from('risk_customers').insert({
     store_id: storeId, user_id: userId,
     external_customer_id: null,
