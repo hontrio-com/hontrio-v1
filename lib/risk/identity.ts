@@ -1,29 +1,26 @@
 /**
- * lib/risk/identity.ts
+ * lib/risk/identity.ts — v2
  * 
- * Sursa unică de adevăr pentru identitatea clienților.
- * REGULA: phone last9 SAU email = ACELAȘI CLIENT
+ * PRINCIPIU FUNDAMENTAL:
+ *   Identitatea clientului = external_customer_id din WooCommerce
+ *   Phone/email sunt doar atribute de contact, NU chei de identitate
+ *
+ * REGULI:
+ *   1. Dacă order are customer_id > 0 → caută/creează prin external_customer_id
+ *   2. Dacă order e guest (customer_id = 0) → creează client guest separat
+ *   3. Doi clienți Woo diferiți cu același email/telefon = DOI clienți separați
+ *   4. Phone/email sunt doar pentru search, clustering, și fraud detection
  */
 
 import { calculateRiskScore, type CustomerHistory, type OrderContext } from './engine'
 import { decrypt } from '@/lib/security/encryption'
 
-// ─── Normalizare ──────────────────────────────────────────────────────────────
-
-export function phoneNorm(p: string): string {
-  return p.replace(/\D/g, '').slice(-9)
-}
-
-export function emailNorm(e: string): string {
-  return e.toLowerCase().trim()
-}
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 export function safeDecrypt(v: string | null): string {
   if (!v) return ''
   try { return v.includes(':') ? decrypt(v) : v } catch { return v }
 }
-
-// ─── Status mapping ───────────────────────────────────────────────────────────
 
 const SM: Record<string, string> = {
   pending: 'pending', processing: 'processing', 'on-hold': 'pending',
@@ -41,42 +38,68 @@ export function mapStatus(s: string): string {
   return SM[n] || SM[s.toLowerCase()] || 'pending'
 }
 
-// ─── Find customer ────────────────────────────────────────────────────────────
+// ─── Resolve Customer Identity ────────────────────────────────────────────────
+//
+// REGULA: Identitatea se bazează pe external_customer_id din WooCommerce.
+// NICIODATĂ pe phone/email.
+//
 
-export async function findCustomer(
-  supabase: any, storeId: string, phone: string | null, email: string | null
-): Promise<any | null> {
-  const ph = phone ? phoneNorm(phone) : null
-  const em = email ? emailNorm(email) : null
-
-  // Phone match — ia toți cu telefon din store, filtrează last9
-  if (ph && ph.length === 9) {
-    const { data } = await supabase.from('risk_customers')
-      .select('*').eq('store_id', storeId).not('phone', 'is', null)
-    const match = (data || []).find((c: any) => c.phone && phoneNorm(c.phone) === ph)
-    if (match) return match
-  }
-
-  // Email match
-  if (em) {
-    const { data } = await supabase.from('risk_customers')
-      .select('*').eq('store_id', storeId).ilike('email', em).limit(1)
-    if (data?.[0]) return data[0]
-  }
-
-  return null
-}
-
-export async function findOrCreate(
+export async function resolveCustomer(
   supabase: any, storeId: string, userId: string,
-  phone: string | null, email: string | null, name: string | null, orderedAt: string
+  externalCustomerId: string | null, // WooCommerce customer_id (null/0 = guest)
+  phone: string | null, email: string | null, name: string | null,
+  orderedAt: string,
 ): Promise<{ customer: any; isNew: boolean }> {
-  const found = await findCustomer(supabase, storeId, phone, email)
-  if (found) return { customer: found, isNew: false }
 
-  const { data, error } = await supabase.from('risk_customers').insert({
+  const isGuest = !externalCustomerId || externalCustomerId === '0'
+  const extId = isGuest ? null : externalCustomerId
+
+  // ── REGISTERED CUSTOMER (external_customer_id > 0) ──────────────────────
+  if (extId) {
+    // Caută prin external_customer_id — sursa unică de adevăr
+    const { data: existing } = await supabase.from('risk_customers')
+      .select('*')
+      .eq('store_id', storeId)
+      .eq('external_customer_id', extId)
+      .single()
+
+    if (existing) {
+      return { customer: existing, isNew: false }
+    }
+
+    // Nu există — creează client NOU
+    const { data: newC, error } = await supabase.from('risk_customers').insert({
+      store_id: storeId, user_id: userId,
+      external_customer_id: extId,
+      phone: phone || null, email: email?.toLowerCase().trim() || null,
+      name: name || null, is_guest: false,
+      risk_score: 0, risk_label: 'new',
+      total_orders: 0, orders_collected: 0, orders_refused: 0,
+      orders_not_home: 0, orders_cancelled: 0,
+      last_order_at: orderedAt, first_order_at: orderedAt,
+      in_local_blacklist: false, in_global_blacklist: false,
+      manually_reviewed: false, updated_at: new Date().toISOString(),
+    }).select('*').single()
+
+    if (error) {
+      // Race condition — retry lookup
+      const { data: retry } = await supabase.from('risk_customers')
+        .select('*').eq('store_id', storeId).eq('external_customer_id', extId).single()
+      if (retry) return { customer: retry, isNew: false }
+      throw new Error('Cannot create customer: ' + error.message)
+    }
+
+    return { customer: newC, isNew: true }
+  }
+
+  // ── GUEST ORDER (no customer_id) ────────────────────────────────────────
+  // Fiecare guest order creează un client guest separat.
+  // NU facem merge automat pe phone/email — asta e treaba clustering-ului.
+  const { data: guest, error } = await supabase.from('risk_customers').insert({
     store_id: storeId, user_id: userId,
-    phone: phone || null, email: email ? emailNorm(email) : null, name: name || null,
+    external_customer_id: null,
+    phone: phone || null, email: email?.toLowerCase().trim() || null,
+    name: name || null, is_guest: true,
     risk_score: 0, risk_label: 'new',
     total_orders: 0, orders_collected: 0, orders_refused: 0,
     orders_not_home: 0, orders_cancelled: 0,
@@ -85,14 +108,8 @@ export async function findOrCreate(
     manually_reviewed: false, updated_at: new Date().toISOString(),
   }).select('*').single()
 
-  if (error || !data) {
-    // Race condition retry
-    const retry = await findCustomer(supabase, storeId, phone, email)
-    if (retry) return { customer: retry, isNew: false }
-    throw new Error('Cannot create customer: ' + error?.message)
-  }
-
-  return { customer: data, isNew: true }
+  if (error) throw new Error('Cannot create guest: ' + error.message)
+  return { customer: guest, isNew: true }
 }
 
 // ─── Recalculare completă din DB ──────────────────────────────────────────────
@@ -107,7 +124,6 @@ export async function recalc(
   const all = orders || []
   let tc = 0, tr = 0, tn = 0, tcan = 0
   const addrs = new Set<string>()
-
   for (const o of all) {
     if (o.order_status === 'collected') tc++
     else if (['refused', 'returned'].includes(o.order_status)) tr++
@@ -145,38 +161,28 @@ export async function recalc(
   return { score: result.score, label, flags: result.flags, recommendation: result.recommendation, refusalProbability: result.refusalProbability }
 }
 
-// ─── WooCommerce fetch helper ─────────────────────────────────────────────────
+// ─── WooCommerce API helper ───────────────────────────────────────────────────
 
-export async function wooFetch(
-  storeUrl: string, ck: string, cs: string,
-  params: Record<string, string>, maxPages = 100
-): Promise<any[]> {
-  const base = storeUrl.replace(/\/$/, '')
-  const auth = 'Basic ' + Buffer.from(`${ck}:${cs}`).toString('base64')
-  const all: any[] = []
+export async function wcGet(
+  base: string, auth: string, endpoint: string, params: Record<string, string>
+): Promise<{ data: any[]; total: number; totalPages: number }> {
+  const url = new URL(`${base}/wp-json/wc/v3/${endpoint}`)
+  Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v))
 
-  for (let p = 1; p <= maxPages; p++) {
-    const url = new URL(`${base}/wp-json/wc/v3/orders`)
-    Object.entries({ ...params, page: String(p), per_page: '100' })
-      .forEach(([k, v]) => url.searchParams.set(k, v))
+  const res = await fetch(url.toString(), {
+    headers: { Authorization: auth }, signal: AbortSignal.timeout(30000),
+  })
+  if (!res.ok) throw new Error(`WC ${endpoint} HTTP ${res.status}`)
 
-    const res = await fetch(url.toString(), {
-      headers: { Authorization: auth },
-      signal: AbortSignal.timeout(25000),
-    })
-    if (!res.ok) throw new Error(`WooCommerce ${res.status}`)
-
-    const data = await res.json()
-    const pages = parseInt(res.headers.get('x-wp-totalpages') || '1')
-
-    if (!Array.isArray(data) || !data.length) break
-    all.push(...data)
-    if (p >= pages) break
+  const data = await res.json()
+  return {
+    data: Array.isArray(data) ? data : [],
+    total: parseInt(res.headers.get('x-wp-total') || '0'),
+    totalPages: parseInt(res.headers.get('x-wp-totalpages') || '1'),
   }
-  return all
 }
 
-// ─── Build risk order from WooCommerce ────────────────────────────────────────
+// ─── Build risk order ─────────────────────────────────────────────────────────
 
 export function buildOrder(woo: any, storeId: string, userId: string, customerId: string): any {
   const b = woo.billing || {}, s = woo.shipping || {}
@@ -184,6 +190,7 @@ export function buildOrder(woo: any, storeId: string, userId: string, customerId
   return {
     store_id: storeId, user_id: userId, customer_id: customerId,
     external_order_id: String(woo.id),
+    external_customer_id: woo.customer_id ? String(woo.customer_id) : null,
     order_number: woo.number ? String(woo.number) : null,
     customer_phone: b.phone || null, customer_email: b.email || null,
     customer_name: [b.first_name, b.last_name].filter(Boolean).join(' ') || null,
@@ -199,11 +206,11 @@ export function buildOrder(woo: any, storeId: string, userId: string, customerId
   }
 }
 
-// ─── Helpers pentru store + settings ──────────────────────────────────────────
+// ─── Settings helper ──────────────────────────────────────────────────────────
 
-export async function getStoreAndSettings(supabase: any, storeId: string) {
-  const { data: rs } = await supabase
-    .from('risk_store_settings').select('*').eq('store_id', storeId).single()
+export async function getSettings(supabase: any, storeId: string) {
+  const { data: rs } = await supabase.from('risk_store_settings')
+    .select('*').eq('store_id', storeId).single()
   return {
     participate_in_global_blacklist: rs?.participate_in_global_blacklist ?? true,
     alert_on_blocked: rs?.alert_on_blocked ?? true,
@@ -214,7 +221,6 @@ export async function getStoreAndSettings(supabase: any, storeId: string) {
     score_blocked_threshold: rs?.score_blocked_threshold ?? 81,
     alert_email: rs?.alert_email,
     email_alerts_enabled: rs?.email_alerts_enabled ?? true,
-    ...(rs?.custom_rules || {}),
-    ml_weights: rs?.ml_weights,
+    ...(rs?.custom_rules || {}), ml_weights: rs?.ml_weights,
   }
 }

@@ -3,53 +3,8 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/auth.config'
 import { createAdminClient } from '@/lib/supabase/admin'
 import {
-  phoneNorm, emailNorm, safeDecrypt, mapStatus,
-  findOrCreate, recalc, buildOrder, getStoreAndSettings,
+  safeDecrypt, mapStatus, resolveCustomer, recalc, buildOrder, getSettings, wcGet,
 } from '@/lib/risk/identity'
-
-/**
- * GET /api/risk/sync-all
- *
- * Sincronizare completă WooCommerce → Risk Shield via SSE.
- *
- * ETAPA 1: Ia TOȚI clienții din /wp-json/wc/v3/customers?role=all&per_page=100
- *          → Pentru fiecare, findOrCreate în risk_customers
- *          → Sursa datelor: id, email, first_name, last_name, billing.phone, billing.email
- *
- * ETAPA 2: Ia TOATE comenzile din /wp-json/wc/v3/orders?per_page=100
- *          → Pentru fiecare, findOrCreate customer + insert risk_order
- *          → Skip comenzile deja existente (dedup pe external_order_id)
- *
- * ETAPA 3: Recalculează scorurile tuturor clienților modificați
- *
- * Headers WooCommerce folosite:
- *   X-WP-Total — total items
- *   X-WP-TotalPages — total pages
- */
-
-async function wcGet(
-  base: string, auth: string, endpoint: string, params: Record<string, string>
-): Promise<{ data: any[]; total: number; totalPages: number }> {
-  const url = new URL(`${base}/wp-json/wc/v3/${endpoint}`)
-  Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v))
-
-  const res = await fetch(url.toString(), {
-    headers: { Authorization: auth },
-    signal: AbortSignal.timeout(30000),
-  })
-
-  if (!res.ok) {
-    const body = await res.text().catch(() => '')
-    throw new Error(`WC ${endpoint} HTTP ${res.status}: ${body.slice(0, 200)}`)
-  }
-
-  const data = await res.json()
-  return {
-    data: Array.isArray(data) ? data : [],
-    total: parseInt(res.headers.get('x-wp-total') || '0'),
-    totalPages: parseInt(res.headers.get('x-wp-totalpages') || '1'),
-  }
-}
 
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions)
@@ -78,206 +33,168 @@ export async function GET(req: Request) {
 
       try {
         // ═══════════════════════════════════════════════════════════════
-        // ETAPA 1: CLIENȚI din /wc/v3/customers
+        // ETAPA 1: Importă CLIENȚI din /wc/v3/customers?role=all
+        // Fiecare WooCommerce customer → un risk_customer bazat pe customer.id
         // ═══════════════════════════════════════════════════════════════
         send({ stage: 'customers_start', message: 'Se importă clienții din WooCommerce...' })
+        let custCreated = 0, custUpdated = 0
 
-        let custCreated = 0, custUpdated = 0, custSkipped = 0
-
-        // Prima cerere — aflăm total pages
-        let custTotalPages = 1
         try {
           const first = await wcGet(base, auth, 'customers', {
-            per_page: '100', page: '1', role: 'all', orderby: 'registered_date', order: 'asc',
+            per_page: '100', page: '1', role: 'all',
           })
-          custTotalPages = first.totalPages
+          const custPages = first.totalPages
 
-          send({ stage: 'customers', page: 1, totalPages: custTotalPages, total: first.total })
+          const processCustomers = async (custs: any[]) => {
+            for (const wc of custs) {
+              const wcId = String(wc.id)
+              if (wcId === '0') continue // skip guest placeholder
 
-          // Procesează prima pagină
-          for (const wc of first.data) {
-            const phone = (wc.billing?.phone || '').replace(/\s/g, '') || null
-            const email = (wc.email || wc.billing?.email || '').toLowerCase().trim() || null
-            const name = [wc.first_name, wc.last_name].filter(Boolean).join(' ') || null
-            const regDate = wc.date_created || new Date().toISOString()
+              const phone = (wc.billing?.phone || '').replace(/\s/g, '') || null
+              const email = (wc.email || wc.billing?.email || '').toLowerCase().trim() || null
+              const name = [wc.first_name, wc.last_name].filter(Boolean).join(' ') || null
+              const regDate = wc.date_created || new Date().toISOString()
 
-            if (!phone && !email) { custSkipped++; continue }
-
-            try {
-              const { customer, isNew } = await findOrCreate(supabase, storeId, userId, phone, email, name, regDate)
-              if (isNew) custCreated++
-              else custUpdated++
-
-              // Completează datele lipsă
-              const upd: any = { updated_at: new Date().toISOString() }
-              let needsUpdate = false
-              if (!customer.name && name) { upd.name = name; needsUpdate = true }
-              if (!customer.phone && phone) { upd.phone = phone; needsUpdate = true }
-              if (!customer.email && email) { upd.email = emailNorm(email); needsUpdate = true }
-              if (needsUpdate) await supabase.from('risk_customers').update(upd).eq('id', customer.id)
-            } catch (e: any) {
-              console.error(`[SyncAll] Customer error:`, e.message)
-              custSkipped++
+              try {
+                const { customer, isNew } = await resolveCustomer(
+                  supabase, storeId, userId, wcId, phone, email, name, regDate
+                )
+                if (isNew) custCreated++
+                else {
+                  custUpdated++
+                  // Update contact info dacă lipsește
+                  const upd: any = { updated_at: new Date().toISOString() }
+                  let need = false
+                  if (!customer.name && name) { upd.name = name; need = true }
+                  if (!customer.phone && phone) { upd.phone = phone; need = true }
+                  if (!customer.email && email) { upd.email = email.toLowerCase().trim(); need = true }
+                  if (need) await supabase.from('risk_customers').update(upd).eq('id', customer.id)
+                }
+              } catch (e: any) {
+                console.error(`[SyncAll] Customer ${wcId} error:`, e.message)
+              }
             }
           }
 
-          // Restul paginilor
-          for (let page = 2; page <= custTotalPages; page++) {
-            send({ stage: 'customers', page, totalPages: custTotalPages, custCreated, custUpdated })
+          await processCustomers(first.data)
+          send({ stage: 'customers', page: 1, totalPages: custPages, custCreated, custUpdated })
 
+          for (let p = 2; p <= custPages; p++) {
             try {
-              const { data: custs } = await wcGet(base, auth, 'customers', {
-                per_page: '100', page: String(page), role: 'all', orderby: 'registered_date', order: 'asc',
+              const { data } = await wcGet(base, auth, 'customers', {
+                per_page: '100', page: String(p), role: 'all',
               })
-
-              for (const wc of custs) {
-                const phone = (wc.billing?.phone || '').replace(/\s/g, '') || null
-                const email = (wc.email || wc.billing?.email || '').toLowerCase().trim() || null
-                const name = [wc.first_name, wc.last_name].filter(Boolean).join(' ') || null
-                const regDate = wc.date_created || new Date().toISOString()
-
-                if (!phone && !email) { custSkipped++; continue }
-
-                try {
-                  const { customer, isNew } = await findOrCreate(supabase, storeId, userId, phone, email, name, regDate)
-                  if (isNew) custCreated++
-                  else custUpdated++
-
-                  const upd: any = { updated_at: new Date().toISOString() }
-                  let needsUpdate = false
-                  if (!customer.name && name) { upd.name = name; needsUpdate = true }
-                  if (!customer.phone && phone) { upd.phone = phone; needsUpdate = true }
-                  if (!customer.email && email) { upd.email = emailNorm(email); needsUpdate = true }
-                  if (needsUpdate) await supabase.from('risk_customers').update(upd).eq('id', customer.id)
-                } catch { custSkipped++ }
-              }
+              await processCustomers(data)
+              send({ stage: 'customers', page: p, totalPages: custPages, custCreated, custUpdated })
             } catch (e: any) {
-              send({ stage: 'customers_page_error', page, error: e.message })
+              send({ stage: 'warn', message: `Customer page ${p} error: ${e.message}` })
             }
           }
         } catch (e: any) {
-          // Dacă endpoint-ul /customers nu e accesibil (permisiuni, versiune veche, etc.)
-          // continuăm cu orders — clienții se vor crea automat din comenzi
-          send({ stage: 'customers_error', message: `Avertisment: ${e.message}. Se continuă cu comenzile.` })
+          send({ stage: 'warn', message: `Customers endpoint error: ${e.message}. Continuăm cu comenzile.` })
         }
 
-        send({
-          stage: 'customers_done', custCreated, custUpdated, custSkipped,
-          message: `Clienți: ${custCreated} noi, ${custUpdated} existenți, ${custSkipped} fără date contact.`,
-        })
+        send({ stage: 'customers_done', custCreated, custUpdated,
+          message: `${custCreated} clienți noi, ${custUpdated} existenți.` })
 
         // ═══════════════════════════════════════════════════════════════
-        // ETAPA 2: COMENZI din /wc/v3/orders
+        // ETAPA 2: Importă COMENZI din /wc/v3/orders
+        // Fiecare order se leagă de customer prin order.customer_id
         // ═══════════════════════════════════════════════════════════════
         send({ stage: 'orders_start', message: 'Se importă comenzile...' })
 
-        // Existing orders for dedup
         const { data: existDb } = await supabase.from('risk_orders')
           .select('external_order_id').eq('store_id', storeId)
         const existSet = new Set((existDb || []).map((o: any) => String(o.external_order_id)))
 
-        let ordInserted = 0, ordSkipped = 0, ordTotalPages = 1, ordTotal = 0
+        let ordInserted = 0, ordSkipped = 0
         const touchedIds = new Set<string>()
 
-        // Prima cerere orders
         try {
           const first = await wcGet(base, auth, 'orders', {
             per_page: '100', page: '1', orderby: 'date', order: 'asc',
           })
-          ordTotalPages = first.totalPages
-          ordTotal = first.total
+          const ordPages = first.totalPages
+          const ordTotal = first.total
 
-          send({ stage: 'orders', page: 1, totalPages: ordTotalPages, total: ordTotal })
-
-          // Funcție pentru procesarea unei pagini de orders
           const processOrders = async (orders: any[]) => {
             const batch: any[] = []
-
             for (const woo of orders) {
               const extId = String(woo.id)
               if (existSet.has(extId)) { ordSkipped++; continue }
 
+              // WooCommerce customer_id — SURSA DE ADEVĂR
+              const wcCustId = woo.customer_id ? String(woo.customer_id) : null
               const phone = (woo.billing?.phone || '').replace(/\s/g, '') || null
               const email = (woo.billing?.email || '').toLowerCase().trim() || null
               const name = [woo.billing?.first_name, woo.billing?.last_name].filter(Boolean).join(' ') || null
               const ordAt = woo.date_created || new Date().toISOString()
 
-              if (!phone && !email) { ordSkipped++; continue }
-
               try {
-                const { customer, isNew } = await findOrCreate(supabase, storeId, userId, phone, email, name, ordAt)
-                if (isNew) custCreated++
+                const { customer } = await resolveCustomer(
+                  supabase, storeId, userId, wcCustId, phone, email, name, ordAt
+                )
 
-                // Update first/last order dates
+                // Update customer dates + contact info
                 const upd: any = { updated_at: new Date().toISOString() }
-                let needsUpdate = false
-                if (!customer.name && name) { upd.name = name; needsUpdate = true }
-                if (!customer.phone && phone) { upd.phone = phone; needsUpdate = true }
-                if (!customer.email && email) { upd.email = emailNorm(email); needsUpdate = true }
+                let need = false
+                if (!customer.name && name) { upd.name = name; need = true }
+                if (!customer.phone && phone) { upd.phone = phone; need = true }
+                if (!customer.email && email) { upd.email = email; need = true }
                 if (ordAt && (!customer.first_order_at || new Date(ordAt) < new Date(customer.first_order_at))) {
-                  upd.first_order_at = ordAt; needsUpdate = true
+                  upd.first_order_at = ordAt; need = true
                 }
                 if (ordAt && (!customer.last_order_at || new Date(ordAt) > new Date(customer.last_order_at))) {
-                  upd.last_order_at = ordAt; needsUpdate = true
+                  upd.last_order_at = ordAt; need = true
                 }
-                if (needsUpdate) await supabase.from('risk_customers').update(upd).eq('id', customer.id)
+                if (need) await supabase.from('risk_customers').update(upd).eq('id', customer.id)
 
                 batch.push(buildOrder(woo, storeId, userId, customer.id))
                 touchedIds.add(customer.id)
                 existSet.add(extId)
-              } catch { ordSkipped++ }
+              } catch (e: any) {
+                console.error(`[SyncAll] Order ${extId} error:`, e.message)
+                ordSkipped++
+              }
             }
 
-            // Insert batch
             if (batch.length) {
               for (let i = 0; i < batch.length; i += 50) {
-                try {
-                  await supabase.from('risk_orders').insert(batch.slice(i, i + 50))
-                } catch {
-                  // Fallback individual
-                  for (const o of batch.slice(i, i + 50)) {
-                    try { await supabase.from('risk_orders').insert(o) } catch {}
-                  }
-                }
+                try { await supabase.from('risk_orders').insert(batch.slice(i, i + 50)) }
+                catch { for (const o of batch.slice(i, i + 50)) { try { await supabase.from('risk_orders').insert(o) } catch {} } }
               }
               ordInserted += batch.length
             }
           }
 
           await processOrders(first.data)
+          send({ stage: 'orders', page: 1, totalPages: ordPages, ordInserted, ordSkipped, total: ordTotal })
 
-          // Restul paginilor
-          for (let page = 2; page <= ordTotalPages; page++) {
-            send({ stage: 'orders', page, totalPages: ordTotalPages, ordInserted, ordSkipped, total: ordTotal })
-
+          for (let p = 2; p <= ordPages; p++) {
             try {
-              const { data: orders } = await wcGet(base, auth, 'orders', {
-                per_page: '100', page: String(page), orderby: 'date', order: 'asc',
+              const { data } = await wcGet(base, auth, 'orders', {
+                per_page: '100', page: String(p), orderby: 'date', order: 'asc',
               })
-              if (!orders.length) break
-              await processOrders(orders)
+              if (!data.length) break
+              await processOrders(data)
+              send({ stage: 'orders', page: p, totalPages: ordPages, ordInserted, ordSkipped, total: ordTotal })
             } catch (e: any) {
-              send({ stage: 'orders_page_error', page, error: e.message })
+              send({ stage: 'warn', message: `Order page ${p}: ${e.message}` })
             }
           }
         } catch (e: any) {
-          send({ stage: 'orders_error', message: e.message })
+          send({ stage: 'error', message: `Orders error: ${e.message}` })
         }
 
-        send({
-          stage: 'orders_done', ordInserted, ordSkipped, ordTotal,
-          message: `Comenzi: ${ordInserted} importate, ${ordSkipped} existente/skip.`,
-        })
+        send({ stage: 'orders_done', ordInserted, ordSkipped })
 
         // ═══════════════════════════════════════════════════════════════
-        // ETAPA 3: RECALCULARE SCORURI
+        // ETAPA 3: Recalculare scoruri
         // ═══════════════════════════════════════════════════════════════
         const ids = Array.from(touchedIds)
-        if (ids.length > 0) {
+        if (ids.length) {
           send({ stage: 'recalc', total: ids.length, done: 0 })
-
-          const settings = await getStoreAndSettings(supabase, storeId)
-
+          const settings = await getSettings(supabase, storeId)
           for (let i = 0; i < ids.length; i++) {
             try { await recalc(supabase, ids[i], storeId, settings) } catch {}
             if ((i + 1) % 10 === 0 || i === ids.length - 1) {
@@ -286,20 +203,14 @@ export async function GET(req: Request) {
           }
         }
 
-        // ═══════════════════════════════════════════════════════════════
-        // FINALIZARE
-        // ═══════════════════════════════════════════════════════════════
         send({
-          stage: 'done',
-          custCreated, custUpdated, custSkipped,
-          ordInserted, ordSkipped, ordTotal,
+          stage: 'done', custCreated, custUpdated, ordInserted, ordSkipped,
           recalculated: ids.length,
-          message: `Sincronizare completă: ${custCreated} clienți noi, ${ordInserted} comenzi importate, ${ids.length} scoruri recalculate.`,
+          message: `${custCreated} clienți noi, ${ordInserted} comenzi importate, ${ids.length} scoruri recalculate.`,
         })
       } catch (e: any) {
-        send({ stage: 'error', message: e.message || 'Eroare necunoscută' })
+        send({ stage: 'error', message: e.message })
       }
-
       controller.close()
     }
   })

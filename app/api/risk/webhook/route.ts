@@ -3,10 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { hashIdentifier } from '@/lib/risk/engine'
 import { sendRiskAlert } from '@/lib/risk/notifications'
 import { extractCity, findClusterMatches, type ClusterCandidate } from '@/lib/risk/cluster'
-import {
-  phoneNorm, emailNorm, safeDecrypt, mapStatus,
-  findOrCreate, recalc, wooFetch, buildOrder, getStoreAndSettings,
-} from '@/lib/risk/identity'
+import { safeDecrypt, mapStatus, resolveCustomer, recalc, buildOrder, getSettings } from '@/lib/risk/identity'
 import crypto from 'crypto'
 
 function verifyHmac(body: string, sig: string, secret: string): boolean {
@@ -15,57 +12,6 @@ function verifyHmac(body: string, sig: string, secret: string): boolean {
     const a = Buffer.from(sig), b = Buffer.from(expected)
     return a.length === b.length && crypto.timingSafeEqual(a, b)
   } catch { return false }
-}
-
-// Background: import istoric pentru client nou
-async function bgImportHistory(
-  supabase: any, storeId: string, userId: string, customerId: string,
-  storeUrl: string, apiKey: string, apiSecret: string,
-  phone: string | null, email: string | null
-) {
-  const ck = safeDecrypt(apiKey), cs = safeDecrypt(apiSecret)
-  if (!ck || !cs) return
-  try {
-    const ph = phone ? phoneNorm(phone) : null
-    const em = email ? emailNorm(email) : null
-    const seen = new Set<number>()
-    const woo: any[] = []
-
-    if (em) {
-      try {
-        const orders = await wooFetch(storeUrl, ck, cs, { billing_email: em, orderby: 'date', order: 'desc' }, 5)
-        for (const o of orders) {
-          const be = (o.billing?.email || '').toLowerCase().trim()
-          if (!seen.has(o.id) && be === em) { seen.add(o.id); woo.push(o) }
-        }
-      } catch {}
-    }
-    if (phone) {
-      try {
-        const orders = await wooFetch(storeUrl, ck, cs, { search: phone.replace(/\s/g, ''), orderby: 'date', order: 'desc' }, 5)
-        for (const o of orders) {
-          if (!seen.has(o.id)) {
-            const bp = (o.billing?.phone || '').replace(/\s/g, '')
-            if (bp && ph && phoneNorm(bp) === ph) { seen.add(o.id); woo.push(o) }
-          }
-        }
-      } catch {}
-    }
-    if (!woo.length) return
-
-    const { data: existing } = await supabase.from('risk_orders')
-      .select('external_order_id').eq('store_id', storeId)
-    const existSet = new Set((existing || []).map((o: any) => String(o.external_order_id)))
-
-    const ins = woo.filter(w => !existSet.has(String(w.id)))
-      .map(w => buildOrder(w, storeId, userId, customerId))
-
-    for (let i = 0; i < ins.length; i += 50) {
-      await supabase.from('risk_orders').insert(ins.slice(i, i + 50))
-    }
-    if (ins.length) await recalc(supabase, customerId, storeId)
-    console.log(`[Webhook] Imported ${ins.length} historic orders for ${customerId}`)
-  } catch (e: any) { console.error('[Webhook] Import error:', e.message) }
 }
 
 export async function POST(req: Request) {
@@ -105,14 +51,15 @@ export async function POST(req: Request) {
   if (!store) return NextResponse.json({ error: 'Store not matched' }, { status: 401 })
 
   const storeId = store.id, userId = store.user_id
-  const settings = await getStoreAndSettings(supabase, storeId)
+  const settings = await getSettings(supabase, storeId)
 
-  // Extract order data
+  // Extract data
+  const wcCustId = order.customer_id ? String(order.customer_id) : null
   const phone = (order.billing?.phone || '').replace(/\s/g, '') || null
   const email = (order.billing?.email || '').toLowerCase().trim() || null
   const name = [order.billing?.first_name, order.billing?.last_name].filter(Boolean).join(' ') || null
   const addr = [(order.shipping || order.billing)?.address_1, (order.shipping || order.billing)?.city,
-    (order.shipping || order.billing)?.state, (order.shipping || order.billing)?.country].filter(Boolean).join(', ')
+    (order.shipping || order.billing)?.country].filter(Boolean).join(', ')
   const pm = (order.payment_method || '').toLowerCase()
   const pmType = pm.includes('cod') || pm.includes('cash') ? 'cod' as const : pm.includes('card') ? 'card' as const : 'bank_transfer' as const
   const value = parseFloat(order.total || '0')
@@ -124,7 +71,7 @@ export async function POST(req: Request) {
 
   if (!phone && !email) return NextResponse.json({ ok: true, skipped: 'no_contact' })
 
-  // Check existing
+  // Check existing order
   const { data: existing } = await supabase.from('risk_orders')
     .select('id, order_status, customer_id')
     .eq('store_id', storeId).eq('external_order_id', extId).single()
@@ -139,7 +86,6 @@ export async function POST(req: Request) {
 
     if (existing.customer_id) {
       const result = await recalc(supabase, existing.customer_id, storeId, settings)
-
       if (['refused', 'returned', 'not_home'].includes(status) &&
           !['refused', 'returned', 'not_home'].includes(existing.order_status)) {
         await supabase.from('risk_alerts').insert({
@@ -148,49 +94,39 @@ export async function POST(req: Request) {
           alert_type: 'delivery_failed',
           severity: status === 'refused' ? 'warning' : 'info',
           title: `Livrare eșuată — ${name || phone || email}`,
-          description: `Comanda #${orderNr || extId} → ${status}. Scor: ${result.score}/100`,
+          description: `#${orderNr || extId} → ${status}. Scor: ${result.score}/100`,
         })
       }
     }
     return NextResponse.json({ ok: true, action: 'updated', status })
   }
 
-  // Skip duplicate
   if (existing) return NextResponse.json({ ok: true, action: 'duplicate_skipped' })
 
-  // ORDER.CREATED
-  const { customer, isNew } = await findOrCreate(supabase, storeId, userId, phone, email, name, ordAt)
+  // ORDER.CREATED — resolve customer prin WooCommerce customer_id
+  const { customer, isNew } = await resolveCustomer(
+    supabase, storeId, userId, wcCustId, phone, email, name, ordAt
+  )
   const cid = customer.id
 
-  // Fill missing info
+  // Update contact info
   const upd: any = { last_order_at: ordAt, updated_at: new Date().toISOString() }
   if (!customer.name && name) upd.name = name
   if (!customer.phone && phone) upd.phone = phone
-  if (!customer.email && email) upd.email = emailNorm(email)
+  if (!customer.email && email) upd.email = email
   await supabase.from('risk_customers').update(upd).eq('id', cid)
-
-  // Global blacklist check
-  if (settings.participate_in_global_blacklist) {
-    for (const val of [phone, email].filter(Boolean)) {
-      const h = hashIdentifier(val!)
-      const { data: gb } = await supabase.from('risk_global_blacklist')
-        .select('report_count').or(`phone_hash.eq.${h},email_hash.eq.${h}`).single()
-      if (gb) await supabase.from('risk_customers').update({ in_global_blacklist: true }).eq('id', cid)
-    }
-  }
 
   // Insert order
   const { data: riskOrder } = await supabase.from('risk_orders').insert({
     store_id: storeId, user_id: userId, customer_id: cid,
-    external_order_id: extId, order_number: orderNr,
-    customer_phone: phone, customer_email: email, customer_name: name,
+    external_order_id: extId, external_customer_id: wcCustId,
+    order_number: orderNr, customer_phone: phone, customer_email: email, customer_name: name,
     shipping_address: addr, payment_method: pmType,
     total_value: value, currency: curr, order_status: status,
     risk_score_at_order: 0, risk_flags: [],
     ordered_at: ordAt, updated_at: new Date().toISOString(),
   }).select('id').single()
 
-  // Recalc
   const result = await recalc(supabase, cid, storeId, settings)
 
   if (riskOrder?.id) {
@@ -228,10 +164,7 @@ export async function POST(req: Request) {
     }
   }
 
-  // Background: import history + cluster
-  if (isNew && store.api_key) {
-    bgImportHistory(supabase, storeId, userId, cid, store.store_url, store.api_key, store.api_secret, phone, email).catch(() => {})
-  }
+  // Cluster detection (background)
   if (cid && (phone || email)) {
     void (async () => {
       try {

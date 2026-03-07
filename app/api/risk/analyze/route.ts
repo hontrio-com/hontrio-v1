@@ -4,34 +4,29 @@ import { authOptions } from '@/lib/auth/auth.config'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { calculateRiskScore, hashIdentifier, type CustomerHistory, type OrderContext } from '@/lib/risk/engine'
 import { openai } from '@/lib/openai/client'
-import { emailNorm, findOrCreate, getStoreAndSettings } from '@/lib/risk/identity'
+import { resolveCustomer, getSettings } from '@/lib/risk/identity'
 
 export async function GET(req: Request) {
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user) return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
-
     const ctx = new URL(req.url).searchParams.get('customer_context')
     if (!ctx) return NextResponse.json({ error: 'customer_context necesar' }, { status: 400 })
-
     const c = await openai.chat.completions.create({
       model: 'gpt-4o-mini', max_tokens: 400,
       messages: [
-        { role: 'system', content: 'Ești un sistem de analiză risc pentru magazine online din România. Răspunde concis în română, 3-4 paragrafe. Fii direct.' },
-        { role: 'user', content: `Analizează acest profil: (1) evaluare risc, (2) pattern-uri, (3) recomandare.\n\n${ctx}` },
+        { role: 'system', content: 'Ești un sistem de analiză risc pentru magazine online din România. Răspunde concis în română.' },
+        { role: 'user', content: `Analizează: (1) evaluare risc, (2) pattern-uri, (3) recomandare.\n\n${ctx}` },
       ],
     })
-    return NextResponse.json({ report: c.choices[0]?.message?.content || 'Eroare generare.' })
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 })
-  }
+    return NextResponse.json({ report: c.choices[0]?.message?.content || 'Eroare.' })
+  } catch (err: any) { return NextResponse.json({ error: err.message }, { status: 500 }) }
 }
 
 export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user) return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
-
     const body = await req.json()
 
     // AI Report
@@ -39,12 +34,11 @@ export async function POST(req: Request) {
       const c = await openai.chat.completions.create({
         model: 'gpt-4o-mini', max_tokens: 400,
         messages: [
-          { role: 'system', content: 'Ești un sistem de analiză risc pentru magazine online din România. Răspunde concis în română, 3-4 paragrafe. Fii direct.' },
+          { role: 'system', content: 'Ești un sistem de analiză risc pentru magazine online din România. Răspunde concis în română.' },
           { role: 'user', content: `Analizează: (1) evaluare risc, (2) pattern-uri, (3) recomandare.\n\n${body.customer_context}` },
         ],
       })
       const report = c.choices[0]?.message?.content || 'Eroare.'
-
       const supabaseAi = createAdminClient()
       const uid = (session.user as any).id
       const { data: u } = await supabaseAi.from('users').select('credits').eq('id', uid).single()
@@ -59,50 +53,29 @@ export async function POST(req: Request) {
       return NextResponse.json({ report })
     }
 
-    // Order analysis — SAME identity as webhook
-    const {
-      store_id, external_order_id, order_number,
+    // Order analysis — uses resolveCustomer (external_customer_id based)
+    const { store_id, external_order_id, order_number, customer_id: wc_customer_id,
       customer_phone, customer_email, customer_name,
-      shipping_address, payment_method = 'cod',
-      total_value, currency = 'RON', ordered_at,
-    } = body
+      shipping_address, payment_method = 'cod', total_value, currency = 'RON', ordered_at } = body
 
     if (!store_id || !external_order_id || (!customer_phone && !customer_email)) {
-      return NextResponse.json({ error: 'store_id, external_order_id și telefon/email obligatorii' }, { status: 400 })
+      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     }
 
     const supabase = createAdminClient()
     const userId = (session.user as any).id
-
     const { data: store } = await supabase.from('stores')
       .select('id').eq('id', store_id).eq('user_id', userId).single()
     if (!store) return NextResponse.json({ error: 'Store negăsit' }, { status: 404 })
 
-    const settings = await getStoreAndSettings(supabase, store_id)
-
-    // Same identity rule as webhook
-    const { customer, isNew } = await findOrCreate(
-      supabase, store_id, userId, customer_phone, customer_email, customer_name,
+    const settings = await getSettings(supabase, store_id)
+    const { customer, isNew } = await resolveCustomer(
+      supabase, store_id, userId,
+      wc_customer_id ? String(wc_customer_id) : null,
+      customer_phone, customer_email, customer_name,
       ordered_at || new Date().toISOString()
     )
     const cid = customer.id
-
-    const upd: any = { updated_at: new Date().toISOString(), last_order_at: ordered_at || new Date().toISOString() }
-    if (!customer.name && customer_name) upd.name = customer_name
-    if (!customer.phone && customer_phone) upd.phone = customer_phone
-    if (!customer.email && customer_email) upd.email = emailNorm(customer_email)
-    await supabase.from('risk_customers').update(upd).eq('id', cid)
-
-    // Blacklist
-    let inBl = false
-    if (settings.participate_in_global_blacklist) {
-      for (const v of [customer_phone, customer_email].filter(Boolean)) {
-        const h = hashIdentifier(v!)
-        const { data: gb } = await supabase.from('risk_global_blacklist')
-          .select('report_count').or(`phone_hash.eq.${h},email_hash.eq.${h}`).single()
-        if (gb) inBl = true
-      }
-    }
 
     const history: CustomerHistory = {
       totalOrders: customer.total_orders || 0, ordersCollected: customer.orders_collected || 0,
@@ -117,9 +90,8 @@ export async function POST(req: Request) {
       paymentMethod: payment_method, totalValue: total_value || 0, currency,
       orderedAt: ordered_at || new Date().toISOString(),
       customerEmail: customer_email || '', shippingAddress: shipping_address || '',
-      inGlobalBlacklist: inBl, globalReportCount: 0,
+      inGlobalBlacklist: customer.in_global_blacklist || false, globalReportCount: 0,
     }
-
     const result = calculateRiskScore(history, ctx, settings)
     const label = customer.manual_label_override || result.label
 
@@ -130,32 +102,17 @@ export async function POST(req: Request) {
 
     const { data: ro } = await supabase.from('risk_orders').upsert({
       store_id, user_id: userId, customer_id: cid,
-      external_order_id, order_number, customer_phone, customer_email, customer_name,
+      external_order_id, external_customer_id: wc_customer_id ? String(wc_customer_id) : null,
+      order_number, customer_phone, customer_email, customer_name,
       shipping_address, payment_method, total_value, currency,
       order_status: 'pending', risk_score_at_order: result.score, risk_flags: result.flags,
       ordered_at: ordered_at || new Date().toISOString(), updated_at: new Date().toISOString(),
     }, { onConflict: 'store_id,external_order_id' }).select('id').single()
-
-    // Alert
-    const shouldAlert = (label === 'blocked' && settings.alert_on_blocked !== false) ||
-      (label === 'problematic' && settings.alert_on_problematic !== false) ||
-      (label === 'watch' && settings.alert_on_watch === true)
-    if (shouldAlert) {
-      await supabase.from('risk_alerts').insert({
-        store_id, user_id: userId, customer_id: cid, order_id: ro?.id,
-        alert_type: label === 'blocked' ? 'blocked_customer' : 'new_problematic_order',
-        severity: label === 'blocked' ? 'critical' : label === 'problematic' ? 'warning' : 'info',
-        title: `Client ${label}: ${customer_name || customer_phone || customer_email}`,
-        description: `Scor: ${result.score}/100.`,
-      })
-    }
 
     return NextResponse.json({
       score: result.score, label, flags: result.flags,
       recommendation: result.recommendation, customerId: cid, orderId: ro?.id,
       action: label === 'blocked' ? 'block' : label === 'problematic' ? 'hold' : 'proceed',
     })
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 })
-  }
+  } catch (err: any) { return NextResponse.json({ error: err.message }, { status: 500 }) }
 }
