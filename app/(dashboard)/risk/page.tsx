@@ -1072,26 +1072,36 @@ export default function RiskShieldPage() {
                 : syncProgress.stage === 'done' ? <CheckCircle2 className="h-4 w-4 text-emerald-600" />
                 : <RefreshCw className="h-4 w-4 text-blue-600 animate-spin" />}
               <span className={`text-sm font-medium ${syncProgress.stage === 'error' ? 'text-red-700' : syncProgress.stage === 'done' ? 'text-emerald-800' : 'text-blue-800'}`}>
-                {syncProgress.message || `Pagina ${syncProgress.page || 0}/${syncProgress.totalPages || '?'}...`}
+                {syncProgress.message || (
+                  syncProgress.stage === 'customers' ? `Clienți: pagina ${syncProgress.page}/${syncProgress.totalPages}...` :
+                  syncProgress.stage === 'orders' ? `Comenzi: pagina ${syncProgress.page}/${syncProgress.totalPages}...` :
+                  syncProgress.stage === 'recalc' ? `Recalculare scoruri: ${syncProgress.done}/${syncProgress.total}` :
+                  'Se procesează...'
+                )}
               </span>
             </div>
             {(syncProgress.stage === 'done' || syncProgress.stage === 'error') && (
               <button onClick={() => setSyncProgress(null)} className="text-xs text-gray-400 hover:text-gray-600">✕</button>
             )}
           </div>
-          {syncProgress.totalPages > 0 && syncProgress.page && syncProgress.stage !== 'done' && (
+          {syncProgress.totalPages > 0 && syncProgress.page && !['done', 'error', 'customers_done', 'orders_done'].includes(syncProgress.stage) && (
             <div className="w-full bg-blue-200/50 rounded-full h-1.5 mt-2">
               <div className="bg-blue-600 rounded-full h-1.5 transition-all duration-300"
-                style={{ width: `${Math.round(((syncProgress.stage === 'recalc' ? syncProgress.done : syncProgress.page) / (syncProgress.stage === 'recalc' ? syncProgress.total : syncProgress.totalPages)) * 100)}%` }} />
+                style={{ width: `${Math.round((syncProgress.stage === 'recalc' ? (syncProgress.done / syncProgress.total) : (syncProgress.page / syncProgress.totalPages)) * 100)}%` }} />
             </div>
           )}
-          {syncProgress.inserted !== undefined && (
-            <p className="text-xs text-gray-500 mt-1.5">
-              {syncProgress.inserted} importate · {syncProgress.customersNew || 0} clienți noi
-              {syncProgress.skipped ? ` · ${syncProgress.skipped} existente` : ''}
-              {syncProgress.stage === 'recalc' ? ` · Recalculare ${syncProgress.done}/${syncProgress.total}` : ''}
-            </p>
+          {syncProgress.stage === 'recalc' && syncProgress.total > 0 && (
+            <div className="w-full bg-blue-200/50 rounded-full h-1.5 mt-2">
+              <div className="bg-blue-600 rounded-full h-1.5 transition-all duration-300"
+                style={{ width: `${Math.round((syncProgress.done / syncProgress.total) * 100)}%` }} />
+            </div>
           )}
+          <div className="flex flex-wrap gap-3 text-xs text-gray-500 mt-1.5">
+            {syncProgress.custCreated !== undefined && <span>{syncProgress.custCreated} clienți noi</span>}
+            {syncProgress.ordInserted !== undefined && <span>{syncProgress.ordInserted} comenzi importate</span>}
+            {syncProgress.ordSkipped !== undefined && syncProgress.ordSkipped > 0 && <span>{syncProgress.ordSkipped} existente</span>}
+            {syncProgress.recalculated !== undefined && <span>{syncProgress.recalculated} scoruri</span>}
+          </div>
         </motion.div>
       )}
 
