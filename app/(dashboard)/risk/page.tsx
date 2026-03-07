@@ -815,12 +815,9 @@ export default function RiskShieldPage() {
   const runRepair = async () => {
     setRepairing(true)
     try {
-      const res = await fetch('/api/risk/repair', { method: 'POST' })
-      const data = await res.json()
-      setRepairMsg(data.message || 'Reparare completă')
-      setTimeout(() => setRepairMsg(''), 4000)
+      await fetch('/api/risk/repair', { method: 'POST' })
       fetchCustomers(selectedStore)
-    } catch { setRepairMsg('Eroare la reparare') }
+    } catch {}
     setRepairing(false)
   }
 
