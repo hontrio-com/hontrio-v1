@@ -19,6 +19,8 @@ export async function POST(req: Request) {
     if (!store) return NextResponse.json({ error: 'Magazin negăsit' }, { status: 404 })
     const ck = safeDecrypt(store.api_key), cs = safeDecrypt(store.api_secret)
     if (!ck || !cs) return NextResponse.json({ error: 'Credențiale lipsă' }, { status: 400 })
+    const base = store.store_url.replace(/\/$/, '')
+    const auth = 'Basic ' + Buffer.from(`${ck}:${cs}`).toString('base64')
 
     // Dacă are external_customer_id, caută comenzile după customer= param
     const wooOrders: any[] = []
@@ -26,20 +28,20 @@ export async function POST(req: Request) {
 
     if (customer.external_customer_id) {
       try {
-        const orders = await wcGet(store.store_url, ck, cs, {
-          customer: customer.external_customer_id, orderby: 'date', order: 'desc',
-        }, 10)
-        for (const o of orders.data) { if (!seen.has(o.id)) { seen.add(o.id); wooOrders.push(o) } }
+        const res = await wcGet(base, auth, 'orders', {
+          customer: customer.external_customer_id, orderby: 'date', order: 'desc', per_page: '100',
+        })
+        for (const o of res.data) { if (!seen.has(o.id)) { seen.add(o.id); wooOrders.push(o) } }
       } catch {}
     }
 
     // Fallback: search by email
     if (customer.email) {
       try {
-        const orders = await wcGet(store.store_url, ck, cs, {
-          search: customer.email, orderby: 'date', order: 'desc',
-        }, 5)
-        for (const o of orders.data) { if (!seen.has(o.id)) { seen.add(o.id); wooOrders.push(o) } }
+        const res = await wcGet(base, auth, 'orders', {
+          search: customer.email, orderby: 'date', order: 'desc', per_page: '100',
+        })
+        for (const o of res.data) { if (!seen.has(o.id)) { seen.add(o.id); wooOrders.push(o) } }
       } catch {}
     }
 
