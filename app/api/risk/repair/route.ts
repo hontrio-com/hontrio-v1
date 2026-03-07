@@ -2,12 +2,15 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/auth.config'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { normalizePhone, normalizeEmail, recalcCustomerFromDB } from '@/lib/risk/identity'
 
-function phoneLast9(p: string): string {
-  return p.replace(/\s/g,'').replace(/^\+40/,'0').slice(-9)
-}
-
-// Repara atribuirile gresite de comenzi — le muta la clientul corect bazat pe telefon/email
+/**
+ * POST /api/risk/repair
+ *
+ * Repară atribuirile greșite de comenzi — le mută la clientul corect
+ * bazat pe telefon (last9) / email (normalizat).
+ * Apoi recalculează contoarele tuturor clienților afectați.
+ */
 export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions)
@@ -29,50 +32,71 @@ export async function POST(req: Request) {
 
     if (!customers || !orders) return NextResponse.json({ fixed: 0 })
 
-    // Map last9 si email -> customer_id
+    // Construiește map-uri cu normalizePhone și normalizeEmail din identity.ts
     const phoneMap = new Map<string, string>()
     const emailMap = new Map<string, string>()
     for (const c of customers) {
-      if (c.phone) phoneMap.set(phoneLast9(c.phone), c.id)
-      if (c.email) emailMap.set(c.email.toLowerCase(), c.id)
+      if (c.phone) {
+        const norm = normalizePhone(c.phone)
+        if (norm.length === 9) phoneMap.set(norm, c.id)
+      }
+      if (c.email) emailMap.set(normalizeEmail(c.email), c.id)
     }
 
+    const affectedCustomerIds = new Set<string>()
     let fixed = 0
+
     for (const order of orders) {
       let correctId: string | null = null
-      if (order.customer_phone) correctId = phoneMap.get(phoneLast9(order.customer_phone)) || null
-      if (!correctId && order.customer_email) correctId = emailMap.get(order.customer_email.toLowerCase()) || null
+
+      // Prioritate 1: telefon normalizat
+      if (order.customer_phone) {
+        const norm = normalizePhone(order.customer_phone)
+        if (norm.length === 9) correctId = phoneMap.get(norm) || null
+      }
+
+      // Prioritate 2: email normalizat
+      if (!correctId && order.customer_email) {
+        correctId = emailMap.get(normalizeEmail(order.customer_email)) || null
+      }
 
       if (correctId && correctId !== order.customer_id) {
         await supabase.from('risk_orders')
           .update({ customer_id: correctId, updated_at: new Date().toISOString() })
           .eq('id', order.id)
+        affectedCustomerIds.add(correctId)
+        if (order.customer_id) affectedCustomerIds.add(order.customer_id)
         fixed++
       }
     }
 
-    // Recalculeaza contoarele pentru toti clientii
-    for (const customer of customers) {
-      const { data: myOrders } = await supabase
-        .from('risk_orders').select('order_status')
-        .eq('customer_id', customer.id).eq('store_id', storeId)
-
-      let tc=0, tr=0, tn=0, tcan=0
-      for (const o of (myOrders||[])) {
-        if (o.order_status==='collected') tc++
-        else if (['refused','returned'].includes(o.order_status)) tr++
-        else if (o.order_status==='not_home') tn++
-        else if (o.order_status==='cancelled') tcan++
-      }
-
-      await supabase.from('risk_customers').update({
-        total_orders: (myOrders||[]).length,
-        orders_collected: tc, orders_refused: tr, orders_not_home: tn, orders_cancelled: tcan,
-        updated_at: new Date().toISOString(),
-      }).eq('id', customer.id)
+    // Recalculează contoarele din scratch pentru toți clienții afectați
+    const { data: rs } = await supabase
+      .from('risk_store_settings').select('*').eq('store_id', storeId).single()
+    const settings = {
+      score_watch_threshold: rs?.score_watch_threshold ?? 41,
+      score_problematic_threshold: rs?.score_problematic_threshold ?? 61,
+      score_blocked_threshold: rs?.score_blocked_threshold ?? 81,
+      ...(rs?.custom_rules || {}),
+      ml_weights: rs?.ml_weights,
     }
 
-    return NextResponse.json({ ok: true, fixed, message: `${fixed} comenzi reatribuite corect` })
+    for (const custId of affectedCustomerIds) {
+      try {
+        await recalcCustomerFromDB(supabase, custId, storeId, settings)
+      } catch (e: any) {
+        console.error(`[Repair] Recalc error for ${custId}:`, e.message)
+      }
+    }
+
+    return NextResponse.json({
+      ok: true,
+      fixed,
+      customersRecalculated: affectedCustomerIds.size,
+      message: fixed > 0
+        ? `${fixed} comenzi reatribuite corect, ${affectedCustomerIds.size} clienți recalculați.`
+        : 'Toate comenzile sunt atribuite corect.',
+    })
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 })
   }

@@ -700,6 +700,9 @@ export default function RiskShieldPage() {
   const [mlTotalPredictions, setMlTotalPredictions] = useState(0)
   const [storeSettings, setStoreSettings] = useState<any>(null)
   const [savingSettings, setSavingSettings] = useState(false)
+  const [syncingAll, setSyncingAll] = useState(false)
+  const [syncProgress, setSyncProgress] = useState<any>(null)
+  const [syncingStatuses, setSyncingStatuses] = useState(false)
   const searchRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => { fetchStores() }, [])
@@ -772,6 +775,57 @@ export default function RiskShieldPage() {
       const data = await res.json()
       setCustomerOrders(data.orders || [])
     } catch { setCustomerOrders([]) }
+  }
+
+  // ── Sync All — importă toate comenzile din WooCommerce ───────────────────
+  const syncAll = async () => {
+    if (syncingAll) return
+    setSyncingAll(true)
+    setSyncProgress({ stage: 'init', message: 'Se conectează...' })
+
+    try {
+      const evtSource = new EventSource('/api/risk/sync-all')
+      evtSource.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data)
+          setSyncProgress(data)
+          if (data.stage === 'done' || data.stage === 'error') {
+            evtSource.close()
+            setSyncingAll(false)
+            if (data.stage === 'done') {
+              // Reîncarcă datele
+              fetchCustomers(selectedStore)
+              fetchAlerts(selectedStore)
+            }
+          }
+        } catch {}
+      }
+      evtSource.onerror = () => {
+        evtSource.close()
+        setSyncingAll(false)
+        setSyncProgress({ stage: 'error', message: 'Conexiunea s-a întrerupt. Încearcă din nou.' })
+      }
+    } catch {
+      setSyncingAll(false)
+      setSyncProgress({ stage: 'error', message: 'Eroare la pornirea sincronizării.' })
+    }
+  }
+
+  // ── Re-sync statusuri comenzi recente ────────────────────────────────────
+  const syncStatuses = async () => {
+    setSyncingStatuses(true)
+    try {
+      const res = await fetch('/api/cron/risk-sync-orders?manual=true')
+      const data = await res.json()
+      const r = data.results?.[0]
+      if (r) {
+        alert(`✓ ${r.ordersUpdated} statusuri actualizate, ${r.customersRecalculated} clienți recalculați.`)
+        if (r.ordersUpdated > 0) fetchCustomers(selectedStore)
+      } else {
+        alert('Nicio actualizare necesară.')
+      }
+    } catch { alert('Eroare la sincronizarea statusurilor.') }
+    setSyncingStatuses(false)
   }
 
   const runRepair = async () => {
@@ -1015,9 +1069,56 @@ export default function RiskShieldPage() {
           <button onClick={runRepair} disabled={repairing} className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-amber-200 text-xs text-amber-700 bg-amber-50 hover:bg-amber-100 transition-colors disabled:opacity-50">
             <Zap className="h-3.5 w-3.5" />{repairing ? 'Reparare...' : 'Repară Date'}
           </button>
+          <button onClick={syncStatuses} disabled={syncingStatuses} className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-blue-200 text-xs text-blue-700 bg-blue-50 hover:bg-blue-100 transition-colors disabled:opacity-50">
+            <RefreshCw className={`h-3.5 w-3.5 ${syncingStatuses ? 'animate-spin' : ''}`} />{syncingStatuses ? 'Sincronizare...' : 'Sync Statusuri'}
+          </button>
+          <button onClick={syncAll} disabled={syncingAll} className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 transition-colors disabled:opacity-50 shadow-sm">
+            <Download className={`h-3.5 w-3.5 ${syncingAll ? 'animate-bounce' : ''}`} />{syncingAll ? 'Import în curs...' : 'Import Complet WooCommerce'}
+          </button>
           {repairMsg && <span className="text-xs text-green-600 font-medium">{repairMsg}</span>}
         </div>
       </motion.div>
+
+      {/* ── Sync Progress Bar ── */}
+      {syncProgress && syncProgress.stage !== 'done' && (
+        <motion.div
+          initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}
+          className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4"
+        >
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              {syncProgress.stage === 'error'
+                ? <AlertCircle className="h-4 w-4 text-red-500" />
+                : <RefreshCw className="h-4 w-4 text-emerald-600 animate-spin" />
+              }
+              <span className={`text-sm font-semibold ${syncProgress.stage === 'error' ? 'text-red-700' : 'text-emerald-800'}`}>
+                {syncProgress.message}
+              </span>
+            </div>
+            {syncProgress.stage === 'done' || syncProgress.stage === 'error' ? (
+              <button onClick={() => setSyncProgress(null)} className="text-xs text-gray-500 hover:text-gray-700">Închide</button>
+            ) : null}
+          </div>
+          {syncProgress.totalPages > 0 && syncProgress.page && (
+            <div className="w-full bg-emerald-200 rounded-full h-2 mb-2">
+              <div
+                className="bg-emerald-600 rounded-full h-2 transition-all duration-300"
+                style={{ width: `${Math.round((syncProgress.page / syncProgress.totalPages) * 100)}%` }}
+              />
+            </div>
+          )}
+          {(syncProgress.inserted !== undefined || syncProgress.customersCreated !== undefined) && (
+            <div className="flex gap-4 text-xs text-emerald-700">
+              {syncProgress.inserted !== undefined && <span>{syncProgress.inserted} comenzi importate</span>}
+              {syncProgress.customersCreated !== undefined && <span>{syncProgress.customersCreated} clienți noi</span>}
+              {syncProgress.skipped !== undefined && <span>{syncProgress.skipped} skip</span>}
+              {syncProgress.stage === 'recalculating' && syncProgress.total > 0 && (
+                <span>Recalculare: {syncProgress.processed}/{syncProgress.total}</span>
+              )}
+            </div>
+          )}
+        </motion.div>
+      )
 
       {/* ── Stats Row ── */}
       <div className="grid grid-cols-3 sm:grid-cols-3 lg:grid-cols-6 gap-1.5 sm:gap-2">

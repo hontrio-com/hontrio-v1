@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/auth.config'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { recalcCustomerFromDB } from '@/lib/risk/identity'
 import { recalibrateWeights, DEFAULT_ML_WEIGHTS, type MLWeights } from '@/lib/risk/engine'
 
 export async function GET(req: Request) {
@@ -59,7 +60,9 @@ export async function PATCH(req: Request) {
       .single()
     if (!order) return NextResponse.json({ error: 'Comandă negăsită' }, { status: 404 })
 
-    // Update order
+    const oldStatus = order.order_status
+
+    // Update order status
     await supabase.from('risk_orders').update({
       order_status,
       resolved_at: ['collected', 'refused', 'returned', 'cancelled'].includes(order_status)
@@ -68,90 +71,23 @@ export async function PATCH(req: Request) {
       updated_at: new Date().toISOString(),
     }).eq('id', order_id)
 
-    // Actualizează statisticile clientului și recalculează scorul complet
+    // Recalculează clientul din scratch (nu increment/decrement — FIX PROBLEMA 5)
     if (order.customer_id) {
-      const { data: customer } = await supabase
-        .from('risk_customers')
-        .select('*')
-        .eq('id', order.customer_id)
+      const { data: rs } = await supabase
+        .from('risk_store_settings')
+        .select('score_watch_threshold, score_problematic_threshold, score_blocked_threshold, custom_rules, ml_weights')
+        .eq('store_id', order.store_id)
         .single()
 
-      if (customer) {
-        const statUpdates: any = {}
-        if (order_status === 'collected') statUpdates.orders_collected = (customer.orders_collected || 0) + 1
-        if (order_status === 'refused')   statUpdates.orders_refused   = (customer.orders_refused   || 0) + 1
-        if (order_status === 'not_home')  statUpdates.orders_not_home  = (customer.orders_not_home  || 0) + 1
-        if (order_status === 'cancelled') statUpdates.orders_cancelled = (customer.orders_cancelled || 0) + 1
-
-        if (Object.keys(statUpdates).length) {
-          // Statistici actualizate pentru recalculare
-          const updatedStats = { ...customer, ...statUpdates }
-
-          // Recalculare completă a scorului cu engine-ul real (nu delta simplu)
-          const { calculateRiskScore } = await import('@/lib/risk/engine')
-
-          // Ia setările magazinului pentru praguri
-          const { data: storeSettings } = await supabase
-            .from('risk_store_settings')
-            .select('score_watch_threshold, score_problematic_threshold, score_blocked_threshold, custom_rules, ml_weights')
-            .eq('store_id', order.store_id)
-            .single()
-
-          const rules = {
-            ...(storeSettings?.custom_rules || {}),
-            score_watch_threshold: storeSettings?.score_watch_threshold || 41,
-            score_problematic_threshold: storeSettings?.score_problematic_threshold || 61,
-            score_blocked_threshold: storeSettings?.score_blocked_threshold || 81,
-            ml_weights: storeSettings?.ml_weights,
-          }
-
-          // Ia comanda curentă pentru context
-          const { data: fullOrder } = await supabase
-            .from('risk_orders')
-            .select('payment_method, total_value, currency, ordered_at, customer_email, shipping_address')
-            .eq('id', order_id)
-            .single()
-
-          const history = {
-            totalOrders: updatedStats.total_orders || 0,
-            ordersCollected: updatedStats.orders_collected || 0,
-            ordersRefused: updatedStats.orders_refused || 0,
-            ordersNotHome: updatedStats.orders_not_home || 0,
-            ordersCancelled: updatedStats.orders_cancelled || 0,
-            ordersToday: 0,
-            lastOrderAt: updatedStats.last_order_at,
-            firstOrderAt: updatedStats.first_order_at,
-            accountCreatedAt: null,
-            phoneValidated: !!(updatedStats.phone?.match(/^(07\d{8}|02\d{8}|03\d{8})$/)),
-            isNewAccount: false,
-            addressChanges: 0,
-            avgOrderValue: updatedStats.avg_order_value,
-          }
-
-          const orderCtx = {
-            paymentMethod: (fullOrder?.payment_method || 'cod') as any,
-            totalValue: fullOrder?.total_value || 0,
-            currency: fullOrder?.currency || 'RON',
-            orderedAt: fullOrder?.ordered_at || new Date().toISOString(),
-            customerEmail: fullOrder?.customer_email || updatedStats.email || '',
-            shippingAddress: fullOrder?.shipping_address || '',
-            inGlobalBlacklist: updatedStats.in_global_blacklist || false,
-            globalReportCount: 0,
-          }
-
-          const recalcResult = calculateRiskScore(history, orderCtx, rules)
-
-          // Păstrează override-ul manual dacă există
-          const finalLabel = updatedStats.manual_label_override || recalcResult.label
-
-          await supabase.from('risk_customers').update({
-            ...statUpdates,
-            risk_score: recalcResult.score,
-            risk_label: finalLabel,
-            updated_at: new Date().toISOString(),
-          }).eq('id', order.customer_id)
-        }
+      const settings = {
+        score_watch_threshold: rs?.score_watch_threshold || 41,
+        score_problematic_threshold: rs?.score_problematic_threshold || 61,
+        score_blocked_threshold: rs?.score_blocked_threshold || 81,
+        ...(rs?.custom_rules || {}),
+        ml_weights: rs?.ml_weights,
       }
+
+      await recalcCustomerFromDB(supabase, order.customer_id, order.store_id, settings)
     }
 
     // Audit log
@@ -161,7 +97,7 @@ export async function PATCH(req: Request) {
       order_id,
       customer_id: order.customer_id,
       action: 'order_status_updated',
-      old_value: order.order_status,
+      old_value: oldStatus,
       new_value: order_status,
     })
 
@@ -169,7 +105,6 @@ export async function PATCH(req: Request) {
     const terminalStatuses = ['collected', 'refused', 'returned', 'not_home', 'cancelled']
     if (terminalStatuses.includes(order_status) && order.customer_id) {
       try {
-        // Ia comanda cu flag-urile originale
         const { data: fullOrder } = await supabase
           .from('risk_orders')
           .select('risk_score_at_order, risk_flags')
@@ -182,13 +117,13 @@ export async function PATCH(req: Request) {
           .eq('id', order.customer_id)
           .single()
 
-        const { data: settings } = await supabase
+        const { data: mlSettings } = await supabase
           .from('risk_store_settings')
           .select('ml_weights')
           .eq('store_id', order.store_id)
           .single()
 
-        const currentWeights: MLWeights = settings?.ml_weights || { ...DEFAULT_ML_WEIGHTS }
+        const currentWeights: MLWeights = mlSettings?.ml_weights || { ...DEFAULT_ML_WEIGHTS }
         const flagsActivated = (fullOrder?.risk_flags || []).map((f: any) => f.code).filter(Boolean)
         const predictedLabel = customer?.risk_label || 'new'
 
