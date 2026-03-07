@@ -99,7 +99,7 @@ export async function findOrCreate(
 
 export async function recalc(
   supabase: any, customerId: string, storeId: string, settings: any = {}
-): Promise<{ score: number; label: string; flags: any[] }> {
+): Promise<{ score: number; label: string; flags: any[]; recommendation: string; refusalProbability: number }> {
   const { data: orders } = await supabase.from('risk_orders')
     .select('order_status, shipping_address')
     .eq('customer_id', customerId).eq('store_id', storeId)
@@ -142,7 +142,7 @@ export async function recalc(
     updated_at: new Date().toISOString(),
   }).eq('id', customerId)
 
-  return { score: result.score, label, flags: result.flags }
+  return { score: result.score, label, flags: result.flags, recommendation: result.recommendation, refusalProbability: result.refusalProbability }
 }
 
 // ─── WooCommerce fetch helper ─────────────────────────────────────────────────
