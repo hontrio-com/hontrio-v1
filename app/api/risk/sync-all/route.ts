@@ -202,7 +202,7 @@ export async function GET(req: Request) {
                 console.error(`[SyncAll] Batch insert error:`, error.message)
                 // Încearcă individual pentru a nu pierde totul
                 for (const order of batch) {
-                  await supabase.from('risk_orders').insert(order).catch(() => {})
+                  try { await supabase.from('risk_orders').insert(order) } catch {}
                 }
               }
             }
