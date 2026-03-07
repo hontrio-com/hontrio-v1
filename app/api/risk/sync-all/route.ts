@@ -2,112 +2,62 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/auth.config'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { decrypt } from '@/lib/security/encryption'
 import {
-  normalizePhone, normalizeEmail, mapWooStatus,
-  findOrCreateCustomer, recalcCustomerFromDB,
-  buildRiskOrderFromWoo,
+  phoneNorm, emailNorm, safeDecrypt, mapStatus,
+  findOrCreate, recalc, buildOrder,
 } from '@/lib/risk/identity'
-
-function safeDecrypt(v: string | null): string {
-  if (!v) return ''
-  try { return v.includes(':') ? decrypt(v) : v } catch { return v }
-}
-
-// ─── GET: SSE stream pentru sincronizare completă ─────────────────────────────
-//
-// Fluxul:
-// 1. Ia TOATE comenzile din WooCommerce (paginat, câte 100)
-// 2. Pentru fiecare comandă, extrage phone/email → findOrCreateCustomer
-// 3. Inserează comenzile noi, skip duplicatele (pe external_order_id)
-// 4. La final, recalculează scorul pentru fiecare client modificat
-// 5. Trimite progresul prin SSE
-//
 
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions)
-  if (!session?.user) {
-    return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
-  }
+  if (!session?.user) return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
 
   const userId = (session.user as any).id
   const supabase = createAdminClient()
 
-  // Ia store-ul
-  const { data: store } = await supabase
-    .from('stores')
-    .select('id, store_url, api_key, api_secret')
-    .eq('user_id', userId)
-    .single()
+  const { data: store } = await supabase.from('stores')
+    .select('id, store_url, api_key, api_secret').eq('user_id', userId).single()
+  if (!store) return NextResponse.json({ error: 'Niciun magazin' }, { status: 404 })
 
-  if (!store) {
-    return NextResponse.json({ error: 'Niciun magazin conectat' }, { status: 404 })
-  }
+  const ck = safeDecrypt(store.api_key), cs = safeDecrypt(store.api_secret)
+  if (!ck || !cs) return NextResponse.json({ error: 'Credențiale API lipsă' }, { status: 400 })
 
-  const ck = safeDecrypt(store.api_key)
-  const cs = safeDecrypt(store.api_secret)
-  if (!ck || !cs) {
-    return NextResponse.json({ error: 'Credențiale API lipsă' }, { status: 400 })
-  }
-
-  const storeId = store.id
   const base = store.store_url.replace(/\/$/, '')
   const auth = 'Basic ' + Buffer.from(`${ck}:${cs}`).toString('base64')
+  const storeId = store.id
 
-  // ── SSE Stream ──────────────────────────────────────────────────────────────
   const encoder = new TextEncoder()
   const stream = new ReadableStream({
     async start(controller) {
-      const send = (data: any) => {
-        try {
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`))
-        } catch {}
+      const send = (d: any) => {
+        try { controller.enqueue(encoder.encode(`data: ${JSON.stringify(d)}\n\n`)) } catch {}
       }
 
       try {
-        // ETAPA 1: Descoperă câte comenzi sunt
-        send({ stage: 'init', message: 'Se conectează la WooCommerce...' })
+        send({ stage: 'init', message: 'Conectare la WooCommerce...' })
 
-        const countUrl = new URL(`${base}/wp-json/wc/v3/orders`)
-        countUrl.searchParams.set('per_page', '1')
-        countUrl.searchParams.set('page', '1')
-        const countRes = await fetch(countUrl.toString(), {
-          headers: { Authorization: auth },
-          signal: AbortSignal.timeout(15000),
+        // Count orders
+        const cUrl = new URL(`${base}/wp-json/wc/v3/orders`)
+        cUrl.searchParams.set('per_page', '1')
+        const cRes = await fetch(cUrl.toString(), {
+          headers: { Authorization: auth }, signal: AbortSignal.timeout(15000),
         })
-        if (!countRes.ok) {
-          send({ stage: 'error', message: `WooCommerce a răspuns cu ${countRes.status}` })
-          controller.close(); return
-        }
+        if (!cRes.ok) { send({ stage: 'error', message: `WooCommerce ${cRes.status}` }); controller.close(); return }
 
-        const totalOrders = parseInt(countRes.headers.get('x-wp-total') || '0')
-        const totalPages = parseInt(countRes.headers.get('x-wp-totalpages') || '1')
+        const totalOrders = parseInt(cRes.headers.get('x-wp-total') || '0')
+        const totalPages = parseInt(cRes.headers.get('x-wp-totalpages') || '1')
+        send({ stage: 'counting', totalOrders, totalPages })
 
-        send({ stage: 'counting', totalOrders, totalPages, message: `${totalOrders} comenzi găsite în WooCommerce` })
+        // Existing orders for dedup
+        const { data: existDb } = await supabase.from('risk_orders')
+          .select('external_order_id').eq('store_id', storeId)
+        const existSet = new Set((existDb || []).map((o: any) => String(o.external_order_id)))
+        send({ stage: 'ready', existing: existSet.size })
 
-        // Ia comenzile existente din DB (pentru deduplicare rapidă)
-        const { data: existingOrders } = await supabase
-          .from('risk_orders').select('external_order_id').eq('store_id', storeId)
-        const existingSet = new Set<string>((existingOrders || []).map((o: any) => String(o.external_order_id)))
-
-        send({ stage: 'existing', existingCount: existingSet.size, message: `${existingSet.size} comenzi deja în Risk Shield` })
-
-        // ETAPA 2: Procesează pagină cu pagină
-        let totalProcessed = 0
-        let totalInserted = 0
-        let totalSkipped = 0
-        let customersCreated = 0
-        let customersUpdated = 0
-        const touchedCustomerIds = new Set<string>()
+        let inserted = 0, skipped = 0, customersNew = 0
+        const touchedIds = new Set<string>()
 
         for (let page = 1; page <= totalPages; page++) {
-          send({
-            stage: 'fetching',
-            page, totalPages,
-            processed: totalProcessed, inserted: totalInserted, skipped: totalSkipped,
-            customersCreated, customersUpdated,
-            message: `Pagina ${page}/${totalPages}...`,
-          })
+          send({ stage: 'page', page, totalPages, inserted, skipped, customersNew })
 
           const url = new URL(`${base}/wp-json/wc/v3/orders`)
           url.searchParams.set('per_page', '100')
@@ -115,173 +65,99 @@ export async function GET(req: Request) {
           url.searchParams.set('orderby', 'date')
           url.searchParams.set('order', 'asc')
 
-          let pageOrders: any[]
+          let pageData: any[]
           try {
             const res = await fetch(url.toString(), {
-              headers: { Authorization: auth },
-              signal: AbortSignal.timeout(30000),
+              headers: { Authorization: auth }, signal: AbortSignal.timeout(30000),
             })
-            if (!res.ok) {
-              send({ stage: 'page_error', page, message: `Eroare pagina ${page}: HTTP ${res.status}` })
-              continue
-            }
-            pageOrders = await res.json()
-          } catch (e: any) {
-            send({ stage: 'page_error', page, message: `Timeout pagina ${page}: ${e.message}` })
-            continue
-          }
+            if (!res.ok) { send({ stage: 'page_error', page }); continue }
+            pageData = await res.json()
+          } catch { send({ stage: 'page_error', page }); continue }
 
-          if (!Array.isArray(pageOrders) || pageOrders.length === 0) break
+          if (!Array.isArray(pageData) || !pageData.length) break
 
-          // Procesează comenzile din această pagină
-          const toInsert: any[] = []
+          const batch: any[] = []
 
-          for (const woo of pageOrders) {
-            totalProcessed++
+          for (const woo of pageData) {
             const extId = String(woo.id)
-
-            // Skip dacă există deja
-            if (existingSet.has(extId)) {
-              totalSkipped++
-              continue
-            }
+            if (existSet.has(extId)) { skipped++; continue }
 
             const phone = (woo.billing?.phone || '').replace(/\s/g, '') || null
             const email = (woo.billing?.email || '').toLowerCase().trim() || null
             const name = [woo.billing?.first_name, woo.billing?.last_name].filter(Boolean).join(' ') || null
             const ordAt = woo.date_created || new Date().toISOString()
 
-            if (!phone && !email) {
-              totalSkipped++
-              continue
-            }
+            if (!phone && !email) { skipped++; continue }
 
-            // Find or create customer
             try {
-              const { customer, isNew } = await findOrCreateCustomer(
-                supabase, storeId, userId, phone, email, name, ordAt
-              )
+              const { customer, isNew } = await findOrCreate(supabase, storeId, userId, phone, email, name, ordAt)
+              if (isNew) customersNew++
 
-              if (isNew) customersCreated++
-              else customersUpdated++
+              // Update first/last order dates
+              const upd: any = { updated_at: new Date().toISOString() }
+              if (!customer.name && name) upd.name = name
+              if (!customer.phone && phone) upd.phone = phone
+              if (!customer.email && email) upd.email = emailNorm(email)
+              if (ordAt && (!customer.first_order_at || new Date(ordAt) < new Date(customer.first_order_at)))
+                upd.first_order_at = ordAt
+              if (ordAt && (!customer.last_order_at || new Date(ordAt) > new Date(customer.last_order_at)))
+                upd.last_order_at = ordAt
+              await supabase.from('risk_customers').update(upd).eq('id', customer.id)
 
-              // Update customer info dacă lipsesc
-              const updates: any = { updated_at: new Date().toISOString() }
-              if (!customer.name && name) updates.name = name
-              if (!customer.phone && phone) updates.phone = phone
-              if (!customer.email && email) updates.email = normalizeEmail(email)
-
-              // Update first_order_at dacă e mai veche
-              if (ordAt && (!customer.first_order_at || new Date(ordAt) < new Date(customer.first_order_at))) {
-                updates.first_order_at = ordAt
-              }
-              // Update last_order_at dacă e mai nouă
-              if (ordAt && (!customer.last_order_at || new Date(ordAt) > new Date(customer.last_order_at))) {
-                updates.last_order_at = ordAt
-              }
-
-              if (Object.keys(updates).length > 1) {
-                await supabase.from('risk_customers').update(updates).eq('id', customer.id)
-              }
-
-              toInsert.push(buildRiskOrderFromWoo(woo, storeId, userId, customer.id, phone, email))
-              touchedCustomerIds.add(customer.id)
-              existingSet.add(extId) // Previne duplicate în aceeași sesiune
-            } catch (e: any) {
-              console.error(`[SyncAll] Error processing order ${extId}:`, e.message)
-              totalSkipped++
-            }
+              batch.push(buildOrder(woo, storeId, userId, customer.id))
+              touchedIds.add(customer.id)
+              existSet.add(extId)
+            } catch { skipped++ }
           }
 
           // Insert batch
-          if (toInsert.length > 0) {
-            for (let i = 0; i < toInsert.length; i += 50) {
-              const batch = toInsert.slice(i, i + 50)
-              const { error } = await supabase.from('risk_orders').insert(batch)
-              if (error) {
-                console.error(`[SyncAll] Batch insert error:`, error.message)
-                // Încearcă individual pentru a nu pierde totul
-                for (const order of batch) {
-                  try { await supabase.from('risk_orders').insert(order) } catch {}
+          if (batch.length) {
+            for (let i = 0; i < batch.length; i += 50) {
+              try {
+                await supabase.from('risk_orders').insert(batch.slice(i, i + 50))
+              } catch {
+                for (const o of batch.slice(i, i + 50)) {
+                  try { await supabase.from('risk_orders').insert(o) } catch {}
                 }
               }
             }
-            totalInserted += toInsert.length
+            inserted += batch.length
           }
         }
 
-        // ETAPA 3: Recalculează scorurile pentru toți clienții modificați
-        const customerIds = Array.from(touchedCustomerIds)
-        send({
-          stage: 'recalculating',
-          total: customerIds.length,
-          processed: 0,
-          message: `Recalculez scoruri pentru ${customerIds.length} clienți...`,
-        })
+        // Recalc all touched customers
+        const ids = Array.from(touchedIds)
+        send({ stage: 'recalc', total: ids.length, done: 0, inserted, customersNew })
 
-        // Ia setările o singură dată
-        const { data: rs } = await supabase
-          .from('risk_store_settings').select('*').eq('store_id', storeId).single()
+        const { data: rs } = await supabase.from('risk_store_settings')
+          .select('*').eq('store_id', storeId).single()
         const settings = {
           score_watch_threshold: rs?.score_watch_threshold ?? 41,
           score_problematic_threshold: rs?.score_problematic_threshold ?? 61,
           score_blocked_threshold: rs?.score_blocked_threshold ?? 81,
-          ...(rs?.custom_rules || {}),
-          ml_weights: rs?.ml_weights,
+          ...(rs?.custom_rules || {}), ml_weights: rs?.ml_weights,
         }
 
-        for (let i = 0; i < customerIds.length; i++) {
-          try {
-            await recalcCustomerFromDB(supabase, customerIds[i], storeId, settings)
-          } catch (e: any) {
-            console.error(`[SyncAll] Recalc error for ${customerIds[i]}:`, e.message)
-          }
-
-          // Trimite progres la fiecare 10 clienți
-          if ((i + 1) % 10 === 0 || i === customerIds.length - 1) {
-            send({
-              stage: 'recalculating',
-              total: customerIds.length,
-              processed: i + 1,
-              message: `Recalculat ${i + 1}/${customerIds.length} clienți`,
-            })
+        for (let i = 0; i < ids.length; i++) {
+          try { await recalc(supabase, ids[i], storeId, settings) } catch {}
+          if ((i + 1) % 20 === 0 || i === ids.length - 1) {
+            send({ stage: 'recalc', total: ids.length, done: i + 1, inserted, customersNew })
           }
         }
 
-        // ETAPA 4: Salvează timestamp-ul sincronizării
-        await supabase.from('risk_store_settings').upsert({
-          store_id: storeId,
-          user_id: userId,
-          last_full_sync_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        }, { onConflict: 'store_id' })
-
-        // Finalizare
         send({
-          stage: 'done',
-          totalOrders,
-          totalProcessed,
-          totalInserted,
-          totalSkipped,
-          customersCreated,
-          customersUpdated,
-          customersRecalculated: customerIds.length,
-          message: `Sincronizare completă! ${totalInserted} comenzi importate, ${customersCreated} clienți noi.`,
+          stage: 'done', totalOrders, inserted, skipped, customersNew,
+          recalculated: ids.length,
+          message: `${inserted} comenzi importate, ${customersNew} clienți noi, ${ids.length} scoruri recalculate.`,
         })
-
       } catch (e: any) {
         send({ stage: 'error', message: e.message || 'Eroare necunoscută' })
       }
-
       controller.close()
     }
   })
 
   return new Response(stream, {
-    headers: {
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache',
-      'Connection': 'keep-alive',
-    },
+    headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive' },
   })
 }

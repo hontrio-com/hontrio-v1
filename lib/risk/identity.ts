@@ -1,50 +1,31 @@
 /**
  * lib/risk/identity.ts
- * ─────────────────────────────────────────────────────────────────────────────
- * Sursa unică de adevăr pentru identitatea clienților în Risk Shield.
- *
- * REGULA DE IDENTITATE:
- *   Același telefon (ultimele 9 cifre) SAU același email = ACELAȘI CLIENT
- *   Nu contează numele, nu contează prefixul (+40 vs 0 vs 0040)
- *   Phone match are prioritate față de email match
- *
- * Toate modulele Risk Shield TREBUIE să folosească acest fișier:
- *   - webhook/route.ts
- *   - import-history/route.ts
- *   - repair/route.ts
- *   - analyze/route.ts
- *   - sync-all/route.ts
- * ─────────────────────────────────────────────────────────────────────────────
+ * 
+ * Sursa unică de adevăr pentru identitatea clienților.
+ * REGULA: phone last9 SAU email = ACELAȘI CLIENT
  */
 
-import { calculateRiskScore, type CustomerHistory, type OrderContext } from '@/lib/risk/engine'
+import { calculateRiskScore, type CustomerHistory, type OrderContext } from './engine'
+import { decrypt } from '@/lib/security/encryption'
 
-// ─── Normalizare telefon ────────────────────────────────────────────────────
+// ─── Normalizare ──────────────────────────────────────────────────────────────
 
-/**
- * Normalizează un număr de telefon la ultimele 9 cifre.
- * Exemple:
- *   +40757123456  → 757123456
- *   0757123456    → 757123456
- *   0040757123456 → 757123456
- *   40757123456   → 757123456
- *   757 123 456   → 757123456
- */
-export function normalizePhone(phone: string): string {
-  const digits = phone.replace(/\D/g, '')  // doar cifre
-  return digits.slice(-9)                   // ultimele 9 — universal
+export function phoneNorm(p: string): string {
+  return p.replace(/\D/g, '').slice(-9)
 }
 
-/**
- * Normalizează un email: lowercase + trim
- */
-export function normalizeEmail(email: string): string {
-  return email.toLowerCase().trim()
+export function emailNorm(e: string): string {
+  return e.toLowerCase().trim()
 }
 
-// ─── Status mapping WooCommerce → Risk Shield ─────────────────────────────
+export function safeDecrypt(v: string | null): string {
+  if (!v) return ''
+  try { return v.includes(':') ? decrypt(v) : v } catch { return v }
+}
 
-const STATUS_MAP: Record<string, string> = {
+// ─── Status mapping ───────────────────────────────────────────────────────────
+
+const SM: Record<string, string> = {
   pending: 'pending', processing: 'processing', 'on-hold': 'pending',
   completed: 'collected', cancelled: 'cancelled', refunded: 'returned',
   failed: 'cancelled', shipped: 'shipped', delivered: 'collected',
@@ -53,179 +34,81 @@ const STATUS_MAP: Record<string, string> = {
   expediat: 'shipped', 'in-livrare': 'shipped', nepreluat: 'not_home',
 }
 
-export function mapWooStatus(status: string): string {
-  const normalized = status.toLowerCase()
+export function mapStatus(s: string): string {
+  const n = s.toLowerCase()
     .replace(/[ăâ]/g, 'a').replace(/î/g, 'i')
     .replace(/[șş]/g, 's').replace(/[țţ]/g, 't')
-  return STATUS_MAP[normalized] || STATUS_MAP[status.toLowerCase()] || 'pending'
+  return SM[n] || SM[s.toLowerCase()] || 'pending'
 }
 
-// ─── Extract helpers ──────────────────────────────────────────────────────
+// ─── Find customer ────────────────────────────────────────────────────────────
 
-export function extractAddress(order: any): string {
-  const s = order.shipping || {}
-  const b = order.billing || {}
-  return [s.address_1 || b.address_1, s.city || b.city, s.state || b.state, s.country || b.country]
-    .filter(Boolean).join(', ')
+export async function findCustomer(
+  supabase: any, storeId: string, phone: string | null, email: string | null
+): Promise<any | null> {
+  const ph = phone ? phoneNorm(phone) : null
+  const em = email ? emailNorm(email) : null
+
+  // Phone match — ia toți cu telefon din store, filtrează last9
+  if (ph && ph.length === 9) {
+    const { data } = await supabase.from('risk_customers')
+      .select('*').eq('store_id', storeId).not('phone', 'is', null)
+    const match = (data || []).find((c: any) => c.phone && phoneNorm(c.phone) === ph)
+    if (match) return match
+  }
+
+  // Email match
+  if (em) {
+    const { data } = await supabase.from('risk_customers')
+      .select('*').eq('store_id', storeId).ilike('email', em).limit(1)
+    if (data?.[0]) return data[0]
+  }
+
+  return null
 }
 
-export function extractPayment(order: any): 'cod' | 'card' | 'bank_transfer' {
-  const m = (order.payment_method || '').toLowerCase()
-  if (m.includes('cod') || m.includes('cash')) return 'cod'
-  if (m.includes('card') || m.includes('stripe') || m.includes('paypal')) return 'card'
-  return 'bank_transfer'
-}
-
-export function extractCustomerName(order: any): string | null {
-  const b = order.billing || {}
-  return [b.first_name, b.last_name].filter(Boolean).join(' ') || null
-}
-
-// ─── Find or Create Customer ──────────────────────────────────────────────
-//
-// Caută clientul prin query-uri directe pe phone/email (fără a încărca toți
-// clienții în memorie). Dacă nu există, creează unul nou.
-//
-
-export async function findOrCreateCustomer(
-  supabase: any,
-  storeId: string,
-  userId: string,
-  phone: string | null,
-  email: string | null,
-  name: string | null,
-  firstOrderAt: string,
+export async function findOrCreate(
+  supabase: any, storeId: string, userId: string,
+  phone: string | null, email: string | null, name: string | null, orderedAt: string
 ): Promise<{ customer: any; isNew: boolean }> {
+  const found = await findCustomer(supabase, storeId, phone, email)
+  if (found) return { customer: found, isNew: false }
 
-  const phoneNorm = phone ? normalizePhone(phone) : null
-  const emailNorm = email ? normalizeEmail(email) : null
+  const { data, error } = await supabase.from('risk_customers').insert({
+    store_id: storeId, user_id: userId,
+    phone: phone || null, email: email ? emailNorm(email) : null, name: name || null,
+    risk_score: 0, risk_label: 'new',
+    total_orders: 0, orders_collected: 0, orders_refused: 0,
+    orders_not_home: 0, orders_cancelled: 0,
+    last_order_at: orderedAt, first_order_at: orderedAt,
+    in_local_blacklist: false, in_global_blacklist: false,
+    manually_reviewed: false, updated_at: new Date().toISOString(),
+  }).select('*').single()
 
-  // ── Caută clientul existent ─────────────────────────────────────────────
-  let found: any = null
-
-  // Prioritate 1: match telefon (ultimele 9 cifre)
-  // Supabase nu poate filtra pe ultimele 9 cifre direct, așa că luăm
-  // toți clienții cu telefon non-null din store și filtrăm client-side.
-  // Optimizare: folosim LIKE pe sufixul de 9 cifre
-  if (phoneNorm && phoneNorm.length === 9) {
-    const { data: phoneMatches } = await supabase
-      .from('risk_customers')
-      .select('*')
-      .eq('store_id', storeId)
-      .not('phone', 'is', null)
-
-    if (phoneMatches) {
-      found = phoneMatches.find((c: any) =>
-        c.phone && normalizePhone(c.phone) === phoneNorm
-      ) || null
-    }
-  }
-
-  // Prioritate 2: match email exact (dacă nu s-a găsit prin telefon)
-  if (!found && emailNorm) {
-    const { data: emailMatches } = await supabase
-      .from('risk_customers')
-      .select('*')
-      .eq('store_id', storeId)
-      .ilike('email', emailNorm)
-      .limit(1)
-
-    if (emailMatches?.length) {
-      found = emailMatches[0]
-    }
-  }
-
-  if (found) {
-    return { customer: found, isNew: false }
-  }
-
-  // ── Creează client nou ──────────────────────────────────────────────────
-  const { data: newC, error } = await supabase
-    .from('risk_customers')
-    .insert({
-      store_id: storeId,
-      user_id: userId,
-      phone: phone || null,
-      email: emailNorm || null,
-      name: name || null,
-      risk_score: 0,
-      risk_label: 'new',
-      total_orders: 0,
-      orders_collected: 0,
-      orders_refused: 0,
-      orders_not_home: 0,
-      orders_cancelled: 0,
-      last_order_at: firstOrderAt,
-      first_order_at: firstOrderAt,
-      in_local_blacklist: false,
-      in_global_blacklist: false,
-      manually_reviewed: false,
-      updated_at: new Date().toISOString(),
-    })
-    .select('*')
-    .single()
-
-  if (error || !newC) {
-    // Race condition: altcineva a creat clientul între timp — retry
-    console.warn('[Identity] Insert conflict, retrying:', error?.message)
-
-    let retry: any = null
-    if (phoneNorm && phoneNorm.length === 9) {
-      const { data: phoneRetry } = await supabase
-        .from('risk_customers').select('*')
-        .eq('store_id', storeId).not('phone', 'is', null)
-      if (phoneRetry) {
-        retry = phoneRetry.find((c: any) => c.phone && normalizePhone(c.phone) === phoneNorm) || null
-      }
-    }
-    if (!retry && emailNorm) {
-      const { data: emailRetry } = await supabase
-        .from('risk_customers').select('*')
-        .eq('store_id', storeId).ilike('email', emailNorm).limit(1)
-      if (emailRetry?.length) retry = emailRetry[0]
-    }
+  if (error || !data) {
+    // Race condition retry
+    const retry = await findCustomer(supabase, storeId, phone, email)
     if (retry) return { customer: retry, isNew: false }
-
-    throw new Error('Nu s-a putut crea/găsi clientul: ' + error?.message)
+    throw new Error('Cannot create customer: ' + error?.message)
   }
 
-  return { customer: newC, isNew: true }
+  return { customer: data, isNew: true }
 }
 
-// ─── Recalculează scorul unui client din DB ─────────────────────────────
-//
-// Numără TOATE comenzile clientului din DB (nu incrementare/decrementare),
-// apoi recalculează scorul cu engine-ul.
-//
+// ─── Recalculare completă din DB ──────────────────────────────────────────────
 
-export async function recalcCustomerFromDB(
-  supabase: any,
-  customerId: string,
-  storeId: string,
-  settings: any,
-  orderContext?: {
-    phone: string | null
-    email: string | null
-    paymentMethod: 'cod' | 'card' | 'bank_transfer'
-    totalValue: number
-    currency: string
-    orderedAt: string
-    shippingAddress: string
-  },
-): Promise<{ score: number; label: string; flags: any[]; recommendation: string; refusalProbability: number }> {
-
-  // Ia TOATE comenzile clientului din DB
-  const { data: allOrders } = await supabase
-    .from('risk_orders')
+export async function recalc(
+  supabase: any, customerId: string, storeId: string, settings: any = {}
+): Promise<{ score: number; label: string; flags: any[] }> {
+  const { data: orders } = await supabase.from('risk_orders')
     .select('order_status, shipping_address')
-    .eq('customer_id', customerId)
-    .eq('store_id', storeId)
+    .eq('customer_id', customerId).eq('store_id', storeId)
 
-  const orders = allOrders || []
+  const all = orders || []
   let tc = 0, tr = 0, tn = 0, tcan = 0
   const addrs = new Set<string>()
 
-  for (const o of orders) {
+  for (const o of all) {
     if (o.order_status === 'collected') tc++
     else if (['refused', 'returned'].includes(o.order_status)) tr++
     else if (o.order_status === 'not_home') tn++
@@ -233,134 +116,105 @@ export async function recalcCustomerFromDB(
     if (o.shipping_address) addrs.add(o.shipping_address.trim().toLowerCase())
   }
 
-  // Ia datele clientului
-  const { data: cust } = await supabase
-    .from('risk_customers').select('*').eq('id', customerId).single()
+  const { data: cust } = await supabase.from('risk_customers')
+    .select('*').eq('id', customerId).single()
 
-  const phone = orderContext?.phone || cust?.phone || null
-  const email = orderContext?.email || cust?.email || null
-
-  const hist: CustomerHistory = {
-    totalOrders: orders.length,
-    ordersCollected: tc,
-    ordersRefused: tr,
-    ordersNotHome: tn,
-    ordersCancelled: tcan,
-    ordersToday: 0,
-    lastOrderAt: cust?.last_order_at || null,
-    firstOrderAt: cust?.first_order_at || null,
+  const result = calculateRiskScore({
+    totalOrders: all.length, ordersCollected: tc, ordersRefused: tr,
+    ordersNotHome: tn, ordersCancelled: tcan, ordersToday: 0,
+    lastOrderAt: cust?.last_order_at, firstOrderAt: cust?.first_order_at,
     accountCreatedAt: null,
-    phoneValidated: !!(phone?.match(/^(07\d{8}|02\d{8}|03\d{8})$/)),
-    isNewAccount: orders.length <= 1,
-    addressChanges: addrs.size,
-  }
+    phoneValidated: !!(cust?.phone?.match(/^(07\d{8}|02\d{8}|03\d{8})$/)),
+    isNewAccount: all.length <= 1, addressChanges: addrs.size,
+  }, {
+    paymentMethod: 'cod', totalValue: 0, currency: 'RON',
+    orderedAt: cust?.last_order_at || new Date().toISOString(),
+    customerEmail: cust?.email || '', shippingAddress: '',
+    inGlobalBlacklist: cust?.in_global_blacklist || false, globalReportCount: 0,
+  }, settings)
 
-  const ctx: OrderContext = {
-    paymentMethod: orderContext?.paymentMethod || 'cod',
-    totalValue: orderContext?.totalValue || 0,
-    currency: orderContext?.currency || 'RON',
-    orderedAt: orderContext?.orderedAt || cust?.last_order_at || new Date().toISOString(),
-    customerEmail: email || '',
-    shippingAddress: orderContext?.shippingAddress || '',
-    inGlobalBlacklist: cust?.in_global_blacklist || false,
-    globalReportCount: 0,
-  }
+  const label = cust?.manual_label_override || result.label
 
-  const result = calculateRiskScore(hist, ctx, settings)
-
-  // Respectă override-ul manual dacă există
-  const finalLabel = cust?.manual_label_override || result.label
-
-  // Actualizează clientul cu contoarele corecte din DB (sursa de adevăr)
   await supabase.from('risk_customers').update({
-    total_orders: orders.length,
-    orders_collected: tc,
-    orders_refused: tr,
-    orders_not_home: tn,
-    orders_cancelled: tcan,
-    risk_score: result.score,
-    risk_label: finalLabel,
+    total_orders: all.length, orders_collected: tc, orders_refused: tr,
+    orders_not_home: tn, orders_cancelled: tcan,
+    risk_score: result.score, risk_label: label,
     updated_at: new Date().toISOString(),
   }).eq('id', customerId)
 
-  return { ...result, label: finalLabel }
+  return { score: result.score, label, flags: result.flags }
 }
 
-// ─── Fetch paginated orders from WooCommerce ─────────────────────────────
+// ─── WooCommerce fetch helper ─────────────────────────────────────────────────
 
-export async function fetchWooOrders(
-  storeUrl: string,
-  apiKey: string,
-  apiSecret: string,
-  params: Record<string, string>,
-  maxPages = 100,
-): Promise<{ orders: any[]; totalPages: number }> {
+export async function wooFetch(
+  storeUrl: string, ck: string, cs: string,
+  params: Record<string, string>, maxPages = 100
+): Promise<any[]> {
   const base = storeUrl.replace(/\/$/, '')
-  const auth = 'Basic ' + Buffer.from(`${apiKey}:${apiSecret}`).toString('base64')
-  const allOrders: any[] = []
-  let totalPages = 1
+  const auth = 'Basic ' + Buffer.from(`${ck}:${cs}`).toString('base64')
+  const all: any[] = []
 
-  for (let page = 1; page <= maxPages; page++) {
+  for (let p = 1; p <= maxPages; p++) {
     const url = new URL(`${base}/wp-json/wc/v3/orders`)
-    Object.entries({ ...params, page: String(page), per_page: '100' })
+    Object.entries({ ...params, page: String(p), per_page: '100' })
       .forEach(([k, v]) => url.searchParams.set(k, v))
 
     const res = await fetch(url.toString(), {
       headers: { Authorization: auth },
-      signal: AbortSignal.timeout(20000),
+      signal: AbortSignal.timeout(25000),
     })
-
-    if (!res.ok) {
-      const txt = await res.text().catch(() => '')
-      throw new Error(`WooCommerce ${res.status}: ${txt.slice(0, 200)}`)
-    }
+    if (!res.ok) throw new Error(`WooCommerce ${res.status}`)
 
     const data = await res.json()
-    totalPages = parseInt(res.headers.get('x-wp-totalpages') || '1')
+    const pages = parseInt(res.headers.get('x-wp-totalpages') || '1')
 
-    if (!Array.isArray(data) || data.length === 0) break
-    allOrders.push(...data)
-
-    if (page >= totalPages) break
+    if (!Array.isArray(data) || !data.length) break
+    all.push(...data)
+    if (p >= pages) break
   }
-
-  return { orders: allOrders, totalPages }
+  return all
 }
 
-// ─── Build risk order object from WooCommerce order ──────────────────────
+// ─── Build risk order from WooCommerce ────────────────────────────────────────
 
-export function buildRiskOrderFromWoo(
-  wooOrder: any,
-  storeId: string,
-  userId: string,
-  customerId: string,
-  fallbackPhone: string | null,
-  fallbackEmail: string | null,
-): any {
-  const b = wooOrder.billing || {}
-  const s = wooOrder.shipping || {}
-  const pm = (wooOrder.payment_method || '').toLowerCase()
-
+export function buildOrder(woo: any, storeId: string, userId: string, customerId: string): any {
+  const b = woo.billing || {}, s = woo.shipping || {}
+  const pm = (woo.payment_method || '').toLowerCase()
   return {
-    store_id: storeId,
-    user_id: userId,
-    customer_id: customerId,
-    external_order_id: String(wooOrder.id),
-    order_number: wooOrder.number ? String(wooOrder.number) : null,
-    customer_phone: b.phone || fallbackPhone,
-    customer_email: b.email || fallbackEmail,
+    store_id: storeId, user_id: userId, customer_id: customerId,
+    external_order_id: String(woo.id),
+    order_number: woo.number ? String(woo.number) : null,
+    customer_phone: b.phone || null, customer_email: b.email || null,
     customer_name: [b.first_name, b.last_name].filter(Boolean).join(' ') || null,
     shipping_address: [s.address_1 || b.address_1, s.city || b.city, s.country || b.country]
       .filter(Boolean).join(', '),
-    payment_method: pm.includes('cod') || pm.includes('cash')
-      ? 'cod'
+    payment_method: pm.includes('cod') || pm.includes('cash') ? 'cod'
       : pm.includes('card') ? 'card' : 'bank_transfer',
-    total_value: parseFloat(wooOrder.total || '0'),
-    currency: wooOrder.currency || 'RON',
-    order_status: mapWooStatus(wooOrder.status || 'pending'),
-    risk_score_at_order: 0,
-    risk_flags: [],
-    ordered_at: wooOrder.date_created || new Date().toISOString(),
+    total_value: parseFloat(woo.total || '0'), currency: woo.currency || 'RON',
+    order_status: mapStatus(woo.status || 'pending'),
+    risk_score_at_order: 0, risk_flags: [],
+    ordered_at: woo.date_created || new Date().toISOString(),
     updated_at: new Date().toISOString(),
+  }
+}
+
+// ─── Helpers pentru store + settings ──────────────────────────────────────────
+
+export async function getStoreAndSettings(supabase: any, storeId: string) {
+  const { data: rs } = await supabase
+    .from('risk_store_settings').select('*').eq('store_id', storeId).single()
+  return {
+    participate_in_global_blacklist: rs?.participate_in_global_blacklist ?? true,
+    alert_on_blocked: rs?.alert_on_blocked ?? true,
+    alert_on_problematic: rs?.alert_on_problematic ?? true,
+    alert_on_watch: rs?.alert_on_watch ?? false,
+    score_watch_threshold: rs?.score_watch_threshold ?? 41,
+    score_problematic_threshold: rs?.score_problematic_threshold ?? 61,
+    score_blocked_threshold: rs?.score_blocked_threshold ?? 81,
+    alert_email: rs?.alert_email,
+    email_alerts_enabled: rs?.email_alerts_enabled ?? true,
+    ...(rs?.custom_rules || {}),
+    ml_weights: rs?.ml_weights,
   }
 }

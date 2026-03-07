@@ -695,14 +695,12 @@ export default function RiskShieldPage() {
   const [loadingCluster, setLoadingCluster] = useState(false)
   const [noteSaved, setNoteSaved] = useState(false)
   const [repairing, setRepairing] = useState(false)
-  const [repairMsg, setRepairMsg] = useState('')
   const [mlAccuracy, setMlAccuracy] = useState<number | null>(null)
   const [mlTotalPredictions, setMlTotalPredictions] = useState(0)
   const [storeSettings, setStoreSettings] = useState<any>(null)
   const [savingSettings, setSavingSettings] = useState(false)
   const [syncingAll, setSyncingAll] = useState(false)
   const [syncProgress, setSyncProgress] = useState<any>(null)
-  const [syncingStatuses, setSyncingStatuses] = useState(false)
   const searchRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => { fetchStores() }, [])
@@ -777,11 +775,11 @@ export default function RiskShieldPage() {
     } catch { setCustomerOrders([]) }
   }
 
-  // ── Sync All — importă toate comenzile din WooCommerce ───────────────────
+  // ── Sincronizare completă — importă + repară + actualizează statusuri ────
   const syncAll = async () => {
     if (syncingAll) return
     setSyncingAll(true)
-    setSyncProgress({ stage: 'init', message: 'Se conectează...' })
+    setSyncProgress({ stage: 'init', message: 'Conectare la WooCommerce...' })
 
     try {
       const evtSource = new EventSource('/api/risk/sync-all')
@@ -791,43 +789,29 @@ export default function RiskShieldPage() {
           setSyncProgress(data)
           if (data.stage === 'done' || data.stage === 'error') {
             evtSource.close()
-            setSyncingAll(false)
+            // După import complet, rulează repair + sync statusuri automat (în background)
             if (data.stage === 'done') {
-              // Reîncarcă datele
+              fetch('/api/risk/repair', { method: 'POST' }).catch(() => {})
+              fetch('/api/cron/risk-sync-orders?manual=true').catch(() => {})
               fetchCustomers(selectedStore)
               fetchAlerts(selectedStore)
             }
+            setSyncingAll(false)
           }
         } catch {}
       }
       evtSource.onerror = () => {
         evtSource.close()
         setSyncingAll(false)
-        setSyncProgress({ stage: 'error', message: 'Conexiunea s-a întrerupt. Încearcă din nou.' })
+        setSyncProgress({ stage: 'error', message: 'Conexiunea s-a întrerupt.' })
       }
     } catch {
       setSyncingAll(false)
-      setSyncProgress({ stage: 'error', message: 'Eroare la pornirea sincronizării.' })
+      setSyncProgress({ stage: 'error', message: 'Eroare la pornire.' })
     }
   }
 
-  // ── Re-sync statusuri comenzi recente ────────────────────────────────────
-  const syncStatuses = async () => {
-    setSyncingStatuses(true)
-    try {
-      const res = await fetch('/api/cron/risk-sync-orders?manual=true')
-      const data = await res.json()
-      const r = data.results?.[0]
-      if (r) {
-        alert(`✓ ${r.ordersUpdated} statusuri actualizate, ${r.customersRecalculated} clienți recalculați.`)
-        if (r.ordersUpdated > 0) fetchCustomers(selectedStore)
-      } else {
-        alert('Nicio actualizare necesară.')
-      }
-    } catch { alert('Eroare la sincronizarea statusurilor.') }
-    setSyncingStatuses(false)
-  }
-
+  // ── Repair intern (apelat automat de syncAll, nu mai e buton separat) ────
   const runRepair = async () => {
     setRepairing(true)
     try {
@@ -1066,56 +1050,50 @@ export default function RiskShieldPage() {
           <button onClick={() => { fetchCustomers(); fetchAlerts() }} className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-gray-200 text-xs text-gray-600 hover:bg-gray-50 transition-colors">
             <RefreshCw className="h-3.5 w-3.5" />Refresh
           </button>
-          <button onClick={runRepair} disabled={repairing} className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-amber-200 text-xs text-amber-700 bg-amber-50 hover:bg-amber-100 transition-colors disabled:opacity-50">
-            <Zap className="h-3.5 w-3.5" />{repairing ? 'Reparare...' : 'Repară Date'}
+          <button
+            onClick={syncAll}
+            disabled={syncingAll}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gray-900 text-white text-xs font-semibold hover:bg-gray-800 transition-colors disabled:opacity-50 shadow-sm"
+          >
+            {syncingAll
+              ? <><RefreshCw className="h-3.5 w-3.5 animate-spin" />Sincronizare...</>
+              : <><Download className="h-3.5 w-3.5" />Sincronizează WooCommerce</>
+            }
           </button>
-          <button onClick={syncStatuses} disabled={syncingStatuses} className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-blue-200 text-xs text-blue-700 bg-blue-50 hover:bg-blue-100 transition-colors disabled:opacity-50">
-            <RefreshCw className={`h-3.5 w-3.5 ${syncingStatuses ? 'animate-spin' : ''}`} />{syncingStatuses ? 'Sincronizare...' : 'Sync Statusuri'}
-          </button>
-          <button onClick={syncAll} disabled={syncingAll} className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 transition-colors disabled:opacity-50 shadow-sm">
-            <Download className={`h-3.5 w-3.5 ${syncingAll ? 'animate-bounce' : ''}`} />{syncingAll ? 'Import în curs...' : 'Import Complet WooCommerce'}
-          </button>
-          {repairMsg && <span className="text-xs text-green-600 font-medium">{repairMsg}</span>}
         </div>
       </motion.div>
 
-      {/* ── Sync Progress Bar ── */}
-      {syncProgress && syncProgress.stage !== 'done' && (
+      {/* ── Sync Progress ── */}
+      {syncProgress && (
         <motion.div
           initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}
-          className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4"
+          className={`rounded-2xl border p-4 ${syncProgress.stage === 'error' ? 'border-red-200 bg-red-50' : syncProgress.stage === 'done' ? 'border-emerald-200 bg-emerald-50' : 'border-blue-200 bg-blue-50'}`}
         >
-          <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center justify-between mb-1">
             <div className="flex items-center gap-2">
-              {syncProgress.stage === 'error'
-                ? <AlertCircle className="h-4 w-4 text-red-500" />
-                : <RefreshCw className="h-4 w-4 text-emerald-600 animate-spin" />
-              }
-              <span className={`text-sm font-semibold ${syncProgress.stage === 'error' ? 'text-red-700' : 'text-emerald-800'}`}>
-                {syncProgress.message}
+              {syncProgress.stage === 'error' ? <AlertCircle className="h-4 w-4 text-red-500" />
+                : syncProgress.stage === 'done' ? <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                : <RefreshCw className="h-4 w-4 text-blue-600 animate-spin" />}
+              <span className={`text-sm font-medium ${syncProgress.stage === 'error' ? 'text-red-700' : syncProgress.stage === 'done' ? 'text-emerald-800' : 'text-blue-800'}`}>
+                {syncProgress.message || `Pagina ${syncProgress.page || 0}/${syncProgress.totalPages || '?'}...`}
               </span>
             </div>
-            {syncProgress.stage === 'done' || syncProgress.stage === 'error' ? (
-              <button onClick={() => setSyncProgress(null)} className="text-xs text-gray-500 hover:text-gray-700">Închide</button>
-            ) : null}
+            {(syncProgress.stage === 'done' || syncProgress.stage === 'error') && (
+              <button onClick={() => setSyncProgress(null)} className="text-xs text-gray-400 hover:text-gray-600">✕</button>
+            )}
           </div>
-          {syncProgress.totalPages > 0 && syncProgress.page && (
-            <div className="w-full bg-emerald-200 rounded-full h-2 mb-2">
-              <div
-                className="bg-emerald-600 rounded-full h-2 transition-all duration-300"
-                style={{ width: `${Math.round((syncProgress.page / syncProgress.totalPages) * 100)}%` }}
-              />
+          {syncProgress.totalPages > 0 && syncProgress.page && syncProgress.stage !== 'done' && (
+            <div className="w-full bg-blue-200/50 rounded-full h-1.5 mt-2">
+              <div className="bg-blue-600 rounded-full h-1.5 transition-all duration-300"
+                style={{ width: `${Math.round(((syncProgress.stage === 'recalc' ? syncProgress.done : syncProgress.page) / (syncProgress.stage === 'recalc' ? syncProgress.total : syncProgress.totalPages)) * 100)}%` }} />
             </div>
           )}
-          {(syncProgress.inserted !== undefined || syncProgress.customersCreated !== undefined) && (
-            <div className="flex gap-4 text-xs text-emerald-700">
-              {syncProgress.inserted !== undefined && <span>{syncProgress.inserted} comenzi importate</span>}
-              {syncProgress.customersCreated !== undefined && <span>{syncProgress.customersCreated} clienți noi</span>}
-              {syncProgress.skipped !== undefined && <span>{syncProgress.skipped} skip</span>}
-              {syncProgress.stage === 'recalculating' && syncProgress.total > 0 && (
-                <span>Recalculare: {syncProgress.processed}/{syncProgress.total}</span>
-              )}
-            </div>
+          {syncProgress.inserted !== undefined && (
+            <p className="text-xs text-gray-500 mt-1.5">
+              {syncProgress.inserted} importate · {syncProgress.customersNew || 0} clienți noi
+              {syncProgress.skipped ? ` · ${syncProgress.skipped} existente` : ''}
+              {syncProgress.stage === 'recalc' ? ` · Recalculare ${syncProgress.done}/${syncProgress.total}` : ''}
+            </p>
           )}
         </motion.div>
       )}
