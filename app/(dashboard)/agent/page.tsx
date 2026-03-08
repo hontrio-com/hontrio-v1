@@ -239,13 +239,42 @@ export default function AgentPage() {
   const [saved, setSaved] = useState(false)
   const [copied, setCopied] = useState(false)
   const [downloading, setDownloading] = useState(false)
-  const [activeTab, setActiveTab] = useState<'overview' | 'settings' | 'knowledge' | 'notifications' | 'install'>('overview')
+  const [activeTab, setActiveTab] = useState<'overview' | 'settings' | 'knowledge' | 'intelligence' | 'notifications' | 'install'>('overview')
   const [activeSettingsTab, setActiveSettingsTab] = useState<'identity' | 'appearance' | 'advanced'>('identity')
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const avatarInputRef = useRef<HTMLInputElement>(null)
   const [previewOpen, setPreviewOpen] = useState(false)
   const [previewMessages, setPreviewMessages] = useState<Array<{role: string; content: string; quick_replies?: string[]}>>([])
   const [previewLoading, setPreviewLoading] = useState(false)
+
+  // Intelligence states
+  const [intelStats, setIntelStats] = useState<{ total_products: number; intelligence: Record<string, number>; coverage: number } | null>(null)
+  const [intelGenerating, setIntelGenerating] = useState(false)
+  const [intelResult, setIntelResult] = useState<{ generated: number; skipped: number; failed: number; credits_used: number } | null>(null)
+  const [intelError, setIntelError] = useState('')
+
+  const loadIntelStats = async () => {
+    try {
+      const res = await fetch('/api/agent/generate-intelligence')
+      const data = await res.json()
+      if (data.total_products !== undefined) setIntelStats(data)
+    } catch {}
+  }
+
+  const generateIntelligence = async (force = false) => {
+    setIntelGenerating(true); setIntelResult(null); setIntelError('')
+    try {
+      const res = await fetch('/api/agent/generate-intelligence', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ force }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setIntelError(data.error || 'Eroare'); return }
+      setIntelResult(data)
+      loadIntelStats()
+    } catch { setIntelError('Eroare de rețea') }
+    finally { setIntelGenerating(false) }
+  }
 
   useEffect(() => { loadData() }, [])
 
@@ -381,8 +410,8 @@ export default function AgentPage() {
       </div>
 
       <div className="flex gap-1 p-1 bg-gray-100 rounded-xl w-fit">
-        {[{ id: 'overview', label: 'Statistici', icon: TrendingUp }, { id: 'settings', label: 'Configurare', icon: Settings2 }, { id: 'knowledge', label: 'Cunoștințe', icon: BookOpen }, { id: 'notifications', label: 'Notificări', icon: Bell }, { id: 'install', label: 'Instalare', icon: ExternalLink }].map(tab => (
-          <button key={tab.id} onClick={() => { setActiveTab(tab.id as any); if (tab.id === 'overview') loadAnalytics(); if (tab.id === 'knowledge') loadKnowledge() }}
+        {[{ id: 'overview', label: 'Statistici', icon: TrendingUp }, { id: 'settings', label: 'Configurare', icon: Settings2 }, { id: 'knowledge', label: 'Cunoștințe', icon: BookOpen }, { id: 'intelligence', label: 'Intelligence', icon: Zap }, { id: 'notifications', label: 'Notificări', icon: Bell }, { id: 'install', label: 'Instalare', icon: ExternalLink }].map(tab => (
+          <button key={tab.id} onClick={() => { setActiveTab(tab.id as any); if (tab.id === 'overview') loadAnalytics(); if (tab.id === 'knowledge') loadKnowledge(); if (tab.id === 'intelligence') loadIntelStats() }}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === tab.id ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
             <tab.icon className="h-4 w-4" />{tab.label}
           </button>
@@ -706,6 +735,149 @@ export default function AgentPage() {
             <WidgetPreview config={config} messages={previewMessages} onSend={sendPreview} loading={previewLoading} onToggle={() => setPreviewOpen(p => !p)} isOpen={previewOpen} />
             <p className="text-xs text-gray-400 text-center">Apasă butonul din preview ca să deschizi chat-ul și să testezi</p>
           </div>
+        </div>
+      )}
+
+      {/* INTELLIGENCE */}
+      {activeTab === 'intelligence' && (
+        <div className="space-y-5">
+          {/* Header card */}
+          <Card className="border-0 shadow-sm rounded-2xl">
+            <CardContent className="p-5">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center">
+                  <Zap className="h-5 w-5 text-white" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-sm font-semibold text-gray-900">Product Intelligence</h3>
+                  <p className="text-xs text-gray-400">AI generează cunoștințe detaliate per produs — rezumate tehnice, FAQ-uri, obiecții, beneficii — pentru răspunsuri mult mai bune în chat.</p>
+                </div>
+              </div>
+
+              {/* Stats row */}
+              {intelStats && (
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+                  <div className="p-3 bg-gray-50 rounded-xl text-center">
+                    <p className="text-lg font-bold text-gray-900">{intelStats.total_products}</p>
+                    <p className="text-[10px] text-gray-400 font-medium">Total produse</p>
+                  </div>
+                  <div className="p-3 bg-emerald-50 rounded-xl text-center">
+                    <p className="text-lg font-bold text-emerald-600">{intelStats.intelligence?.ready || 0}</p>
+                    <p className="text-[10px] text-emerald-500 font-medium">Cu intelligence</p>
+                  </div>
+                  <div className="p-3 bg-amber-50 rounded-xl text-center">
+                    <p className="text-lg font-bold text-amber-600">{(intelStats.intelligence?.processing || 0) + (intelStats.intelligence?.pending || 0)}</p>
+                    <p className="text-[10px] text-amber-500 font-medium">În procesare</p>
+                  </div>
+                  <div className="p-3 bg-red-50 rounded-xl text-center">
+                    <p className="text-lg font-bold text-red-500">{intelStats.intelligence?.failed || 0}</p>
+                    <p className="text-[10px] text-red-400 font-medium">Eșuate</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Coverage bar */}
+              {intelStats && intelStats.total_products > 0 && (
+                <div className="mb-5">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-xs font-medium text-gray-600">Acoperire Intelligence</span>
+                    <span className="text-xs font-bold text-gray-900">{intelStats.coverage}%</span>
+                  </div>
+                  <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden">
+                    <div className="h-full bg-gradient-to-r from-amber-500 to-orange-500 rounded-full transition-all duration-700"
+                      style={{ width: `${intelStats.coverage}%` }} />
+                  </div>
+                  <p className="text-[10px] text-gray-400 mt-1">
+                    {intelStats.intelligence?.ready || 0} din {intelStats.total_products} produse au cunoștințe AI generate
+                  </p>
+                </div>
+              )}
+
+              {/* Actions */}
+              <div className="flex flex-wrap gap-2">
+                <Button onClick={() => generateIntelligence(false)} disabled={intelGenerating}
+                  className="bg-blue-600 hover:bg-blue-700 rounded-xl h-10 px-5 text-sm">
+                  {intelGenerating
+                    ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Se generează...</>
+                    : <><Zap className="h-4 w-4 mr-2" />Generează Intelligence</>
+                  }
+                </Button>
+                <Button onClick={() => generateIntelligence(true)} disabled={intelGenerating}
+                  variant="outline" className="rounded-xl h-10 px-4 text-sm border-gray-200">
+                  <ArrowUpRight className="h-4 w-4 mr-1.5 rotate-180" />
+                  Regenerează tot (forțat)
+                </Button>
+              </div>
+
+              {/* Cost info */}
+              <p className="text-[10px] text-gray-400 mt-2">
+                Cost: 2 credite per produs. Produsele neschimbate sunt ignorate automat (nu consumă credite).
+              </p>
+
+              {/* Result message */}
+              {intelResult && (
+                <div className="mt-4 p-4 bg-emerald-50 border border-emerald-100 rounded-xl">
+                  <div className="flex items-start gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600 mt-0.5 shrink-0" />
+                    <div className="text-sm text-emerald-700">
+                      <p className="font-semibold">Generare completă!</p>
+                      <p className="text-xs mt-1">
+                        {intelResult.generated} generate · {intelResult.skipped} ignorate (neschimbate) · {intelResult.failed} eșuate · {intelResult.credits_used} credite consumate
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {intelError && (
+                <div className="mt-4 p-4 bg-red-50 border border-red-100 rounded-xl">
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle className="h-4 w-4 text-red-500 mt-0.5 shrink-0" />
+                    <p className="text-sm text-red-600">{intelError}</p>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* How it works */}
+          <Card className="border-0 shadow-sm rounded-2xl">
+            <CardContent className="p-5">
+              <p className="text-sm font-semibold text-gray-900 mb-3">Cum funcționează</p>
+              <div className="space-y-3">
+                {[
+                  { step: '1', title: 'Analiză produs', desc: 'AI citește titlul, descrierea, specificațiile, beneficiile și variațiile fiecărui produs.' },
+                  { step: '2', title: 'Generare cunoștințe', desc: 'Se creează un profil complet: rezumat tehnic, beneficii, FAQ-uri, obiecții frecvente, pentru cine e ideal.' },
+                  { step: '3', title: 'Embedding semantic', desc: 'Fiecare profil primește un vector embedding care permite căutare semantică — agentul înțelege sensul, nu doar cuvintele.' },
+                  { step: '4', title: 'Răspunsuri inteligente', desc: 'Când un client întreabă ceva, agentul folosește cunoștințele detaliate pentru răspunsuri precise și convingătoare.' },
+                ].map(item => (
+                  <div key={item.step} className="flex items-start gap-3">
+                    <span className="h-6 w-6 rounded-full bg-amber-100 text-amber-700 text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">{item.step}</span>
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">{item.title}</p>
+                      <p className="text-xs text-gray-400 leading-relaxed">{item.desc}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Auto-refresh info */}
+          <Card className="border-0 shadow-sm rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-50">
+            <CardContent className="p-5">
+              <div className="flex items-center gap-2 mb-2">
+                <ArrowUpRight className="h-4 w-4 text-blue-600 rotate-180" />
+                <span className="text-sm font-semibold text-blue-900">Auto-refresh via webhook</span>
+              </div>
+              <p className="text-xs text-blue-700 leading-relaxed">
+                Când un produs este creat sau modificat în WooCommerce, intelligence-ul se regenerează automat via webhook. Costă 2 credite per produs actualizat. Produsele șterse din WooCommerce au intelligence-ul șters automat.
+              </p>
+              <p className="text-xs text-blue-600 mt-2 font-medium">
+                Asigură-te că pluginul Hontrio v2.1+ este instalat și activat pentru a beneficia de auto-refresh.
+              </p>
+            </CardContent>
+          </Card>
         </div>
       )}
 
