@@ -185,7 +185,7 @@ function buildPluginPhp(cfg: {
   o('function hontrio_inject_widget() {')
   o('    if ( is_admin() ) return; ?>')
   o('    <script>')
-  o('    window.HontrioConfig = {')
+  o('    window.HontrioAgent = {')
   o('        userId:   "<?php echo esc_js( HONTRIO_USER_ID ); ?>",')
   o('        storeId:  "<?php echo esc_js( HONTRIO_STORE_ID ); ?>",')
   o('        apiBase:  "<?php echo esc_js( HONTRIO_API_BASE ); ?>",')
