@@ -117,6 +117,18 @@ FORMAT RĂSPUNS — JSON strict:
 }`
 }
 
+// ─── SEARCH ENGINE v3 — Hybrid Precision Search ─────────────────────────────
+// Multi-layer: normalize → keyword → semantic → score fusion → category filter
+
+// Normalizare text românesc: elimină diacritice, lowercase, trim
+function normalize(s: string): string {
+  return s.toLowerCase()
+    .replace(/ă/g,'a').replace(/â/g,'a').replace(/î/g,'i').replace(/ș/g,'s').replace(/ț/g,'t')
+    .replace(/Ă/g,'a').replace(/Â/g,'a').replace(/Î/g,'i').replace(/Ș/g,'s').replace(/Ț/g,'t')
+    .replace(/[^a-z0-9\s]/g,' ').replace(/\s+/g,' ').trim()
+}
+
+// Levenshtein distance
 function lev(a: string, b: string): number {
   const dp = Array.from({length:a.length+1}, (_,i) =>
     Array.from({length:b.length+1}, (_,j) => i===0?j:j===0?i:0))
@@ -125,145 +137,317 @@ function lev(a: string, b: string): number {
       dp[i][j]=a[i-1]===b[j-1]?dp[i-1][j-1]:1+Math.min(dp[i-1][j],dp[i][j-1],dp[i-1][j-1])
   return dp[a.length][b.length]
 }
+
+// Similarity 0-1 based on levenshtein
 function sim(a:string,b:string):number {
   if(!a||!b)return 0; if(a===b)return 1
   if(a.includes(b)||b.includes(a))return 0.92
   return 1-lev(a,b)/Math.max(a.length,b.length)
 }
+
+// Trigram similarity
 function ngram(a:string,b:string,n=3):number {
   const g=(s:string)=>{const r=new Set<string>();for(let i=0;i<=s.length-n;i++)r.add(s.slice(i,i+n));return r}
   const sa=g(a),sb=g(b),inter=Array.from(sa).filter(x=>sb.has(x)).length
   return sa.size+sb.size>0?(2*inter)/(sa.size+sb.size):0
 }
+
+// Romanian stemmer — mai agresiv, suportă mai multe sufixe
 function stem(w:string):string {
-  for(const s of['urile','elor','ilor','ului','ile','lor','uri','ele','are','ere','ire','ul','ea','ii','le','al','ic'])
-    if(w.endsWith(s)&&w.length-s.length>=3)return w.slice(0,w.length-s.length)
+  // Ordine: sufixe lungi primele
+  for(const s of[
+    'atoare','ătoare','itoare','ătorul','atorul','itorul',
+    'urilor','oarele','oarea','urile','atori','atori','itori',
+    'elor','ilor','ului','oare','ator','itor','abil',
+    'ile','lor','uri','ele','ări','eri','iri',
+    'are','ere','ire','tor','ala','ală',
+    'ul','ea','ii','le','al','ic','at','it','or'
+  ]) if(w.endsWith(s)&&w.length-s.length>=3)return w.slice(0,w.length-s.length)
   return w
 }
-function scoreProduct(p:any, keywords:string[]):number {
-  const title=(p.optimized_title||p.original_title||'').toLowerCase()
-  const cat=(p.category||'').toLowerCase()
-  const desc=(p.optimized_short_description||p.original_description||'').replace(/<[^>]*>/g,'').toLowerCase().slice(0,200)
-  const words=title.split(/\s+/).filter(Boolean)
-  let score=0,titleHits=0,exactHits=0
 
-  for(const kw of keywords){
-    const st=stem(kw);let best=0
-    if(title.includes(kw)){best=100;titleHits++;exactHits++}
-    else if(st.length>=3&&title.includes(st)){best=85;titleHits++}
-    else if(cat.includes(kw)){best=35}
-    else if(st.length>=3&&cat.includes(st)){best=25}
-    else{
-      let fuzz=0
-      for(const w of words){
-        const s=Math.max(sim(kw,w),ngram(kw,w),st.length>=3?sim(st,stem(w)):0)
-        if(s>fuzz)fuzz=s
-      }
-      if(fuzz>=0.85){best=Math.round(fuzz*80);titleHits++}
-      else if(desc.includes(kw)||(st.length>=3&&desc.includes(st)))best=5
+// Sinonim map: search term → [alternative normalized terms]
+const SYNONYM_MAP: Record<string, string[]> = {
+  'storcator': ['juicer','presare','suc','citrice','fresh'],
+  'juicer': ['storcator','presare','suc'],
+  'blender': ['mixer','smoothie','zdrobitor'],
+  'mixer': ['blender','amestecare'],
+  'aspirator': ['vacuum','curatare','praf'],
+  'frigider': ['racire','refrigerator','combina frigorifica'],
+  'masina spalat': ['washing','rufe','spalare'],
+  'cuptor': ['aragaz','gatit','coacere','electric'],
+  'tigaie': ['tava','gatit','prajit','wok'],
+  'robot bucatarie': ['procesor','tocare','maruntire','blender'],
+  'cafetiera': ['espressor','cafea','cappuccino'],
+  'espressor': ['cafetiera','cafea','cappuccino'],
+  'fier calcat': ['calcare','abur','haine'],
+  'sandwich maker': ['grill','prajire','toaster'],
+  'toaster': ['paine','prajitor','sandwich'],
+  'mop': ['curatenie','pardoseala','spalare','stergatoare'],
+}
+
+// Tipuri stopwords românești
+const STOP_WORDS = new Set([
+  'pentru','care','este','sunt','caut','vreau','unui','ceva','unul',
+  'mai','din','sau','bun','buna','cel','cea','cele','acesta','aceasta',
+  'acest','asta','acel','acea','unde','cum','cat','cand','daca',
+  'dar','ori','fie','nici','tot','doar','chiar','foarte','prea',
+  'un','una','o','al','ale','lui','lor','ei','lor',
+  'la','cu','si','pe','de','in','prin','spre','sub','catre',
+  'imi','mie','tie','iti','ne','va','le','ma','te','se',
+  'am','ai','are','avem','aveti','au',
+  'este','esti','suntem','sunteti','sunt','era','eram','erai',
+  'voi','vei','va','vom','veti','vor',
+  'pot','poti','poate','putem','puteti','pot',
+  'trebuie','vreau','vrei','vrea','vrem','vreti',
+  'as','ar','am','ati','au',
+  'sa','fie','fii','fi','fost',
+  'ala','aia','alea','asta','astea',
+  'bine','rau','mare','mic','nou','vechi',
+  'da','nu','ok','deci','apoi','acum',
+])
+
+// Extrage keywords din query: normalize + split + remove stops + stem
+function extractKeywords(query: string): { raw: string[]; normalized: string[]; stemmed: string[] } {
+  const norm = normalize(query)
+  const words = norm.split(/\s+/).filter(w => w.length > 1 && !STOP_WORDS.has(w))
+  return {
+    raw: words,
+    normalized: words,
+    stemmed: words.map(w => stem(w)),
+  }
+}
+
+// Best fuzzy match score between a keyword and a word
+function bestFuzzy(kw: string, word: string): number {
+  const nkw = normalize(kw)
+  const nw = normalize(word)
+  const skw = stem(nkw)
+  const sw = stem(nw)
+
+  if (nkw === nw) return 1.0
+  if (skw === sw && skw.length >= 3) return 0.95
+  if (nw.includes(nkw) || nkw.includes(nw)) return 0.90
+  if (sw.includes(skw) || skw.includes(sw)) return 0.85
+
+  // Levenshtein pe normalized
+  const levSim = sim(nkw, nw)
+  // Levenshtein pe stemmed
+  const stemSim = skw.length >= 3 ? sim(skw, sw) : 0
+  // Trigram
+  const triSim = ngram(nkw, nw)
+  const triStemSim = skw.length >= 3 ? ngram(skw, sw) : 0
+
+  return Math.max(levSim, stemSim, triSim, triStemSim)
+}
+
+// Score un produs contra keywords — returnează 0-100
+function scoreProductV3(product: any, keywords: { raw: string[]; normalized: string[]; stemmed: string[] }): number {
+  const titleRaw = product.optimized_title || product.original_title || ''
+  const titleNorm = normalize(titleRaw)
+  const titleWords = titleNorm.split(/\s+/).filter(Boolean)
+  const catNorm = normalize(product.category || '')
+  const descNorm = normalize(
+    (product.optimized_short_description || product.original_description || '').replace(/<[^>]*>/g, '')
+  ).slice(0, 300)
+
+  let totalScore = 0
+  let titleMatches = 0
+  let perfectMatches = 0
+
+  for (let i = 0; i < keywords.normalized.length; i++) {
+    const kw = keywords.normalized[i]
+    const kwStem = keywords.stemmed[i]
+    let bestScore = 0
+    let matchedInTitle = false
+
+    // Layer 1: Exact substring in normalized title (highest confidence)
+    if (titleNorm.includes(kw)) {
+      bestScore = 100; matchedInTitle = true; perfectMatches++
     }
-    score+=best
+    // Layer 2: Stem match in title
+    else if (kwStem.length >= 3 && titleWords.some(w => stem(w) === kwStem)) {
+      bestScore = 92; matchedInTitle = true
+    }
+    // Layer 3: Fuzzy match against each title word
+    else {
+      let topFuzzy = 0
+      for (const tw of titleWords) {
+        const f = bestFuzzy(kw, tw)
+        if (f > topFuzzy) topFuzzy = f
+      }
+      if (topFuzzy >= 0.82) {
+        bestScore = Math.round(topFuzzy * 90); matchedInTitle = true
+      }
+      // Layer 4: Category match
+      else if (catNorm.includes(kw) || (kwStem.length >= 3 && catNorm.includes(kwStem))) {
+        bestScore = 30
+      }
+      // Layer 5: Description match (weak signal)
+      else if (descNorm.includes(kw) || (kwStem.length >= 3 && descNorm.includes(kwStem))) {
+        bestScore = 8
+      }
+      // Layer 6: Synonym match — check if any synonym hits title
+      else {
+        const syns = SYNONYM_MAP[kw] || SYNONYM_MAP[kwStem] || []
+        for (const syn of syns) {
+          const synNorm = normalize(syn)
+          if (titleNorm.includes(synNorm)) { bestScore = 55; matchedInTitle = true; break }
+          for (const tw of titleWords) {
+            if (bestFuzzy(synNorm, tw) >= 0.85) { bestScore = 45; matchedInTitle = true; break }
+          }
+          if (matchedInTitle) break
+        }
+      }
+    }
+
+    if (matchedInTitle) titleMatches++
+    totalScore += bestScore
   }
 
-  // REGULA STRICTĂ: dacă niciun keyword nu e în titlu → 0
-  if(titleHits===0) return 0
+  // REGULA DURĂ: dacă NICIUN keyword nu e găsit nici măcar fuzzy în titlu → 0
+  if (titleMatches === 0) return 0
 
-  // Penalizare dacă sunt mai multe keywords dar doar unul e în titlu
-  if(keywords.length>=2 && titleHits===1) score=Math.round(score*0.6)
+  // Penalizare: dacă sunt N keywords dar doar 1 e în titlu, produsul e probabil off-topic
+  if (keywords.normalized.length >= 2 && titleMatches === 1) {
+    totalScore = Math.round(totalScore * 0.5)
+  }
 
-  // Bonus dacă TOATE keyword-urile sunt exact în titlu
-  if(exactHits===keywords.length) score=Math.round(score*1.8)
-  else if(titleHits===keywords.length) score=Math.round(score*1.3)
+  // Bonus: TOATE keywords-urile sunt perfect matched
+  if (perfectMatches === keywords.normalized.length) {
+    totalScore = Math.round(totalScore * 1.6)
+  } else if (titleMatches === keywords.normalized.length) {
+    totalScore = Math.round(totalScore * 1.3)
+  }
 
-  return score
+  return Math.min(100, totalScore)
 }
+
+// ─── Main search function ────────────────────────────────────────────────────
 
 async function searchProducts(query:string, userId:string, max=3, boostIds: string[]=[]): Promise<Product[]> {
   const supabase=createAdminClient()
+  const keywords = extractKeywords(query)
+  if (!keywords.normalized.length) return []
 
-  // 1. Semantic search via product_intelligence embeddings
+  // Colectăm candidați din AMBELE surse, apoi scorăm unificat
+  type Candidate = {
+    product: any
+    semanticSim: number    // 0-1 din pgvector
+    keywordScore: number   // 0-100 din scoreProductV3
+    finalScore: number     // scor combinat
+  }
+
+  const candidateMap = new Map<string, Candidate>()
+
+  // ── Source 1: Semantic search (pgvector) ────────────────────────────────────
   try {
     const embRes = await openai.embeddings.create({ model: 'text-embedding-3-small', input: query.slice(0, 500) })
     const embedding = embRes.data[0].embedding
 
     const { data: matches } = await supabase.rpc('match_product_intelligence', {
-      query_embedding: embedding, match_user_id: userId, match_threshold: 0.35, match_count: max + 4,
+      query_embedding: embedding, match_user_id: userId, match_threshold: 0.30, match_count: max * 3,
     })
 
     if (matches?.length) {
       const matchedIds = matches.map((m: any) => m.product_id)
       const { data: products } = await supabase.from('products')
         .select('id,external_id,original_title,optimized_title,price,original_images,category,optimized_short_description,original_description')
-        .in('id', matchedIds)
+        .in('id', matchedIds).is('parent_id', null)
 
       if (products?.length) {
-        const simMap = new Map<string, number>(matches.map((m: any) => [m.product_id as string, Number(m.similarity) || 0]))
-        const sorted = products
-          .map((p: any) => ({ ...p, _sim: (simMap.get(p.id) || 0) + (boostIds.includes(p.id) ? 0.05 : 0) }))
-          .sort((a: any, b: any) => b._sim - a._sim)
-
-        // Relevance gap filter: păstrează doar produsele care sunt cel puțin 60% din scorul celui mai bun
-        // Exemplu: dacă cel mai bun e 0.70, păstrăm doar ce e >= 0.42 (0.70 * 0.60)
-        // Asta elimină tigăi și mopuri când cauți storcătoare
-        const topSim = sorted[0]?._sim || 0
-        const minSim = topSim * 0.60
-        const relevant = sorted.filter((p: any) => p._sim >= minSim).slice(0, max)
-
-        return relevant.map((p: any) => ({
-          id: p.id, external_id: p.external_id,
-          title: p.optimized_title || p.original_title,
-          price: p.price, image: p.original_images?.[0] || null,
-          category: p.category,
-          description: (p.optimized_short_description || p.original_description || '').replace(/<[^>]*>/g, '').substring(0, 100),
-          url: p.external_id ? `__STORE__/?p=${p.external_id}` : '',
-          score: Math.round((simMap.get(p.id) || 0) * 100),
-        }))
+        const simMap = new Map(matches.map((m: any) => [m.product_id, Number(m.similarity) || 0]))
+        for (const p of products) {
+          candidateMap.set(p.id, {
+            product: p,
+            semanticSim: (simMap.get(p.id) || 0) + (boostIds.includes(p.id) ? 0.03 : 0),
+            keywordScore: 0,
+            finalScore: 0,
+          })
+        }
       }
     }
   } catch (err) {
-    console.log('[Search] Semantic search failed, falling back to keyword:', err)
+    console.log('[Search] Semantic search failed:', err)
   }
 
-  // 2. Fallback: keyword search — scanăm TOATE produsele
-  const STOP=new Set(['pentru','care','este','sunt','caut','vreau','unui','ceva','unul','mai','din','sau','bun','un','o','al','la','cu','si','sau','ori'])
-  const keywords=query.toLowerCase().replace(/[^a-zăâîșțA-ZĂÂÎȘȚ0-9\s]/g,' ')
-    .split(/\s+/).map(k=>k.trim()).filter(k=>k.length>2&&!STOP.has(k))
-  if(!keywords.length)return []
-
+  // ── Source 2: Keyword search (full scan) ───────────────────────────────────
   let allData: any[] = []
   let from = 0
   const batch = 1000
   while (true) {
-    const {data}=await supabase.from('products')
+    const {data} = await supabase.from('products')
       .select('id,external_id,original_title,optimized_title,price,original_images,category,optimized_short_description,original_description')
-      .eq('user_id',userId).is('parent_id', null).range(from, from + batch - 1)
-    if(!data?.length) break
+      .eq('user_id', userId).is('parent_id', null).range(from, from + batch - 1)
+    if (!data?.length) break
     allData.push(...data)
-    if(data.length < batch) break
+    if (data.length < batch) break
     from += batch
   }
-  if(!allData.length)return []
 
-  const allScored = allData
-    .map((p:any)=>({...p,_s:scoreProduct(p,keywords)+(boostIds.includes(p.id)?8:0)}))
-    .filter((p:any)=>p._s>=50)
-    .sort((a:any,b:any)=>b._s-a._s)
+  for (const p of allData) {
+    const kwScore = scoreProductV3(p, keywords)
+    if (kwScore > 0 || candidateMap.has(p.id)) {
+      const existing = candidateMap.get(p.id)
+      if (existing) {
+        existing.keywordScore = kwScore
+      } else if (kwScore >= 40) {
+        // Doar keyword hits puternice (>=40) intră fără semantic match
+        candidateMap.set(p.id, { product: p, semanticSim: 0, keywordScore: kwScore, finalScore: 0 })
+      }
+    }
+  }
 
-  if(!allScored.length) return []
+  if (!candidateMap.size) return []
 
-  const topScore = allScored[0]._s
-  const minAcceptable = Math.max(50, topScore * 0.45)
-  const relevant = allScored.filter((p:any) => p._s >= minAcceptable).slice(0, max)
+  // ── Fusion scoring ─────────────────────────────────────────────────────────
+  // Combinăm semantic (0-1) și keyword (0-100) într-un scor final
+  // Keyword score e DOMINANT — e mai precis pentru queries specifice
+  // Semantic e BONUS — ajută când keyword nu matchuiește exact dar conceptul e corect
 
-  return relevant.map((p:any)=>({
-      id:p.id, external_id:p.external_id,
-      title:p.optimized_title||p.original_title,
-      price:p.price, image:p.original_images?.[0]||null,
-      category:p.category,
-      description:(p.optimized_short_description||p.original_description||'').replace(/<[^>]*>/g,'').substring(0,100),
-      url:p.external_id?`__STORE__/?p=${p.external_id}`:'',
-      score:Math.min(99,p._s),
-    }))
+  for (const c of candidateMap.values()) {
+    const kwNorm = c.keywordScore / 100           // 0-1
+    const semNorm = c.semanticSim                  // 0-1
+
+    // Dacă keyword score > 0 → keyword domină (70/30)
+    // Dacă keyword score = 0 dar semantic > 0.50 → semantic only dar penalizat
+    // Dacă keyword score = 0 și semantic < 0.50 → eliminat
+
+    if (c.keywordScore > 0) {
+      c.finalScore = kwNorm * 0.70 + semNorm * 0.30
+    } else if (semNorm >= 0.50) {
+      // Semantic-only: penalizăm faptul că keyword-ul nu s-a găsit deloc în titlu
+      // Asta e cazul "mop" când cauți "storcător" — semantic zice ~0.35, keyword zice 0
+      c.finalScore = semNorm * 0.40
+    } else {
+      // Sub 0.50 semantic ȘI 0 keyword = irelevant
+      c.finalScore = 0
+    }
+  }
+
+  // Sortează + filtrare finală
+  const sorted = Array.from(candidateMap.values())
+    .filter(c => c.finalScore > 0)
+    .sort((a, b) => b.finalScore - a.finalScore)
+
+  if (!sorted.length) return []
+
+  // Relevance gap: produsele sub 50% din cel mai bun sunt eliminate
+  const topScore = sorted[0].finalScore
+  const minScore = topScore * 0.50
+  const final = sorted.filter(c => c.finalScore >= minScore).slice(0, max)
+
+  return final.map(c => ({
+    id: c.product.id,
+    external_id: c.product.external_id,
+    title: c.product.optimized_title || c.product.original_title,
+    price: c.product.price,
+    image: c.product.original_images?.[0] || null,
+    category: c.product.category,
+    description: (c.product.optimized_short_description || c.product.original_description || '').replace(/<[^>]*>/g, '').substring(0, 100),
+    url: c.product.external_id ? `__STORE__/?p=${c.product.external_id}` : '',
+    score: Math.round(c.finalScore * 100),
+  }))
 }
 
 async function buildCatalog(userId:string):Promise<string> {
