@@ -223,11 +223,12 @@ function getPageType(){
   // Cart
   if(path.indexOf('/cart')!==-1||path.indexOf('/cos')!==-1||
      bodyClass.indexOf('woocommerce-cart')!==-1||
-     document.querySelector('.cart-page,.checkout-cart,#cart')!==-1)return 'cart';
+     !!document.querySelector('.cart-page,.checkout-cart,#cart,.woocommerce-cart-form'))return 'cart';
 
   // Checkout
   if(path.indexOf('/checkout')!==-1||path.indexOf('/finalizare')!==-1||
-     bodyClass.indexOf('woocommerce-checkout')!==-1)return 'checkout';
+     bodyClass.indexOf('woocommerce-checkout')!==-1||
+     !!document.querySelector('.woocommerce-checkout,#checkout-form'))return 'checkout';
 
   // Product
   if(bodyClass.indexOf('single-product')!==-1||
@@ -304,9 +305,17 @@ function initTriggers(){
     switch(t.type){
 
       case 'exit_intent':
+        // Desktop: mouseleave din zona de sus a paginii
         document.addEventListener('mouseleave',function handler(e){
           if(e.clientY<=0){
             document.removeEventListener('mouseleave',handler);
+            fireTrigger(t);
+          }
+        });
+        // Mobile: detectează când user-ul schimbă tab-ul sau apasă back
+        document.addEventListener('visibilitychange',function mHandler(){
+          if(document.visibilityState==='hidden'){
+            document.removeEventListener('visibilitychange',mHandler);
             fireTrigger(t);
           }
         });
@@ -321,20 +330,30 @@ function initTriggers(){
       case 'scroll_depth':
         var pct=parseInt(cond.percent)||70;
         var scrollHandler=function(){
-          var scrolled=(window.scrollY||document.documentElement.scrollTop);
-          var total=document.documentElement.scrollHeight-window.innerHeight;
+          var scrolled=window.pageYOffset||window.scrollY||document.documentElement.scrollTop||document.body.scrollTop||0;
+          var docHeight=Math.max(
+            document.body.scrollHeight||0,document.documentElement.scrollHeight||0,
+            document.body.offsetHeight||0,document.documentElement.offsetHeight||0
+          );
+          var winHeight=window.innerHeight||document.documentElement.clientHeight||0;
+          var total=docHeight-winHeight;
           if(total>0&&(scrolled/total)*100>=pct){
             window.removeEventListener('scroll',scrollHandler);
             fireTrigger(t);
           }
         };
         window.addEventListener('scroll',scrollHandler,{passive:true});
+        // Check imediat în caz că pagina e deja scrollată
+        setTimeout(scrollHandler,1000);
         break;
 
       case 'cart_abandonment':
-        // Detectează coș prin WooCommerce cookie sau elemente DOM
-        var hasCart=document.querySelector('.cart-contents,.woocommerce-cart-form,.cart_item');
-        if(hasCart){
+        // Detectează coș: WooCommerce cookie, fragmente URL, DOM elements
+        var hasCookie=document.cookie.indexOf('woocommerce_items_in_cart=1')!==-1;
+        var hasCartDOM=!!document.querySelector('.cart-contents,.woocommerce-cart-form,.cart_item,.cart_list,.mini-cart .product,.woocommerce-mini-cart-item');
+        var cartCount=document.querySelector('.cart-contents .count,.cart-count,.header-cart-count,.mini-cart-count');
+        var hasCartCount=cartCount&&parseInt(cartCount.textContent||'0')>0;
+        if(hasCookie||hasCartDOM||hasCartCount){
           var mins=parseInt(cond.minutes)||3;
           var ct=setTimeout(function(){fireTrigger(t);},mins*60*1000);
           _timers.push(ct);
