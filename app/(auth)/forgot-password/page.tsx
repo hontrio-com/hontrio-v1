@@ -3,8 +3,6 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
-
-import LiquidGlassBg from '@/components/auth/liquid-glass-bg'
 import {
   Loader2, Mail, ArrowLeft, CheckCircle,
   AlertCircle, X, KeyRound,
@@ -13,12 +11,24 @@ import {
 function Toast({ message, type, onClose }: { message: string; type: 'success' | 'error'; onClose: () => void }) {
   return (
     <motion.div initial={{ opacity: 0, y: -20, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -20, scale: 0.95 }}
-      className={`fixed top-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-5 py-3.5 rounded-full border shadow-xl backdrop-blur-sm
-        ${type === 'success' ? 'bg-white/90 border-neutral-200 text-neutral-900' : 'bg-white/90 border-red-200 text-red-700'}`}>
+      className={`fixed top-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-5 py-3.5 rounded-full border shadow-xl backdrop-blur-sm ${type === 'success' ? 'bg-white/90 border-neutral-200 text-neutral-900' : 'bg-white/90 border-red-200 text-red-700'}`}>
       {type === 'success' ? <CheckCircle className="h-4 w-4" /> : <AlertCircle className="h-4 w-4 text-red-500" />}
       <span className="text-sm font-medium">{message}</span>
       <button onClick={onClose} className="ml-1 p-0.5 rounded-full hover:bg-neutral-100 transition-colors"><X className="h-3.5 w-3.5 text-neutral-400" /></button>
     </motion.div>
+  )
+}
+
+function LiquidBg() {
+  return (
+    <div className="fixed inset-0 overflow-hidden pointer-events-none">
+      <motion.div className="absolute rounded-full" style={{ width: '55vw', height: '55vw', maxWidth: 700, maxHeight: 700, left: '-8%', top: '-12%', background: 'radial-gradient(circle, rgba(0,0,0,0.045) 0%, rgba(0,0,0,0.02) 40%, transparent 70%)', filter: 'blur(80px)' }}
+        animate={{ x: [0, 60, -30, 40, 0], y: [0, -40, 50, -20, 0] }} transition={{ duration: 28, repeat: Infinity, ease: 'easeInOut' }} />
+      <motion.div className="absolute rounded-full" style={{ width: '50vw', height: '50vw', maxWidth: 650, maxHeight: 650, right: '-10%', bottom: '-8%', background: 'radial-gradient(circle, rgba(0,0,0,0.04) 0%, rgba(0,0,0,0.015) 45%, transparent 70%)', filter: 'blur(70px)' }}
+        animate={{ x: [0, -50, 35, -25, 0], y: [0, 45, -35, 20, 0] }} transition={{ duration: 32, repeat: Infinity, ease: 'easeInOut' }} />
+      <motion.div className="absolute rounded-full" style={{ width: '40vw', height: '40vw', maxWidth: 500, maxHeight: 500, left: '30%', top: '40%', background: 'radial-gradient(circle, rgba(0,0,0,0.035) 0%, rgba(0,0,0,0.01) 50%, transparent 70%)', filter: 'blur(90px)' }}
+        animate={{ x: [0, 40, -50, 20, 0], y: [0, -35, 30, -15, 0], scale: [1, 1.08, 0.95, 1.03, 1] }} transition={{ duration: 24, repeat: Infinity, ease: 'easeInOut' }} />
+    </div>
   )
 }
 
@@ -45,19 +55,17 @@ export default function ForgotPasswordPage() {
 
   return (
     <div className="min-h-[100dvh] flex items-center justify-center bg-white relative px-5">
-      <LiquidGlassBg />
+      <LiquidBg />
       <AnimatePresence>{toast && <Toast {...toast} onClose={() => setToast(null)} />}</AnimatePresence>
 
       <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
         className="relative z-10 w-full max-w-[400px]">
 
-        {/* Logo */}
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="flex justify-center mb-14">
-          <img src="/logo-black.png" alt="Hontrio" style={{ height: 34, width: "auto" }} className="opacity-90" />
+          <img src="/logo-black.png" alt="Hontrio" style={{ height: 34, width: 'auto' }} />
         </motion.div>
 
         {sent ? (
-          /* Success state */
           <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="text-center">
             <div className="h-16 w-16 rounded-2xl bg-neutral-100 flex items-center justify-center mx-auto mb-6">
               <CheckCircle className="h-7 w-7 text-neutral-700" />
@@ -74,7 +82,6 @@ export default function ForgotPasswordPage() {
             </Link>
           </motion.div>
         ) : (
-          /* Form state */
           <>
             <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="text-center mb-10">
               <div className="h-16 w-16 rounded-2xl bg-neutral-100 flex items-center justify-center mx-auto mb-6">
@@ -93,11 +100,10 @@ export default function ForgotPasswordPage() {
                     placeholder="email@exemplu.ro" required className="w-full pl-11 pr-4 h-[48px] bg-transparent rounded-xl text-[14px] text-neutral-900 placeholder:text-neutral-300 outline-none" />
                 </div>
               </div>
-
               <motion.div whileTap={{ scale: 0.985 }}>
                 <button type="submit" disabled={loading}
                   className="w-full h-[48px] rounded-xl bg-neutral-900 hover:bg-neutral-800 active:bg-neutral-950 text-white text-[14px] font-medium flex items-center justify-center gap-2 transition-all disabled:opacity-50 cursor-pointer">
-                  {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Trimite link de resetare'}
+                  {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <span>Trimite link de resetare</span>}
                 </button>
               </motion.div>
             </motion.form>

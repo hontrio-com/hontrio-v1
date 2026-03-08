@@ -5,8 +5,6 @@ import { signIn } from 'next-auth/react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
-
-import LiquidGlassBg from '@/components/auth/liquid-glass-bg'
 import {
   Loader2, Mail, Lock, ArrowRight, CheckCircle,
   AlertCircle, X, Eye, EyeOff,
@@ -30,6 +28,21 @@ function Toast({ message, type, onClose }: { message: string; type: 'success' | 
       <span className="text-sm font-medium">{message}</span>
       <button onClick={onClose} className="ml-1 p-0.5 rounded-full hover:bg-neutral-100 transition-colors"><X className="h-3.5 w-3.5 text-neutral-400" /></button>
     </motion.div>
+  )
+}
+
+function LiquidBg() {
+  return (
+    <div className="fixed inset-0 overflow-hidden pointer-events-none">
+      <motion.div className="absolute rounded-full" style={{ width: '55vw', height: '55vw', maxWidth: 700, maxHeight: 700, left: '-8%', top: '-12%', background: 'radial-gradient(circle, rgba(0,0,0,0.045) 0%, rgba(0,0,0,0.02) 40%, transparent 70%)', filter: 'blur(80px)' }}
+        animate={{ x: [0, 60, -30, 40, 0], y: [0, -40, 50, -20, 0] }} transition={{ duration: 28, repeat: Infinity, ease: 'easeInOut' }} />
+      <motion.div className="absolute rounded-full" style={{ width: '50vw', height: '50vw', maxWidth: 650, maxHeight: 650, right: '-10%', bottom: '-8%', background: 'radial-gradient(circle, rgba(0,0,0,0.04) 0%, rgba(0,0,0,0.015) 45%, transparent 70%)', filter: 'blur(70px)' }}
+        animate={{ x: [0, -50, 35, -25, 0], y: [0, 45, -35, 20, 0] }} transition={{ duration: 32, repeat: Infinity, ease: 'easeInOut' }} />
+      <motion.div className="absolute rounded-full" style={{ width: '40vw', height: '40vw', maxWidth: 500, maxHeight: 500, left: '30%', top: '40%', background: 'radial-gradient(circle, rgba(0,0,0,0.035) 0%, rgba(0,0,0,0.01) 50%, transparent 70%)', filter: 'blur(90px)' }}
+        animate={{ x: [0, 40, -50, 20, 0], y: [0, -35, 30, -15, 0], scale: [1, 1.08, 0.95, 1.03, 1] }} transition={{ duration: 24, repeat: Infinity, ease: 'easeInOut' }} />
+      <motion.div className="absolute rounded-full" style={{ width: '25vw', height: '25vw', maxWidth: 350, maxHeight: 350, right: '15%', top: '15%', background: 'radial-gradient(circle, rgba(0,0,0,0.03) 0%, transparent 65%)', filter: 'blur(60px)' }}
+        animate={{ x: [0, -30, 20, -10, 0], y: [0, 25, -20, 10, 0] }} transition={{ duration: 20, repeat: Infinity, ease: 'easeInOut' }} />
+    </div>
   )
 }
 
@@ -61,23 +74,21 @@ function LoginContent() {
 
   const handleGoogle = async () => { setGLoading(true); try { await signIn('google', { callbackUrl: '/dashboard' }) } catch { showToast('Eroare Google', 'error'); setGLoading(false) } }
 
-  const inputCls = (name: string) => `relative rounded-xl border transition-all duration-200 ${focused === name ? 'border-neutral-900 ring-1 ring-neutral-900/5' : 'border-neutral-200 hover:border-neutral-300'}`
-  const iconCls = (name: string) => `absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 transition-colors duration-200 ${focused === name ? 'text-neutral-900' : 'text-neutral-300'}`
+  const ic = (n: string) => `relative rounded-xl border transition-all duration-200 ${focused === n ? 'border-neutral-900 ring-1 ring-neutral-900/5' : 'border-neutral-200 hover:border-neutral-300'}`
+  const ii = (n: string) => `absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 transition-colors duration-200 ${focused === n ? 'text-neutral-900' : 'text-neutral-300'}`
 
   return (
     <div className="min-h-[100dvh] flex items-center justify-center bg-white relative px-5">
-      <LiquidGlassBg />
+      <LiquidBg />
       <AnimatePresence>{toast && <Toast {...toast} onClose={() => setToast(null)} />}</AnimatePresence>
 
       <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
         className="relative z-10 w-full max-w-[400px]">
 
-        {/* Logo — replace /logo-white.svg with your actual logo */}
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="flex justify-center mb-14">
-          <img src="/logo-black.png" alt="Hontrio" style={{ height: 34, width: "auto" }} className="opacity-90" />
+          <img src="/logo-black.png" alt="Hontrio" style={{ height: 34, width: 'auto' }} />
         </motion.div>
 
-        {/* Heading */}
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="text-center mb-10">
           <h1 className="text-[26px] font-semibold text-neutral-900 tracking-tight">Bine ai revenit</h1>
           <p className="text-neutral-400 text-[14px] mt-2 font-light">Conecteaza-te pentru a continua</p>
@@ -90,7 +101,6 @@ function LoginContent() {
           </motion.div>
         )}
 
-        {/* Google */}
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} whileTap={{ scale: 0.985 }}>
           <button onClick={handleGoogle} disabled={gLoading}
             className="w-full flex items-center justify-center gap-3 h-[48px] rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 active:scale-[0.985] transition-all text-[14px] font-medium text-neutral-700 disabled:opacity-50 cursor-pointer">
@@ -98,17 +108,15 @@ function LoginContent() {
           </button>
         </motion.div>
 
-        {/* Divider */}
         <div className="flex items-center gap-4 my-7">
           <div className="h-px flex-1 bg-neutral-100" /><span className="text-[11px] text-neutral-300 uppercase tracking-[0.15em] font-medium select-none">sau</span><div className="h-px flex-1 bg-neutral-100" />
         </div>
 
-        {/* Form */}
         <motion.form initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }} onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-[12px] font-medium text-neutral-400 mb-2 uppercase tracking-wide">Email</label>
-            <div className={inputCls('email')}>
-              <Mail className={iconCls('email')} />
+            <div className={ic('email')}>
+              <Mail className={ii('email')} />
               <input type="email" value={email} onChange={e => setEmail(e.target.value)} onFocus={() => setFocused('email')} onBlur={() => setFocused(null)}
                 placeholder="email@exemplu.ro" required className="w-full pl-11 pr-4 h-[48px] bg-transparent rounded-xl text-[14px] text-neutral-900 placeholder:text-neutral-300 outline-none" />
             </div>
@@ -119,8 +127,8 @@ function LoginContent() {
               <label className="text-[12px] font-medium text-neutral-400 uppercase tracking-wide">Parola</label>
               <Link href="/forgot-password" className="text-[12px] text-neutral-400 hover:text-neutral-900 transition-colors">Ai uitat parola?</Link>
             </div>
-            <div className={inputCls('password')}>
-              <Lock className={iconCls('password')} />
+            <div className={ic('password')}>
+              <Lock className={ii('password')} />
               <input type={showPw ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} onFocus={() => setFocused('password')} onBlur={() => setFocused(null)}
                 placeholder="Introdu parola" required className="w-full pl-11 pr-12 h-[48px] bg-transparent rounded-xl text-[14px] text-neutral-900 placeholder:text-neutral-300 outline-none" />
               <button type="button" onClick={() => setShowPw(!showPw)} className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-300 hover:text-neutral-600 transition-colors">
@@ -132,12 +140,11 @@ function LoginContent() {
           <motion.div whileTap={{ scale: 0.985 }} className="pt-1">
             <button type="submit" disabled={loading}
               className="w-full h-[48px] rounded-xl bg-neutral-900 hover:bg-neutral-800 active:bg-neutral-950 text-white text-[14px] font-medium flex items-center justify-center gap-2 transition-all disabled:opacity-50 cursor-pointer">
-              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <>Conecteaza-te<ArrowRight className="h-4 w-4" /></>}
+              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <><span>Conecteaza-te</span><ArrowRight className="h-4 w-4" /></>}
             </button>
           </motion.div>
         </motion.form>
 
-        {/* Footer */}
         <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }}
           className="text-center text-[14px] text-neutral-400 mt-8">
           Nu ai cont?{' '}<Link href="/register" className="text-neutral-900 font-medium hover:underline underline-offset-4">Creeaza cont gratuit</Link>
