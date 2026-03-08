@@ -356,7 +356,7 @@ async function searchProducts(query:string, userId:string, max=3, boostIds: stri
         .in('id', matchedIds).is('parent_id', null)
 
       if (products?.length) {
-        const simMap = new Map(matches.map((m: any) => [m.product_id, Number(m.similarity) || 0]))
+        const simMap = new Map<string, number>(matches.map((m: any) => [m.product_id as string, Number(m.similarity) || 0]))
         for (const p of products) {
           candidateMap.set(p.id, {
             product: p,
