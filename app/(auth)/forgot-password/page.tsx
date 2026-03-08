@@ -2,152 +2,126 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { motion } from 'framer-motion'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import { motion, AnimatePresence } from 'framer-motion'
+import Image from 'next/image'
 import {
-  Loader2,
-  Mail,
-  ArrowLeft,
-  Sparkles,
-  CheckCircle,
-  AlertCircle,
-  KeyRound,
+  Loader2, Mail, ArrowLeft, CheckCircle,
+  AlertCircle, X, KeyRound,
 } from 'lucide-react'
+
+function Toast({ message, type, onClose }: { message: string; type: 'success' | 'error'; onClose: () => void }) {
+  return (
+    <motion.div initial={{ opacity: 0, y: -20, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -20, scale: 0.95 }}
+      className={`fixed top-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-5 py-3.5 rounded-full border shadow-xl backdrop-blur-sm
+        ${type === 'success' ? 'bg-white/90 border-neutral-200 text-neutral-900' : 'bg-white/90 border-red-200 text-red-700'}`}>
+      {type === 'success' ? <CheckCircle className="h-4 w-4" /> : <AlertCircle className="h-4 w-4 text-red-500" />}
+      <span className="text-sm font-medium">{message}</span>
+      <button onClick={onClose} className="ml-1 p-0.5 rounded-full hover:bg-neutral-100 transition-colors"><X className="h-3.5 w-3.5 text-neutral-400" /></button>
+    </motion.div>
+  )
+}
+
+function AnimatedBg() {
+  return (
+    <div className="fixed inset-0 overflow-hidden pointer-events-none">
+      <div className="absolute inset-0 opacity-[0.025]" style={{ backgroundImage: 'radial-gradient(circle, #000 0.5px, transparent 0.5px)', backgroundSize: '28px 28px' }} />
+      {[...Array(3)].map((_, i) => (
+        <motion.div key={i} className="absolute rounded-full" style={{ width: 200 + i * 100, height: 200 + i * 100, left: `${20 + i * 25}%`, top: `${15 + i * 20}%`, background: 'rgba(0,0,0,0.015)', filter: 'blur(60px)' }}
+          animate={{ x: [0, 20 * (i % 2 === 0 ? 1 : -1), 0], y: [0, -20 * (i % 2 === 0 ? -1 : 1), 0] }}
+          transition={{ duration: 18 + i * 6, repeat: Infinity, ease: 'easeInOut' }} />
+      ))}
+    </div>
+  )
+}
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)
   const [sent, setSent] = useState(false)
-  const [error, setError] = useState('')
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
+  const [focused, setFocused] = useState(false)
+
+  const showToast = (msg: string, type: 'success' | 'error') => { setToast({ message: msg, type }); setTimeout(() => setToast(null), 5000) }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!email.trim()) { showToast('Introdu adresa de email', 'error'); return }
     setLoading(true)
-    setError('')
-
     try {
-      const res = await fetch('/api/auth/forgot-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
-      })
-
+      const res = await fetch('/api/auth/forgot-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }) })
       const data = await res.json()
-
-      if (!res.ok) {
-        setError(data.error || 'Eroare la trimiterea emailului')
-        setLoading(false)
-        return
-      }
-
+      if (!res.ok) { showToast(data.error || 'Eroare la trimiterea emailului', 'error'); setLoading(false); return }
       setSent(true)
-    } catch {
-      setError('Eroare de conexiune')
-    } finally {
-      setLoading(false)
-    }
+    } catch { showToast('Eroare de conexiune', 'error') } finally { setLoading(false) }
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-6 bg-gradient-to-br from-gray-50 via-blue-50/30 to-indigo-50/20">
-      <div className="w-full max-w-md">
+    <div className="min-h-[100dvh] flex items-center justify-center bg-white relative px-5">
+      <AnimatedBg />
+      <AnimatePresence>{toast && <Toast {...toast} onClose={() => setToast(null)} />}</AnimatePresence>
+
+      <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+        className="relative z-10 w-full max-w-[400px]">
+
         {/* Logo */}
-        <div className="flex items-center gap-2.5 justify-center mb-10">
-          <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center">
-            <Sparkles className="h-4 w-4 text-white" />
-          </div>
-          <span className="text-xl font-bold gradient-text">HONTRIO</span>
-        </div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 15 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4 }}
-        >
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
-            {sent ? (
-              /* Success state */
-              <div className="text-center">
-                <div className="h-14 w-14 rounded-2xl bg-green-100 flex items-center justify-center mx-auto mb-5">
-                  <CheckCircle className="h-7 w-7 text-green-600" />
-                </div>
-                <h2 className="text-xl font-bold text-gray-900 mb-2">Email trimis!</h2>
-                <p className="text-gray-500 text-sm mb-6 leading-relaxed">
-                  Am trimis instrucțiunile de resetare a parolei la <strong>{email}</strong>. Verifică-ți inbox-ul și folderul de spam.
-                </p>
-                <Link href="/login">
-                  <Button variant="outline" className="rounded-xl h-10 w-full">
-                    <ArrowLeft className="h-4 w-4 mr-2" />
-                    Înapoi la conectare
-                  </Button>
-                </Link>
-              </div>
-            ) : (
-              /* Form state */
-              <>
-                <div className="text-center mb-6">
-                  <div className="h-14 w-14 rounded-2xl bg-blue-100 flex items-center justify-center mx-auto mb-5">
-                    <KeyRound className="h-7 w-7 text-blue-600" />
-                  </div>
-                  <h2 className="text-xl font-bold text-gray-900 mb-1">Resetează parola</h2>
-                  <p className="text-gray-500 text-sm">
-                    Introdu emailul asociat contului tău și îți vom trimite instrucțiunile de resetare.
-                  </p>
-                </div>
-
-                {error && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="flex items-center gap-3 p-4 bg-red-50 border border-red-100 rounded-xl mb-5"
-                  >
-                    <AlertCircle className="h-5 w-5 text-red-600 shrink-0" />
-                    <span className="text-sm text-red-700">{error}</span>
-                  </motion.div>
-                )}
-
-                <form onSubmit={handleSubmit} className="space-y-5">
-                  <div className="space-y-2">
-                    <Label className="text-sm text-gray-600">Email</Label>
-                    <div className="relative">
-                      <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                      <Input
-                        type="email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        placeholder="email@exemplu.ro"
-                        required
-                        className="pl-10 h-11 rounded-xl border-gray-200 bg-gray-50/50 focus:bg-white"
-                      />
-                    </div>
-                  </div>
-
-                  <Button
-                    type="submit"
-                    disabled={loading}
-                    className="w-full bg-blue-600 hover:bg-blue-700 rounded-xl h-11 text-sm font-medium"
-                  >
-                    {loading ? (
-                      <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Se trimite...</>
-                    ) : (
-                      'Trimite link de resetare'
-                    )}
-                  </Button>
-                </form>
-
-                <div className="mt-5 text-center">
-                  <Link href="/login" className="text-sm text-blue-600 hover:text-blue-700 font-medium inline-flex items-center gap-1">
-                    <ArrowLeft className="h-3.5 w-3.5" />
-                    Înapoi la conectare
-                  </Link>
-                </div>
-              </>
-            )}
-          </div>
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="flex justify-center mb-14">
+          <Image src="/logo-white.svg" alt="Hontrio" width={130} height={34} className="invert opacity-90" priority />
         </motion.div>
-      </div>
+
+        {sent ? (
+          /* Success state */
+          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="text-center">
+            <div className="h-16 w-16 rounded-2xl bg-neutral-100 flex items-center justify-center mx-auto mb-6">
+              <CheckCircle className="h-7 w-7 text-neutral-700" />
+            </div>
+            <h1 className="text-[26px] font-semibold text-neutral-900 tracking-tight mb-3">Email trimis</h1>
+            <p className="text-neutral-400 text-[14px] leading-relaxed mb-8 font-light">
+              Am trimis instructiunile de resetare la <span className="text-neutral-700 font-medium">{email}</span>. Verifica-ti inbox-ul si folderul spam.
+            </p>
+            <Link href="/login">
+              <motion.button whileTap={{ scale: 0.985 }}
+                className="w-full h-[48px] rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 text-neutral-700 text-[14px] font-medium flex items-center justify-center gap-2 transition-all cursor-pointer">
+                <ArrowLeft className="h-4 w-4" /> Inapoi la conectare
+              </motion.button>
+            </Link>
+          </motion.div>
+        ) : (
+          /* Form state */
+          <>
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="text-center mb-10">
+              <div className="h-16 w-16 rounded-2xl bg-neutral-100 flex items-center justify-center mx-auto mb-6">
+                <KeyRound className="h-7 w-7 text-neutral-700" />
+              </div>
+              <h1 className="text-[26px] font-semibold text-neutral-900 tracking-tight">Reseteaza parola</h1>
+              <p className="text-neutral-400 text-[14px] mt-2 font-light">Introdu emailul asociat contului tau</p>
+            </motion.div>
+
+            <motion.form initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }} onSubmit={handleSubmit} className="space-y-5">
+              <div>
+                <label className="block text-[12px] font-medium text-neutral-400 mb-2 uppercase tracking-wide">Email</label>
+                <div className={`relative rounded-xl border transition-all duration-200 ${focused ? 'border-neutral-900 ring-1 ring-neutral-900/5' : 'border-neutral-200 hover:border-neutral-300'}`}>
+                  <Mail className={`absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 transition-colors duration-200 ${focused ? 'text-neutral-900' : 'text-neutral-300'}`} />
+                  <input type="email" value={email} onChange={e => setEmail(e.target.value)} onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}
+                    placeholder="email@exemplu.ro" required className="w-full pl-11 pr-4 h-[48px] bg-transparent rounded-xl text-[14px] text-neutral-900 placeholder:text-neutral-300 outline-none" />
+                </div>
+              </div>
+
+              <motion.div whileTap={{ scale: 0.985 }}>
+                <button type="submit" disabled={loading}
+                  className="w-full h-[48px] rounded-xl bg-neutral-900 hover:bg-neutral-800 active:bg-neutral-950 text-white text-[14px] font-medium flex items-center justify-center gap-2 transition-all disabled:opacity-50 cursor-pointer">
+                  {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Trimite link de resetare'}
+                </button>
+              </motion.div>
+            </motion.form>
+
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }} className="text-center mt-8">
+              <Link href="/login" className="text-[14px] text-neutral-400 hover:text-neutral-900 font-medium inline-flex items-center gap-1.5 transition-colors">
+                <ArrowLeft className="h-3.5 w-3.5" /> Inapoi la conectare
+              </Link>
+            </motion.div>
+          </>
+        )}
+      </motion.div>
     </div>
   )
 }
