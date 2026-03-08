@@ -1,76 +1,90 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { rateLimit, getClientIp } from '@/lib/security/rate-limit'
-import { sendEmail, buildResetEmail } from '@/lib/email'
 import crypto from 'crypto'
 
 export async function POST(request: Request) {
   try {
-    // Rate limit: 3 attempts per 15 min per IP
     const ip = getClientIp(request)
-    const limit = rateLimit(`forgot:${ip}`, 3, 15 * 60 * 1000)
+    const limit = rateLimit(`reset:${ip}`, 5, 15 * 60 * 1000)
     if (!limit.success) {
-      return NextResponse.json(
-        { error: 'Prea multe cereri. Incearca din nou mai tarziu.' },
-        { status: 429 }
-      )
+      return NextResponse.json({ error: 'Prea multe incercari.' }, { status: 429 })
     }
 
-    const { email } = await request.json()
+    const { token, email, password } = await request.json()
 
-    if (!email) {
-      return NextResponse.json({ error: 'Email-ul este obligatoriu' }, { status: 400 })
+    if (!token || !email || !password) {
+      return NextResponse.json({ error: 'Parametri lipsa' }, { status: 400 })
+    }
+
+    if (password.length < 6) {
+      return NextResponse.json({ error: 'Parola trebuie sa aiba minim 6 caractere' }, { status: 400 })
+    }
+
+    if (password.length > 128) {
+      return NextResponse.json({ error: 'Parola e prea lunga' }, { status: 400 })
     }
 
     const supabase = createAdminClient()
     const cleanEmail = email.trim().toLowerCase()
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex')
 
+    // Find user in our table
     const { data: user } = await supabase
       .from('users')
-      .select('id, email, name')
+      .select('id')
       .eq('email', cleanEmail)
       .single()
 
-    // Always return same response (anti user enumeration)
-    if (user) {
-      // Generate secure token
-      const token = crypto.randomBytes(32).toString('hex')
-      const tokenHash = crypto.createHash('sha256').update(token).digest('hex')
-      const expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString() // 30 min
-
-      // Delete old tokens for this user
-      await supabase
-        .from('password_reset_tokens')
-        .delete()
-        .eq('user_id', user.id)
-
-      // Save hashed token to DB
-      await supabase
-        .from('password_reset_tokens')
-        .insert({
-          user_id: user.id,
-          token_hash: tokenHash,
-          expires_at: expiresAt,
-        })
-
-      // Build reset URL with raw token (not hash)
-      const appUrl = process.env.NEXTAUTH_URL || 'https://hontrio.com'
-      const resetUrl = `${appUrl}/reset-password?token=${token}&email=${encodeURIComponent(cleanEmail)}`
-
-      // Send email
-      await sendEmail({
-        to: cleanEmail,
-        subject: 'Reseteaza parola — Hontrio',
-        html: buildResetEmail(resetUrl),
-      })
+    if (!user) {
+      return NextResponse.json({ error: 'Link invalid sau expirat' }, { status: 400 })
     }
 
-    return NextResponse.json({
-      success: true,
-      message: 'Daca acest email exista in sistem, vei primi instructiunile de resetare.',
+    // Find valid token
+    const { data: resetToken } = await supabase
+      .from('password_reset_tokens')
+      .select('id, expires_at')
+      .eq('user_id', user.id)
+      .eq('token_hash', tokenHash)
+      .single()
+
+    if (!resetToken) {
+      return NextResponse.json({ error: 'Link invalid sau expirat' }, { status: 400 })
+    }
+
+    // Check expiration
+    if (new Date(resetToken.expires_at) < new Date()) {
+      await supabase.from('password_reset_tokens').delete().eq('id', resetToken.id)
+      return NextResponse.json({ error: 'Linkul a expirat. Solicita un nou link de resetare.' }, { status: 400 })
+    }
+
+    // Find the actual auth user by email (in case users.id != auth.users.id)
+    const { data: authUsers } = await supabase.auth.admin.listUsers()
+    const authUser = authUsers?.users?.find(u => u.email?.toLowerCase() === cleanEmail)
+
+    if (!authUser) {
+      console.error('[Reset Password] Auth user not found for email:', cleanEmail)
+      return NextResponse.json({ error: 'Eroare la actualizarea parolei' }, { status: 500 })
+    }
+
+    // Update password using the auth user's actual ID
+    const { error: updateError } = await supabase.auth.admin.updateUserById(authUser.id, {
+      password,
     })
+
+    if (updateError) {
+      console.error('[Reset Password] Update error:', updateError.message)
+      return NextResponse.json({ error: 'Eroare la actualizarea parolei' }, { status: 500 })
+    }
+
+    console.log('[Reset Password] Password updated for:', cleanEmail, 'auth_id:', authUser.id)
+
+    // Delete all reset tokens for this user (one-time use)
+    await supabase.from('password_reset_tokens').delete().eq('user_id', user.id)
+
+    return NextResponse.json({ success: true, message: 'Parola a fost resetata cu succes' })
   } catch (err) {
-    console.error('[Forgot Password]', err)
+    console.error('[Reset Password]', err)
     return NextResponse.json({ error: 'Eroare interna' }, { status: 500 })
   }
 }
