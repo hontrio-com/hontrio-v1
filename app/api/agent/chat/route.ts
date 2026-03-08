@@ -251,73 +251,108 @@ function scoreProductV3(product: any, keywords: { raw: string[]; normalized: str
     (product.optimized_short_description || product.original_description || '').replace(/<[^>]*>/g, '')
   ).slice(0, 300)
 
-  let totalScore = 0
-  let titleMatches = 0
-  let perfectMatches = 0
+  // ── Pas 1: Scorează fiecare keyword individual ──────────────────────────────
+  const kwScores: { score: number; inTitle: boolean; perfect: boolean }[] = []
 
   for (let i = 0; i < keywords.normalized.length; i++) {
     const kw = keywords.normalized[i]
     const kwStem = keywords.stemmed[i]
     let bestScore = 0
-    let matchedInTitle = false
+    let inTitle = false
+    let perfect = false
 
-    // Layer 1: Exact substring in normalized title (highest confidence)
+    // Layer 1: Exact substring in normalized title
     if (titleNorm.includes(kw)) {
-      bestScore = 100; matchedInTitle = true; perfectMatches++
+      bestScore = 100; inTitle = true; perfect = true
     }
     // Layer 2: Stem match in title
     else if (kwStem.length >= 3 && titleWords.some(w => stem(w) === kwStem)) {
-      bestScore = 92; matchedInTitle = true
+      bestScore = 92; inTitle = true
     }
-    // Layer 3: Fuzzy match against each title word
+    // Layer 3: Fuzzy match against each title word (strict threshold 0.85)
     else {
       let topFuzzy = 0
       for (const tw of titleWords) {
         const f = bestFuzzy(kw, tw)
         if (f > topFuzzy) topFuzzy = f
       }
-      if (topFuzzy >= 0.82) {
-        bestScore = Math.round(topFuzzy * 90); matchedInTitle = true
+      if (topFuzzy >= 0.85) {
+        bestScore = Math.round(topFuzzy * 88); inTitle = true
       }
-      // Layer 4: Category match
-      else if (catNorm.includes(kw) || (kwStem.length >= 3 && catNorm.includes(kwStem))) {
-        bestScore = 30
-      }
-      // Layer 5: Description match (weak signal)
-      else if (descNorm.includes(kw) || (kwStem.length >= 3 && descNorm.includes(kwStem))) {
-        bestScore = 8
-      }
-      // Layer 6: Synonym match — check if any synonym hits title
+      // Layer 4: Synonym match in title
       else {
         const syns = SYNONYM_MAP[kw] || SYNONYM_MAP[kwStem] || []
         for (const syn of syns) {
           const synNorm = normalize(syn)
-          if (titleNorm.includes(synNorm)) { bestScore = 55; matchedInTitle = true; break }
+          if (titleNorm.includes(synNorm)) { bestScore = 55; inTitle = true; break }
           for (const tw of titleWords) {
-            if (bestFuzzy(synNorm, tw) >= 0.85) { bestScore = 45; matchedInTitle = true; break }
+            if (bestFuzzy(synNorm, tw) >= 0.88) { bestScore = 45; inTitle = true; break }
           }
-          if (matchedInTitle) break
+          if (inTitle) break
         }
+      }
+      // Layer 5: Category match (nu contează ca "in title")
+      if (!inTitle && (catNorm.includes(kw) || (kwStem.length >= 3 && catNorm.includes(kwStem)))) {
+        bestScore = Math.max(bestScore, 15)
+      }
+      // Layer 6: Description match (very weak, nu contează ca "in title")
+      if (!inTitle && bestScore === 0 && (descNorm.includes(kw) || (kwStem.length >= 3 && descNorm.includes(kwStem)))) {
+        bestScore = 5
       }
     }
 
-    if (matchedInTitle) titleMatches++
-    totalScore += bestScore
+    kwScores.push({ score: bestScore, inTitle, perfect })
   }
 
-  // REGULA DURĂ: dacă NICIUN keyword nu e găsit nici măcar fuzzy în titlu → 0
+  const titleMatches = kwScores.filter(k => k.inTitle).length
+  const perfectMatches = kwScores.filter(k => k.perfect).length
+  const totalKw = keywords.normalized.length
+
+  // ── Pas 2: Reguli stricte bazate pe câte keywords au matched ────────────────
+
+  // REGULA 1: Dacă NICIUN keyword nu e în titlu → 0 (eliminat)
   if (titleMatches === 0) return 0
 
-  // Penalizare: dacă sunt N keywords dar doar 1 e în titlu, produsul e probabil off-topic
-  if (keywords.normalized.length >= 2 && titleMatches === 1) {
-    totalScore = Math.round(totalScore * 0.5)
+  // REGULA 2: Pentru queries cu 2+ cuvinte, TOATE trebuie să fie în titlu
+  // "suport condimente" → "suport dublu metalic" are doar "suport" → ELIMINAT
+  // "mop electric" → "mop steam" are doar "mop" → OK dacă un singur keyword principal
+  if (totalKw >= 2) {
+    const missingFromTitle = totalKw - titleMatches
+
+    if (missingFromTitle >= 2) {
+      // 2+ keywords lipsesc din titlu → eliminat complet
+      return 0
+    }
+
+    if (missingFromTitle === 1) {
+      // 1 keyword lipsește — verificăm dacă cel care lipsește e important (scor = 0 sau foarte mic)
+      const missingKw = kwScores.find(k => !k.inTitle)
+      if (!missingKw || missingKw.score <= 15) {
+        // Keyword-ul lipsă nu e nici în categorie nici nicăieri relevant → eliminat
+        return 0
+      }
+      // E în categorie (scor 15-30) — permitem dar cu penalizare drastică
+      // Asta permite: query "cafea robusta" → produs "Cafea" din categoria "Robusta" → ok dar scor mic
+    }
   }
 
-  // Bonus: TOATE keywords-urile sunt perfect matched
-  if (perfectMatches === keywords.normalized.length) {
-    totalScore = Math.round(totalScore * 1.6)
-  } else if (titleMatches === keywords.normalized.length) {
-    totalScore = Math.round(totalScore * 1.3)
+  // ── Pas 3: Calculează scor final ───────────────────────────────────────────
+  let totalScore = kwScores.reduce((sum, k) => sum + k.score, 0)
+
+  // Normalizare: scorul e relativ la numărul de keywords
+  totalScore = Math.round(totalScore / totalKw)
+
+  // Bonus: TOATE keywords sunt perfect matched (exact substring)
+  if (perfectMatches === totalKw) {
+    totalScore = Math.round(totalScore * 1.5)
+  } else if (titleMatches === totalKw) {
+    totalScore = Math.round(totalScore * 1.2)
+  }
+
+  // Penalizare finală dacă 1 keyword e doar în categorie/descriere
+  const allInTitle = kwScores.every(k => k.inTitle)
+  if (!allInTitle) {
+    totalScore = Math.round(totalScore * 0.4)
   }
 
   return Math.min(100, totalScore)
@@ -433,9 +468,10 @@ async function searchProducts(query:string, userId:string, max=3, boostIds: stri
 
   if (!sorted.length) return []
 
-  // Relevance gap: produsele sub 50% din cel mai bun sunt eliminate
+  // Relevance gap: produsele sub 55% din cel mai bun sunt eliminate
+  // Asta asigură că doar produse cu adevărat similare ca relevanță rămân
   const topScore = sorted[0].finalScore
-  const minScore = topScore * 0.50
+  const minScore = topScore * 0.55
   const final = sorted.filter(c => c.finalScore >= minScore).slice(0, max)
 
   return final.map(c => ({
