@@ -218,18 +218,27 @@ async function searchProducts(query:string, userId:string, max=3, boostIds: stri
     console.log('[Search] Semantic search failed, falling back to keyword:', err)
   }
 
-  // 2. Fallback: keyword search
+  // 2. Fallback: keyword search — scanăm TOATE produsele
   const STOP=new Set(['pentru','care','este','sunt','caut','vreau','unui','ceva','unul','mai','din','sau','bun','un','o','al','la','cu','si','sau','ori'])
   const keywords=query.toLowerCase().replace(/[^a-zăâîșțA-ZĂÂÎȘȚ0-9\s]/g,' ')
     .split(/\s+/).map(k=>k.trim()).filter(k=>k.length>2&&!STOP.has(k))
   if(!keywords.length)return []
 
-  const {data}=await supabase.from('products')
-    .select('id,external_id,original_title,optimized_title,price,original_images,category,optimized_short_description,original_description')
-    .eq('user_id',userId).limit(500)
-  if(!data?.length)return []
+  let allData: any[] = []
+  let from = 0
+  const batch = 1000
+  while (true) {
+    const {data}=await supabase.from('products')
+      .select('id,external_id,original_title,optimized_title,price,original_images,category,optimized_short_description,original_description')
+      .eq('user_id',userId).is('parent_id', null).range(from, from + batch - 1)
+    if(!data?.length) break
+    allData.push(...data)
+    if(data.length < batch) break
+    from += batch
+  }
+  if(!allData.length)return []
 
-  const allScored = data
+  const allScored = allData
     .map((p:any)=>({...p,_s:scoreProduct(p,keywords)+(boostIds.includes(p.id)?8:0)}))
     .filter((p:any)=>p._s>=50)
     .sort((a:any,b:any)=>b._s-a._s)
@@ -253,22 +262,42 @@ async function searchProducts(query:string, userId:string, max=3, boostIds: stri
 
 async function buildCatalog(userId:string):Promise<string> {
   const supabase=createAdminClient()
-  const {data}=await supabase.from('products')
-    .select('original_title,optimized_title,price,category').eq('user_id',userId).is('parent_id', null).limit(500)
-  if(!data?.length)return 'Catalog gol.'
-  const by:Record<string,{count:number,examples:string[],lo:number,hi:number}>={}
-  for(const p of data){
+  // Paginare — aduce TOATE produsele, nu doar 500
+  let allProducts: any[] = []
+  let from = 0
+  const batch = 1000
+  while (true) {
+    const {data}=await supabase.from('products')
+      .select('original_title,optimized_title,price,category').eq('user_id',userId).is('parent_id', null)
+      .range(from, from + batch - 1)
+    if (!data?.length) break
+    allProducts.push(...data)
+    if (data.length < batch) break
+    from += batch
+  }
+  if(!allProducts.length)return 'Catalog gol.'
+
+  // Construim lista completă de produse grupate pe categorii cu TOATE titlurile
+  const by:Record<string,{titles:string[],lo:number,hi:number}>={}
+  for(const p of allProducts){
     const c=p.category||'General'
-    if(!by[c])by[c]={count:0,examples:[],lo:Infinity,hi:0}
-    by[c].count++
-    if(by[c].examples.length<3) by[c].examples.push(p.optimized_title||p.original_title)
+    if(!by[c])by[c]={titles:[],lo:Infinity,hi:0}
+    by[c].titles.push(p.optimized_title||p.original_title||'Fără titlu')
     if(p.price){by[c].lo=Math.min(by[c].lo,Number(p.price));by[c].hi=Math.max(by[c].hi,Number(p.price))}
   }
+
+  // Dacă sunt sub 200 produse, arătăm TOATE titlurile — GPT trebuie să știe de fiecare
+  // Dacă sunt peste 200, arătăm primele 8 per categorie ca să nu depășim context window
+  const compact = allProducts.length > 200
   const lines=Object.entries(by).map(([c,i])=>{
     const r=i.lo<Infinity?` (${i.lo}-${i.hi} RON)`:''
-    return `${c} (${i.count}${r}): ${i.examples.join(', ')}${i.count>3?' ...':''}`
+    if (compact) {
+      const shown = i.titles.slice(0, 8)
+      return `${c} (${i.titles.length}${r}): ${shown.join(', ')}${i.titles.length > 8 ? ' ...' : ''}`
+    }
+    return `${c} (${i.titles.length}${r}): ${i.titles.join(', ')}`
   })
-  return `${data.length} produse în ${Object.keys(by).length} categorii:\n${lines.join('\n')}`
+  return `${allProducts.length} produse în ${Object.keys(by).length} categorii:\n${lines.join('\n')}`
 }
 
 async function searchKnowledge(query: string, userId: string): Promise<string> {
@@ -483,14 +512,9 @@ export async function POST(request:Request) {
     if(parsed.search_query&&parsed.intent!=='off_topic'&&parsed.intent!=='info_shipping'){
       searchQueriesUsed.push(parsed.search_query)
       const rawProducts=await searchProducts(parsed.search_query, store_user_id, config.max_products_shown||3, boostIds)
-      // Filtrare strictă: păstrează doar produsele unde query-ul apare în titlu sau categorie
-      const queryWords=parsed.search_query.toLowerCase().split(/\s+/).filter((w:string)=>w.length>2)
-      products=rawProducts.filter((p:any)=>{
-        const t=(p.title||'').toLowerCase()
-        const c=(p.category||'').toLowerCase()
-        // Cel puțin un cuvânt cheie relevant trebuie să fie în titlu
-        return queryWords.some((w:string)=>t.includes(w)||t.includes(stem(w)))
-      }).map(p=>({...p,url:p.url.replace('__STORE__',storeUrl)}))
+      // Semantic search returnează rezultate relevante — nu le mai filtrăm pe keyword
+      // Filtrarea strictă era incorectă: anula produse găsite semantic (ex: "storcător" găsit corect dar filtrat)
+      products=rawProducts.map(p=>({...p,url:p.url.replace('__STORE__',storeUrl)}))
     }
     if(parsed.crosssell_query && products.length > 0){
       const cs=await searchProducts(parsed.crosssell_query,store_user_id,1)
