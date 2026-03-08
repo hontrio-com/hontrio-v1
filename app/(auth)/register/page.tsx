@@ -39,8 +39,6 @@ function LiquidBg() {
         animate={{ x: [0, -50, 35, -25, 0], y: [0, 45, -35, 20, 0] }} transition={{ duration: 32, repeat: Infinity, ease: 'easeInOut' }} />
       <motion.div className="absolute rounded-full" style={{ width: '40vw', height: '40vw', maxWidth: 500, maxHeight: 500, left: '30%', top: '40%', background: 'radial-gradient(circle, rgba(0,0,0,0.035) 0%, rgba(0,0,0,0.01) 50%, transparent 70%)', filter: 'blur(90px)' }}
         animate={{ x: [0, 40, -50, 20, 0], y: [0, -35, 30, -15, 0], scale: [1, 1.08, 0.95, 1.03, 1] }} transition={{ duration: 24, repeat: Infinity, ease: 'easeInOut' }} />
-      <motion.div className="absolute rounded-full" style={{ width: '25vw', height: '25vw', maxWidth: 350, maxHeight: 350, right: '15%', top: '15%', background: 'radial-gradient(circle, rgba(0,0,0,0.03) 0%, transparent 65%)', filter: 'blur(60px)' }}
-        animate={{ x: [0, -30, 20, -10, 0], y: [0, 25, -20, 10, 0] }} transition={{ duration: 20, repeat: Infinity, ease: 'easeInOut' }} />
     </div>
   )
 }
@@ -60,16 +58,20 @@ export default function RegisterPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!name.trim()) { showToast('Introdu numele complet', 'error'); return }
-    if (!email.trim()) { showToast('Introdu adresa de email', 'error'); return }
+    const trimName = name.trim()
+    const trimEmail = email.trim().toLowerCase()
+    if (!trimName) { showToast('Introdu numele complet', 'error'); return }
+    if (trimName.length < 2 || trimName.length > 100) { showToast('Numele trebuie sa aiba intre 2 si 100 caractere', 'error'); return }
+    if (!trimEmail) { showToast('Introdu adresa de email', 'error'); return }
     if (password.length < 6) { showToast('Parola trebuie sa aiba minim 6 caractere', 'error'); return }
+    if (password.length > 128) { showToast('Parola e prea lunga', 'error'); return }
     setLoading(true)
     try {
-      const res = await fetch('/api/auth/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, email, password }) })
+      const res = await fetch('/api/auth/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: trimName, email: trimEmail, password }) })
       const data = await res.json()
       if (!res.ok) { showToast(data.error || 'Eroare la crearea contului', 'error'); setLoading(false); return }
       showToast('Cont creat cu succes', 'success')
-      const signInRes = await signIn('credentials', { email, password, redirect: false })
+      const signInRes = await signIn('credentials', { email: trimEmail, password, redirect: false })
       if (signInRes?.error) { router.push('/login?registered=true&onboarding=true'); return }
       setTimeout(() => router.push('/onboarding'), 800)
     } catch { showToast('Eroare de conexiune', 'error') } finally { setLoading(false) }
@@ -85,24 +87,24 @@ export default function RegisterPage() {
   const pwColors = ['', 'bg-red-400', 'bg-amber-400', 'bg-neutral-400', 'bg-neutral-900']
 
   return (
-    <div className="min-h-[100dvh] flex items-center justify-center bg-white relative px-5 py-10">
+    <div className="min-h-[100dvh] flex items-center justify-center bg-white relative px-5 py-6">
       <LiquidBg />
       <AnimatePresence>{toast && <Toast {...toast} onClose={() => setToast(null)} />}</AnimatePresence>
 
       <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
-        className="relative z-10 w-full max-w-[400px]">
+        className="relative z-10 w-full max-w-[400px] text-center">
 
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="flex justify-center mb-14">
-          <img src="/logo-black.png" alt="Hontrio" style={{ height: 34, width: 'auto' }} />
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="mb-8">
+          <img src="/logo-black.png" alt="Hontrio" style={{ height: 34, width: 'auto' }} className="inline-block" />
         </motion.div>
 
-        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="text-center mb-10">
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="mb-5">
           <h1 className="text-[26px] font-semibold text-neutral-900 tracking-tight">Creeaza cont</h1>
-          <p className="text-neutral-400 text-[14px] mt-2 font-light">Incepe sa optimizezi produsele cu AI</p>
+          <p className="text-neutral-400 text-[14px] mt-1.5 font-light">Incepe sa optimizezi produsele cu AI</p>
         </motion.div>
 
-        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18 }} className="flex items-center justify-center gap-2 mb-8">
-          <div className="flex items-center gap-2 px-4 py-2 rounded-full border border-neutral-200 bg-neutral-50">
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18 }} className="flex items-center justify-center mb-6">
+          <div className="flex items-center gap-2 px-4 py-1.5 rounded-full border border-neutral-200 bg-neutral-50">
             <Zap className="h-3.5 w-3.5 text-neutral-700" />
             <span className="text-[12px] font-medium text-neutral-600">20 credite gratuite incluse</span>
           </div>
@@ -110,61 +112,61 @@ export default function RegisterPage() {
 
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.22 }} whileTap={{ scale: 0.985 }}>
           <button onClick={handleGoogle} disabled={gLoading}
-            className="w-full flex items-center justify-center gap-3 h-[48px] rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 active:scale-[0.985] transition-all text-[14px] font-medium text-neutral-700 disabled:opacity-50 cursor-pointer">
+            className="w-full flex items-center justify-center gap-3 h-[46px] rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 active:scale-[0.985] transition-all text-[14px] font-medium text-neutral-700 disabled:opacity-50 cursor-pointer">
             {gLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <GoogleIcon />} Continua cu Google
           </button>
         </motion.div>
 
-        <div className="flex items-center gap-4 my-7">
+        <div className="flex items-center gap-4 my-5">
           <div className="h-px flex-1 bg-neutral-100" /><span className="text-[11px] text-neutral-300 uppercase tracking-[0.15em] font-medium select-none">sau</span><div className="h-px flex-1 bg-neutral-100" />
         </div>
 
-        <motion.form initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.27 }} onSubmit={handleSubmit} className="space-y-4">
+        <motion.form initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.27 }} onSubmit={handleSubmit} className="space-y-3 text-left">
           <div>
-            <label className="block text-[12px] font-medium text-neutral-400 mb-2 uppercase tracking-wide">Nume complet</label>
+            <label className="block text-[12px] font-medium text-neutral-400 mb-1.5 uppercase tracking-wide">Nume complet</label>
             <div className={ic('name')}>
               <User className={ii('name')} />
               <input type="text" value={name} onChange={e => setName(e.target.value)} onFocus={() => setFocused('name')} onBlur={() => setFocused(null)}
-                placeholder="Numele tau" required className="w-full pl-11 pr-4 h-[48px] bg-transparent rounded-xl text-[14px] text-neutral-900 placeholder:text-neutral-300 outline-none" />
+                placeholder="Numele tau" required autoComplete="name" maxLength={100} className="w-full pl-11 pr-4 h-[46px] bg-transparent rounded-xl text-[14px] text-neutral-900 placeholder:text-neutral-300 outline-none" />
             </div>
           </div>
           <div>
-            <label className="block text-[12px] font-medium text-neutral-400 mb-2 uppercase tracking-wide">Email</label>
+            <label className="block text-[12px] font-medium text-neutral-400 mb-1.5 uppercase tracking-wide">Email</label>
             <div className={ic('email')}>
               <Mail className={ii('email')} />
               <input type="email" value={email} onChange={e => setEmail(e.target.value)} onFocus={() => setFocused('email')} onBlur={() => setFocused(null)}
-                placeholder="email@exemplu.ro" required className="w-full pl-11 pr-4 h-[48px] bg-transparent rounded-xl text-[14px] text-neutral-900 placeholder:text-neutral-300 outline-none" />
+                placeholder="email@exemplu.ro" required autoComplete="email" className="w-full pl-11 pr-4 h-[46px] bg-transparent rounded-xl text-[14px] text-neutral-900 placeholder:text-neutral-300 outline-none" />
             </div>
           </div>
           <div>
-            <label className="block text-[12px] font-medium text-neutral-400 mb-2 uppercase tracking-wide">Parola</label>
+            <label className="block text-[12px] font-medium text-neutral-400 mb-1.5 uppercase tracking-wide">Parola</label>
             <div className={ic('password')}>
               <Lock className={ii('password')} />
               <input type={showPw ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} onFocus={() => setFocused('password')} onBlur={() => setFocused(null)}
-                placeholder="Minim 6 caractere" required minLength={6} className="w-full pl-11 pr-12 h-[48px] bg-transparent rounded-xl text-[14px] text-neutral-900 placeholder:text-neutral-300 outline-none" />
-              <button type="button" onClick={() => setShowPw(!showPw)} className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-300 hover:text-neutral-600 transition-colors">
+                placeholder="Minim 6 caractere" required minLength={6} maxLength={128} autoComplete="new-password" className="w-full pl-11 pr-12 h-[46px] bg-transparent rounded-xl text-[14px] text-neutral-900 placeholder:text-neutral-300 outline-none" />
+              <button type="button" onClick={() => setShowPw(!showPw)} tabIndex={-1} className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-300 hover:text-neutral-600 transition-colors">
                 {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
             </div>
             {pwLen > 0 && (
-              <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="flex gap-1 mt-2.5 px-1">
+              <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="flex gap-1 mt-2 px-1">
                 {[1,2,3,4].map(i => (<div key={i} className={`h-[3px] flex-1 rounded-full transition-all duration-300 ${i <= pwStrength ? pwColors[pwStrength] : 'bg-neutral-100'}`} />))}
               </motion.div>
             )}
           </div>
-          <motion.div whileTap={{ scale: 0.985 }} className="pt-1">
+          <motion.div whileTap={{ scale: 0.985 }} className="pt-0.5">
             <button type="submit" disabled={loading}
-              className="w-full h-[48px] rounded-xl bg-neutral-900 hover:bg-neutral-800 active:bg-neutral-950 text-white text-[14px] font-medium flex items-center justify-center gap-2 transition-all disabled:opacity-50 cursor-pointer">
+              className="w-full h-[46px] rounded-xl bg-neutral-900 hover:bg-neutral-800 active:bg-neutral-950 text-white text-[14px] font-medium flex items-center justify-center gap-2 transition-all disabled:opacity-50 cursor-pointer">
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <><span>Creeaza cont gratuit</span><ArrowRight className="h-4 w-4" /></>}
             </button>
           </motion.div>
         </motion.form>
 
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }} className="mt-8 space-y-4">
-          <p className="text-center text-[14px] text-neutral-400">
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }} className="mt-6 space-y-3">
+          <p className="text-[14px] text-neutral-400">
             Ai deja cont?{' '}<Link href="/login" className="text-neutral-900 font-medium hover:underline underline-offset-4">Conecteaza-te</Link>
           </p>
-          <p className="text-center text-[11px] text-neutral-300 leading-relaxed">
+          <p className="text-[11px] text-neutral-300 leading-relaxed">
             Prin crearea contului, esti de acord cu{' '}<Link href="#" className="underline hover:text-neutral-500">Termenii</Link>{' '}si{' '}<Link href="#" className="underline hover:text-neutral-500">Politica de Confidentialitate</Link>
           </p>
         </motion.div>

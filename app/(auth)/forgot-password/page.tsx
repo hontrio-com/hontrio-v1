@@ -46,7 +46,7 @@ export default function ForgotPasswordPage() {
     if (!email.trim()) { showToast('Introdu adresa de email', 'error'); return }
     setLoading(true)
     try {
-      const res = await fetch('/api/auth/forgot-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }) })
+      const res = await fetch('/api/auth/forgot-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: email.trim().toLowerCase() }) })
       const data = await res.json()
       if (!res.ok) { showToast(data.error || 'Eroare la trimiterea emailului', 'error'); setLoading(false); return }
       setSent(true)
@@ -59,14 +59,14 @@ export default function ForgotPasswordPage() {
       <AnimatePresence>{toast && <Toast {...toast} onClose={() => setToast(null)} />}</AnimatePresence>
 
       <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
-        className="relative z-10 w-full max-w-[400px]">
+        className="relative z-10 w-full max-w-[400px] text-center">
 
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="flex justify-center mb-14">
-          <img src="/logo-black.png" alt="Hontrio" style={{ height: 34, width: 'auto' }} />
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="mb-10">
+          <img src="/logo-black.png" alt="Hontrio" style={{ height: 34, width: 'auto' }} className="inline-block" />
         </motion.div>
 
         {sent ? (
-          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="text-center">
+          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}>
             <div className="h-16 w-16 rounded-2xl bg-neutral-100 flex items-center justify-center mx-auto mb-6">
               <CheckCircle className="h-7 w-7 text-neutral-700" />
             </div>
@@ -76,14 +76,14 @@ export default function ForgotPasswordPage() {
             </p>
             <Link href="/login">
               <motion.button whileTap={{ scale: 0.985 }}
-                className="w-full h-[48px] rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 text-neutral-700 text-[14px] font-medium flex items-center justify-center gap-2 transition-all cursor-pointer">
+                className="w-full h-[46px] rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 text-neutral-700 text-[14px] font-medium flex items-center justify-center gap-2 transition-all cursor-pointer">
                 <ArrowLeft className="h-4 w-4" /> Inapoi la conectare
               </motion.button>
             </Link>
           </motion.div>
         ) : (
           <>
-            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="text-center mb-10">
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="mb-8">
               <div className="h-16 w-16 rounded-2xl bg-neutral-100 flex items-center justify-center mx-auto mb-6">
                 <KeyRound className="h-7 w-7 text-neutral-700" />
               </div>
@@ -91,24 +91,24 @@ export default function ForgotPasswordPage() {
               <p className="text-neutral-400 text-[14px] mt-2 font-light">Introdu emailul asociat contului tau</p>
             </motion.div>
 
-            <motion.form initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }} onSubmit={handleSubmit} className="space-y-5">
+            <motion.form initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }} onSubmit={handleSubmit} className="space-y-4 text-left">
               <div>
-                <label className="block text-[12px] font-medium text-neutral-400 mb-2 uppercase tracking-wide">Email</label>
+                <label className="block text-[12px] font-medium text-neutral-400 mb-1.5 uppercase tracking-wide">Email</label>
                 <div className={`relative rounded-xl border transition-all duration-200 ${focused ? 'border-neutral-900 ring-1 ring-neutral-900/5' : 'border-neutral-200 hover:border-neutral-300'}`}>
                   <Mail className={`absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 transition-colors duration-200 ${focused ? 'text-neutral-900' : 'text-neutral-300'}`} />
                   <input type="email" value={email} onChange={e => setEmail(e.target.value)} onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}
-                    placeholder="email@exemplu.ro" required className="w-full pl-11 pr-4 h-[48px] bg-transparent rounded-xl text-[14px] text-neutral-900 placeholder:text-neutral-300 outline-none" />
+                    placeholder="email@exemplu.ro" required autoComplete="email" className="w-full pl-11 pr-4 h-[46px] bg-transparent rounded-xl text-[14px] text-neutral-900 placeholder:text-neutral-300 outline-none" />
                 </div>
               </div>
               <motion.div whileTap={{ scale: 0.985 }}>
                 <button type="submit" disabled={loading}
-                  className="w-full h-[48px] rounded-xl bg-neutral-900 hover:bg-neutral-800 active:bg-neutral-950 text-white text-[14px] font-medium flex items-center justify-center gap-2 transition-all disabled:opacity-50 cursor-pointer">
+                  className="w-full h-[46px] rounded-xl bg-neutral-900 hover:bg-neutral-800 active:bg-neutral-950 text-white text-[14px] font-medium flex items-center justify-center gap-2 transition-all disabled:opacity-50 cursor-pointer">
                   {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <span>Trimite link de resetare</span>}
                 </button>
               </motion.div>
             </motion.form>
 
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }} className="text-center mt-8">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }} className="mt-7">
               <Link href="/login" className="text-[14px] text-neutral-400 hover:text-neutral-900 font-medium inline-flex items-center gap-1.5 transition-colors">
                 <ArrowLeft className="h-3.5 w-3.5" /> Inapoi la conectare
               </Link>

@@ -22,8 +22,7 @@ const GoogleIcon = () => (
 function Toast({ message, type, onClose }: { message: string; type: 'success' | 'error'; onClose: () => void }) {
   return (
     <motion.div initial={{ opacity: 0, y: -20, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -20, scale: 0.95 }}
-      className={`fixed top-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-5 py-3.5 rounded-full border shadow-xl backdrop-blur-sm
-        ${type === 'success' ? 'bg-white/90 border-neutral-200 text-neutral-900' : 'bg-white/90 border-red-200 text-red-700'}`}>
+      className={`fixed top-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-5 py-3.5 rounded-full border shadow-xl backdrop-blur-sm ${type === 'success' ? 'bg-white/90 border-neutral-200 text-neutral-900' : 'bg-white/90 border-red-200 text-red-700'}`}>
       {type === 'success' ? <CheckCircle className="h-4 w-4" /> : <AlertCircle className="h-4 w-4 text-red-500" />}
       <span className="text-sm font-medium">{message}</span>
       <button onClick={onClose} className="ml-1 p-0.5 rounded-full hover:bg-neutral-100 transition-colors"><X className="h-3.5 w-3.5 text-neutral-400" /></button>
@@ -66,7 +65,7 @@ function LoginContent() {
     if (!email.trim()) { showToast('Introdu adresa de email', 'error'); return }
     if (!password.trim()) { showToast('Introdu parola', 'error'); return }
     setLoading(true)
-    const res = await signIn('credentials', { email, password, redirect: false })
+    const res = await signIn('credentials', { email: email.trim().toLowerCase(), password, redirect: false })
     if (res?.error) { showToast('Email sau parola incorecta', 'error'); setLoading(false); return }
     showToast('Autentificare reusita', 'success')
     setTimeout(() => router.push(onboarding ? '/onboarding' : '/dashboard'), 800)
@@ -83,20 +82,20 @@ function LoginContent() {
       <AnimatePresence>{toast && <Toast {...toast} onClose={() => setToast(null)} />}</AnimatePresence>
 
       <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
-        className="relative z-10 w-full max-w-[400px]">
+        className="relative z-10 w-full max-w-[400px] text-center">
 
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="flex justify-center mb-14">
-          <img src="/logo-black.png" alt="Hontrio" style={{ height: 34, width: 'auto' }} />
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="mb-10">
+          <img src="/logo-black.png" alt="Hontrio" style={{ height: 34, width: 'auto' }} className="inline-block" />
         </motion.div>
 
-        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="text-center mb-10">
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="mb-8">
           <h1 className="text-[26px] font-semibold text-neutral-900 tracking-tight">Bine ai revenit</h1>
           <p className="text-neutral-400 text-[14px] mt-2 font-light">Conecteaza-te pentru a continua</p>
         </motion.div>
 
         {registered && (
           <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
-            className="flex items-center gap-3 px-4 py-3 border border-neutral-200 rounded-xl mb-6 bg-neutral-50">
+            className="flex items-center justify-center gap-3 px-4 py-3 border border-neutral-200 rounded-xl mb-6 bg-neutral-50 text-left">
             <CheckCircle className="h-4 w-4 text-neutral-700 shrink-0" /><span className="text-[13px] text-neutral-600">Cont creat cu succes. Conecteaza-te.</span>
           </motion.div>
         )}
@@ -108,45 +107,45 @@ function LoginContent() {
           </button>
         </motion.div>
 
-        <div className="flex items-center gap-4 my-7">
+        <div className="flex items-center gap-4 my-6">
           <div className="h-px flex-1 bg-neutral-100" /><span className="text-[11px] text-neutral-300 uppercase tracking-[0.15em] font-medium select-none">sau</span><div className="h-px flex-1 bg-neutral-100" />
         </div>
 
-        <motion.form initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }} onSubmit={handleSubmit} className="space-y-4">
+        <motion.form initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }} onSubmit={handleSubmit} className="space-y-3.5 text-left">
           <div>
-            <label className="block text-[12px] font-medium text-neutral-400 mb-2 uppercase tracking-wide">Email</label>
+            <label className="block text-[12px] font-medium text-neutral-400 mb-1.5 uppercase tracking-wide">Email</label>
             <div className={ic('email')}>
               <Mail className={ii('email')} />
               <input type="email" value={email} onChange={e => setEmail(e.target.value)} onFocus={() => setFocused('email')} onBlur={() => setFocused(null)}
-                placeholder="email@exemplu.ro" required className="w-full pl-11 pr-4 h-[48px] bg-transparent rounded-xl text-[14px] text-neutral-900 placeholder:text-neutral-300 outline-none" />
+                placeholder="email@exemplu.ro" required autoComplete="email" className="w-full pl-11 pr-4 h-[46px] bg-transparent rounded-xl text-[14px] text-neutral-900 placeholder:text-neutral-300 outline-none" />
             </div>
           </div>
 
           <div>
-            <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center justify-between mb-1.5">
               <label className="text-[12px] font-medium text-neutral-400 uppercase tracking-wide">Parola</label>
               <Link href="/forgot-password" className="text-[12px] text-neutral-400 hover:text-neutral-900 transition-colors">Ai uitat parola?</Link>
             </div>
             <div className={ic('password')}>
               <Lock className={ii('password')} />
               <input type={showPw ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} onFocus={() => setFocused('password')} onBlur={() => setFocused(null)}
-                placeholder="Introdu parola" required className="w-full pl-11 pr-12 h-[48px] bg-transparent rounded-xl text-[14px] text-neutral-900 placeholder:text-neutral-300 outline-none" />
-              <button type="button" onClick={() => setShowPw(!showPw)} className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-300 hover:text-neutral-600 transition-colors">
+                placeholder="Introdu parola" required autoComplete="current-password" className="w-full pl-11 pr-12 h-[46px] bg-transparent rounded-xl text-[14px] text-neutral-900 placeholder:text-neutral-300 outline-none" />
+              <button type="button" onClick={() => setShowPw(!showPw)} tabIndex={-1} className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-300 hover:text-neutral-600 transition-colors">
                 {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
             </div>
           </div>
 
-          <motion.div whileTap={{ scale: 0.985 }} className="pt-1">
+          <motion.div whileTap={{ scale: 0.985 }} className="pt-0.5">
             <button type="submit" disabled={loading}
-              className="w-full h-[48px] rounded-xl bg-neutral-900 hover:bg-neutral-800 active:bg-neutral-950 text-white text-[14px] font-medium flex items-center justify-center gap-2 transition-all disabled:opacity-50 cursor-pointer">
+              className="w-full h-[46px] rounded-xl bg-neutral-900 hover:bg-neutral-800 active:bg-neutral-950 text-white text-[14px] font-medium flex items-center justify-center gap-2 transition-all disabled:opacity-50 cursor-pointer">
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <><span>Conecteaza-te</span><ArrowRight className="h-4 w-4" /></>}
             </button>
           </motion.div>
         </motion.form>
 
         <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }}
-          className="text-center text-[14px] text-neutral-400 mt-8">
+          className="text-[14px] text-neutral-400 mt-7">
           Nu ai cont?{' '}<Link href="/register" className="text-neutral-900 font-medium hover:underline underline-offset-4">Creeaza cont gratuit</Link>
         </motion.p>
       </motion.div>
