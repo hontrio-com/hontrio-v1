@@ -181,33 +181,23 @@ function scoreProduct(p:any, keywords:string[]):number {
 async function searchProducts(query:string, userId:string, max=3, boostIds: string[]=[]): Promise<Product[]> {
   const supabase=createAdminClient()
 
-  // STRATEGY: Try semantic search first (product intelligence), fall back to keyword search
-
   // 1. Semantic search via product_intelligence embeddings
   try {
-    const embRes = await openai.embeddings.create({
-      model: 'text-embedding-3-small',
-      input: query.slice(0, 500),
-    })
+    const embRes = await openai.embeddings.create({ model: 'text-embedding-3-small', input: query.slice(0, 500) })
     const embedding = embRes.data[0].embedding
 
     const { data: matches } = await supabase.rpc('match_product_intelligence', {
-      query_embedding: embedding,
-      match_user_id: userId,
-      match_threshold: 0.25,
-      match_count: max + 2,
+      query_embedding: embedding, match_user_id: userId, match_threshold: 0.25, match_count: max + 2,
     })
 
     if (matches?.length) {
-      // Get full product data for matched products
       const matchedIds = matches.map((m: any) => m.product_id)
       const { data: products } = await supabase.from('products')
         .select('id,external_id,original_title,optimized_title,price,original_images,category,optimized_short_description,original_description')
         .in('id', matchedIds)
 
       if (products?.length) {
-        // Sort by similarity score from semantic search
-        const simMap = new Map(matches.map((m: any) => [m.product_id, m.similarity]))
+        const simMap = new Map<string, number>(matches.map((m: any) => [m.product_id as string, Number(m.similarity) || 0]))
         const sorted = products
           .map((p: any) => ({ ...p, _sim: (simMap.get(p.id) || 0) + (boostIds.includes(p.id) ? 0.05 : 0) }))
           .sort((a: any, b: any) => b._sim - a._sim)
@@ -228,7 +218,7 @@ async function searchProducts(query:string, userId:string, max=3, boostIds: stri
     console.log('[Search] Semantic search failed, falling back to keyword:', err)
   }
 
-  // 2. Fallback: keyword search (for products without intelligence)
+  // 2. Fallback: keyword search
   const STOP=new Set(['pentru','care','este','sunt','caut','vreau','unui','ceva','unul','mai','din','sau','bun','un','o','al','la','cu','si','sau','ori'])
   const keywords=query.toLowerCase().replace(/[^a-zăâîșțA-ZĂÂÎȘȚ0-9\s]/g,' ')
     .split(/\s+/).map(k=>k.trim()).filter(k=>k.length>2&&!STOP.has(k))
@@ -264,26 +254,21 @@ async function searchProducts(query:string, userId:string, max=3, boostIds: stri
 async function buildCatalog(userId:string):Promise<string> {
   const supabase=createAdminClient()
   const {data}=await supabase.from('products')
-    .select('original_title,optimized_title,price,category')
-    .eq('user_id',userId).is('parent_id', null).limit(500)
+    .select('original_title,optimized_title,price,category').eq('user_id',userId).is('parent_id', null).limit(500)
   if(!data?.length)return 'Catalog gol.'
-
-  const by:Record<string,{count:number, examples:string[], priceRange:[number,number]}>={}
+  const by:Record<string,{count:number,examples:string[],lo:number,hi:number}>={}
   for(const p of data){
     const c=p.category||'General'
-    if(!by[c])by[c]={count:0, examples:[], priceRange:[Infinity, 0]}
+    if(!by[c])by[c]={count:0,examples:[],lo:Infinity,hi:0}
     by[c].count++
     if(by[c].examples.length<3) by[c].examples.push(p.optimized_title||p.original_title)
-    if(p.price){
-      by[c].priceRange[0]=Math.min(by[c].priceRange[0], Number(p.price))
-      by[c].priceRange[1]=Math.max(by[c].priceRange[1], Number(p.price))
-    }
+    if(p.price){by[c].lo=Math.min(by[c].lo,Number(p.price));by[c].hi=Math.max(by[c].hi,Number(p.price))}
   }
-  const lines = Object.entries(by).map(([c,info])=>{
-    const range = info.priceRange[0] < Infinity ? ` (${info.priceRange[0]}-${info.priceRange[1]} RON)` : ''
-    return `${c} (${info.count} produse${range}): ${info.examples.join(', ')}${info.count>3?' ...':''}`
+  const lines=Object.entries(by).map(([c,i])=>{
+    const r=i.lo<Infinity?` (${i.lo}-${i.hi} RON)`:''
+    return `${c} (${i.count}${r}): ${i.examples.join(', ')}${i.count>3?' ...':''}`
   })
-  return `${data.length} produse total în ${Object.keys(by).length} categorii:\n${lines.join('\n')}`
+  return `${data.length} produse în ${Object.keys(by).length} categorii:\n${lines.join('\n')}`
 }
 
 async function searchKnowledge(query: string, userId: string): Promise<string> {
@@ -560,24 +545,24 @@ export async function POST(request:Request) {
         }))
       }
 
-      // Fetch product intelligence for found products
-      let intelligenceCtx = ''
+      // Fetch product intelligence for deep knowledge
+      let intelCtx = ''
       try {
         const { data: intel } = await supabase.from('product_intelligence')
           .select('product_id, technical_summary, sales_summary, best_for, key_specs, faq_candidates, compatibility_notes')
           .in('product_id', products.map((p:any) => p.id))
           .eq('status', 'ready')
         if (intel?.length) {
-          const intelMap = new Map(intel.map((i: any) => [i.product_id, i]))
-          intelligenceCtx = products.map((p: any) => {
-            const pi = intelMap.get(p.id)
+          const iMap = new Map(intel.map((i: any) => [i.product_id, i]))
+          intelCtx = products.map((p: any) => {
+            const pi = iMap.get(p.id)
             if (!pi) return ''
-            const parts = []
+            const parts: string[] = []
             if (pi.technical_summary) parts.push(`Detalii: ${pi.technical_summary}`)
             if (pi.sales_summary) parts.push(`De ce: ${pi.sales_summary}`)
             if (pi.best_for) parts.push(`Ideal pentru: ${pi.best_for}`)
-            if (pi.key_specs) parts.push(`Specificații: ${Object.entries(pi.key_specs).map(([k,v]) => `${k}: ${v}`).join(', ')}`)
-            if (pi.compatibility_notes && pi.compatibility_notes !== 'Informație nedisponibilă') parts.push(`Compatibilitate: ${pi.compatibility_notes}`)
+            if (pi.key_specs) parts.push(`Spec: ${Object.entries(pi.key_specs).map(([k,v]) => `${k}: ${v}`).join(', ')}`)
+            if (pi.compatibility_notes && pi.compatibility_notes !== 'Informație nedisponibilă') parts.push(`Compatibil: ${pi.compatibility_notes}`)
             return parts.length ? `[${p.title}] ${parts.join('. ')}` : ''
           }).filter(Boolean).join('\n')
         }
@@ -589,14 +574,14 @@ export async function POST(request:Request) {
       }).join('\n')
       const cross=crossProducts.length>0?`\nPentru crosssell: "${crossProducts[0].title}" (${crossProducts[0].price} RON)`:''
       const memCtx=memory?.conversation_summary?`\nContext vizitator: ${memory.conversation_summary}`:''
-      const intelSection = intelligenceCtx ? `\n\nCUNOȘTINȚE DETALIATE PRODUSE (folosește-le pentru a răspunde precis):\n${intelligenceCtx}` : ''
+      const intelSection = intelCtx ? `\n\nCUNOȘTINȚE DETALIATE (folosește pentru răspunsuri precise):\n${intelCtx}` : ''
       const r2=await openai.chat.completions.create({
         model:'gpt-4o-mini',
         messages:[
           {role:'system',content:systemPrompt},
           ...history.slice(-6).map((m:any)=>({role:m.role as 'user'|'assistant',content:m.content})),
           {role:'user',content:message},
-          {role:'system',content:`Produse găsite (cu stoc real):\n${ctx}${cross}${memCtx}${intelSection}\n\nFOARTE IMPORTANT: Prezintă EXACT aceste produse, nu inventa altele. Folosește cunoștințele detaliate pentru a răspunde precis la întrebările tehnice. Dacă stocul e "Stoc epuizat" spune-o clar. Max 2 propoziții. JSON.`},
+          {role:'system',content:`Produse găsite (cu stoc real):\n${ctx}${cross}${memCtx}${intelSection}\n\nFOARTE IMPORTANT: Prezintă EXACT aceste produse. Folosește CUNOȘTINȚELE DETALIATE pentru întrebări tehnice. Dacă stocul e "Stoc epuizat" spune-o clar. Max 2 propoziții. JSON.`},
         ],
         temperature:0.4, max_tokens:300, response_format:{type:'json_object'},
       })
