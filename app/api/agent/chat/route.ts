@@ -401,26 +401,27 @@ async function searchProducts(query:string, userId:string, max=3, boostIds: stri
   if (!candidateMap.size) return []
 
   // ── Fusion scoring ─────────────────────────────────────────────────────────
-  // Combinăm semantic (0-1) și keyword (0-100) într-un scor final
-  // Keyword score e DOMINANT — e mai precis pentru queries specifice
-  // Semantic e BONUS — ajută când keyword nu matchuiește exact dar conceptul e corect
+  // REGULA DE AUR: Keyword match e OBLIGATORIU. Semantic e doar bonus.
+  // Dacă keyword score = 0 → produsul NU apare, indiferent de semantic similarity.
+  // Asta previne "mop" și "suport haine" când cauți "condimente".
+  // Semantic search ajută la RE-RANKING (cine e primul), nu la FILTRARE (cine intră).
 
   for (const c of candidateMap.values()) {
     const kwNorm = c.keywordScore / 100           // 0-1
     const semNorm = c.semanticSim                  // 0-1
 
-    // Dacă keyword score > 0 → keyword domină (70/30)
-    // Dacă keyword score = 0 dar semantic > 0.50 → semantic only dar penalizat
-    // Dacă keyword score = 0 și semantic < 0.50 → eliminat
-
-    if (c.keywordScore > 0) {
-      c.finalScore = kwNorm * 0.70 + semNorm * 0.30
-    } else if (semNorm >= 0.50) {
-      // Semantic-only: penalizăm faptul că keyword-ul nu s-a găsit deloc în titlu
-      // Asta e cazul "mop" când cauți "storcător" — semantic zice ~0.35, keyword zice 0
-      c.finalScore = semNorm * 0.40
+    if (c.keywordScore >= 40) {
+      // Keyword match solid → semantic e bonus
+      c.finalScore = kwNorm * 0.75 + semNorm * 0.25
+    } else if (c.keywordScore > 0 && c.keywordScore < 40) {
+      // Keyword match slab (doar în descriere/categorie) → acceptăm doar cu semantic puternic
+      if (semNorm >= 0.55) {
+        c.finalScore = kwNorm * 0.50 + semNorm * 0.50
+      } else {
+        c.finalScore = 0 // Prea slab pe ambele fronturi
+      }
     } else {
-      // Sub 0.50 semantic ȘI 0 keyword = irelevant
+      // keyword = 0 → ELIMINAT, indiferent de semantic
       c.finalScore = 0
     }
   }
