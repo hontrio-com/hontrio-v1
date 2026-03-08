@@ -5,7 +5,7 @@ import { signIn } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
-import Image from 'next/image'
+
 import LiquidGlassBg from '@/components/auth/liquid-glass-bg'
 import {
   Loader2, Mail, Lock, User, ArrowRight,
@@ -83,7 +83,7 @@ export default function RegisterPage() {
 
         {/* Logo */}
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="flex justify-center mb-14">
-          <Image src="/logo-black.png" alt="Hontrio" width={130} height={34} className="opacity-90" priority />
+          <img src="/logo-black.png" alt="Hontrio" style={{ height: 34, width: "auto" }} className="opacity-90" />
         </motion.div>
 
         {/* Heading */}
