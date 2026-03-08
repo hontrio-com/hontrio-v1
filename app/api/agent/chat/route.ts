@@ -187,7 +187,7 @@ async function searchProducts(query:string, userId:string, max=3, boostIds: stri
     const embedding = embRes.data[0].embedding
 
     const { data: matches } = await supabase.rpc('match_product_intelligence', {
-      query_embedding: embedding, match_user_id: userId, match_threshold: 0.25, match_count: max + 2,
+      query_embedding: embedding, match_user_id: userId, match_threshold: 0.35, match_count: max + 4,
     })
 
     if (matches?.length) {
@@ -201,9 +201,15 @@ async function searchProducts(query:string, userId:string, max=3, boostIds: stri
         const sorted = products
           .map((p: any) => ({ ...p, _sim: (simMap.get(p.id) || 0) + (boostIds.includes(p.id) ? 0.05 : 0) }))
           .sort((a: any, b: any) => b._sim - a._sim)
-          .slice(0, max)
 
-        return sorted.map((p: any) => ({
+        // Relevance gap filter: păstrează doar produsele care sunt cel puțin 60% din scorul celui mai bun
+        // Exemplu: dacă cel mai bun e 0.70, păstrăm doar ce e >= 0.42 (0.70 * 0.60)
+        // Asta elimină tigăi și mopuri când cauți storcătoare
+        const topSim = sorted[0]?._sim || 0
+        const minSim = topSim * 0.60
+        const relevant = sorted.filter((p: any) => p._sim >= minSim).slice(0, max)
+
+        return relevant.map((p: any) => ({
           id: p.id, external_id: p.external_id,
           title: p.optimized_title || p.original_title,
           price: p.price, image: p.original_images?.[0] || null,
