@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import Image from 'next/image'
+import LiquidGlassBg from '@/components/auth/liquid-glass-bg'
 import {
   Loader2, Mail, ArrowLeft, CheckCircle,
   AlertCircle, X, KeyRound,
@@ -18,19 +19,6 @@ function Toast({ message, type, onClose }: { message: string; type: 'success' | 
       <span className="text-sm font-medium">{message}</span>
       <button onClick={onClose} className="ml-1 p-0.5 rounded-full hover:bg-neutral-100 transition-colors"><X className="h-3.5 w-3.5 text-neutral-400" /></button>
     </motion.div>
-  )
-}
-
-function AnimatedBg() {
-  return (
-    <div className="fixed inset-0 overflow-hidden pointer-events-none">
-      <div className="absolute inset-0 opacity-[0.025]" style={{ backgroundImage: 'radial-gradient(circle, #000 0.5px, transparent 0.5px)', backgroundSize: '28px 28px' }} />
-      {[...Array(3)].map((_, i) => (
-        <motion.div key={i} className="absolute rounded-full" style={{ width: 200 + i * 100, height: 200 + i * 100, left: `${20 + i * 25}%`, top: `${15 + i * 20}%`, background: 'rgba(0,0,0,0.015)', filter: 'blur(60px)' }}
-          animate={{ x: [0, 20 * (i % 2 === 0 ? 1 : -1), 0], y: [0, -20 * (i % 2 === 0 ? -1 : 1), 0] }}
-          transition={{ duration: 18 + i * 6, repeat: Infinity, ease: 'easeInOut' }} />
-      ))}
-    </div>
   )
 }
 
@@ -57,7 +45,7 @@ export default function ForgotPasswordPage() {
 
   return (
     <div className="min-h-[100dvh] flex items-center justify-center bg-white relative px-5">
-      <AnimatedBg />
+      <LiquidGlassBg />
       <AnimatePresence>{toast && <Toast {...toast} onClose={() => setToast(null)} />}</AnimatePresence>
 
       <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
@@ -65,7 +53,7 @@ export default function ForgotPasswordPage() {
 
         {/* Logo */}
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="flex justify-center mb-14">
-          <Image src="/logo-white.svg" alt="Hontrio" width={130} height={34} className="invert opacity-90" priority />
+          <Image src="/logo-black.png" alt="Hontrio" width={130} height={34} className="opacity-90" priority />
         </motion.div>
 
         {sent ? (

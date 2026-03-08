@@ -83,7 +83,7 @@ export default function RegisterPage() {
 
         {/* Logo */}
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="flex justify-center mb-14">
-          <Image src="/logo-white.svg" alt="Hontrio" width={130} height={34} className="invert opacity-90" priority />
+          <Image src="/logo-black.png" alt="Hontrio" width={130} height={34} className="opacity-90" priority />
         </motion.div>
 
         {/* Heading */}
