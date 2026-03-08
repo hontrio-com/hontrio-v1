@@ -1,5 +1,6 @@
 const RESEND_API_KEY = process.env.RESEND_API_KEY || ''
 const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'noreply@hontrio.com'
+const APP_URL = process.env.NEXTAUTH_URL || 'https://hontrio.com'
 
 type EmailPayload = {
   to: string
@@ -31,6 +32,64 @@ export async function sendEmail({ to, subject, html }: EmailPayload): Promise<bo
     console.error('[Email] sendEmail error:', err)
     return false
   }
+}
+
+// ─── Email wrapper template ──────────────────────────────────────────────────
+
+function emailWrapper(content: string): string {
+  return `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f5f5;margin:0;padding:24px">
+  <div style="max-width:520px;margin:0 auto;background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e5e5e5">
+    <!-- Header -->
+    <div style="padding:32px 32px 0;text-align:center">
+      <img src="${APP_URL}/logo-black.png" alt="Hontrio" height="28" style="display:inline-block" />
+    </div>
+    <!-- Content -->
+    <div style="padding:32px">${content}</div>
+    <!-- Footer -->
+    <div style="padding:20px 32px;border-top:1px solid #f0f0f0;text-align:center">
+      <p style="margin:0;font-size:11px;color:#a3a3a3">Hontrio &mdash; AI Growth Engine for eCommerce</p>
+      <p style="margin:4px 0 0;font-size:11px;color:#a3a3a3"><a href="${APP_URL}" style="color:#a3a3a3">hontrio.com</a></p>
+    </div>
+  </div>
+</body></html>`
+}
+
+// ─── Welcome email (after registration) ──────────────────────────────────────
+
+export function buildWelcomeEmail(name: string): string {
+  return emailWrapper(`
+    <h1 style="font-size:22px;font-weight:600;color:#171717;margin:0 0 8px;text-align:center">Bine ai venit, ${name}!</h1>
+    <p style="font-size:14px;color:#737373;text-align:center;margin:0 0 24px;line-height:1.6">Contul tau a fost creat cu succes. Ai primit 20 de credite gratuite pentru a testa toate functiile platformei.</p>
+    <div style="background:#fafafa;border-radius:8px;padding:16px;margin-bottom:24px">
+      <p style="font-size:13px;color:#525252;margin:0 0 12px;font-weight:600">Ce poti face acum:</p>
+      <p style="font-size:13px;color:#737373;margin:0 0 6px">1. Conecteaza magazinul tau WooCommerce</p>
+      <p style="font-size:13px;color:#737373;margin:0 0 6px">2. Sincronizeaza produsele automat</p>
+      <p style="font-size:13px;color:#737373;margin:0 0 6px">3. Genereaza texte si imagini cu AI</p>
+      <p style="font-size:13px;color:#737373;margin:0">4. Publica produsele optimizate inapoi in magazin</p>
+    </div>
+    <div style="text-align:center">
+      <a href="${APP_URL}/dashboard" style="display:inline-block;background:#171717;color:#ffffff;font-size:14px;font-weight:500;padding:12px 32px;border-radius:8px;text-decoration:none">Mergi la Dashboard</a>
+    </div>
+  `)
+}
+
+// ─── Password reset email ────────────────────────────────────────────────────
+
+export function buildResetEmail(resetUrl: string): string {
+  return emailWrapper(`
+    <h1 style="font-size:22px;font-weight:600;color:#171717;margin:0 0 8px;text-align:center">Reseteaza parola</h1>
+    <p style="font-size:14px;color:#737373;text-align:center;margin:0 0 24px;line-height:1.6">Ai solicitat resetarea parolei. Apasa butonul de mai jos pentru a seta o parola noua.</p>
+    <div style="text-align:center;margin-bottom:24px">
+      <a href="${resetUrl}" style="display:inline-block;background:#171717;color:#ffffff;font-size:14px;font-weight:500;padding:12px 32px;border-radius:8px;text-decoration:none">Reseteaza parola</a>
+    </div>
+    <p style="font-size:12px;color:#a3a3a3;text-align:center;margin:0 0 4px">Linkul expira in 30 de minute.</p>
+    <p style="font-size:12px;color:#a3a3a3;text-align:center;margin:0">Daca nu ai solicitat resetarea parolei, ignora acest email.</p>
+    <div style="margin-top:20px;padding:12px;background:#fafafa;border-radius:6px">
+      <p style="font-size:11px;color:#a3a3a3;margin:0;word-break:break-all">Link direct: ${resetUrl}</p>
+    </div>
+  `)
 }
 
 export function buildEscalationEmail(opts: {

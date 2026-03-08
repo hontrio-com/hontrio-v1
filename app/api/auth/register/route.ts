@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { rateLimitRegister, getClientIp } from '@/lib/security/rate-limit'
+import { sendEmail, buildWelcomeEmail } from '@/lib/email'
 
 export async function POST(request: Request) {
   try {
@@ -73,6 +74,13 @@ export async function POST(request: Request) {
         { status: 500 }
       )
     }
+
+    // Send welcome email (async — don't block response)
+    sendEmail({
+      to: email,
+      subject: 'Bine ai venit pe Hontrio!',
+      html: buildWelcomeEmail(name),
+    }).catch(err => console.error('[Register] Welcome email error:', err))
 
     return NextResponse.json(
       { message: 'Cont creat cu succes' },
