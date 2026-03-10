@@ -239,14 +239,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             {/* Credits card */}
             {!collapsed && (
               <div className="mx-3 mb-3">
-                <div className={`rounded-xl p-4 ${userCredits <= 0 ? 'bg-neutral-900' : userCredits <= 5 ? 'bg-neutral-800' : 'bg-neutral-900'} text-white`}>
+                <div className="rounded-xl p-4 bg-neutral-900 text-white">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-[11px] font-medium text-neutral-400">Credite</span>
                     <span className="text-[10px] font-medium text-neutral-500 uppercase tracking-wide">{userPlan}</span>
                   </div>
                   <p className="text-2xl font-bold">{userCredits}</p>
-                  <div className="h-1 bg-white/10 rounded-full mt-2 overflow-hidden">
-                    <div className="h-full bg-white/60 rounded-full transition-all" style={{ width: `${Math.min((userCredits / 100) * 100, 100)}%` }} />
+                  <div className="h-1.5 bg-white/10 rounded-full mt-2 overflow-hidden">
+                    <div className={`h-full rounded-full transition-all ${userCredits <= 5 ? 'bg-red-400' : userCredits <= 20 ? 'bg-amber-400' : 'bg-emerald-400'}`} style={{ width: `${Math.min((userCredits / 100) * 100, 100)}%` }} />
                   </div>
                   <Link href="/credits">
                     <button className="w-full mt-3 h-8 rounded-lg bg-white/10 text-white text-[12px] font-medium hover:bg-white/15 transition-colors flex items-center justify-center gap-1.5 border border-white/10">
@@ -306,7 +306,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
             {/* Right actions */}
             <div className="flex items-center gap-1.5 shrink-0">
-              <Link href="/credits"><button className="hidden sm:flex items-center gap-1.5 h-9 px-3 rounded-xl text-[12px] font-medium text-neutral-600 hover:bg-neutral-100 border border-neutral-100 transition-all"><Zap className="h-3.5 w-3.5 text-neutral-400 shrink-0" /><span className="hidden md:inline">Credite</span></button></Link>
+              <Link href="/credits"><button className="hidden sm:flex items-center gap-1.5 h-9 px-3 rounded-xl text-[12px] font-medium text-neutral-600 hover:bg-neutral-100 border border-neutral-100 transition-all"><Zap className="h-3.5 w-3.5 text-amber-500 shrink-0" /><span className="hidden md:inline">Credite</span></button></Link>
               <Link href="/credits"><button className="flex items-center gap-1.5 h-9 px-3 rounded-xl text-[12px] font-semibold text-white bg-neutral-900 hover:bg-neutral-800 transition-all"><Crown className="h-3.5 w-3.5 shrink-0" /><span className="hidden md:inline">Upgrade</span></button></Link>
               <NotificationBell />
             </div>
