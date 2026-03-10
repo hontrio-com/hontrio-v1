@@ -35,7 +35,7 @@ function AnimatedNumber({ value, suffix = '' }: { value: number; suffix?: string
 
 function SeoDonut({ green, yellow, red, total }: { green: number; yellow: number; red: number; total: number }) {
   const r = 28, c = 2 * Math.PI * r
-  const segs = [{ v: green, col: '#171717' }, { v: yellow, col: '#a3a3a3' }, { v: red, col: '#d4d4d4' }, { v: Math.max(total - green - yellow - red, 0), col: '#f5f5f5' }]
+  const segs = [{ v: green, col: '#22c55e' }, { v: yellow, col: '#f59e0b' }, { v: red, col: '#ef4444' }, { v: Math.max(total - green - yellow - red, 0), col: '#f5f5f5' }]
   let off = 0
   return (
     <svg width="72" height="72" viewBox="0 0 72 72" className="rotate-[-90deg]">
@@ -106,7 +106,7 @@ export default function DashboardPage() {
               <div className="relative h-12 w-12">
                 <svg className="rotate-[-90deg]" viewBox="0 0 36 36" width="48" height="48">
                   <circle cx="18" cy="18" r="15" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="3" />
-                  <motion.circle cx="18" cy="18" r="15" fill="none" stroke="white" strokeWidth="3" strokeDasharray={`${2 * Math.PI * 15}`}
+                  <motion.circle cx="18" cy="18" r="15" fill="none" stroke="#34d399" strokeWidth="3" strokeDasharray={`${2 * Math.PI * 15}`}
                     initial={{ strokeDashoffset: 2 * Math.PI * 15 }} animate={{ strokeDashoffset: 2 * Math.PI * 15 * (1 - data.onboardingProgress / data.onboardingChecklist.length) }}
                     transition={{ duration: 0.8, delay: 0.3 }} strokeLinecap="round" />
                 </svg>
@@ -117,7 +117,7 @@ export default function DashboardPage() {
               {data.onboardingChecklist.map(s => (
                 <Link key={s.id} href={s.href}>
                   <div className={`flex items-center gap-2 px-2.5 py-2 rounded-lg text-sm transition-all cursor-pointer ${s.done ? 'bg-white/10' : 'bg-white/5 hover:bg-white/10'}`}>
-                    {s.done ? <CheckCircle className="h-3.5 w-3.5 text-white/70 shrink-0" /> : <Circle className="h-3.5 w-3.5 text-white/30 shrink-0" />}
+                    {s.done ? <CheckCircle className="h-3.5 w-3.5 text-emerald-400 shrink-0" /> : <Circle className="h-3.5 w-3.5 text-white/30 shrink-0" />}
                     <span className={`text-[12px] truncate ${s.done ? 'text-white/80' : 'text-white/40'}`}>{s.label}</span>
                   </div>
                 </Link>
@@ -157,7 +157,7 @@ export default function DashboardPage() {
             { label: 'Total produse', value: data?.totalProducts || 0, icon: Package, href: '/products' },
             { label: 'Imagini generate', value: data?.totalImages || 0, icon: ImageIcon, href: '/images' },
             { label: 'Scor SEO mediu', value: data?.avgSeoScore || 0, suffix: '/100', icon: Search, href: '/seo' },
-            { label: 'Credite ramase', value: data?.creditsRemaining || 0, icon: CreditCard, href: '/credits' },
+            { label: 'Credite ramase', value: data?.creditsRemaining || 0, icon: CreditCard, href: '/credits', bar: true },
           ].map((stat, i) => (
             <motion.div key={stat.label} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 + i * 0.06 }}>
               <Link href={stat.href}>
@@ -168,6 +168,12 @@ export default function DashboardPage() {
                   </div>
                   <p className="text-[22px] font-bold text-neutral-900 tabular-nums"><AnimatedNumber value={stat.value} suffix={stat.suffix} /></p>
                   <p className="text-[13px] text-neutral-400 mt-0.5">{stat.label}</p>
+                  {(stat as any).bar && (
+                    <div className="mt-2 h-1 bg-neutral-100 rounded-full overflow-hidden">
+                      <motion.div className={`h-full rounded-full ${(data?.creditsRemaining || 0) <= 5 ? 'bg-red-400' : (data?.creditsRemaining || 0) <= 20 ? 'bg-amber-400' : 'bg-emerald-400'}`}
+                        initial={{ width: 0 }} animate={{ width: `${Math.min(((data?.creditsRemaining || 0) / 100) * 100, 100)}%` }} transition={{ duration: 0.8, delay: 0.4 }} />
+                    </div>
+                  )}
                 </div>
               </Link>
             </motion.div>
@@ -222,10 +228,10 @@ export default function DashboardPage() {
                       <div className="flex-1 min-w-0">
                         <p className="text-[13px] font-medium text-neutral-900 truncate">{p.optimized_title || p.original_title}</p>
                         <div className="flex items-center gap-2 mt-0.5">
-                          <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-md ${p.status === 'published' ? 'bg-neutral-900 text-white' : p.status === 'optimized' ? 'bg-neutral-200 text-neutral-700' : 'bg-neutral-100 text-neutral-500'}`}>
+                          <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-md ${p.status === 'published' ? 'bg-emerald-50 text-emerald-700' : p.status === 'optimized' ? 'bg-amber-50 text-amber-700' : 'bg-neutral-100 text-neutral-500'}`}>
                             {p.status === 'published' ? 'Publicat' : p.status === 'optimized' ? 'Optimizat' : 'Draft'}
                           </span>
-                          {p.seo_score > 0 && <span className="text-[10px] font-medium text-neutral-400">SEO {p.seo_score}</span>}
+                          {p.seo_score > 0 && <span className={`text-[10px] font-medium ${p.seo_score >= 80 ? 'text-emerald-600' : p.seo_score >= 50 ? 'text-amber-600' : 'text-red-500'}`}>SEO {p.seo_score}</span>}
                         </div>
                       </div>
                       <ArrowRight className="h-3.5 w-3.5 text-neutral-300 group-hover:text-neutral-500 transition-colors" />
@@ -241,7 +247,7 @@ export default function DashboardPage() {
             <div className="bg-white border border-neutral-200 rounded-xl overflow-hidden">
               <div className="h-[3px] bg-neutral-900" />
               <div className="p-4 flex items-center gap-3">
-                <div className="h-10 w-10 rounded-lg bg-neutral-100 flex items-center justify-center shrink-0"><AlertTriangle className="h-5 w-5 text-neutral-500" /></div>
+                <div className="h-10 w-10 rounded-lg bg-amber-50 flex items-center justify-center shrink-0"><AlertTriangle className="h-5 w-5 text-amber-500" /></div>
                 <div className="flex-1 min-w-0">
                   <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-400 mb-0.5">Quick Win</p>
                   <p className="text-[13px] font-medium text-neutral-900 truncate">{data.worstProduct.title || 'Produs fara titlu'}</p>
@@ -267,7 +273,7 @@ export default function DashboardPage() {
                 <div className="absolute inset-0 flex items-center justify-center"><span className="text-[14px] font-bold text-neutral-900">{data?.avgSeoScore || 0}</span></div>
               </div>
               <div className="flex-1 space-y-2.5">
-                {[{ dot: 'bg-neutral-900', label: 'Bun (80+)', val: data?.seoBreakdown.green || 0 }, { dot: 'bg-neutral-400', label: 'Mediu (50-79)', val: data?.seoBreakdown.yellow || 0 }, { dot: 'bg-neutral-200', label: 'Slab (<50)', val: data?.seoBreakdown.red || 0 }].map(s => (
+                {[{ dot: 'bg-emerald-500', label: 'Bun (80+)', val: data?.seoBreakdown.green || 0 }, { dot: 'bg-amber-400', label: 'Mediu (50-79)', val: data?.seoBreakdown.yellow || 0 }, { dot: 'bg-red-400', label: 'Slab (<50)', val: data?.seoBreakdown.red || 0 }].map(s => (
                   <div key={s.label} className="flex items-center justify-between">
                     <div className="flex items-center gap-1.5"><div className={`h-2 w-2 rounded-full ${s.dot}`} /><span className="text-[12px] text-neutral-500">{s.label}</span></div>
                     <span className="text-[12px] font-semibold text-neutral-900">{s.val}</span>
@@ -284,10 +290,10 @@ export default function DashboardPage() {
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <div className={`h-2 w-2 rounded-full ${data.store.sync_status === 'active' ? 'bg-neutral-900' : 'bg-neutral-300'}`} />
+                    <div className={`h-2 w-2 rounded-full ${data.store.sync_status === 'active' ? 'bg-emerald-500' : 'bg-neutral-300'}`} />
                     <span className="text-[13px] font-medium text-neutral-800 truncate max-w-[140px]">{data.store.store_name || data.store.store_url}</span>
                   </div>
-                  <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-neutral-100 text-neutral-600">{data.store.sync_status === 'active' ? 'Activ' : data.store.sync_status}</span>
+                  <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${data.store.sync_status === 'active' ? 'bg-emerald-50 text-emerald-700' : 'bg-neutral-100 text-neutral-600'}`}>{data.store.sync_status === 'active' ? 'Activ' : data.store.sync_status}</span>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div className="bg-neutral-50 rounded-lg p-2.5 text-center"><p className="text-[15px] font-bold text-neutral-900">{data.store.products_count}</p><p className="text-[11px] text-neutral-400">Produse</p></div>
@@ -312,10 +318,10 @@ export default function DashboardPage() {
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <div className={`h-2 w-2 rounded-full ${data.agent.is_active ? 'bg-neutral-900' : 'bg-neutral-300'}`} />
+                    <div className={`h-2 w-2 rounded-full ${data.agent.is_active ? 'bg-emerald-500' : 'bg-neutral-300'}`} />
                     <span className="text-[13px] font-medium text-neutral-800">{data.agent.agent_name || 'Agent AI'}</span>
                   </div>
-                  <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${data.agent.is_active ? 'bg-neutral-900 text-white' : 'bg-neutral-100 text-neutral-500'}`}>{data.agent.is_active ? 'Activ' : 'Inactiv'}</span>
+                  <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${data.agent.is_active ? 'bg-emerald-50 text-emerald-700' : 'bg-neutral-100 text-neutral-500'}`}>{data.agent.is_active ? 'Activ' : 'Inactiv'}</span>
                 </div>
                 <div className="bg-neutral-50 rounded-lg p-3 flex items-center gap-3">
                   <div className="h-9 w-9 rounded-lg bg-neutral-200 flex items-center justify-center shrink-0"><Zap className="h-4 w-4 text-neutral-600" /></div>
@@ -343,7 +349,7 @@ export default function DashboardPage() {
                       {t.reference_type === 'image_generation' ? <ImageIcon className="h-3 w-3 text-neutral-500" /> : t.type === 'purchase' ? <CreditCard className="h-3 w-3 text-neutral-500" /> : <Sparkles className="h-3 w-3 text-neutral-500" />}
                     </div>
                     <div className="flex-1 min-w-0"><p className="text-[12px] text-neutral-700 truncate">{t.description}</p><p className="text-[11px] text-neutral-400">{formatTime(t.created_at)}</p></div>
-                    <span className={`text-[12px] font-medium shrink-0 ${t.amount > 0 ? 'text-neutral-900' : 'text-neutral-500'}`}>{t.amount > 0 ? '+' : ''}{t.amount} cr</span>
+                    <span className={`text-[12px] font-medium shrink-0 ${t.amount > 0 ? 'text-emerald-600' : 'text-red-500'}`}>{t.amount > 0 ? '+' : ''}{t.amount} cr</span>
                   </div>
                 ))}
               </div>
