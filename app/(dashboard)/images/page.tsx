@@ -78,8 +78,8 @@ function getCurrentSeason() {
 
 // ─── Primitives ───────────────────────────────────────────────────────────────
 
-function Card({ children, className = '' }: { children: React.ReactNode; className?: string }) {
-  return <div className={`bg-white border border-neutral-200 rounded-xl ${className}`}>{children}</div>
+function Card({ children, className = '', onClick }: { children: React.ReactNode; className?: string; onClick?: React.MouseEventHandler<HTMLDivElement> }) {
+  return <div className={`bg-white border border-neutral-200 rounded-xl ${className}`} onClick={onClick}>{children}</div>
 }
 
 function Btn({ onClick, disabled, children, variant = 'primary', size = 'md', className = '' }: {
@@ -447,7 +447,7 @@ function ProductGenerator({ onImageGenerated, brandKit }: { onImageGenerated: (i
     if (!selectedProduct || !imageRecordId) return
     setPublishing(true)
     const res = await fetch('/api/generate/publish-to-woo', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ image_id: imageRecordId, product_id: selectedProduct.id, set_as_main: true }) })
-    if (res.ok) setPublished(true) else { const d = await res.json(); setError(d.error) }
+    if (res.ok) { setPublished(true) } else { const d = await res.json(); setError(d.error) }
     setPublishing(false)
   }
 
