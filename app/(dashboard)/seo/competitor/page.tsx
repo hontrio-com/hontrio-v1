@@ -97,8 +97,8 @@ function Btn({ onClick, disabled, children, variant = 'primary', size = 'md', cl
   return <button onClick={onClick} disabled={disabled} className={`${base} ${sizes[size]} ${vars[variant]} ${className}`}>{children}</button>
 }
 
-function SectionLabel({ children }: { children: React.ReactNode }) {
-  return <p className="text-[10px] font-medium text-neutral-400 uppercase tracking-wide">{children}</p>
+function SectionLabel({ children, className = '' }: { children: React.ReactNode; className?: string }) {
+  return <p className={`text-[10px] font-medium text-neutral-400 uppercase tracking-wide ${className}`}>{children}</p>
 }
 
 // ─── Shared components ────────────────────────────────────────────────────────
