@@ -1,19 +1,15 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  Package, Store, ArrowRight, ImageIcon, Loader2, SearchIcon,
-  Grid3X3, LayoutList, X, ChevronLeft, ChevronRight as ChevronRightIcon,
-  RefreshCw, Sparkles, TrendingUp, SlidersHorizontal,
-  CheckCircle, AlertCircle, MinusCircle, Upload,
+  Package, ImageIcon, Loader2, Search, X, RefreshCw,
+  ChevronLeft, ChevronRight, SlidersHorizontal, ArrowUpRight,
+  CheckCircle, AlertCircle, MinusCircle, Upload, Star,
+  LayoutGrid, List, Filter, Sparkles, Store, ArrowRight,
+  ChevronDown, Tag, TrendingUp, Zap,
 } from 'lucide-react'
-import { Input } from '@/components/ui/input'
-import { Card, CardContent, CardTitle, CardDescription } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
 import Link from 'next/link'
-
-// ─── Types ────────────────────────────────────────────────────────────────────
 
 type Product = {
   id: string
@@ -26,19 +22,18 @@ type Product = {
   status: string
   seo_score: number
   variations_count: number
+  optimized_short_description: string | null
+  optimized_long_description: string | null
+  meta_description: string | null
 }
 
-type StatusCounts = {
-  all: number
-  unoptimized: number
-  partial: number
-  good: number
-  published: number
+type SortOption = 'newest' | 'oldest' | 'seo_desc' | 'seo_asc' | 'price_desc' | 'price_asc'
+
+type FilterState = {
+  seo: 'all' | 'unoptimized' | 'partial' | 'good' | 'published'
+  sort: SortOption
+  category: string
 }
-
-type SortOption = 'newest' | 'oldest' | 'seo_asc' | 'seo_desc' | 'price_asc' | 'price_desc'
-
-// ─── SEO helpers ──────────────────────────────────────────────────────────────
 
 function getSeoTier(score: number, status: string): 'published' | 'good' | 'partial' | 'unoptimized' {
   if (status === 'published') return 'published'
@@ -47,553 +42,550 @@ function getSeoTier(score: number, status: string): 'published' | 'good' | 'part
   return 'unoptimized'
 }
 
-const seoTierConfig = {
-  published:   { label: 'Publicat',     color: 'bg-emerald-50 text-emerald-700', dot: 'bg-emerald-500', icon: Upload },
-  good:        { label: 'Optimizat',    color: 'bg-blue-50 text-blue-700',       dot: 'bg-blue-500',    icon: CheckCircle },
-  partial:     { label: 'Parțial',      color: 'bg-amber-50 text-amber-700',     dot: 'bg-amber-400',   icon: MinusCircle },
-  unoptimized: { label: 'Neoptimizat',  color: 'bg-gray-100 text-gray-500',      dot: 'bg-gray-300',    icon: AlertCircle },
+const TIER = {
+  published:   { label: 'Publicat',    bg: 'bg-neutral-900', text: 'text-white',        dot: 'bg-white' },
+  good:        { label: 'Optimizat',   bg: 'bg-neutral-100', text: 'text-neutral-700',  dot: 'bg-emerald-500' },
+  partial:     { label: 'Parțial',     bg: 'bg-neutral-100', text: 'text-amber-600',    dot: 'bg-amber-400' },
+  unoptimized: { label: 'Neoptimizat', bg: 'bg-neutral-100', text: 'text-neutral-400',  dot: 'bg-neutral-300' },
 }
 
-function SeoIndicator({ score }: { score: number }) {
-  if (!score || score === 0) return (
-    <span className="text-[10px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded-md font-medium tabular-nums">—</span>
-  )
-  const color = score >= 80 ? 'bg-blue-50 text-blue-700' : score >= 50 ? 'bg-amber-50 text-amber-700' : 'bg-red-50 text-red-600'
-  return (
-    <span className={`text-[10px] px-1.5 py-0.5 rounded-md font-semibold tabular-nums ${color}`}>
-      SEO {score}
-    </span>
-  )
-}
-
-function SeoTierBadge({ score, status }: { score: number; status: string }) {
-  const tier = getSeoTier(score, status)
-  const cfg = seoTierConfig[tier]
-  return (
-    <span className={`text-[10px] px-1.5 py-0.5 rounded-md font-medium ${cfg.color}`}>
-      {cfg.label}
-    </span>
-  )
-}
-
-function NoImagePlaceholder({ size = 'md' }: { size?: 'sm' | 'md' }) {
-  return (
-    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">
-      <ImageIcon className={`${size === 'sm' ? 'h-5 w-5' : 'h-8 w-8'} text-gray-200`} />
-    </div>
-  )
-}
-
-const sortOptions: { value: SortOption; label: string }[] = [
+const SORT_OPTS: { value: SortOption; label: string }[] = [
   { value: 'newest',     label: 'Cele mai noi' },
   { value: 'oldest',    label: 'Cele mai vechi' },
-  { value: 'seo_desc',  label: 'SEO ↓ cel mai bun' },
-  { value: 'seo_asc',   label: 'SEO ↑ cel mai slab' },
-  { value: 'price_desc', label: 'Preț ↓' },
-  { value: 'price_asc', label: 'Preț ↑' },
+  { value: 'seo_desc',  label: 'SEO: Cel mai bun' },
+  { value: 'seo_asc',   label: 'SEO: Cel mai slab' },
+  { value: 'price_desc', label: 'Preț descrescător' },
+  { value: 'price_asc',  label: 'Preț crescător' },
 ]
 
-// ─── Main ─────────────────────────────────────────────────────────────────────
+const SEO_FILTERS = [
+  { value: 'all',         label: 'Toate' },
+  { value: 'unoptimized', label: 'Neoptimizate' },
+  { value: 'partial',     label: 'Parțiale' },
+  { value: 'good',        label: 'Optimizate' },
+  { value: 'published',   label: 'Publicate' },
+]
 
-export default function ProductsPage() {
-  const [products, setProducts]             = useState<Product[]>([])
-  const [loading, setLoading]               = useState(true)
-  const [syncing, setSyncing]               = useState(false)
-  const [hasStore, setHasStore]             = useState(false)
-  const [storeId, setStoreId]               = useState<string | null>(null)
-  const [searchInput, setSearchInput]       = useState('')
-  const [searchQuery, setSearchQuery]       = useState('')
-  const [viewMode, setViewMode]             = useState<'grid' | 'list'>('grid')
-  const [currentPage, setCurrentPage]       = useState(1)
-  const [perPage, setPerPage]               = useState(50)
-  const [totalProducts, setTotalProducts]   = useState(0)
-  const [totalPages, setTotalPages]         = useState(0)
-  const [seoFilter, setSeoFilter]           = useState('all')
-  const [categoryFilter, setCategoryFilter] = useState('all')
-  const [sortBy, setSortBy]                 = useState<SortOption>('newest')
-  const [statusCounts, setStatusCounts]     = useState<StatusCounts>({ all: 0, unoptimized: 0, partial: 0, good: 0, published: 0 })
-  const [categories, setCategories]         = useState<string[]>([])
-  const [showFilters, setShowFilters]       = useState(false)
-  const [hoveredId, setHoveredId]           = useState<string | null>(null)
+function ScoreBadge({ score }: { score: number }) {
+  if (!score) return <span className="text-[10px] text-neutral-300 font-medium tabular-nums">—</span>
+  const color = score >= 80 ? 'text-emerald-600' : score >= 50 ? 'text-amber-500' : 'text-red-500'
+  return <span className={`text-[11px] font-semibold tabular-nums ${color}`}>{score}</span>
+}
 
-  const fetchProducts = useCallback(async () => {
-    setLoading(true)
-    try {
-      const storeRes = await fetch('/api/stores')
-      const storeData = await storeRes.json()
-      const store = storeData.store
-      setHasStore(!!store)
-      if (store) setStoreId(store.id)
+function TierBadge({ score, status }: { score: number; status: string }) {
+  const tier = getSeoTier(score, status)
+  const t = TIER[tier]
+  return (
+    <span className={`inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-md ${t.bg} ${t.text}`}>
+      <span className={`h-1.5 w-1.5 rounded-full ${t.dot} shrink-0`} />
+      {t.label}
+    </span>
+  )
+}
 
-      const params = new URLSearchParams({
-        page: currentPage.toString(),
-        per_page: perPage.toString(),
-        parent_only: 'true',
-      })
-      if (searchQuery)                            params.set('search', searchQuery)
-      if (seoFilter && seoFilter !== 'all')       params.set('seo_filter', seoFilter)
-      if (categoryFilter && categoryFilter !== 'all') params.set('category', categoryFilter)
-
-      const res = await fetch('/api/products?' + params)
-      const data = await res.json()
-
-      let sorted: Product[] = data.products || []
-      if (sortBy === 'oldest')     sorted = [...sorted].sort((a, b) => a.id.localeCompare(b.id))
-      if (sortBy === 'seo_desc')   sorted = [...sorted].sort((a, b) => (b.seo_score || 0) - (a.seo_score || 0))
-      if (sortBy === 'seo_asc')    sorted = [...sorted].sort((a, b) => (a.seo_score || 0) - (b.seo_score || 0))
-      if (sortBy === 'price_desc') sorted = [...sorted].sort((a, b) => (b.price || 0) - (a.price || 0))
-      if (sortBy === 'price_asc')  sorted = [...sorted].sort((a, b) => (a.price || 0) - (b.price || 0))
-
-      setProducts(sorted)
-      setTotalProducts(data.total || 0)
-      setTotalPages(data.total_pages || 0)
-      if (data.status_counts) setStatusCounts(data.status_counts)
-      if (data.categories)    setCategories(data.categories)
-    } catch {
-      console.error('Error loading products')
-    } finally {
-      setLoading(false)
-    }
-  }, [currentPage, perPage, searchQuery, seoFilter, categoryFilter, sortBy])
-
-  useEffect(() => { fetchProducts() }, [fetchProducts])
-
-  useEffect(() => {
-    const t = setTimeout(() => { setSearchQuery(searchInput); setCurrentPage(1) }, 400)
-    return () => clearTimeout(t)
-  }, [searchInput])
-
-  const handleSync = async () => {
-    if (!storeId || syncing) return
-    setSyncing(true)
-    try {
-      const res = await fetch(`/api/stores/${storeId}/sync`, { method: 'POST' })
-      const data = await res.json()
-      if (res.ok) await fetchProducts()
-      else alert(data.error || 'Eroare la sincronizare')
-    } catch { alert('Eroare la sincronizare') }
-    finally { setSyncing(false) }
-  }
-
-  const getPageNumbers = () => {
-    const p: (number | string)[] = []
-    if (totalPages <= 7) { for (let i = 1; i <= totalPages; i++) p.push(i) }
-    else {
-      p.push(1)
-      if (currentPage > 3) p.push('...')
-      for (let i = Math.max(2, currentPage - 1); i <= Math.min(totalPages - 1, currentPage + 1); i++) p.push(i)
-      if (currentPage < totalPages - 2) p.push('...')
-      p.push(totalPages)
-    }
-    return p
-  }
-
-  const getImageUrl = (p: Product) => p.thumbnail_url || p.original_images?.[0] || null
-
-  const emptyMessage = () => {
-    if (searchQuery)              return { title: 'Niciun produs găsit', sub: `Nu există produse pentru „${searchQuery}".` }
-    if (seoFilter === 'unoptimized') return { title: 'Nicio produs neoptimizat', sub: 'Toate produsele au un scor SEO. Excelent!' }
-    if (seoFilter === 'partial')  return { title: 'Niciun produs parțial optimizat', sub: 'Produsele au scor SEO complet sau nu au fost procesate.' }
-    if (seoFilter === 'good')     return { title: 'Niciun produs cu SEO complet', sub: 'Mergi la Optimizare SEO și generează conținut AI.' }
-    if (seoFilter === 'published') return { title: 'Niciun produs publicat', sub: 'Optimizează produse și publică-le în WooCommerce.' }
-    return { title: 'Niciun produs sincronizat', sub: 'Apasă „Sincronizează" pentru a importa produsele din magazin.' }
-  }
-
-  const filterTabs = [
-    { key: 'all',          label: 'Toate',        count: statusCounts.all,          dot: 'bg-gray-300' },
-    { key: 'unoptimized',  label: 'Neoptimizat',  count: statusCounts.unoptimized,  dot: 'bg-gray-300' },
-    { key: 'partial',      label: 'Parțial',      count: statusCounts.partial,      dot: 'bg-amber-400' },
-    { key: 'good',         label: 'Optimizat',    count: statusCounts.good,         dot: 'bg-blue-500' },
-    { key: 'published',    label: 'Publicat',     count: statusCounts.published,    dot: 'bg-emerald-500' },
-  ]
-
-  const hasExtraFilters = categoryFilter !== 'all' || sortBy !== 'newest'
-
-  // ── Skeleton ───────────────────────────────────────────────────────────────
-  if (loading && products.length === 0) return (
-    <div className="space-y-5">
-      <div className="h-8 w-48 bg-gray-100 rounded-lg animate-pulse" />
-      <div className="flex gap-2">{[1,2,3,4,5].map(i => <div key={i} className="h-9 w-28 bg-gray-100 rounded-xl animate-pulse" />)}</div>
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-        {[...Array(10)].map((_, i) => <div key={i} className="rounded-2xl bg-gray-100 animate-pulse" style={{ aspectRatio: '3/4' }} />)}
-      </div>
+function NoImage({ size = 'md' }: { size?: 'sm' | 'md' | 'lg' }) {
+  const s = size === 'lg' ? 'h-10 w-10' : size === 'sm' ? 'h-4 w-4' : 'h-6 w-6'
+  return (
+    <div className="w-full h-full flex items-center justify-center bg-neutral-50">
+      <ImageIcon className={`${s} text-neutral-200`} />
     </div>
   )
+}
+
+function Skeleton({ className }: { className?: string }) {
+  return <div className={`animate-pulse bg-neutral-100 rounded-xl ${className || ''}`} />
+}
+
+function Dropdown({ label, options, value, onChange }: {
+  label: string
+  options: { value: string; label: string }[]
+  value: string
+  onChange: (v: string) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  const current = options.find(o => o.value === value)
+
+  useEffect(() => {
+    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false) }
+    document.addEventListener('mousedown', h)
+    return () => document.removeEventListener('mousedown', h)
+  }, [])
 
   return (
-    <div className="space-y-5">
+    <div ref={ref} className="relative">
+      <button onClick={() => setOpen(!open)}
+        className="flex items-center gap-1.5 h-9 px-3 rounded-xl border border-neutral-200 bg-white text-[12px] font-medium text-neutral-600 hover:border-neutral-300 hover:text-neutral-900 transition-all whitespace-nowrap">
+        <span>{current?.label || label}</span>
+        <ChevronDown className={`h-3.5 w-3.5 text-neutral-400 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+      <AnimatePresence>
+        {open && (
+          <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 4 }}
+            className="absolute top-11 left-0 z-30 min-w-[160px] bg-white border border-neutral-200 rounded-xl shadow-lg overflow-hidden">
+            {options.map(o => (
+              <button key={o.value} onClick={() => { onChange(o.value); setOpen(false) }}
+                className={`w-full text-left px-3 py-2 text-[12px] transition-colors hover:bg-neutral-50 ${o.value === value ? 'text-neutral-900 font-semibold' : 'text-neutral-500'}`}>
+                {o.label}
+              </button>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  )
+}
 
-      {/* ── Header ──────────────────────────────────────────────────────────── */}
-      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
-        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Produse</h1>
-            {hasStore && (
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1">
-                <span className="text-sm text-gray-400">{statusCounts.all} total</span>
-                {[
-                  { label: 'neoptimizate', count: statusCounts.unoptimized, color: 'text-gray-400' },
-                  { label: 'parțiale',     count: statusCounts.partial,     color: 'text-amber-500' },
-                  { label: 'optimizate',   count: statusCounts.good,        color: 'text-blue-500'  },
-                  { label: 'publicate',    count: statusCounts.published,   color: 'text-emerald-500' },
-                ].map(s => (
-                  <span key={s.label} className="flex items-center gap-1 text-sm">
-                    <span className="text-gray-200">·</span>
-                    <span className={s.color}>{s.count} {s.label}</span>
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
+function GridCard({ product, selected, onSelect }: {
+  product: Product
+  selected: boolean
+  onSelect: (id: string) => void
+}) {
+  const [hover, setHover] = useState(false)
+  const title = product.optimized_title || product.original_title
+  const img = product.thumbnail_url || product.original_images?.[0]
 
-          {hasStore && (
-            <div className="flex items-center gap-2">
-              <div className="hidden sm:flex border border-gray-200 rounded-xl overflow-hidden">
-                <button onClick={() => setViewMode('grid')} className={`p-2.5 transition-colors ${viewMode === 'grid' ? 'bg-blue-50 text-blue-600' : 'text-gray-400 hover:text-gray-600'}`}>
-                  <Grid3X3 className="h-4 w-4" />
-                </button>
-                <button onClick={() => setViewMode('list')} className={`p-2.5 transition-colors ${viewMode === 'list' ? 'bg-blue-50 text-blue-600' : 'text-gray-400 hover:text-gray-600'}`}>
-                  <LayoutList className="h-4 w-4" />
-                </button>
-              </div>
-              <Button onClick={handleSync} disabled={syncing} variant="outline" className="rounded-xl h-10 px-4 border-gray-200 gap-2">
-                <RefreshCw className={`h-4 w-4 ${syncing ? 'animate-spin text-blue-500' : 'text-gray-400'}`} />
-                <span className="text-sm">{syncing ? 'Sincronizez...' : 'Sincronizează'}</span>
-              </Button>
-            </div>
-          )}
-        </div>
-      </motion.div>
+  return (
+    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+      className={`group relative bg-white border rounded-xl overflow-hidden transition-all duration-200 cursor-pointer
+        ${selected ? 'border-neutral-900 ring-1 ring-neutral-900/10' : 'border-neutral-200 hover:border-neutral-300 hover:shadow-sm'}`}
+      onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}>
 
-      {/* ── No Store ────────────────────────────────────────────────────────── */}
-      {!hasStore ? (
-        <Card className="border-dashed border-2 border-gray-200 rounded-2xl shadow-none">
-          <CardContent className="flex flex-col items-center justify-center py-20">
-            <div className="h-16 w-16 rounded-2xl bg-blue-50 flex items-center justify-center mb-5">
-              <Store className="h-8 w-8 text-blue-500" />
-            </div>
-            <CardTitle className="mb-2 text-lg">Conectează-ți magazinul</CardTitle>
-            <CardDescription className="text-center max-w-sm mb-6">
-              Pentru a vedea produsele tale, conectează mai întâi magazinul WooCommerce.
-            </CardDescription>
-            <Link href="/settings">
-              <Button className="bg-blue-600 hover:bg-blue-700 rounded-xl h-10 px-6">
-                Conectează magazin <ArrowRight className="h-4 w-4 ml-2" />
-              </Button>
-            </Link>
-          </CardContent>
-        </Card>
-      ) : (
-        <>
-          {/* ── Filter Row ──────────────────────────────────────────────────── */}
-          <div className="flex flex-col sm:flex-row gap-3">
-            {/* Search */}
-            <div className="relative flex-1 max-w-sm">
-              <SearchIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <Input
-                placeholder="Caută produse..."
-                value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
-                className="pl-10 h-10 rounded-xl border-gray-200 bg-white"
-              />
-              {searchInput && (
-                <button onClick={() => { setSearchInput(''); setSearchQuery(''); setCurrentPage(1) }} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
-                  <X className="h-4 w-4" />
-                </button>
-              )}
-            </div>
+      <div className={`absolute top-2.5 left-2.5 z-10 transition-opacity duration-150 ${hover || selected ? 'opacity-100' : 'opacity-0'}`}>
+        <button onClick={e => { e.preventDefault(); onSelect(product.id) }}
+          className={`h-5 w-5 rounded-md border flex items-center justify-center transition-all
+            ${selected ? 'bg-neutral-900 border-neutral-900' : 'bg-white/90 backdrop-blur-sm border-neutral-300 hover:border-neutral-500'}`}>
+          {selected && <span className="text-white text-[10px]">✓</span>}
+        </button>
+      </div>
 
-            {/* SEO Filter tabs */}
-            <div className="flex items-center gap-1 bg-gray-100 rounded-xl p-1 overflow-x-auto">
-              {filterTabs.map(tab => (
-                <button
-                  key={tab.key}
-                  onClick={() => { setSeoFilter(tab.key); setCurrentPage(1) }}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all whitespace-nowrap ${
-                    seoFilter === tab.key ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
-                  }`}
-                >
-                  {tab.key !== 'all' && <div className={`h-1.5 w-1.5 rounded-full ${tab.dot}`} />}
-                  {tab.label}
-                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${
-                    seoFilter === tab.key ? 'bg-blue-100 text-blue-700' : 'bg-gray-200 text-gray-500'
-                  }`}>{tab.count}</span>
-                </button>
-              ))}
-            </div>
-
-            {/* Extra filters toggle */}
-            <button
-              onClick={() => setShowFilters(f => !f)}
-              className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-sm font-medium transition-all shrink-0 ${
-                showFilters || hasExtraFilters ? 'border-blue-200 bg-blue-50 text-blue-700' : 'border-gray-200 bg-white text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              <SlidersHorizontal className="h-4 w-4" />
-              <span className="hidden sm:inline">Filtre</span>
-              {hasExtraFilters && <span className="h-2 w-2 rounded-full bg-blue-500" />}
-            </button>
-          </div>
-
-          {/* ── Extra Filters Panel ──────────────────────────────────────────── */}
+      <Link href={`/seo/${product.id}`}>
+        <div className="aspect-square relative overflow-hidden bg-neutral-50">
+          {img
+            ? <img src={img} alt={title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+            : <NoImage size="lg" />
+          }
           <AnimatePresence>
-            {showFilters && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-                transition={{ duration: 0.2 }}
-                className="overflow-hidden"
-              >
-                <div className="flex flex-wrap items-center gap-3 p-4 bg-gray-50 rounded-2xl border border-gray-100">
-                  {categories.length > 0 && (
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-gray-500 font-medium">Categorie:</span>
-                      <select
-                        value={categoryFilter}
-                        onChange={(e) => { setCategoryFilter(e.target.value); setCurrentPage(1) }}
-                        className="text-sm border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-200"
-                      >
-                        <option value="all">Toate categoriile</option>
-                        {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
-                      </select>
-                    </div>
-                  )}
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-gray-500 font-medium">Sortare:</span>
-                    <select
-                      value={sortBy}
-                      onChange={(e) => setSortBy(e.target.value as SortOption)}
-                      className="text-sm border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-200"
-                    >
-                      {sortOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                    </select>
+            {hover && product.seo_score > 0 && (
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent flex items-end p-3">
+                <div className="flex items-center gap-1.5 w-full">
+                  <div className="h-1 flex-1 bg-white/30 rounded-full overflow-hidden">
+                    <div className="h-full bg-white rounded-full" style={{ width: `${product.seo_score}%` }} />
                   </div>
-                  <div className="flex items-center gap-2 ml-auto">
-                    <span className="text-xs text-gray-500 font-medium">Pe pagină:</span>
-                    <div className="flex gap-1">
-                      {[50, 100, 500].map(n => (
-                        <button key={n} onClick={() => { setPerPage(n); setCurrentPage(1) }}
-                          className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${perPage === n ? 'bg-blue-100 text-blue-700' : 'bg-white border border-gray-200 text-gray-500 hover:bg-gray-50'}`}>
-                          {n}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  {hasExtraFilters && (
-                    <button onClick={() => { setCategoryFilter('all'); setSortBy('newest') }} className="flex items-center gap-1 text-xs text-red-500 hover:text-red-700 font-medium">
-                      <X className="h-3.5 w-3.5" />Resetează
-                    </button>
-                  )}
+                  <span className="text-white text-[11px] font-semibold tabular-nums">{product.seo_score}</span>
                 </div>
               </motion.div>
             )}
           </AnimatePresence>
+        </div>
 
-          {/* ── Result count ─────────────────────────────────────────────────── */}
-          {!loading && (
-            <p className="text-sm text-gray-400">
-              {totalProducts} {totalProducts === 1 ? 'produs' : 'produse'}
-              {searchQuery ? ` pentru „${searchQuery}"` : ''}
-              {seoFilter !== 'all' ? ` · ${filterTabs.find(t => t.key === seoFilter)?.label}` : ''}
-              {categoryFilter !== 'all' ? ` · ${categoryFilter}` : ''}
+        <div className="p-3">
+          <p className="text-[13px] font-medium text-neutral-900 line-clamp-2 leading-snug mb-2">{title}</p>
+          <div className="flex items-center justify-between">
+            <TierBadge score={product.seo_score} status={product.status} />
+            {product.price != null && (
+              <span className="text-[12px] font-semibold text-neutral-900 tabular-nums">{product.price} lei</span>
+            )}
+          </div>
+          {product.category && (
+            <p className="text-[10px] text-neutral-400 mt-1.5 flex items-center gap-1 truncate">
+              <Tag className="h-2.5 w-2.5 shrink-0" />{product.category}
             </p>
           )}
+        </div>
+      </Link>
+    </motion.div>
+  )
+}
 
-          {/* ── Loading ───────────────────────────────────────────────────────── */}
-          {loading ? (
-            <div className="flex items-center justify-center py-16">
-              <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
-              <span className="ml-2 text-sm text-gray-500">Se încarcă...</span>
+function ListRow({ product, selected, onSelect, index }: {
+  product: Product
+  selected: boolean
+  onSelect: (id: string) => void
+  index: number
+}) {
+  const title = product.optimized_title || product.original_title
+  const img = product.thumbnail_url || product.original_images?.[0]
+  const hasText = !!(product.optimized_short_description || product.optimized_long_description)
+  const hasImage = !!(product.thumbnail_url)
+
+  return (
+    <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.02 }}
+      className={`group flex items-center gap-3 px-4 py-3 border-b border-neutral-50 last:border-0 transition-colors
+        ${selected ? 'bg-neutral-50' : 'hover:bg-neutral-50/70'}`}>
+
+      <button onClick={() => onSelect(product.id)}
+        className={`h-5 w-5 rounded-md border flex items-center justify-center shrink-0 transition-all
+          ${selected ? 'bg-neutral-900 border-neutral-900' : 'border-neutral-200 group-hover:border-neutral-400'}`}>
+        {selected && <span className="text-white text-[10px]">✓</span>}
+      </button>
+
+      <Link href={`/seo/${product.id}`} className="flex items-center gap-3 flex-1 min-w-0">
+        <div className="h-10 w-10 rounded-lg overflow-hidden bg-neutral-100 shrink-0">
+          {img ? <img src={img} alt={title} className="h-full w-full object-cover" /> : <NoImage size="sm" />}
+        </div>
+
+        <div className="flex-1 min-w-0">
+          <p className="text-[13px] font-medium text-neutral-900 truncate">{title}</p>
+          {product.category && (
+            <p className="text-[11px] text-neutral-400 truncate mt-0.5">{product.category}</p>
+          )}
+        </div>
+
+        <div className="hidden sm:flex items-center gap-3 shrink-0">
+          <div className="flex items-center gap-1">
+            <div className={`h-5 w-5 rounded-md flex items-center justify-center ${hasText ? 'bg-neutral-900' : 'bg-neutral-100'}`}>
+              <Sparkles className={`h-2.5 w-2.5 ${hasText ? 'text-white' : 'text-neutral-300'}`} />
             </div>
+            <div className={`h-5 w-5 rounded-md flex items-center justify-center ${hasImage ? 'bg-neutral-900' : 'bg-neutral-100'}`}>
+              <ImageIcon className={`h-2.5 w-2.5 ${hasImage ? 'text-white' : 'text-neutral-300'}`} />
+            </div>
+          </div>
 
-          /* ── Empty ───────────────────────────────────────────────────────── */
-          ) : products.length === 0 ? (
-            <div className="text-center py-20">
-              <div className="h-14 w-14 rounded-2xl bg-gray-100 flex items-center justify-center mx-auto mb-3">
-                <Package className="h-7 w-7 text-gray-300" />
+          <div className="w-10 text-right">
+            <ScoreBadge score={product.seo_score} />
+          </div>
+
+          {product.price != null && (
+            <div className="w-16 text-right">
+              <span className="text-[12px] font-medium text-neutral-600 tabular-nums">{product.price} lei</span>
+            </div>
+          )}
+
+          <TierBadge score={product.seo_score} status={product.status} />
+        </div>
+
+        <ArrowRight className="h-3.5 w-3.5 text-neutral-300 group-hover:text-neutral-500 transition-colors shrink-0 ml-1" />
+      </Link>
+    </motion.div>
+  )
+}
+
+function EmptyState({ hasSearch, onClear }: { hasSearch: boolean; onClear: () => void }) {
+  if (hasSearch) return (
+    <div className="text-center py-20">
+      <div className="h-14 w-14 rounded-xl bg-neutral-100 flex items-center justify-center mx-auto mb-4">
+        <Search className="h-6 w-6 text-neutral-300" />
+      </div>
+      <p className="text-[14px] font-medium text-neutral-500 mb-1">Niciun produs găsit</p>
+      <p className="text-[13px] text-neutral-400 mb-4">Încearcă un alt termen de căutare</p>
+      <button onClick={onClear} className="h-8 px-4 rounded-xl border border-neutral-200 text-[12px] font-medium text-neutral-600 hover:bg-neutral-50 transition-all">
+        Resetează căutarea
+      </button>
+    </div>
+  )
+
+  return (
+    <div className="text-center py-20">
+      <div className="h-16 w-16 rounded-xl bg-neutral-100 flex items-center justify-center mx-auto mb-4">
+        <Store className="h-7 w-7 text-neutral-300" />
+      </div>
+      <p className="text-[15px] font-semibold text-neutral-700 mb-1">Niciun produs sincronizat</p>
+      <p className="text-[13px] text-neutral-400 mb-5">Conectează-ți magazinul pentru a importa produsele</p>
+      <Link href="/settings">
+        <button className="h-9 px-5 rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white text-[13px] font-medium transition-all">
+          Conectează magazinul
+        </button>
+      </Link>
+    </div>
+  )
+}
+
+export default function ProductsPage() {
+  const [products, setProducts] = useState<Product[]>([])
+  const [total, setTotal] = useState(0)
+  const [loading, setLoading] = useState(true)
+  const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const [page, setPage] = useState(1)
+  const [view, setView] = useState<'grid' | 'list'>('grid')
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [categories, setCategories] = useState<string[]>([])
+  const [syncing, setSyncing] = useState(false)
+  const [filters, setFilters] = useState<FilterState>({ seo: 'all', sort: 'newest', category: 'all' })
+  const perPage = view === 'grid' ? 24 : 30
+  const totalPages = Math.ceil(total / perPage)
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => { setDebouncedSearch(search); setPage(1) }, 300)
+  }, [search])
+
+  const fetchProducts = useCallback(async () => {
+    setLoading(true)
+    try {
+      const params = new URLSearchParams({
+        page: String(page),
+        per_page: String(perPage),
+        parent_only: 'true',
+        ...(debouncedSearch && { search: debouncedSearch }),
+        ...(filters.seo !== 'all' && { seo_filter: filters.seo }),
+        ...(filters.category !== 'all' && { category: filters.category }),
+      })
+      const res = await fetch(`/api/products?${params}`)
+      const data = await res.json()
+      let prods = data.products || []
+
+      if (filters.sort === 'oldest') prods = [...prods].reverse()
+      else if (filters.sort === 'seo_desc') prods = [...prods].sort((a: Product, b: Product) => b.seo_score - a.seo_score)
+      else if (filters.sort === 'seo_asc') prods = [...prods].sort((a: Product, b: Product) => a.seo_score - b.seo_score)
+      else if (filters.sort === 'price_desc') prods = [...prods].sort((a: Product, b: Product) => (b.price || 0) - (a.price || 0))
+      else if (filters.sort === 'price_asc') prods = [...prods].sort((a: Product, b: Product) => (a.price || 0) - (b.price || 0))
+
+      setProducts(prods)
+      setTotal(data.total || 0)
+
+      if (categories.length === 0) {
+        const cats = [...new Set(prods.map((p: Product) => p.category).filter(Boolean))] as string[]
+        setCategories(cats)
+      }
+    } catch { } finally { setLoading(false) }
+  }, [page, perPage, debouncedSearch, filters])
+
+  useEffect(() => { fetchProducts() }, [fetchProducts])
+
+  const stats = {
+    total,
+    unoptimized: products.filter(p => p.seo_score === 0 && p.status !== 'published').length,
+    good: products.filter(p => p.seo_score >= 80 && p.status !== 'published').length,
+    published: products.filter(p => p.status === 'published').length,
+  }
+
+  const toggleSelect = (id: string) => {
+    setSelected(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
+  }
+
+  const toggleSelectAll = () => {
+    if (selected.size === products.length) setSelected(new Set())
+    else setSelected(new Set(products.map(p => p.id)))
+  }
+
+  const clearFilters = () => { setSearch(''); setFilters({ seo: 'all', sort: 'newest', category: 'all' }); setPage(1) }
+  const hasActiveFilters = filters.seo !== 'all' || filters.sort !== 'newest' || filters.category !== 'all' || search
+
+  return (
+    <div className="space-y-5">
+
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-[22px] font-semibold text-neutral-900 tracking-tight">Produse</h1>
+          <p className="text-[13px] text-neutral-400 mt-0.5">
+            {total > 0 ? `${total} produse în catalog` : 'Gestionează și optimizează produsele'}
+          </p>
+        </div>
+        <button
+          onClick={async () => {
+            setSyncing(true)
+            try { await fetch('/api/stores/current/sync', { method: 'POST' }) } catch { }
+            await fetchProducts()
+            setSyncing(false)
+          }}
+          disabled={syncing}
+          className="flex items-center gap-1.5 h-9 px-3.5 rounded-xl border border-neutral-200 bg-white text-[12px] font-medium text-neutral-600 hover:border-neutral-300 hover:text-neutral-900 transition-all disabled:opacity-50">
+          <RefreshCw className={`h-3.5 w-3.5 ${syncing ? 'animate-spin' : ''}`} />
+          <span className="hidden sm:inline">Sincronizează</span>
+        </button>
+      </div>
+
+      {/* Stats */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {[
+          { label: 'Total produse',  value: total,            filter: 'all',         accent: '' },
+          { label: 'Neoptimizate',   value: stats.unoptimized, filter: 'unoptimized', accent: '' },
+          { label: 'Optimizate',     value: stats.good,        filter: 'good',        accent: 'text-emerald-600' },
+          { label: 'Publicate',      value: stats.published,   filter: 'published',   accent: '' },
+        ].map(s => {
+          const active = filters.seo === s.filter
+          return (
+            <button key={s.filter} onClick={() => { setFilters(f => ({ ...f, seo: s.filter as any })); setPage(1) }}
+              className={`text-left p-4 rounded-xl border transition-all ${active ? 'border-neutral-900 bg-neutral-900' : 'border-neutral-200 bg-white hover:border-neutral-300'}`}>
+              <p className={`text-[22px] font-bold tabular-nums ${active ? 'text-white' : (s.accent || 'text-neutral-900')}`}>
+                {loading ? '—' : s.value}
+              </p>
+              <p className={`text-[11px] mt-0.5 ${active ? 'text-neutral-400' : 'text-neutral-400'}`}>{s.label}</p>
+            </button>
+          )
+        })}
+      </div>
+
+      {/* Main card */}
+      <div className="bg-white border border-neutral-200 rounded-xl overflow-hidden">
+
+        {/* Toolbar */}
+        <div className="flex items-center gap-2 p-3 border-b border-neutral-100">
+          <div className="relative flex-1 max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-neutral-300 pointer-events-none" />
+            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Caută produse..."
+              className="w-full h-9 pl-9 pr-8 rounded-xl bg-neutral-50 border border-neutral-100 text-[13px] text-neutral-700 placeholder:text-neutral-300 focus:outline-none focus:border-neutral-300 focus:bg-white transition-all" />
+            {search && (
+              <button onClick={() => setSearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-300 hover:text-neutral-500">
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2 ml-auto">
+            <Dropdown label="Sortare" options={SORT_OPTS} value={filters.sort}
+              onChange={v => setFilters(f => ({ ...f, sort: v as SortOption }))} />
+
+            {categories.length > 0 && (
+              <Dropdown label="Categorie"
+                options={[{ value: 'all', label: 'Toate categoriile' }, ...categories.map(c => ({ value: c, label: c }))]}
+                value={filters.category} onChange={v => { setFilters(f => ({ ...f, category: v })); setPage(1) }} />
+            )}
+
+            {hasActiveFilters && (
+              <button onClick={clearFilters}
+                className="flex items-center gap-1 h-9 px-2.5 rounded-xl text-[12px] text-neutral-400 hover:text-red-500 hover:bg-red-50 transition-all">
+                <X className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Resetează</span>
+              </button>
+            )}
+
+            <div className="flex items-center border border-neutral-200 rounded-xl overflow-hidden bg-neutral-50 p-0.5">
+              {(['grid', 'list'] as const).map(v => (
+                <button key={v} onClick={() => setView(v)}
+                  className={`h-7 w-7 flex items-center justify-center rounded-lg transition-all ${view === v ? 'bg-white shadow-sm text-neutral-900' : 'text-neutral-400 hover:text-neutral-600'}`}>
+                  {v === 'grid' ? <LayoutGrid className="h-3.5 w-3.5" /> : <List className="h-3.5 w-3.5" />}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* SEO filter tabs */}
+        <div className="flex items-center gap-1 px-3 py-2 border-b border-neutral-50 overflow-x-auto">
+          {SEO_FILTERS.map(f => (
+            <button key={f.value}
+              onClick={() => { setFilters(prev => ({ ...prev, seo: f.value as any })); setPage(1) }}
+              className={`shrink-0 h-7 px-3 rounded-lg text-[12px] font-medium transition-all
+                ${filters.seo === f.value ? 'bg-neutral-900 text-white' : 'text-neutral-500 hover:bg-neutral-100 hover:text-neutral-700'}`}>
+              {f.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Bulk bar */}
+        <AnimatePresence>
+          {selected.size > 0 && (
+            <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
+              className="border-b border-neutral-100 bg-neutral-50 px-4 py-2.5 flex items-center gap-3 overflow-hidden">
+              <span className="text-[12px] font-medium text-neutral-700">{selected.size} selectate</span>
+              <div className="h-3 w-px bg-neutral-200" />
+              <button onClick={toggleSelectAll} className="text-[12px] text-neutral-500 hover:text-neutral-900 transition-colors">
+                {selected.size === products.length ? 'Deselectează tot' : 'Selectează tot'}
+              </button>
+              <div className="ml-auto flex items-center gap-2">
+                <button className="flex items-center gap-1.5 h-7 px-3 rounded-lg bg-neutral-900 hover:bg-neutral-800 text-white text-[12px] font-medium transition-all">
+                  <Sparkles className="h-3 w-3" />
+                  Optimizează SEO ({selected.size})
+                </button>
+                <button className="flex items-center gap-1.5 h-7 px-3 rounded-lg border border-neutral-200 bg-white text-[12px] font-medium text-neutral-600 hover:border-neutral-300 transition-all">
+                  <ImageIcon className="h-3 w-3" />
+                  Generează imagini
+                </button>
+                <button onClick={() => setSelected(new Set())}
+                  className="h-7 w-7 flex items-center justify-center rounded-lg text-neutral-300 hover:text-neutral-600 hover:bg-neutral-100 transition-all">
+                  <X className="h-3.5 w-3.5" />
+                </button>
               </div>
-              <p className="text-gray-700 font-semibold mb-1">{emptyMessage().title}</p>
-              <p className="text-sm text-gray-400 max-w-xs mx-auto">{emptyMessage().sub}</p>
-              {!searchQuery && seoFilter === 'all' && (
-                <Button onClick={handleSync} disabled={syncing} variant="outline" className="mt-5 rounded-xl gap-2">
-                  <RefreshCw className={`h-4 w-4 ${syncing ? 'animate-spin' : ''}`} />
-                  Sincronizează acum
-                </Button>
-              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Content */}
+        {loading ? (
+          view === 'grid' ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6 gap-3 p-4">
+              {Array.from({ length: 12 }).map((_, i) => (
+                <div key={i} className="space-y-2">
+                  <Skeleton className="aspect-square" />
+                  <Skeleton className="h-3 w-3/4" />
+                  <Skeleton className="h-3 w-1/2" />
+                </div>
+              ))}
             </div>
-
-          /* ── GRID ────────────────────────────────────────────────────────── */
-          ) : viewMode === 'grid' ? (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
-              {products.map((product, i) => {
-                const imgUrl = getImageUrl(product)
-                const tier = getSeoTier(product.seo_score, product.status)
-                const tierCfg = seoTierConfig[tier]
-                return (
-                  <motion.div
-                    key={product.id}
-                    initial={{ opacity: 0, y: 12 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.22, delay: Math.min(i * 0.03, 0.3) }}
-                  >
-                    <Link href={`/seo/${product.id}`}>
-                      <div
-                        className="group bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm hover:shadow-md hover:border-blue-100 transition-all duration-200 flex flex-col cursor-pointer"
-                        onMouseEnter={() => setHoveredId(product.id)}
-                        onMouseLeave={() => setHoveredId(null)}
-                      >
-                        {/* Image */}
-                        <div className="relative aspect-square bg-gray-50 overflow-hidden">
-                          {imgUrl
-                            ? <img src={imgUrl} alt={product.original_title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                            : <NoImagePlaceholder />
-                          }
-
-                          {/* SEO tier badge — top left */}
-                          <div className="absolute top-2 left-2">
-                            <span className={`text-[10px] px-1.5 py-0.5 rounded-md font-medium backdrop-blur-sm ${tierCfg.color}`}>
-                              {tierCfg.label}
-                            </span>
-                          </div>
-
-                          {/* Hover overlay */}
-                          <AnimatePresence>
-                            {hoveredId === product.id && (
-                              <motion.div
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                                exit={{ opacity: 0 }}
-                                transition={{ duration: 0.15 }}
-                                className="absolute inset-0 bg-gray-900/40 flex items-center justify-center"
-                              >
-                                <div className="flex items-center gap-1.5 bg-blue-600 text-white text-xs font-semibold px-4 py-2 rounded-xl shadow-lg">
-                                  <Sparkles className="h-3.5 w-3.5" />
-                                  Optimizează SEO
-                                </div>
-                              </motion.div>
-                            )}
-                          </AnimatePresence>
-
-                          {/* Variations badge */}
-                          {product.variations_count > 0 && (
-                            <div className="absolute bottom-2 right-2">
-                              <span className="text-[10px] bg-gray-900/70 text-white px-1.5 py-0.5 rounded-md font-medium">
-                                {product.variations_count} var.
-                              </span>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Info */}
-                        <div className="p-3 flex flex-col flex-1">
-                          <h3 className="text-sm font-medium text-gray-900 leading-snug line-clamp-2">
-                            {product.optimized_title || product.original_title}
-                          </h3>
-                          <div className="flex items-center justify-between mt-auto pt-2 gap-1">
-                            <SeoIndicator score={product.seo_score} />
-                            {product.price ? (
-                              <span className="text-sm font-semibold text-gray-800 shrink-0">
-                                {product.price} <span className="text-[10px] text-gray-400 font-normal">RON</span>
-                              </span>
-                            ) : product.category ? (
-                              <span className="text-[10px] text-gray-400 truncate">{product.category}</span>
-                            ) : null}
-                          </div>
-                        </div>
-                      </div>
-                    </Link>
-                  </motion.div>
-                )
-              })}
-            </div>
-
-          /* ── LIST ────────────────────────────────────────────────────────── */
           ) : (
-            <div className="space-y-1.5">
-              {/* List header */}
-              <div className="hidden sm:grid grid-cols-12 gap-4 px-4 py-2 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
-                <div className="col-span-6">Produs</div>
-                <div className="col-span-2">Categorie</div>
-                <div className="col-span-1 text-center">SEO</div>
-                <div className="col-span-1 text-center">Status</div>
-                <div className="col-span-2 text-right">Preț</div>
+            <div className="divide-y divide-neutral-50">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} className="flex items-center gap-3 px-4 py-3">
+                  <Skeleton className="h-5 w-5 rounded-md" />
+                  <Skeleton className="h-10 w-10 rounded-lg shrink-0" />
+                  <Skeleton className="h-4 flex-1" />
+                  <Skeleton className="h-4 w-20 hidden sm:block" />
+                </div>
+              ))}
+            </div>
+          )
+        ) : products.length === 0 ? (
+          <EmptyState hasSearch={!!(debouncedSearch || filters.seo !== 'all')} onClear={clearFilters} />
+        ) : view === 'grid' ? (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6 gap-3 p-4">
+            {products.map(p => (
+              <GridCard key={p.id} product={p} selected={selected.has(p.id)} onSelect={toggleSelect} />
+            ))}
+          </div>
+        ) : (
+          <div>
+            <div className="hidden sm:flex items-center gap-3 px-4 py-2 bg-neutral-50 border-b border-neutral-100">
+              <button onClick={toggleSelectAll}
+                className="h-5 w-5 rounded-md border border-neutral-200 flex items-center justify-center shrink-0 hover:border-neutral-400 transition-colors">
+                {selected.size === products.length && products.length > 0 && <span className="text-neutral-900 text-[10px]">✓</span>}
+              </button>
+              <div className="w-10 shrink-0" />
+              <span className="flex-1 text-[11px] font-medium text-neutral-400 uppercase tracking-wider">Produs</span>
+              <div className="flex items-center gap-3 shrink-0">
+                <span className="text-[11px] font-medium text-neutral-400 uppercase tracking-wider w-10 text-right">AI</span>
+                <span className="text-[11px] font-medium text-neutral-400 uppercase tracking-wider w-10 text-right">SEO</span>
+                <span className="text-[11px] font-medium text-neutral-400 uppercase tracking-wider w-16 text-right">Preț</span>
+                <span className="text-[11px] font-medium text-neutral-400 uppercase tracking-wider w-20">Status</span>
               </div>
+              <div className="w-5" />
+            </div>
+            {products.map((p, i) => (
+              <ListRow key={p.id} product={p} selected={selected.has(p.id)} onSelect={toggleSelect} index={i} />
+            ))}
+          </div>
+        )}
 
-              {products.map((product, i) => {
-                const imgUrl = getImageUrl(product)
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between px-4 py-3 border-t border-neutral-100">
+            <p className="text-[12px] text-neutral-400">
+              {(page - 1) * perPage + 1}–{Math.min(page * perPage, total)} din {total} produse
+            </p>
+            <div className="flex items-center gap-1">
+              <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
+                className="h-8 w-8 flex items-center justify-center rounded-lg border border-neutral-200 text-neutral-500 hover:bg-neutral-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all">
+                <ChevronLeft className="h-3.5 w-3.5" />
+              </button>
+
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                let p: number
+                if (totalPages <= 5) p = i + 1
+                else if (page <= 3) p = i + 1
+                else if (page >= totalPages - 2) p = totalPages - 4 + i
+                else p = page - 2 + i
                 return (
-                  <motion.div
-                    key={product.id}
-                    initial={{ opacity: 0, x: -8 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ duration: 0.18, delay: Math.min(i * 0.02, 0.2) }}
-                  >
-                    <Link href={`/seo/${product.id}`}>
-                      <div className="grid grid-cols-12 gap-4 items-center bg-white rounded-xl border border-gray-100 px-4 py-3 hover:border-blue-100 hover:shadow-sm transition-all cursor-pointer group">
-                        <div className="col-span-12 sm:col-span-6 flex items-center gap-3">
-                          <div className="h-11 w-11 rounded-xl bg-gray-50 overflow-hidden shrink-0">
-                            {imgUrl
-                              ? <img src={imgUrl} alt="" className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                              : <NoImagePlaceholder size="sm" />
-                            }
-                          </div>
-                          <div className="min-w-0">
-                            <p className="text-sm font-medium text-gray-900 truncate">
-                              {product.optimized_title || product.original_title}
-                            </p>
-                            {product.variations_count > 0 && (
-                              <p className="text-[11px] text-gray-400">{product.variations_count} variații</p>
-                            )}
-                          </div>
-                        </div>
-                        <div className="hidden sm:block col-span-2">
-                          <p className="text-xs text-gray-400 truncate">{product.category || '—'}</p>
-                        </div>
-                        <div className="hidden sm:flex col-span-1 justify-center">
-                          <SeoIndicator score={product.seo_score} />
-                        </div>
-                        <div className="hidden sm:flex col-span-1 justify-center">
-                          <SeoTierBadge score={product.seo_score} status={product.status} />
-                        </div>
-                        <div className="hidden sm:block col-span-2 text-right">
-                          {product.price
-                            ? <span className="text-sm font-semibold text-gray-800">{product.price} <span className="text-xs text-gray-400 font-normal">RON</span></span>
-                            : <span className="text-gray-300">—</span>
-                          }
-                        </div>
-                      </div>
-                    </Link>
-                  </motion.div>
+                  <button key={p} onClick={() => setPage(p)}
+                    className={`h-8 w-8 flex items-center justify-center rounded-lg text-[12px] font-medium transition-all
+                      ${page === p ? 'bg-neutral-900 text-white' : 'border border-neutral-200 text-neutral-500 hover:bg-neutral-50'}`}>
+                    {p}
+                  </button>
                 )
               })}
-            </div>
-          )}
 
-          {/* ── Pagination ───────────────────────────────────────────────────── */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between pt-4 border-t border-gray-100">
-              <p className="text-xs text-gray-400">Pagina {currentPage} din {totalPages} ({totalProducts} produse)</p>
-              <div className="flex items-center gap-1">
-                <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-30 transition-colors">
-                  <ChevronLeft className="h-4 w-4" />
-                </button>
-                {getPageNumbers().map((pn, i) =>
-                  pn === '...'
-                    ? <span key={'d' + i} className="px-2 text-gray-400 text-sm">...</span>
-                    : <button key={pn} onClick={() => setCurrentPage(pn as number)}
-                        className={`h-8 w-8 rounded-lg text-sm font-medium transition-all ${currentPage === pn ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-500 hover:bg-gray-100'}`}>
-                        {pn}
-                      </button>
-                )}
-                <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-30 transition-colors">
-                  <ChevronRightIcon className="h-4 w-4" />
-                </button>
-              </div>
+              <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
+                className="h-8 w-8 flex items-center justify-center rounded-lg border border-neutral-200 text-neutral-500 hover:bg-neutral-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all">
+                <ChevronRight className="h-3.5 w-3.5" />
+              </button>
             </div>
-          )}
-        </>
-      )}
+          </div>
+        )}
+      </div>
     </div>
   )
 }
