@@ -206,10 +206,18 @@ function showBubble(msg){
   updBadge();
   // Arată bubble-ul cu mesajul
   var bl=document.getElementById('_h_bl');
-  document.getElementById('_h_bl_t').textContent=msg;
-  bl.style.display='flex';
+  var blText=document.getElementById('_h_bl_t');
+  if(bl&&blText){
+    blText.textContent=msg;
+    bl.style.display='flex';
+    bl.style.opacity='1';
+    bl.style.visibility='visible';
+    bl.style.pointerEvents='auto';
+  }
+  // Salvează mesajul pentru a-l afișa în chat dacă userul deschide
+  window._hTriggerMsg=msg;
   // Auto-hide bubble după 30 secunde (badge-ul rămâne)
-  setTimeout(function(){hideBubble();},30000);
+  setTimeout(function(){if(bl)bl.style.display='none';},30000);
 }
 
 function hideBubble(){
@@ -634,12 +642,20 @@ function updBadge(){var b=document.getElementById('_h_bg');if(!b)return;if(unrea
 function toggle(){isOpen?closeChat():openChat();}
 function openChat(){
   isOpen=true;
-  hideBubble();
+  var bl=document.getElementById('_h_bl');
+  if(bl)bl.style.display='none';
   document.getElementById('_h_w').classList.add('on');
   btn.innerHTML=iX(ICN_S)+'<div id="_h_bg"></div>';
   badge=btn.querySelector('#_h_bg');
   unread=0;updBadge();inp.focus();
-  if(!welcomed){welcomed=true;doWelcome();}
+  // Dacă s-a deschis după un trigger, arată mesajul triggerului în chat
+  if(window._hTriggerMsg&&!welcomed){
+    welcomed=true;
+    renderMsg('assistant',window._hTriggerMsg,{quick_replies:window._hCfg&&window._hCfg.quick_replies?window._hCfg.quick_replies:['Caut un produs','Am o întrebare']});
+    window._hTriggerMsg=null;
+  } else if(!welcomed){
+    welcomed=true;doWelcome();
+  }
 }
 function closeChat(){
   isOpen=false;
@@ -742,7 +758,7 @@ fetch(BASE+'/api/agent/memory?userId='+UID+'&visitorId='+vid)
   .then(function(d){if(d&&d.memory)window._hMem=d.memory;})
   .catch(function(){});
 
-setTimeout(function(){if(!isOpen&&!welcomed){unread=1;updBadge();}},25000);
+// Removed: misleading 25s fallback badge — triggers handle notifications now
 
 // ── REAL-TIME CONFIG (SSE — actualizare instant din dashboard) ───────────────
 function connectConfigStream(){

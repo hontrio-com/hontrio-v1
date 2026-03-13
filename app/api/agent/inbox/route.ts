@@ -18,34 +18,35 @@ export async function GET(request: Request) {
 
     const supabase = createAdminClient()
 
-    let query = supabase
+    // Source 1: visitor_sessions (detailed — has messages_log)
+    let vsQuery = supabase
       .from('visitor_sessions')
       .select('session_id, visitor_id, messages_count, intents, messages_log, search_queries, started_at, ended_at, starred, archived', { count: 'exact' })
       .eq('user_id', userId)
       .gte('started_at', since)
       .eq('archived', false)
       .order('started_at', { ascending: false })
-      .range((page - 1) * limit, page * limit - 1)
 
-    if (intent) query = query.contains('intents', [intent])
+    if (intent) vsQuery = vsQuery.contains('intents', [intent])
 
-    const { data: sessions, count } = await query
+    const { data: vsSessions, count: vsCount } = await vsQuery
 
-    // Filtrare după search în messages_log (client-side pentru simplitate)
-    let filtered = sessions || []
-    if (search) {
-      const q = search.toLowerCase()
-      filtered = filtered.filter((s: any) =>
-        (s.messages_log || []).some((m: any) => m.content?.toLowerCase().includes(q)) ||
-        (s.search_queries || []).some((sq: string) => sq.toLowerCase().includes(q))
-      )
-    }
+    // Source 2: agent_conversations (fallback — always has data)
+    const { data: agentConvs } = await supabase
+      .from('agent_conversations')
+      .select('session_id, visitor_id, message_count, intent, messages, escalated, started_at, last_message_at')
+      .eq('user_id', userId)
+      .gte('started_at', since)
+      .order('last_message_at', { ascending: false })
 
-    // Formatare pentru UI
-    const conversations = filtered.map((s: any) => {
+    // Merge: visitor_sessions first, then agent_conversations for missing sessions
+    const vsSessionIds = new Set((vsSessions || []).map(s => s.session_id))
+
+    // Format visitor_sessions
+    const fromVS = (vsSessions || []).map((s: any) => {
       const msgs: Array<{ role: string; content: string }> = s.messages_log || []
       const lastMsg = msgs[msgs.length - 1]
-      const firstUserMsg = msgs.find(m => m.role === 'user')
+      const firstUserMsg = msgs.find((m: any) => m.role === 'user')
       const isEscalated = (s.intents || []).some((i: string) => ['escalate', 'problem'].includes(i))
       const dominantIntent = (s.intents || []).reduce((acc: any, i: string) => {
         acc[i] = (acc[i] || 0) + 1; return acc
@@ -67,7 +68,57 @@ export async function GET(request: Request) {
       }
     })
 
-    return NextResponse.json({ conversations, total: count || 0, page, pages: Math.ceil((count || 0) / limit) })
+    // Format agent_conversations (for sessions NOT in visitor_sessions)
+    const fromAC = (agentConvs || [])
+      .filter((c: any) => !vsSessionIds.has(c.session_id))
+      .map((c: any) => {
+        const msgs: Array<{ role: string; content: string }> = c.messages || []
+        const lastMsg = msgs[msgs.length - 1]
+        const firstUserMsg = msgs.find((m: any) => m.role === 'user')
+
+        return {
+          session_id: c.session_id,
+          visitor_id: c.visitor_id,
+          messages_count: c.message_count || msgs.length,
+          intents: c.intent ? [c.intent] : [],
+          dominant_intent: c.intent || 'browsing',
+          is_escalated: c.escalated || false,
+          preview: lastMsg?.content?.slice(0, 100) || firstUserMsg?.content?.slice(0, 100) || 'Conversație',
+          started_at: c.started_at,
+          ended_at: c.last_message_at,
+          starred: false,
+          messages: msgs,
+        }
+      })
+
+    // Combine and sort by date
+    let conversations = [...fromVS, ...fromAC]
+      .sort((a, b) => new Date(b.started_at || 0).getTime() - new Date(a.started_at || 0).getTime())
+
+    // Search filter
+    if (search) {
+      const q = search.toLowerCase()
+      conversations = conversations.filter(c =>
+        c.messages.some((m: any) => m.content?.toLowerCase().includes(q)) ||
+        c.preview.toLowerCase().includes(q)
+      )
+    }
+
+    // Intent filter on combined results
+    if (intent) {
+      conversations = conversations.filter(c => c.intents.includes(intent))
+    }
+
+    // Paginate
+    const total = conversations.length
+    const paginated = conversations.slice((page - 1) * limit, page * limit)
+
+    return NextResponse.json({
+      conversations: paginated,
+      total,
+      page,
+      pages: Math.ceil(total / limit),
+    })
   } catch (err) {
     console.error('[Inbox]', err)
     return NextResponse.json({ error: 'Eroare' }, { status: 500 })

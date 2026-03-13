@@ -651,7 +651,8 @@ async function persistMemory(params: {
     let newSummary = existing?.conversation_summary || null
     let newKeyFacts: any[] = existing?.key_facts || []
 
-    if (params.messages.length >= 4) {
+    // GPT summary doar la fiecare 5+ mesaje (cost optimization)
+    if (params.messages.length >= 4 && params.messages.length % 5 <= 1) {
       try {
         const summaryRes = await openai.chat.completions.create({
           model: 'gpt-4o-mini',
@@ -923,18 +924,16 @@ export async function POST(request:Request) {
 
     const currentHistory=[...history,{role:'user',content:safeMessage},{role:'assistant',content:response.message}]
 
-    saveConv({supabase,userId:store_user_id,sessionId:session_id,visitorId:visitor_id,intent:response.intent,products:allProducts.map(p=>p.id)}).catch(()=>{})
+    saveConv({supabase,userId:store_user_id,sessionId:session_id,visitorId:visitor_id,intent:response.intent,products:allProducts.map(p=>p.id),messages:currentHistory}).catch(()=>{})
 
     if(visitor_id){
-      // FIX: Persistă memoria doar la fiecare 5 mesaje pentru a reduce costurile GPT
-      const msgCount = full_history.length || currentHistory.length
-      if (msgCount % 5 === 0 || response.intent === 'escalate' || response.intent === 'problem') {
-        persistMemory({
-          userId:store_user_id, visitorId:visitor_id, sessionId:session_id,
-          messages:full_history.length>0?full_history:currentHistory,
-          searchQueries:searchQueriesUsed, productsShown:allProducts.map(p=>p.id), intent:response.intent,
-        }).catch(()=>{})
-      }
+      // Persistă sesiunea LA FIECARE mesaj (necesar pentru Inbox)
+      // GPT summary se face doar la fiecare 5 mesaje (cost optimization)
+      persistMemory({
+        userId:store_user_id, visitorId:visitor_id, sessionId:session_id,
+        messages:full_history.length>0?full_history:currentHistory,
+        searchQueries:searchQueriesUsed, productsShown:allProducts.map(p=>p.id), intent:response.intent,
+      }).catch(()=>{})
     }
 
     // 13. Unanswered questions tracking
@@ -970,11 +969,20 @@ export async function POST(request:Request) {
   }
 }
 
-async function saveConv(p:{supabase:any;userId:string;sessionId:string;visitorId?:string;intent:string;products:string[]}) {
+async function saveConv(p:{supabase:any;userId:string;sessionId:string;visitorId?:string;intent:string;products:string[];messages?:Array<{role:string;content:string}>}) {
   try{
-    const {data:c}=await p.supabase.from('agent_conversations').upsert({user_id:p.userId,session_id:p.sessionId,visitor_id:p.visitorId,intent:p.intent,last_message_at:new Date().toISOString(),escalated:p.intent==='escalate'||p.intent==='problem'},{onConflict:'session_id'}).select('id,message_count').single()
+    const upsertData: any = {
+      user_id:p.userId, session_id:p.sessionId, visitor_id:p.visitorId,
+      intent:p.intent, last_message_at:new Date().toISOString(),
+      escalated:p.intent==='escalate'||p.intent==='problem',
+    }
+    // Salvează mesajele în conversations (pentru Inbox)
+    if (p.messages && p.messages.length > 0) {
+      upsertData.messages = p.messages.slice(-50) // max 50 mesaje per conversație
+    }
+    const {data:c}=await p.supabase.from('agent_conversations').upsert(upsertData,{onConflict:'session_id'}).select('id,message_count').single()
     if(c)await p.supabase.from('agent_conversations').update({message_count:(c.message_count||0)+2,products_shown:p.products.length>0?p.products:undefined}).eq('id',c.id)
-  }catch{}
+  }catch(err){console.error('[saveConv]',err)}
 }
 
 export async function OPTIONS() {
