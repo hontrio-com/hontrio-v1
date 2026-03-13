@@ -525,6 +525,18 @@ export async function POST(request: Request) {
       )
     }
 
+   
+    const newCreditsUpfront = user.credits - creditCost
+    await supabase.from('users').update({ credits: newCreditsUpfront }).eq('id', userId)
+    await supabase.from('credit_transactions').insert({
+      user_id: userId,
+      type: 'usage',
+      amount: -creditCost,
+      balance_after: newCreditsUpfront,
+      description: `Generare imagine AI (rezervare)`,
+      reference_type: 'image_generation',
+    })
+
     // ── Determină imaginea de referință și detaliile produsului ────────────
     let refImageUrl: string | null = null
     let productTitle = 'Product'
