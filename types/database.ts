@@ -5,7 +5,7 @@ export type User = {
   avatar_url: string | null
   role: 'user' | 'admin'
   credits: number
-  plan: 'free' | 'starter' | 'pro' | 'enterprise'
+  plan: 'free' | 'starter' | 'professional' | 'enterprise'
   onboarding_completed: boolean
   created_at: string
   updated_at: string
