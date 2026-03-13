@@ -78,7 +78,7 @@ Meta description curentă: "${currentMeta}"`
 TASK: Generează un titlu SEO optimizat pentru această pagină de produs eCommerce.
 
 REGULI STRICTE (conform Google Search Quality Guidelines):
-- Lungime: 50-70 caractere (ideal 55-60) — mai mult este trunchiat în SERP
+- Lungime OBLIGATORIE: 55-65 caractere (STRICT — sub 50 sau peste 70 e INACCEPTABIL)
 - Include: tip produs + atribut diferențiator principal + brand (dacă relevant)
 - Folosește cuvintele pe care CUMPĂRĂTORII le folosesc în căutări, nu jargon tehnic
 - NU include prețul sau stocul (se schimbă frecvent)
@@ -96,7 +96,7 @@ Returnează DOAR JSON:
 TASK: Generează o meta description optimizată SEO pentru această pagină de produs.
 
 REGULI STRICTE (conform Google Search Guidelines pentru snippets):
-- Lungime: MAXIM 155 caractere (ideal 140-155) — va fi trunchiat după această limită
+- Lungime OBLIGATORIE: 130-150 caractere (sub 120 = penalizare, peste 155 = trunchiat)
 - NU este un factor direct de ranking, dar influențează CTR (click-through rate)
 - Trebuie să descrie pagina MAI BINE decât textul vizibil — altfel Google o ignoră
 - Include: beneficiul principal + un diferențiator unic + call-to-action clar
@@ -179,33 +179,39 @@ Descriere lungă originală HTML: ${(product.original_description || '').substri
 
 TASK: Generează TOATE secțiunile SEO optimizate pentru acest produs eCommerce.
 
-REGULI STRICTE pentru fiecare câmp:
+ATENȚIE CRITICĂ — DIMENSIUNI OBLIGATORII (Algoritmul nostru de scoring penalizează sever abaterile):
 
 TITLU (optimized_title):
-- 50-70 caractere, include tip produs + atribut cheie, natural și persuasiv
-- Structură: [Tip Produs] [Atribut] – [Diferențiator] | [Brand dacă relevant]
+- OBLIGATORIU între 55-65 caractere (nu mai puțin de 50, nu mai mult de 70)
+- Numără caracterele înainte de a răspunde — dacă are sub 50 sau peste 70, RESCRIE
+- Include: tip produs + atribut diferențiator + brand (dacă există)
+- TREBUIE să conțină focus_keyword-ul pe care îl alegi
 
 META DESCRIPTION (meta_description):
-- MAXIM 155 caractere, beneficiu + diferențiator + CTA, orientat pe intenția de cumpărare
+- OBLIGATORIU între 130-150 caractere (nu mai puțin de 120, nu mai mult de 155)
+- Numără caracterele — dacă are sub 120, adaugă detalii; dacă are peste 155, prescurtează
+- Include beneficiu principal + CTA clar ("Comandă acum", "Vezi oferta", "Livrare rapidă")
+- TREBUIE să conțină focus_keyword-ul
 
 DESCRIERE SCURTĂ (optimized_short_description):
-- 2-4 propoziții, 50-120 cuvinte, convinge la adăugare în coș
-- Dacă originalul are HTML, returnează HTML optimizat
+- OBLIGATORIU minimum 80 caractere text (fără HTML tags)
+- 2-4 propoziții convingătoare, orientate pe vânzare
+- Dacă originalul are HTML, returnează HTML optimizat cu textul îmbunătățit
 
 DESCRIERE LUNGĂ (optimized_long_description):
-- HTML structurat cu h3/p/ul/li
-- DACĂ originalul are HTML: PĂSTREAZĂ structura identică, optimizează DOAR textul
-- Minimum 200 cuvinte, include keyword natural, adaugă information gain
+- OBLIGATORIU minimum 250 cuvinte (numără!)
+- HTML structurat: h3 + p + ul/li
+- Include focus_keyword-ul natural de 3-5 ori (density 0.5-2.5%)
+- Secțiuni: ce este produsul, pentru cine, caracteristici, beneficii, mod utilizare
 
 FOCUS KEYWORD (focus_keyword):
-- 2-4 cuvinte, query-ul principal al cumpărătorilor
+- 2-4 cuvinte, query-ul principal de căutare al cumpărătorilor
+- Acest keyword TREBUIE să apară în: titlu, meta description, descriere scurtă, descriere lungă
 
 CUVINTE CHEIE SECUNDARE (secondary_keywords):
-- Array de 3-5 variații și long-tail
+- Array de 3-5 variații long-tail
 
-SEO SCORE (seo_score): număr 0-100 estimat pentru calitatea SEO a conținutului generat
-
-SEO SUGGESTIONS (seo_suggestions): array de 2-4 sugestii practice suplimentare
+SEO SUGGESTIONS (seo_suggestions): array de 2-3 sugestii practice
 
 Returnează DOAR JSON valid:
 {

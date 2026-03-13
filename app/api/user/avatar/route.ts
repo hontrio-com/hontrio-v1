@@ -12,7 +12,7 @@ export async function POST(request: Request) {
 
     const userId = (session.user as any).id
     const formData = await request.formData()
-    const file = formData.get('avatar') as File
+    const file = (formData.get('file') || formData.get('avatar')) as File
 
     if (!file) {
       return NextResponse.json({ error: 'Niciun fișier selectat' }, { status: 400 })
@@ -68,7 +68,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Eroare la actualizarea profilului' }, { status: 500 })
     }
 
-    return NextResponse.json({ avatar_url: publicUrl })
+    return NextResponse.json({ url: publicUrl, avatar_url: publicUrl })
   } catch (err) {
     console.error('Avatar upload error:', err)
     return NextResponse.json({ error: 'Eroare internă' }, { status: 500 })

@@ -21,7 +21,7 @@ export async function GET(req: Request) {
     let query = supabase
       .from('risk_customers')
       .select('*', { count: 'exact' })
-      .eq('user_id', session.user.id)
+      .eq('user_id', (session.user as any).id)
       .order('risk_score', { ascending: false })
       .range(offset, offset + limit - 1)
 
@@ -38,7 +38,7 @@ export async function GET(req: Request) {
     let statsQuery = supabase
       .from('risk_customers')
       .select('risk_label, store_id')
-      .eq('user_id', session.user.id)
+      .eq('user_id', (session.user as any).id)
 
     if (store_id) statsQuery = statsQuery.eq('store_id', store_id)
 
@@ -55,7 +55,7 @@ export async function GET(req: Request) {
     let alertsQuery = supabase
       .from('risk_alerts')
       .select('id', { count: 'exact', head: true })
-      .eq('user_id', session.user.id)
+      .eq('user_id', (session.user as any).id)
       .eq('is_read', false)
     if (store_id) alertsQuery = alertsQuery.eq('store_id', store_id)
     const { count: unreadAlerts } = await alertsQuery
@@ -80,7 +80,7 @@ export async function PATCH(req: Request) {
       .from('risk_customers')
       .select('id, risk_label, store_id')
       .eq('id', customer_id)
-      .eq('user_id', session.user.id)
+      .eq('user_id', (session.user as any).id)
       .single()
     if (!customer) return NextResponse.json({ error: 'Client negăsit' }, { status: 404 })
 
@@ -104,7 +104,7 @@ export async function PATCH(req: Request) {
       } else {
         updates.manual_label_override = label_override
         updates.risk_label = label_override
-        updates.override_by = session.user.id
+        updates.override_by = (session.user as any).id
         updates.override_at = new Date().toISOString()
       }
     }
@@ -117,7 +117,7 @@ export async function PATCH(req: Request) {
     if (label_override !== undefined) {
       await supabase.from('risk_audit_log').insert({
         store_id: customer.store_id,
-        user_id: session.user.id,
+        user_id: (session.user as any).id,
         customer_id,
         action: 'label_override',
         old_value: customer.risk_label,
@@ -127,7 +127,7 @@ export async function PATCH(req: Request) {
     if (in_local_blacklist !== undefined) {
       await supabase.from('risk_audit_log').insert({
         store_id: customer.store_id,
-        user_id: session.user.id,
+        user_id: (session.user as any).id,
         customer_id,
         action: in_local_blacklist ? 'add_to_blacklist' : 'remove_from_blacklist',
       })

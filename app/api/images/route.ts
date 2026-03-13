@@ -41,3 +41,55 @@ export async function GET() {
     return NextResponse.json({ error: 'Eroare internă' }, { status: 500 })
   }
 }
+// DELETE — șterge una sau mai multe imagini
+export async function DELETE(request: Request) {
+  try {
+    const session = await getServerSession(authOptions)
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
+    }
+
+    const userId = (session.user as any).id
+    const { image_ids } = await request.json()
+
+    if (!Array.isArray(image_ids) || image_ids.length === 0) {
+      return NextResponse.json({ error: 'image_ids lipsesc' }, { status: 400 })
+    }
+
+    // Cap la 50 imagini per cerere
+    const ids = image_ids.slice(0, 50)
+
+    const supabase = createAdminClient()
+
+    // Verifică ownership — toate imaginile trebuie să aparțină userului
+    const { data: images } = await supabase
+      .from('generated_images')
+      .select('id, generated_image_url')
+      .eq('user_id', userId)
+      .in('id', ids)
+
+    if (!images || images.length === 0) {
+      return NextResponse.json({ error: 'Nicio imagine găsită' }, { status: 404 })
+    }
+
+    // Șterge din DB
+    const { error } = await supabase
+      .from('generated_images')
+      .delete()
+      .eq('user_id', userId)
+      .in('id', ids)
+
+    if (error) {
+      console.error('[Images DELETE]', error)
+      return NextResponse.json({ error: 'Eroare la ștergere' }, { status: 500 })
+    }
+
+    return NextResponse.json({
+      success: true,
+      deleted: images.length,
+    })
+  } catch (err) {
+    console.error('[Images DELETE]', err)
+    return NextResponse.json({ error: 'Eroare internă' }, { status: 500 })
+  }
+}

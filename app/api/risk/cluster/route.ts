@@ -22,7 +22,7 @@ export async function GET(req: Request) {
       .from('risk_customers')
       .select('id,name,phone,email,risk_score,risk_label,orders_refused,total_orders')
       .eq('id', customer_id)
-      .eq('user_id', session.user.id)
+      .eq('user_id', (session.user as any).id)
       .single()
     if (!target) return NextResponse.json({ error: 'Client negăsit' }, { status: 404 })
 
@@ -47,7 +47,7 @@ export async function GET(req: Request) {
     // Ia toți ceilalți clienți din magazin
     let q = supabase.from('risk_customers')
       .select('id,name,phone,email')
-      .eq('user_id', session.user.id)
+      .eq('user_id', (session.user as any).id)
       .neq('id', customer_id)
     if (store_id) q = q.eq('store_id', store_id)
     const { data: allCustomers } = await q
@@ -114,7 +114,7 @@ export async function POST(req: Request) {
 
     let q = supabase.from('risk_customers')
       .select('id,name,phone,email,risk_score,risk_label,orders_refused,total_orders')
-      .eq('user_id', session.user.id)
+      .eq('user_id', (session.user as any).id)
     if (store_id) q = q.eq('store_id', store_id)
     const { data: customers } = await q
 
@@ -125,7 +125,7 @@ export async function POST(req: Request) {
     // Ia adrese
     let aq = supabase.from('risk_orders')
       .select('customer_id,shipping_address')
-      .eq('user_id', session.user.id)
+      .eq('user_id', (session.user as any).id)
     if (store_id) aq = aq.eq('store_id', store_id)
     const { data: addresses } = await aq
 

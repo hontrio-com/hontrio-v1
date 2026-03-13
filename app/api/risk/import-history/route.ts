@@ -12,7 +12,7 @@ export async function POST(req: Request) {
     if (!customer_id) return NextResponse.json({ error: 'customer_id obligatoriu' }, { status: 400 })
     const supabase = createAdminClient()
     const { data: customer } = await supabase.from('risk_customers')
-      .select('*').eq('id', customer_id).eq('user_id', session.user.id).single()
+      .select('*').eq('id', customer_id).eq('user_id', (session.user as any).id).single()
     if (!customer) return NextResponse.json({ error: 'Client negăsit' }, { status: 404 })
     const { data: store } = await supabase.from('stores')
       .select('id, store_url, api_key, api_secret, user_id').eq('id', customer.store_id).single()

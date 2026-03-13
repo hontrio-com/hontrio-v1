@@ -12,7 +12,7 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url)
     const supabase = createAdminClient()
     let q = supabase.from('risk_orders').select('*', { count: 'exact' })
-      .eq('user_id', session.user.id).order('ordered_at', { ascending: false })
+      .eq('user_id', (session.user as any).id).order('ordered_at', { ascending: false })
       .limit(parseInt(searchParams.get('limit') || '50'))
     if (searchParams.get('store_id')) q = q.eq('store_id', searchParams.get('store_id'))
     if (searchParams.get('customer_id')) q = q.eq('customer_id', searchParams.get('customer_id'))
@@ -33,7 +33,7 @@ export async function PATCH(req: Request) {
     const supabase = createAdminClient()
     const { data: order } = await supabase.from('risk_orders')
       .select('id, customer_id, order_status, store_id')
-      .eq('id', order_id).eq('user_id', session.user.id).single()
+      .eq('id', order_id).eq('user_id', (session.user as any).id).single()
     if (!order) return NextResponse.json({ error: 'Not found' }, { status: 404 })
     await supabase.from('risk_orders').update({
       order_status,
@@ -45,7 +45,7 @@ export async function PATCH(req: Request) {
       await recalc(supabase, order.customer_id, order.store_id, settings)
     }
     await supabase.from('risk_audit_log').insert({
-      store_id: order.store_id, user_id: session.user.id, order_id,
+      store_id: order.store_id, user_id: (session.user as any).id, order_id,
       customer_id: order.customer_id, action: 'order_status_updated',
       old_value: order.order_status, new_value: order_status,
     })
@@ -59,7 +59,7 @@ export async function PATCH(req: Request) {
         const flags = (full?.risk_flags || []).map((f: any) => f.code).filter(Boolean)
         const newW = recalibrateWeights(w, cust?.risk_label || 'new', order_status as any, flags)
         await supabase.from('risk_store_settings').upsert({
-          store_id: order.store_id, user_id: session.user.id, ml_weights: newW, updated_at: new Date().toISOString(),
+          store_id: order.store_id, user_id: (session.user as any).id, ml_weights: newW, updated_at: new Date().toISOString(),
         }, { onConflict: 'store_id' })
       } catch {}
     }

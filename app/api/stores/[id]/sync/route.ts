@@ -42,6 +42,9 @@ function extractYoastMeta(metaData: any[]): { metaDescription: string | null; fo
   }
 }
 
+// Vercel: permite până la 5 minute pentru sincronizare
+export const maxDuration = 300
+
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 
 // Retry a Supabase operation up to 3 times with exponential backoff
@@ -126,7 +129,7 @@ export async function POST(
 
     console.log('Starting sync for store:', store.store_url)
 
-    const firstResult = await woo.getProducts(1, 10)
+    const firstResult = await woo.getProducts(1, 100)
     const totalProducts = firstResult.total
     const totalPages = firstResult.totalPages
 
@@ -141,10 +144,10 @@ export async function POST(
     console.log(`Total products: ${totalProducts}, pages: ${totalPages}`)
 
     while (page <= totalPages) {
-      const result = await woo.getProducts(page, 10)
+      const result = await woo.getProducts(page, 100)
       allProducts = [...allProducts, ...result.data]
 
-      if (page % 5 === 0 || page === totalPages) {
+      if (page % 3 === 0 || page === totalPages) {
         await supabase
           .from('stores')
           .update({ sync_progress: allProducts.length })
@@ -514,6 +517,17 @@ export async function POST(
         sync_total: totalToSave,
       })
       .eq('id', store.id)
+
+    // ===== PHASE 4: AUTO-REGISTER WEBHOOKS (for Risk Shield real-time updates) =====
+    try {
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL || ''
+      if (appUrl && store.webhook_secret) {
+        await woo.ensureWebhooks(appUrl, store.webhook_secret)
+        console.log('[Sync] Webhooks verified/registered')
+      }
+    } catch (whErr) {
+      console.error('[Sync] Webhook registration failed (non-fatal):', whErr)
+    }
 
     console.log(`===== SYNC COMPLETE =====`)
     console.log(`Products from WooCommerce: ${uniqueProducts.length}`)

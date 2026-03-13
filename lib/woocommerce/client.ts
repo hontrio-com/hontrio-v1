@@ -140,4 +140,55 @@ export class WooCommerceClient {
     })
     return data
   }
+
+  // ── Webhook Management ──────────────────────────────────────────────────
+  async listWebhooks() {
+    const { data } = await this.request('webhooks', { per_page: '100' })
+    return data
+  }
+
+  async createWebhook(topic: string, deliveryUrl: string, secret: string) {
+    const url = new URL(`${this.config.store_url}/wp-json/wc/v3/webhooks`)
+    const res = await fetch(url.toString(), {
+      method: 'POST',
+      headers: {
+        'Authorization': this.authHeader,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        name: `Hontrio — ${topic}`,
+        topic,
+        delivery_url: deliveryUrl,
+        secret,
+        status: 'active',
+      }),
+    })
+    if (!res.ok) {
+      const err = await res.text()
+      console.error(`[WooCommerce] Webhook create error for ${topic}:`, err)
+      return null
+    }
+    return res.json()
+  }
+
+  async ensureWebhooks(baseUrl: string, secret: string) {
+    try {
+      const existing = await this.listWebhooks()
+      const existingTopics = (existing || []).map((w: any) => w.topic)
+      
+      const required = [
+        { topic: 'order.created', url: `${baseUrl}/api/risk/webhook` },
+        { topic: 'order.updated', url: `${baseUrl}/api/risk/webhook` },
+      ]
+
+      for (const { topic, url } of required) {
+        if (!existingTopics.includes(topic)) {
+          console.log(`[WooCommerce] Registering webhook: ${topic} → ${url}`)
+          await this.createWebhook(topic, url, secret)
+        }
+      }
+    } catch (err) {
+      console.error('[WooCommerce] ensureWebhooks error:', err)
+    }
+  }
 }

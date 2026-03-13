@@ -20,5 +20,16 @@
       "path": "/api/cron/image-cleanup",
       "schedule": "*/10 * * * *"
     }
-  ]
+  ],
+  "functions": {
+    "app/api/stores/[id]/sync/route.ts": {
+      "maxDuration": 300
+    },
+    "app/api/cron/image-bulk/route.ts": {
+      "maxDuration": 300
+    },
+    "app/api/cron/risk-sync-orders/route.ts": {
+      "maxDuration": 300
+    }
+  }
 }

@@ -60,6 +60,18 @@ export async function POST(request: Request) {
       )
     }
 
+    // Deducem creditele UPFRONT — refund la final pentru cele eșuate
+    const upfrontBalance = user.credits - totalCost
+    await supabase.from('users').update({ credits: upfrontBalance }).eq('id', userId)
+    await supabase.from('credit_transactions').insert({
+      user_id: userId,
+      type: 'usage',
+      amount: -totalCost,
+      balance_after: upfrontBalance,
+      description: `SEO Bulk — ${ids.length} produse (rezervare)`,
+      reference_type: 'seo_bulk',
+    })
+
     const { data: products } = await supabase
       .from('products')
       .select('*')

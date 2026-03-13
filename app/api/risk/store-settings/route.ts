@@ -17,7 +17,7 @@ export async function GET(req: Request) {
 
     // Verifică ownership store
     const { data: store } = await supabase.from('stores')
-      .select('id, store_url').eq('id', store_id).eq('user_id', session.user.id).single()
+      .select('id, store_url').eq('id', store_id).eq('user_id', (session.user as any).id).single()
     if (!store) return NextResponse.json({ error: 'Store negăsit' }, { status: 404 })
 
     const { data: settings } = await supabase
@@ -78,7 +78,7 @@ export async function POST(req: Request) {
 
     // Verifică ownership
     const { data: store } = await supabase.from('stores')
-      .select('id').eq('id', store_id).eq('user_id', session.user.id).single()
+      .select('id').eq('id', store_id).eq('user_id', (session.user as any).id).single()
     if (!store) return NextResponse.json({ error: 'Store negăsit' }, { status: 404 })
 
     // Câmpuri permise de actualizat
@@ -91,7 +91,7 @@ export async function POST(req: Request) {
       'participate_in_global_blacklist', 'shipping_cost_ron', 'return_shipping_cost_ron',
     ]
 
-    const sanitized: Record<string, any> = { store_id, user_id: session.user.id, updated_at: new Date().toISOString() }
+    const sanitized: Record<string, any> = { store_id, user_id: (session.user as any).id, updated_at: new Date().toISOString() }
     for (const key of ALLOWED) {
       if (key in updates) sanitized[key] = updates[key]
     }

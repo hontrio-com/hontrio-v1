@@ -40,7 +40,8 @@ const PROMPT_BUILDER_SYSTEM = [
   'The product from the reference image must be reproduced with 100% fidelity:',
   '- Shape and silhouette: EXACT — zero distortion, zero morphing, zero simplification',
   '- Proportions: exactly as reference — no stretching, no compression of any part',
-  '- Colors: pixel-perfect — every shade, gradient, color zone reproduced exactly',
+  '- Colors: ABSOLUTELY pixel-perfect — every shade, gradient, color zone MUST BE reproduced EXACTLY as in the reference. This is the #1 most critical requirement. ANY color shift = total failure.',
+  '- COLOR WARNING: The AI model tends to shift product colors based on the environment lighting. EXPLICITLY state in the prompt that product colors must NOT be affected by scene lighting. Specify the EXACT product colors and mandate they remain unchanged.',
   '- Labels/text/logos ON the product: every character perfectly reproduced — no blurring, no invention',
   '- Packaging: if box/bottle/can/bag — the EXACT packaging artwork is reproduced',
   '- Materials: matte stays matte, glossy stays glossy, metallic stays metallic, transparent stays transparent',
@@ -381,6 +382,7 @@ async function buildPromptWithGPT(params: {
   productDescription: string | null
   style: string
   manualDescription?: string
+  brandKit?: { primary_color: string; secondary_color: string; accent_color: string; brand_name: string; tone: string }
 }): Promise<string> {
   const cleanDescription = params.productDescription
     ? params.productDescription.replace(/<[^>]*>/g, '').substring(0, 700)
@@ -397,8 +399,21 @@ async function buildPromptWithGPT(params: {
   ]
   const variationHint = variationHints[variationSeed % variationHints.length]
 
+  // Add brand context if available
+  const brandContext = params.brandKit ? [
+    '',
+    '═══════════════════════════════════════════',
+    'BRAND IDENTITY (incorporate subtly into scene):',
+    '═══════════════════════════════════════════',
+    params.brandKit.brand_name ? `Brand: ${params.brandKit.brand_name}` : '',
+    params.brandKit.primary_color ? `Primary brand color: ${params.brandKit.primary_color} — use as accent in scene elements (NOT on the product)` : '',
+    params.brandKit.tone ? `Brand tone: ${params.brandKit.tone} — let this influence the mood and atmosphere` : '',
+    'IMPORTANT: Brand colors should appear in scene elements (background accents, props, lighting tint) but NEVER alter the product itself.',
+  ].filter(Boolean) : []
+
   const userMessage = [
     'Write a complete, ultra-detailed, UNIQUE product photography prompt for Nano Banana Pro.',
+    ...brandContext,
     '',
     '═══════════════════════════════════════════',
     'PRODUCT:',
@@ -441,7 +456,7 @@ async function buildPromptWithGPT(params: {
     'STEP 3 — WRITE THE PROMPT:',
     '',
     'MANDATORY FIRST SENTENCE (copy exactly):',
-    '"Reproduce the EXACT product from the reference image with absolute fidelity — identical shape, proportions, colors, labels, text, logos, packaging details, material finishes, and every physical characteristic — zero alterations permitted to the product itself."',
+    '"Reproduce the EXACT product from the reference image with absolute fidelity — identical shape, proportions, colors (CRITICALLY IMPORTANT: product colors must remain EXACTLY as in the reference — no color shifting from environment lighting, no desaturation, no tinting), labels, text, logos, packaging details, material finishes, and every physical characteristic — zero alterations permitted to the product itself. The product\'s color palette is SACRED and must be preserved pixel-perfectly regardless of scene lighting or background."',
     '',
     'Then continue describing in full technical detail:',
     '1. The product: what the model must reproduce exactly (physical details, materials, finish)',
@@ -525,7 +540,8 @@ export async function POST(request: Request) {
       )
     }
 
-   
+    // FIX: Deducem creditele ACUM, la crearea taskului — nu la finalizarea SSE
+    // Dacă generarea eșuează, SSE progress va face refund
     const newCreditsUpfront = user.credits - creditCost
     await supabase.from('users').update({ credits: newCreditsUpfront }).eq('id', userId)
     await supabase.from('credit_transactions').insert({
@@ -600,6 +616,13 @@ export async function POST(request: Request) {
       )
     }
 
+    // Load brand kit for color/style context in prompts
+    const { data: brandKit } = await supabase
+      .from('brand_kits')
+      .select('primary_color, secondary_color, accent_color, brand_name, tone')
+      .eq('user_id', userId)
+      .maybeSingle()
+
     // ── Concurrent job guard ───────────────────────────────────────────────
     const jobKey = `${userId}:image:${productDbId || 'upload'}`
     if (!markJobRunning(jobKey)) {
@@ -647,6 +670,7 @@ export async function POST(request: Request) {
         productDescription,
         style,
         manualDescription: manual_description,
+        brandKit: brandKit || undefined,
       })
 
       console.log(`[ImageGen] GPT prompt built (${detailedPrompt.length} chars) for style: ${style}`)

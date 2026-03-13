@@ -33,17 +33,17 @@ type Transaction = {
 // ─── Config ───────────────────────────────────────────────────────────────────
 
 const CREDIT_PACKS = [
-  { id: 'pack_50',   credits: 50,   price: 15,  popular: false },
-  { id: 'pack_100',  credits: 100,  price: 25,  popular: true  },
-  { id: 'pack_250',  credits: 250,  price: 50,  popular: false },
-  { id: 'pack_500',  credits: 500,  price: 85,  popular: false },
-  { id: 'pack_1000', credits: 1000, price: 150, popular: false },
+  { id: 'pack_50',   credits: 50,   price: 39,  popular: false },
+  { id: 'pack_100',  credits: 100,  price: 69,  popular: false },
+  { id: 'pack_300',  credits: 300,  price: 159, popular: true  },
+  { id: 'pack_500',  credits: 500,  price: 249, popular: false },
+  { id: 'pack_1000', credits: 1000, price: 399, popular: false },
 ]
 
 const PLANS = [
-  { id: 'starter',      name: 'Starter',      price: 49,  credits: 200  },
-  { id: 'professional', name: 'Professional', price: 99,  credits: 500  },
-  { id: 'enterprise',   name: 'Enterprise',   price: 249, credits: 2000 },
+  { id: 'starter',      name: 'Starter',      price: 99,  credits: 250  },
+  { id: 'professional', name: 'Professional', price: 249, credits: 750  },
+  { id: 'enterprise',   name: 'Enterprise',   price: 499, credits: 2000 },
 ]
 
 const TABS = [

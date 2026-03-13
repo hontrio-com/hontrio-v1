@@ -27,7 +27,7 @@ export async function POST(req: Request) {
       title,
       message,
       type,
-      read: false,
+      is_read: false,
       created_at: new Date().toISOString(),
     }))
 

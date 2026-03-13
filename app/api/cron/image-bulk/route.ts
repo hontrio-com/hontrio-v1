@@ -11,9 +11,13 @@ const STYLE_COSTS: Record<string, number> = {
 // Processes up to 3 bulk items per cron run (stays within Vercel timeout)
 // Schedule: every 5 minutes via vercel.json
 export async function GET(request: Request) {
-  const authHeader = request.headers.get('authorization')
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  // Vercel cron authentication — skip if CRON_SECRET not configured
+  const cronSecret = process.env.CRON_SECRET
+  if (cronSecret) {
+    const authHeader = request.headers.get('authorization')
+    if (authHeader !== `Bearer ${cronSecret}`) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
   }
 
   const supabase = createAdminClient()
@@ -21,7 +25,19 @@ export async function GET(request: Request) {
   let failed = 0
 
   try {
-    // Find oldest queued item from active jobs
+    // Find active bulk jobs first, then get their queued items
+    const { data: activeJobs } = await supabase
+      .from('image_bulk_jobs')
+      .select('id')
+      .in('status', ['queued', 'processing'])
+      .limit(10)
+
+    if (!activeJobs?.length) {
+      return NextResponse.json({ message: 'No active jobs', processed: 0 })
+    }
+
+    const activeJobIds = activeJobs.map((j: any) => j.id)
+
     const { data: items } = await supabase
       .from('image_bulk_items')
       .select(`
@@ -30,7 +46,7 @@ export async function GET(request: Request) {
         products(id, original_title, optimized_title, category, original_images, original_description, optimized_short_description, external_id)
       `)
       .eq('status', 'queued')
-      .in('image_bulk_jobs.status', ['queued', 'processing'])
+      .in('job_id', activeJobIds)
       .order('created_at', { ascending: true })
       .limit(3) // Process max 3 per run
 

@@ -31,6 +31,19 @@ export async function GET() {
       return NextResponse.json({ error: 'Eroare la încărcarea magazinului' }, { status: 500 })
     }
 
+    // Dacă store.products_count e 0 dar avem produse, actualizăm din DB
+    if (store && store.products_count === 0) {
+      const { count } = await supabase
+        .from('products')
+        .select('id', { count: 'exact', head: true })
+        .eq('store_id', store.id)
+      if (count && count > 0) {
+        store.products_count = count
+        // Actualizăm și în DB
+        await supabase.from('stores').update({ products_count: count }).eq('id', store.id)
+      }
+    }
+
     return NextResponse.json({ store: store || null })
   } catch (err) {
     logApiError(ROUTE, 500, 'Eroare neașteptată', { error: String(err) })

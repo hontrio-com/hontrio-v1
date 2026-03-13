@@ -186,7 +186,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               {!collapsed ? (
                 <Link href="/dashboard" className="flex items-center gap-2"><img src="/logo-black.png" alt="Hontrio" style={{ height: 22, width: 'auto' }} /></Link>
               ) : (
-                <Link href="/dashboard"><div className="h-8 w-8 rounded-lg bg-neutral-900 flex items-center justify-center"><Sparkles className="h-3.5 w-3.5 text-white" /></div></Link>
+                <Link href="/dashboard"><img src="/logo-icon.png" alt="Hontrio" style={{ height: 28, width: 'auto' }} /></Link>
               )}
               {!collapsed && <button className="lg:hidden text-neutral-400 hover:text-neutral-600" onClick={() => setSidebarOpen(false)}><X className="h-5 w-5" /></button>}
             </div>

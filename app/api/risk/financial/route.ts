@@ -20,14 +20,14 @@ export async function GET(req: Request) {
 
     let q = supabase.from('risk_orders')
       .select('order_status,total_value,currency,ordered_at,customer_id,payment_method')
-      .eq('user_id', session.user.id)
+      .eq('user_id', (session.user as any).id)
       .gte('ordered_at', fromDate)
     if (store_id) q = q.eq('store_id', store_id)
     const { data: orders } = await q
 
     let qPrev = supabase.from('risk_orders')
       .select('order_status,total_value,currency,ordered_at')
-      .eq('user_id', session.user.id)
+      .eq('user_id', (session.user as any).id)
       .gte('ordered_at', prevFromDate)
       .lt('ordered_at', fromDate)
     if (store_id) qPrev = qPrev.eq('store_id', store_id)
@@ -35,7 +35,7 @@ export async function GET(req: Request) {
 
     let qBlocked = supabase.from('risk_customers')
       .select('id,risk_score,risk_label,orders_refused,total_orders')
-      .eq('user_id', session.user.id)
+      .eq('user_id', (session.user as any).id)
       .in('risk_label', ['blocked','problematic'])
       .gte('updated_at', fromDate)
     if (store_id) qBlocked = qBlocked.eq('store_id', store_id)

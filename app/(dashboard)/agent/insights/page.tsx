@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import {
   AlertCircle, BookOpen, Plus, Trash2, ToggleLeft, ToggleRight,
-  Star, TrendingUp, CheckCircle2, Loader2, Save, RefreshCw,
+  Star, TrendingUp, CheckCircle2, Loader2, Save, RefreshCw, MessageCircle,
 } from 'lucide-react'
 
 // ─── Primitives ───────────────────────────────────────────────────────────────
@@ -353,10 +353,10 @@ export default function InsightsPage() {
   const [tab, setTab] = useState<'unanswered'|'heatmap'|'training'|'reviews'>('unanswered')
 
   const tabs = [
-    { id:'unanswered', label:'❓ Fără răspuns',    icon:AlertCircle },
-    { id:'heatmap',    label:'🔥 Heatmap produse', icon:TrendingUp  },
-    { id:'training',   label:'🎓 Antrenament',     icon:Star        },
-    { id:'reviews',    label:'⭐ Review-uri',       icon:Star        },
+    { id:'unanswered', label:'Fără răspuns',    icon:AlertCircle },
+    { id:'heatmap',    label:'Heatmap produse', icon:TrendingUp  },
+    { id:'training',   label:'Antrenament',     icon:BookOpen    },
+    { id:'reviews',    label:'Review-uri',       icon:MessageCircle },
   ] as const
 
   return (

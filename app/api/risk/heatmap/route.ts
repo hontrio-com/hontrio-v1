@@ -96,7 +96,7 @@ export async function GET(req: Request) {
 
     let q = supabase.from('risk_orders')
       .select('order_status, total_value, shipping_address')
-      .eq('user_id', session.user.id)
+      .eq('user_id', (session.user as any).id)
       .gte('ordered_at', fromDate)
       .in('order_status', ['collected', 'refused', 'returned', 'not_home', 'cancelled'])
     if (store_id) q = q.eq('store_id', store_id)

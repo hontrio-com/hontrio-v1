@@ -77,6 +77,9 @@ export async function POST(request: Request) {
 
     if (error) throw error
 
+    // FIX: Notifică widget-ul via SSE că config-ul s-a schimbat
+    try { notifyConfigChange(userId, data) } catch {}
+
     return NextResponse.json({ success: true, config: data })
   } catch (err: any) {
     console.error('[Agent Config POST]', err)

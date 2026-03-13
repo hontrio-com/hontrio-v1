@@ -71,9 +71,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                       : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50'
                   }`}
                 >
-                  <item.icon className={`h-[18px] w-[18px] ${isActive ? 'text-white' : 'text-gray-700'}`} />
+                  <item.icon className={`h-[18px] w-[18px] ${isActive ? 'text-red-600' : 'text-gray-400'}`} />
                   {item.label}
-                  {isActive && <div className="ml-auto h-1.5 w-1.5 rounded-full bg-white" />}
+                  {isActive && <div className="ml-auto h-1.5 w-1.5 rounded-full bg-red-500" />}
                 </Link>
               )
             })}

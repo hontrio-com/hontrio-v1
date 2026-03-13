@@ -18,7 +18,7 @@ export async function GET(req: Request) {
     let query = supabase
       .from('risk_alerts')
       .select('*', { count: 'exact' })
-      .eq('user_id', session.user.id)
+      .eq('user_id', (session.user as any).id)
       .order('created_at', { ascending: false })
       .limit(limit)
 
@@ -29,7 +29,7 @@ export async function GET(req: Request) {
     const { count: unreadCount } = await supabase
       .from('risk_alerts')
       .select('id', { count: 'exact', head: true })
-      .eq('user_id', session.user.id)
+      .eq('user_id', (session.user as any).id)
       .eq('is_read', false)
 
     return NextResponse.json({ alerts: data || [], total: count || 0, unread: unreadCount || 0 })
@@ -49,7 +49,7 @@ export async function PATCH(req: Request) {
     if (mark_all_read) {
       await supabase.from('risk_alerts')
         .update({ is_read: true })
-        .eq('user_id', session.user.id)
+        .eq('user_id', (session.user as any).id)
       return NextResponse.json({ ok: true })
     }
 
@@ -57,12 +57,12 @@ export async function PATCH(req: Request) {
       const updates: any = { is_read: true }
       if (is_resolved) {
         updates.is_resolved = true
-        updates.resolved_by = session.user.id
+        updates.resolved_by = (session.user as any).id
         updates.resolved_at = new Date().toISOString()
       }
       await supabase.from('risk_alerts').update(updates)
         .eq('id', alert_id)
-        .eq('user_id', session.user.id)
+        .eq('user_id', (session.user as any).id)
     }
 
     return NextResponse.json({ ok: true })

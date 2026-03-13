@@ -201,11 +201,15 @@ inp.addEventListener('input',function(){this.style.height='auto';this.style.heig
 function showBubble(msg){
   if(isOpen||triggerFired)return;
   triggerFired=true;
+  // Arată badge-ul de notificare pe buton
+  unread++;
+  updBadge();
+  // Arată bubble-ul cu mesajul
   var bl=document.getElementById('_h_bl');
   document.getElementById('_h_bl_t').textContent=msg;
   bl.style.display='flex';
-  // Auto-hide după 12 secunde
-  setTimeout(function(){hideBubble();},12000);
+  // Auto-hide bubble după 30 secunde (badge-ul rămâne)
+  setTimeout(function(){hideBubble();},30000);
 }
 
 function hideBubble(){
@@ -220,20 +224,22 @@ function getPageType(){
   var path=window.location.pathname.toLowerCase();
   var bodyClass=(document.body.className||'').toLowerCase();
 
-  // Cart
-  if(path.indexOf('/cart')!==-1||path.indexOf('/cos')!==-1||
-     bodyClass.indexOf('woocommerce-cart')!==-1||
-     !!document.querySelector('.cart-page,.checkout-cart,#cart,.woocommerce-cart-form'))return 'cart';
+  // Cart — detection extinsă
+  if(path.indexOf('/cart')!==-1||path.indexOf('/cos')!==-1||path.indexOf('/coș')!==-1||
+     bodyClass.indexOf('woocommerce-cart')!==-1||bodyClass.indexOf('page-cart')!==-1||
+     !!document.querySelector('.cart-page,.checkout-cart,#cart,.woocommerce-cart-form,.cart-table,.shopping-cart'))return 'cart';
 
   // Checkout
   if(path.indexOf('/checkout')!==-1||path.indexOf('/finalizare')!==-1||
      bodyClass.indexOf('woocommerce-checkout')!==-1||
      !!document.querySelector('.woocommerce-checkout,#checkout-form'))return 'checkout';
 
-  // Product
+  // Product — detection extinsă pentru WooCommerce, Shopify, Gomag, MerchantPro
   if(bodyClass.indexOf('single-product')!==-1||
-     document.querySelector('.product-page,.product_page,[itemtype*="Product"]'))return 'product';
-  if(path.match(/\/produs\/|\/product\/|\/p\/[0-9]|\/item\//))return 'product';
+     document.querySelector('.product-page,.product_page,[itemtype*="Product"],.product-single,.product-detail,.product_detail'))return 'product';
+  if(path.match(/\/produs\/|\/product\/|\/p\/[0-9]|\/item\/|\/produse\/[^/]+$/))return 'product';
+  if(document.querySelector('.add_to_cart_button,.single_add_to_cart_button,[name="add-to-cart"],.btn-add-to-cart'))return 'product';
+  if(document.querySelector('.woocommerce-product-gallery,.product-images,.product-gallery'))return 'product';
 
   // Category
   if(bodyClass.indexOf('tax-product_cat')!==-1||bodyClass.indexOf('term-')!==-1||

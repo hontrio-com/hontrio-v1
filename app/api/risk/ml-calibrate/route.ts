@@ -27,7 +27,7 @@ export async function POST(req: Request) {
       .from('risk_orders')
       .select('id, risk_score_at_order, risk_flags, customer_id')
       .eq('id', order_id)
-      .eq('user_id', session.user.id)
+      .eq('user_id', (session.user as any).id)
       .single()
     if (!order) return NextResponse.json({ error: 'Comandă negăsită' }, { status: 404 })
 
@@ -71,7 +71,7 @@ export async function POST(req: Request) {
     } else {
       await supabase.from('risk_store_settings').insert({
         store_id,
-        user_id: session.user.id,
+        user_id: (session.user as any).id,
         ml_weights: newWeights,
       })
     }
