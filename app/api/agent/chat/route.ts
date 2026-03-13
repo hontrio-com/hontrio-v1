@@ -997,7 +997,7 @@ async function sendEscalationNotification(p: {
     const html = buildEscalationEmail({
       agentName: p.config.agent_name || 'Asistent',
       storeName: p.storeName,
-      visitorMessage: safeMessage || p.message,
+      visitorMessage: p.message,
       intent: p.intent,
       conversationHistory: p.history,
     })
@@ -1013,7 +1013,7 @@ async function sendEscalationNotification(p: {
     if (sent) {
       await p.supabase.from('escalation_notifications').insert({
         user_id: p.userId, session_id: p.sessionId, visitor_id: p.visitorId,
-        trigger_intent: p.intent, trigger_message: safeMessage || p.message,
+        trigger_intent: p.intent, trigger_message: p.message,
         email_sent_to: p.config.notify_email, status: 'sent',
       })
       console.log('[Notification] Escalation email sent to', p.config.notify_email)
