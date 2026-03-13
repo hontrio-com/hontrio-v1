@@ -151,7 +151,7 @@ export async function POST(request: Request) {
           type: 'refund',
           amount: refundAmount,
           balance_after: newBal,
-          description: \`SEO Bulk refund — \${failed} produse eșuate\`,
+          description: `SEO Bulk refund — ${failed} produse eșuate`,
           reference_type: 'seo_bulk_refund',
         })
       }
