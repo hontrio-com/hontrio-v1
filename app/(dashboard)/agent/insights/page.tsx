@@ -1,102 +1,120 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { AlertCircle, BookOpen, Plus, Trash2, ToggleLeft, ToggleRight, Star, TrendingUp, CheckCircle2, Loader2, Save, ExternalLink, RefreshCw } from 'lucide-react'
-import { Card, CardContent } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
+import {
+  AlertCircle, BookOpen, Plus, Trash2, ToggleLeft, ToggleRight,
+  Star, TrendingUp, CheckCircle2, Loader2, Save, RefreshCw,
+} from 'lucide-react'
 
-// ═══════════════════════════════════════════════
-// TYPES
-// ═══════════════════════════════════════════════
+// ─── Primitives ───────────────────────────────────────────────────────────────
+function Card({ children, className = '' }: { children: React.ReactNode; className?: string }) {
+  return <div className={`bg-white border border-neutral-200 rounded-xl ${className}`}>{children}</div>
+}
+function Btn({ onClick, disabled, children, variant = 'primary', className = '' }: {
+  onClick?: () => void; disabled?: boolean; children: React.ReactNode
+  variant?: 'primary' | 'outline' | 'ghost' | 'success' | 'blue'; className?: string
+}) {
+  const base = 'inline-flex items-center gap-1.5 font-medium transition-all disabled:opacity-40 cursor-pointer h-9 px-3.5 text-[12px] rounded-xl whitespace-nowrap'
+  const vars = {
+    primary: 'bg-neutral-900 hover:bg-neutral-800 text-white',
+    outline: 'border border-neutral-200 text-neutral-600 hover:bg-neutral-50',
+    ghost:   'text-neutral-500 hover:text-neutral-700 hover:bg-neutral-100',
+    success: 'bg-emerald-600 text-white hover:bg-emerald-700',
+    blue:    'bg-blue-600 text-white hover:bg-blue-700',
+  }
+  return <button onClick={onClick} disabled={disabled} className={`${base} ${vars[variant]} ${className}`}>{children}</button>
+}
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 type UnansweredQ = { id: string; question: string; intent: string; confidence: number; count: number; resolved: boolean; last_seen_at: string }
 type ProductStat = { id: string; name: string; shown: number; clicked: number; compared: number; escalated: number; carted: number; score: number }
-type Correction = { id: string; original_question: string; wrong_answer?: string; correct_answer: string; is_active: boolean; created_at: string }
+type Correction   = { id: string; original_question: string; wrong_answer?: string; correct_answer: string; is_active: boolean; created_at: string }
 
-// ═══════════════════════════════════════════════
-// UNANSWERED QUESTIONS TAB
-// ═══════════════════════════════════════════════
+// ─── Unanswered Tab ───────────────────────────────────────────────────────────
 function UnansweredTab() {
   const [questions, setQuestions] = useState<UnansweredQ[]>([])
-  const [loading, setLoading] = useState(true)
-  const [filter, setFilter] = useState<'all' | 'unresolved'>('unresolved')
+  const [loading, setLoading]     = useState(true)
+  const [filter, setFilter]       = useState<'all'|'unresolved'>('unresolved')
 
   useEffect(() => {
-    fetch('/api/agent/unanswered').then(r => r.json()).then(d => { setQuestions(d.questions || []); setLoading(false) }).catch(() => setLoading(false))
+    fetch('/api/agent/unanswered').then(r=>r.json()).then(d=>{ setQuestions(d.questions||[]); setLoading(false) }).catch(()=>setLoading(false))
   }, [])
 
   const resolve = async (id: string) => {
-    await fetch('/api/agent/unanswered', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, resolved: true }) })
-    setQuestions(prev => prev.map(q => q.id === id ? { ...q, resolved: true } : q))
+    await fetch('/api/agent/unanswered', { method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ id, resolved:true }) })
+    setQuestions(prev => prev.map(q => q.id===id ? {...q,resolved:true} : q))
   }
 
-  const filtered = questions.filter(q => filter === 'all' || !q.resolved)
+  const filtered       = questions.filter(q => filter==='all' || !q.resolved)
   const unresolvedCount = questions.filter(q => !q.resolved).length
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <p className="text-xs text-gray-500">{unresolvedCount} întrebări fără răspuns bun</p>
-        <div className="flex gap-1 bg-gray-100 rounded-lg p-1">
-          {(['unresolved', 'all'] as const).map(f => (
-            <button key={f} onClick={() => setFilter(f)} className={`text-xs px-3 py-1 rounded-md font-medium transition-all ${filter === f ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}>
-              {f === 'unresolved' ? 'Nerezolvate' : 'Toate'}
+        <p className="text-[12px] text-neutral-500">{unresolvedCount} întrebări fără răspuns bun</p>
+        <div className="flex gap-1 bg-neutral-100 rounded-lg p-1">
+          {(['unresolved','all'] as const).map(f => (
+            <button key={f} onClick={() => setFilter(f)}
+              className={`text-[11px] px-3 py-1 rounded-md font-medium transition-all ${filter===f ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-500'}`}>
+              {f==='unresolved' ? 'Nerezolvate' : 'Toate'}
             </button>
           ))}
         </div>
       </div>
-      {loading ? <div className="flex justify-center py-12"><Loader2 className="h-5 w-5 animate-spin text-gray-300" /></div> :
-       filtered.length === 0 ? (
-        <div className="text-center py-12"><CheckCircle2 className="h-10 w-10 text-green-300 mx-auto mb-3" /><p className="text-sm text-gray-400">Nicio întrebare nerezolvată!</p></div>
-       ) : (
-        <div className="space-y-2">
-          {filtered.map(q => (
-            <div key={q.id} className={`p-4 rounded-xl border transition-colors ${q.resolved ? 'bg-gray-50 border-gray-100 opacity-60' : 'bg-white border-gray-200 hover:border-blue-200'}`}>
-              <div className="flex items-start gap-3">
-                <div className={`shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${q.count > 5 ? 'bg-red-100 text-red-600' : q.count > 2 ? 'bg-orange-100 text-orange-600' : 'bg-gray-100 text-gray-500'}`}>
-                  {q.count}×
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm text-gray-800 font-medium">"{q.question}"</p>
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className="text-xs text-gray-400">Intent: {q.intent}</span>
-                    <span className="text-xs text-gray-300">·</span>
-                    <span className="text-xs text-gray-400">Confidence: {Math.round(q.confidence * 100)}%</span>
+
+      {loading
+        ? <div className="flex justify-center py-12"><Loader2 className="h-5 w-5 animate-spin text-neutral-300" /></div>
+        : filtered.length === 0
+          ? <div className="text-center py-12"><CheckCircle2 className="h-10 w-10 text-emerald-300 mx-auto mb-3" /><p className="text-[13px] text-neutral-400">Nicio întrebare nerezolvată!</p></div>
+          : <div className="space-y-2">
+              {filtered.map(q => (
+                <div key={q.id} className={`p-4 rounded-xl border transition-colors ${q.resolved ? 'bg-neutral-50 border-neutral-100 opacity-60' : 'bg-white border-neutral-200 hover:border-neutral-300'}`}>
+                  <div className="flex items-start gap-3">
+                    <div className={`shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold tabular-nums
+                      ${q.count>5 ? 'bg-red-100 text-red-600' : q.count>2 ? 'bg-orange-100 text-orange-600' : 'bg-neutral-100 text-neutral-500'}`}>
+                      {q.count}×
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[13px] text-neutral-800 font-medium">"{q.question}"</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="text-[10px] text-neutral-400">Intent: {q.intent}</span>
+                        <span className="text-neutral-200">·</span>
+                        <span className="text-[10px] text-neutral-400">Confidence: {Math.round(q.confidence*100)}%</span>
+                      </div>
+                    </div>
+                    {!q.resolved && (
+                      <div className="flex gap-2 shrink-0">
+                        <a href="/agent" className="text-[11px] text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1">
+                          <BookOpen className="h-3 w-3" />Adaugă în RAG
+                        </a>
+                        <button onClick={() => resolve(q.id)} className="text-[11px] text-emerald-600 hover:text-emerald-700 font-medium flex items-center gap-1">
+                          <CheckCircle2 className="h-3 w-3" />Rezolvat
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
-                {!q.resolved && (
-                  <div className="flex gap-2 shrink-0">
-                    <a href="/agent/knowledge" className="text-xs text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1">
-                      <BookOpen className="h-3 w-3" />Adaugă în RAG
-                    </a>
-                    <button onClick={() => resolve(q.id)} className="text-xs text-green-600 hover:text-green-700 font-medium flex items-center gap-1">
-                      <CheckCircle2 className="h-3 w-3" />Rezolvat
-                    </button>
-                  </div>
-                )}
-              </div>
+              ))}
             </div>
-          ))}
-        </div>
-      )}
-      <div className="flex gap-2 p-4 bg-blue-50 rounded-xl">
-        <BookOpen className="h-4 w-4 text-blue-600 shrink-0 mt-0.5" />
-        <p className="text-xs text-blue-600">Adaugă răspunsul corect în tab-ul <strong>Cunoștințe</strong> și marchează întrebarea ca rezolvată. Agentul va răspunde corect data viitoare.</p>
+      }
+
+      <div className="flex gap-2 p-4 bg-blue-50 border border-blue-100 rounded-xl">
+        <BookOpen className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" />
+        <p className="text-[11px] text-blue-700">Adaugă răspunsul corect în <strong>Cunoștințe</strong> și marchează întrebarea ca rezolvată. Agentul va răspunde corect data viitoare.</p>
       </div>
     </div>
   )
 }
 
-// ═══════════════════════════════════════════════
-// PRODUCT HEATMAP TAB
-// ═══════════════════════════════════════════════
+// ─── Heatmap Tab ──────────────────────────────────────────────────────────────
 function HeatmapTab() {
   const [products, setProducts] = useState<ProductStat[]>([])
-  const [loading, setLoading] = useState(true)
-  const [days, setDays] = useState(30)
+  const [loading, setLoading]   = useState(true)
+  const [days, setDays]         = useState(30)
 
   useEffect(() => {
     setLoading(true)
-    fetch(`/api/agent/product-events?days=${days}`).then(r => r.json()).then(d => { setProducts(d.products || []); setLoading(false) }).catch(() => setLoading(false))
+    fetch(`/api/agent/product-events?days=${days}`).then(r=>r.json()).then(d=>{ setProducts(d.products||[]); setLoading(false) }).catch(()=>setLoading(false))
   }, [days])
 
   const maxScore = Math.max(...products.map(p => p.score), 1)
@@ -104,258 +122,263 @@ function HeatmapTab() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <p className="text-xs text-gray-500">{products.length} produse cu activitate</p>
-        <select value={days} onChange={e => setDays(Number(e.target.value))} className="text-sm border border-gray-200 rounded-xl px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+        <p className="text-[12px] text-neutral-500">{products.length} produse cu activitate</p>
+        <select value={days} onChange={e => setDays(Number(e.target.value))}
+          className="text-[12px] border border-neutral-200 rounded-xl px-3 py-1.5 focus:outline-none focus:border-neutral-400 bg-white text-neutral-600">
           <option value={7}>7 zile</option><option value={30}>30 zile</option><option value={90}>90 zile</option>
         </select>
       </div>
-      {loading ? <div className="flex justify-center py-12"><Loader2 className="h-5 w-5 animate-spin text-gray-300" /></div> :
-       products.length === 0 ? (
-        <div className="text-center py-12"><TrendingUp className="h-10 w-10 text-gray-200 mx-auto mb-3" /><p className="text-sm text-gray-400">Nicio activitate înregistrată încă</p></div>
-       ) : (
-        <div className="space-y-2">
-          {products.slice(0, 20).map((p, i) => (
-            <div key={p.id} className="p-3 bg-white rounded-xl border border-gray-100 hover:border-gray-200 transition-colors">
-              <div className="flex items-center gap-3 mb-2">
-                <span className="text-xs font-bold text-gray-400 w-5">#{i + 1}</span>
-                <p className="text-sm font-medium text-gray-800 flex-1 truncate">{p.name}</p>
-                <span className="text-xs font-bold text-gray-600">Scor: {p.score}</span>
-              </div>
-              {/* Heat bar */}
-              <div className="h-2 bg-gray-100 rounded-full overflow-hidden mb-2">
-                <div className="h-full bg-gradient-to-r from-blue-400 to-blue-600 rounded-full transition-all" style={{ width: `${Math.round((p.score / maxScore) * 100)}%` }} />
-              </div>
-              <div className="flex gap-3 text-xs text-gray-400">
-                <span>👁️ {p.shown} cereri</span>
-                {p.clicked > 0 && <span>🖱️ {p.clicked} click-uri</span>}
-                {p.compared > 0 && <span>⚖️ {p.compared} comparații</span>}
-                {p.carted > 0 && <span className="text-green-600 font-medium">🛒 {p.carted} în coș</span>}
-                {p.escalated > 0 && <span className="text-red-500">⚠️ {p.escalated} escaladări</span>}
-              </div>
+
+      {loading
+        ? <div className="flex justify-center py-12"><Loader2 className="h-5 w-5 animate-spin text-neutral-300" /></div>
+        : products.length === 0
+          ? <div className="text-center py-12"><TrendingUp className="h-10 w-10 text-neutral-200 mx-auto mb-3" /><p className="text-[13px] text-neutral-400">Nicio activitate înregistrată</p></div>
+          : <div className="space-y-2">
+              {products.slice(0,20).map((p,i) => (
+                <div key={p.id} className="p-3 bg-white rounded-xl border border-neutral-100 hover:border-neutral-200 transition-colors">
+                  <div className="flex items-center gap-3 mb-2">
+                    <span className="text-[11px] font-bold text-neutral-300 w-5 tabular-nums">#{i+1}</span>
+                    <p className="text-[13px] font-medium text-neutral-800 flex-1 truncate">{p.name}</p>
+                    <span className="text-[11px] font-semibold text-neutral-600 tabular-nums">Scor: {p.score}</span>
+                  </div>
+                  <div className="h-1.5 bg-neutral-100 rounded-full overflow-hidden mb-2">
+                    <div className="h-full bg-gradient-to-r from-blue-400 to-blue-600 rounded-full transition-all" style={{ width:`${Math.round((p.score/maxScore)*100)}%` }} />
+                  </div>
+                  <div className="flex gap-3 text-[11px] text-neutral-400 flex-wrap">
+                    <span>👁️ {p.shown} cereri</span>
+                    {p.clicked  > 0 && <span>🖱️ {p.clicked} click-uri</span>}
+                    {p.compared > 0 && <span>⚖️ {p.compared} comparații</span>}
+                    {p.carted   > 0 && <span className="text-emerald-600 font-medium">🛒 {p.carted} în coș</span>}
+                    {p.escalated> 0 && <span className="text-red-500">⚠️ {p.escalated} escaladări</span>}
+                  </div>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-      )}
+      }
     </div>
   )
 }
 
-// ═══════════════════════════════════════════════
-// TRAINING TAB
-// ═══════════════════════════════════════════════
+// ─── Training Tab ─────────────────────────────────────────────────────────────
 function TrainingTab() {
   const [corrections, setCorrections] = useState<Correction[]>([])
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-  const [form, setForm] = useState({ question: '', wrong: '', correct: '' })
-  const [error, setError] = useState('')
+  const [loading, setLoading]         = useState(true)
+  const [saving, setSaving]           = useState(false)
+  const [form, setForm]               = useState({ question:'', wrong:'', correct:'' })
+  const [error, setError]             = useState('')
 
   useEffect(() => {
-    fetch('/api/agent/training').then(r => r.json()).then(d => { setCorrections(d.corrections || []); setLoading(false) }).catch(() => setLoading(false))
+    fetch('/api/agent/training').then(r=>r.json()).then(d=>{ setCorrections(d.corrections||[]); setLoading(false) }).catch(()=>setLoading(false))
   }, [])
 
   const add = async () => {
     if (!form.question || !form.correct) { setError('Completează întrebarea și răspunsul corect'); return }
     setSaving(true); setError('')
     try {
-      const r = await fetch('/api/agent/training', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ original_question: form.question, wrong_answer: form.wrong || undefined, correct_answer: form.correct }) })
+      const r    = await fetch('/api/agent/training', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ original_question:form.question, wrong_answer:form.wrong||undefined, correct_answer:form.correct }) })
       const data = await r.json()
-      if (!r.ok) { setError(data.error || 'Eroare'); return }
-      setCorrections(prev => [data.correction, ...prev])
-      setForm({ question: '', wrong: '', correct: '' })
+      if (!r.ok) { setError(data.error||'Eroare'); return }
+      setCorrections(prev => [data.correction,...prev])
+      setForm({ question:'', wrong:'', correct:'' })
     } catch { setError('Eroare la salvare') } finally { setSaving(false) }
   }
 
   const toggle = async (c: Correction) => {
-    await fetch('/api/agent/training', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: c.id, is_active: !c.is_active }) })
-    setCorrections(prev => prev.map(x => x.id === c.id ? { ...x, is_active: !x.is_active } : x))
+    await fetch('/api/agent/training', { method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ id:c.id, is_active:!c.is_active }) })
+    setCorrections(prev => prev.map(x => x.id===c.id ? {...x,is_active:!x.is_active} : x))
   }
 
   const remove = async (id: string) => {
     if (!confirm('Ștergi această corecție?')) return
-    await fetch('/api/agent/training', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) })
-    setCorrections(prev => prev.filter(x => x.id !== id))
+    await fetch('/api/agent/training', { method:'DELETE', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ id }) })
+    setCorrections(prev => prev.filter(x => x.id!==id))
   }
 
   return (
     <div className="space-y-5">
-      {/* Formular adăugare */}
-      <Card className="border-0 shadow-sm rounded-2xl"><CardContent className="p-5 space-y-3">
-        <p className="text-sm font-semibold text-gray-900">Adaugă corecție nouă</p>
-        <p className="text-xs text-gray-500">Când agentul răspunde greșit la o întrebare, adaugă aici răspunsul corect. Agentul îl va folosi prioritar.</p>
+      <Card className="p-5 space-y-3">
+        <p className="text-[13px] font-semibold text-neutral-900">Adaugă corecție nouă</p>
+        <p className="text-[11px] text-neutral-500">Când agentul răspunde greșit, adaugă răspunsul corect. Agentul îl va folosi prioritar.</p>
         <div className="space-y-2">
-          <input value={form.question} onChange={e => setForm(f => ({ ...f, question: e.target.value }))} placeholder="Întrebarea clientului (ex: Cât durează livrarea?)"
-            className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
-          <input value={form.wrong} onChange={e => setForm(f => ({ ...f, wrong: e.target.value }))} placeholder="Răspunsul greșit al agentului (opțional)"
-            className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-400 bg-orange-50/50" />
-          <textarea value={form.correct} onChange={e => setForm(f => ({ ...f, correct: e.target.value }))} placeholder="Răspunsul CORECT pe care trebuie să-l dea agentul"
-            rows={3} className="w-full text-sm border border-green-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500 bg-green-50/50 resize-none" />
+          <input value={form.question} onChange={e => setForm(f=>({...f,question:e.target.value}))} placeholder="Întrebarea clientului (ex: Cât durează livrarea?)"
+            className="w-full text-[12px] border border-neutral-200 rounded-xl px-3 py-2 focus:outline-none focus:border-neutral-400 transition-colors" />
+          <input value={form.wrong} onChange={e => setForm(f=>({...f,wrong:e.target.value}))} placeholder="Răspunsul greșit al agentului (opțional)"
+            className="w-full text-[12px] border border-orange-200 rounded-xl px-3 py-2 bg-orange-50/50 focus:outline-none focus:border-orange-400 transition-colors" />
+          <textarea value={form.correct} onChange={e => setForm(f=>({...f,correct:e.target.value}))} rows={3}
+            placeholder="Răspunsul CORECT pe care trebuie să-l dea agentul"
+            className="w-full text-[12px] border border-emerald-200 rounded-xl px-3 py-2 bg-emerald-50/50 focus:outline-none focus:border-emerald-400 transition-colors resize-none" />
         </div>
-        {error && <p className="text-xs text-red-500 flex items-center gap-1"><AlertCircle className="h-3 w-3" />{error}</p>}
-        <Button onClick={add} disabled={saving} className="w-full bg-gray-900 hover:bg-gray-800 text-white rounded-xl h-10 text-sm gap-2">
-          {saving ? <><Loader2 className="h-4 w-4 animate-spin" />Se procesează...</> : <><Plus className="h-4 w-4" />Adaugă corecție</>}
-        </Button>
-      </CardContent></Card>
+        {error && <p className="text-[11px] text-red-500 flex items-center gap-1"><AlertCircle className="h-3 w-3" />{error}</p>}
+        <Btn onClick={add} disabled={saving} variant="primary" className="w-full justify-center">
+          {saving ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />Se procesează...</> : <><Plus className="h-3.5 w-3.5" />Adaugă corecție</>}
+        </Btn>
+      </Card>
 
-      {/* Lista corecții */}
-      {loading ? <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-gray-300" /></div> :
-       corrections.length === 0 ? (
-        <div className="text-center py-10"><Star className="h-10 w-10 text-gray-200 mx-auto mb-3" /><p className="text-sm text-gray-400">Nicio corecție adăugată</p></div>
-       ) : (
-        <div className="space-y-2">
-          {corrections.map(c => (
-            <div key={c.id} className={`p-4 rounded-xl border transition-colors ${c.is_active ? 'bg-white border-gray-200' : 'bg-gray-50 border-gray-100 opacity-60'}`}>
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex-1 min-w-0 space-y-1">
-                  <p className="text-xs text-gray-500">Întrebare: <span className="font-medium text-gray-700">"{c.original_question}"</span></p>
-                  {c.wrong_answer && <p className="text-xs text-orange-600">❌ Greșit: "{c.wrong_answer}"</p>}
-                  <p className="text-xs text-green-700">✅ Corect: "{c.correct_answer}"</p>
+      {loading
+        ? <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-neutral-300" /></div>
+        : corrections.length === 0
+          ? <div className="text-center py-10"><Star className="h-10 w-10 text-neutral-200 mx-auto mb-3" /><p className="text-[13px] text-neutral-400">Nicio corecție adăugată</p></div>
+          : <div className="space-y-2">
+              {corrections.map(c => (
+                <div key={c.id} className={`p-4 rounded-xl border transition-colors ${c.is_active ? 'bg-white border-neutral-200' : 'bg-neutral-50 border-neutral-100 opacity-60'}`}>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0 space-y-1">
+                      <p className="text-[11px] text-neutral-500">Întrebare: <span className="font-medium text-neutral-700">"{c.original_question}"</span></p>
+                      {c.wrong_answer && <p className="text-[11px] text-orange-600">❌ Greșit: "{c.wrong_answer}"</p>}
+                      <p className="text-[11px] text-emerald-700">✅ Corect: "{c.correct_answer}"</p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button onClick={() => toggle(c)}>
+                        {c.is_active
+                          ? <ToggleRight className="h-5 w-5 text-emerald-500" />
+                          : <ToggleLeft  className="h-5 w-5 text-neutral-300" />}
+                      </button>
+                      <button onClick={() => remove(c.id)} className="p-1 hover:bg-red-50 rounded-lg text-red-400 hover:text-red-600 transition-colors">
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <button onClick={() => toggle(c)} className="text-xs text-gray-400 hover:text-gray-600">
-                    {c.is_active ? <ToggleRight className="h-5 w-5 text-green-500" /> : <ToggleLeft className="h-5 w-5 text-gray-300" />}
-                  </button>
-                  <button onClick={() => remove(c.id)} className="p-1 hover:bg-red-50 rounded-lg text-red-400 hover:text-red-600 transition-colors">
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              </div>
+              ))}
             </div>
-          ))}
-        </div>
-      )}
+      }
     </div>
   )
 }
 
-// ═══════════════════════════════════════════════
-// REVIEWS TAB
-// ═══════════════════════════════════════════════
+// ─── Reviews Tab ──────────────────────────────────────────────────────────────
 function ReviewsTab() {
-  const [config, setConfig] = useState({ review_enabled: false, review_delay_days: 7, review_google_url: '', review_site_enabled: true, review_email_subject: '', review_email_body: '' })
+  const [config, setConfig]   = useState({ review_enabled:false, review_delay_days:7, review_google_url:'', review_site_enabled:true, review_email_subject:'', review_email_body:'' })
   const [requests, setRequests] = useState<any[]>([])
-  const [saving, setSaving] = useState(false)
-  const [saved, setSaved] = useState(false)
+  const [saving, setSaving]   = useState(false)
+  const [saved, setSaved]     = useState(false)
 
   useEffect(() => {
-    fetch('/api/agent/config').then(r => r.json()).then(d => { if (d.config) setConfig(c => ({ ...c, ...d.config })) })
-    fetch('/api/agent/reviews').then(r => r.json()).then(d => setRequests(d.requests || []))
+    fetch('/api/agent/config').then(r=>r.json()).then(d=>{ if(d.config) setConfig(c=>({...c,...d.config})) })
+    fetch('/api/agent/reviews').then(r=>r.json()).then(d=>setRequests(d.requests||[]))
   }, [])
 
   const save = async () => {
     setSaving(true)
-    await fetch('/api/agent/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(config) })
-    setSaved(true); setTimeout(() => setSaved(false), 2500)
-    setSaving(false)
+    await fetch('/api/agent/config', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(config) })
+    setSaved(true); setTimeout(()=>setSaved(false),2500); setSaving(false)
   }
 
-  const statusColor: Record<string, string> = { pending: 'bg-yellow-100 text-yellow-700', sent: 'bg-green-100 text-green-700', clicked: 'bg-blue-100 text-blue-700' }
-  const statusLabel: Record<string, string> = { pending: 'Programat', sent: 'Trimis', clicked: 'Deschis' }
+  const statusMeta: Record<string,{bg:string;text:string;label:string}> = {
+    pending: { bg:'bg-amber-100', text:'text-amber-700', label:'Programat' },
+    sent:    { bg:'bg-emerald-100', text:'text-emerald-700', label:'Trimis' },
+    clicked: { bg:'bg-blue-100', text:'text-blue-700', label:'Deschis' },
+  }
 
   return (
     <div className="space-y-5">
-      <Card className="border-0 shadow-sm rounded-2xl"><CardContent className="p-5 space-y-4">
+      <Card className="p-5 space-y-4">
         <div className="flex items-center justify-between">
-          <div><p className="text-sm font-semibold text-gray-900">Colectare automată review-uri</p><p className="text-xs text-gray-500 mt-0.5">Email trimis automat după finalizarea comenzii</p></div>
-          <button onClick={() => setConfig(c => ({ ...c, review_enabled: !c.review_enabled }))}>
-            {config.review_enabled ? <ToggleRight className="h-7 w-7 text-green-500" /> : <ToggleLeft className="h-7 w-7 text-gray-300" />}
+          <div>
+            <p className="text-[13px] font-semibold text-neutral-900">Colectare automată review-uri</p>
+            <p className="text-[11px] text-neutral-400 mt-0.5">Email trimis automat după finalizarea comenzii</p>
+          </div>
+          <button onClick={() => setConfig(c=>({...c,review_enabled:!c.review_enabled}))}>
+            {config.review_enabled
+              ? <ToggleRight className="h-7 w-7 text-emerald-500" />
+              : <ToggleLeft  className="h-7 w-7 text-neutral-300" />}
           </button>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="text-xs font-semibold text-gray-700 mb-1 block">Zile după livrare</label>
-            <input type="number" min={1} max={30} value={config.review_delay_days} onChange={e => setConfig(c => ({ ...c, review_delay_days: Number(e.target.value) }))}
-              className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            <p className="text-[10px] font-medium text-neutral-500 uppercase tracking-wide mb-1.5">Zile după livrare</p>
+            <input type="number" min={1} max={30} value={config.review_delay_days} onChange={e => setConfig(c=>({...c,review_delay_days:Number(e.target.value)}))}
+              className="w-full text-[12px] border border-neutral-200 rounded-xl px-3 py-2 focus:outline-none focus:border-neutral-400 transition-colors" />
           </div>
           <div>
-            <label className="text-xs font-semibold text-gray-700 mb-1 block">Link Google Reviews</label>
-            <input value={config.review_google_url} onChange={e => setConfig(c => ({ ...c, review_google_url: e.target.value }))} placeholder="https://g.page/..."
-              className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            <p className="text-[10px] font-medium text-neutral-500 uppercase tracking-wide mb-1.5">Link Google Reviews</p>
+            <input value={config.review_google_url} onChange={e => setConfig(c=>({...c,review_google_url:e.target.value}))} placeholder="https://g.page/..."
+              className="w-full text-[12px] border border-neutral-200 rounded-xl px-3 py-2 focus:outline-none focus:border-neutral-400 transition-colors" />
           </div>
         </div>
 
         <div>
-          <label className="text-xs font-semibold text-gray-700 mb-1 block">Subiect email (opțional)</label>
-          <input value={config.review_email_subject} onChange={e => setConfig(c => ({ ...c, review_email_subject: e.target.value }))} placeholder="Cum a fost experiența ta? ⭐"
-            className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          <p className="text-[10px] font-medium text-neutral-500 uppercase tracking-wide mb-1.5">Subiect email (opțional)</p>
+          <input value={config.review_email_subject} onChange={e => setConfig(c=>({...c,review_email_subject:e.target.value}))} placeholder="Cum a fost experiența ta? ⭐"
+            className="w-full text-[12px] border border-neutral-200 rounded-xl px-3 py-2 focus:outline-none focus:border-neutral-400 transition-colors" />
         </div>
-
         <div>
-          <label className="text-xs font-semibold text-gray-700 mb-1 block">Mesaj personalizat (opțional)</label>
-          <textarea value={config.review_email_body} onChange={e => setConfig(c => ({ ...c, review_email_body: e.target.value }))}
-            placeholder="Lăsă un review și ajuți alți clienți să ia decizii mai bune..."
-            rows={3} className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
+          <p className="text-[10px] font-medium text-neutral-500 uppercase tracking-wide mb-1.5">Mesaj personalizat (opțional)</p>
+          <textarea value={config.review_email_body} onChange={e => setConfig(c=>({...c,review_email_body:e.target.value}))}
+            placeholder="Lăsă un review și ajuți alți clienți..." rows={3}
+            className="w-full text-[12px] border border-neutral-200 rounded-xl px-3 py-2 focus:outline-none focus:border-neutral-400 transition-colors resize-none" />
         </div>
 
-        <Button onClick={save} disabled={saving} className="w-full bg-gray-900 hover:bg-gray-800 text-white rounded-xl h-10 text-sm gap-2">
-          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : saved ? <CheckCircle2 className="h-4 w-4" /> : <Save className="h-4 w-4" />}
+        <Btn onClick={save} disabled={saving} variant={saved?'success':'primary'} className="w-full justify-center">
+          {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : saved ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Save className="h-3.5 w-3.5" />}
           {saving ? 'Salvez...' : saved ? 'Salvat!' : 'Salvează configurarea'}
-        </Button>
+        </Btn>
 
-        <div className="p-3 bg-amber-50 rounded-xl border border-amber-100">
-          <p className="text-xs font-semibold text-amber-800 mb-1">Setup webhook WooCommerce</p>
-          <p className="text-xs text-amber-700 mb-2">Adaugă în WooCommerce → Setări → Avansat → Webhooks:</p>
-          <code className="text-xs bg-amber-100 px-2 py-1 rounded block break-all">
+        <div className="p-3 bg-amber-50 border border-amber-100 rounded-xl">
+          <p className="text-[11px] font-semibold text-amber-800 mb-1">Setup webhook WooCommerce</p>
+          <p className="text-[10px] text-amber-700 mb-2">WooCommerce → Setări → Avansat → Webhooks:</p>
+          <code className="text-[10px] bg-amber-100 px-2 py-1 rounded block break-all text-amber-800">
             {typeof window !== 'undefined' ? window.location.origin : 'https://app.hontrio.com'}/api/agent/reviews?userId=YOUR_USER_ID
           </code>
-          <p className="text-xs text-amber-600 mt-1">Topic: Order updated · Status: Activ</p>
+          <p className="text-[10px] text-amber-600 mt-1">Topic: Order updated · Status: Activ</p>
         </div>
-      </CardContent></Card>
+      </Card>
 
-      {/* Istoric requests */}
       {requests.length > 0 && (
-        <Card className="border-0 shadow-sm rounded-2xl"><CardContent className="p-5">
-          <p className="text-sm font-semibold text-gray-900 mb-3">Istoric emailuri ({requests.length})</p>
+        <Card className="p-5">
+          <p className="text-[13px] font-semibold text-neutral-900 mb-3">Istoric emailuri ({requests.length})</p>
           <div className="space-y-2">
-            {requests.slice(0, 15).map((r: any) => (
-              <div key={r.id} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
-                <div>
-                  <p className="text-xs font-medium text-gray-700">{r.customer_email}</p>
-                  <p className="text-xs text-gray-400">{(r.product_names || []).slice(0, 2).join(', ')}</p>
+            {requests.slice(0,15).map((r: any) => {
+              const s = statusMeta[r.status] || { bg:'bg-neutral-100', text:'text-neutral-500', label:r.status }
+              return (
+                <div key={r.id} className="flex items-center justify-between py-2 border-b border-neutral-50 last:border-0">
+                  <div>
+                    <p className="text-[12px] font-medium text-neutral-700">{r.customer_email}</p>
+                    <p className="text-[10px] text-neutral-400">{(r.product_names||[]).slice(0,2).join(', ')}</p>
+                  </div>
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${s.bg} ${s.text}`}>{s.label}</span>
                 </div>
-                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusColor[r.status] || 'bg-gray-100 text-gray-500'}`}>
-                  {statusLabel[r.status] || r.status}
-                </span>
-              </div>
-            ))}
+              )
+            })}
           </div>
-        </CardContent></Card>
+        </Card>
       )}
     </div>
   )
 }
 
-// ═══════════════════════════════════════════════
-// MAIN PAGE
-// ═══════════════════════════════════════════════
+// ─── Main ─────────────────────────────────────────────────────────────────────
 export default function InsightsPage() {
-  const [tab, setTab] = useState<'unanswered' | 'heatmap' | 'training' | 'reviews'>('unanswered')
+  const [tab, setTab] = useState<'unanswered'|'heatmap'|'training'|'reviews'>('unanswered')
 
   const tabs = [
-    { id: 'unanswered', label: '❓ Fără răspuns', icon: AlertCircle },
-    { id: 'heatmap', label: '🔥 Heatmap produse', icon: TrendingUp },
-    { id: 'training', label: '🎓 Antrenament', icon: Star },
-    { id: 'reviews', label: '⭐ Review-uri', icon: Star },
+    { id:'unanswered', label:'❓ Fără răspuns',    icon:AlertCircle },
+    { id:'heatmap',    label:'🔥 Heatmap produse', icon:TrendingUp  },
+    { id:'training',   label:'🎓 Antrenament',     icon:Star        },
+    { id:'reviews',    label:'⭐ Review-uri',       icon:Star        },
   ] as const
 
   return (
     <div className="space-y-5">
-      <div><h1 className="text-2xl font-bold text-gray-900">Insights & Antrenament</h1><p className="text-sm text-gray-500 mt-0.5">Îmbunătățește continuu agentul bazat pe date reale</p></div>
+      <div>
+        <h1 className="text-[22px] font-semibold text-neutral-900 tracking-tight">Insights & Antrenament</h1>
+        <p className="text-[13px] text-neutral-400 mt-0.5">Îmbunătățește continuu agentul bazat pe date reale</p>
+      </div>
 
-      <div className="flex gap-1 bg-gray-100 rounded-xl p-1 overflow-x-auto">
+      <div className="flex gap-1 bg-neutral-100 rounded-xl p-1 overflow-x-auto">
         {tabs.map(t => (
           <button key={t.id} onClick={() => setTab(t.id)}
-            className={`flex-1 min-w-fit whitespace-nowrap py-2 px-3 rounded-lg text-xs font-medium transition-all ${tab === t.id ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+            className={`flex-1 min-w-fit whitespace-nowrap py-2 px-3 rounded-lg text-[11px] font-medium transition-all ${tab===t.id ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-500 hover:text-neutral-700'}`}>
             {t.label}
           </button>
         ))}
       </div>
 
-      {tab === 'unanswered' && <UnansweredTab />}
-      {tab === 'heatmap' && <HeatmapTab />}
-      {tab === 'training' && <TrainingTab />}
-      {tab === 'reviews' && <ReviewsTab />}
+      {tab==='unanswered' && <UnansweredTab />}
+      {tab==='heatmap'    && <HeatmapTab    />}
+      {tab==='training'   && <TrainingTab   />}
+      {tab==='reviews'    && <ReviewsTab    />}
     </div>
   )
 }

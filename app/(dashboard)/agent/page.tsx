@@ -6,24 +6,22 @@ import {
   Bot, Power, MessageCircle, Phone, Palette, Settings2,
   Copy, Check, ChevronRight, TrendingUp,
   Zap, ArrowUpRight, Loader2, Save, AlertCircle,
-  ExternalLink, ToggleLeft, ToggleRight, Upload, Code2,
+  ExternalLink, Upload, Code2,
   Square, Circle, RectangleHorizontal,
   X, Send, Users, Search, BarChart2, Clock, Star,
   BookOpen, FileText, Link2, Trash2, PlusCircle, CheckCircle2, AlertTriangle, Bell,
 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
 
 const COLORS = [
-  '#2563eb', '#7c3aed', '#db2777', '#dc2626',
-  '#d97706', '#16a34a', '#0891b2', '#374151',
-  '#f97316', '#8b5cf6', '#06b6d4', '#84cc16',
+  '#2563eb','#7c3aed','#db2777','#dc2626',
+  '#d97706','#16a34a','#0891b2','#374151',
+  '#f97316','#8b5cf6','#06b6d4','#84cc16',
 ]
 
 const INTENT_LABELS: Record<string, string> = {
-  buying_ready: 'Gata să cumpere', browsing: 'Explorează', comparing: 'Compară',
-  compatibility: 'Compatibilitate', info_product: 'Info produs', info_shipping: 'Livrare/retur',
-  problem: 'Problemă', escalate: 'Escaladare', greeting: 'Salut inițial',
+  buying_ready:'Gata să cumpere', browsing:'Explorează', comparing:'Compară',
+  compatibility:'Compatibilitate', info_product:'Info produs', info_shipping:'Livrare/retur',
+  problem:'Problemă', escalate:'Escaladare', greeting:'Salut inițial',
 }
 
 type Config = {
@@ -36,14 +34,8 @@ type Config = {
   quick_replies: string[]
   notify_email: string; notify_on_escalation: boolean; notify_on_problem: boolean
 }
-
 type Stats = { total: number; last7: number; escalated: number; avgMessages: number }
-
-type KnowledgeDoc = {
-  id: string; name: string; type: string; status: string
-  chunk_count: number; size_bytes: number; error_msg: string | null; created_at: string
-}
-
+type KnowledgeDoc = { id: string; name: string; type: string; status: string; chunk_count: number; size_bytes: number; error_msg: string | null; created_at: string }
 type Analytics = {
   summary: { totalSessions: number; uniqueVisitors: number; returningVisitors: number; avgMessages: number; escalated: number; weekTrend: number; thisWeek: number; lastWeek: number }
   conversationsPerDay: { date: string; count: number }[]
@@ -65,19 +57,51 @@ const defaultConfig: Config = {
   notify_email: '', notify_on_escalation: true, notify_on_problem: true,
 }
 
-// ── LIVE WIDGET PREVIEW ───────────────────────────────────────────────────────
+// ─── Primitives ───────────────────────────────────────────────────────────────
+
+function Card({ children, className = '', onClick }: { children: React.ReactNode; className?: string; onClick?: React.MouseEventHandler<HTMLDivElement> }) {
+  return <div className={`bg-white border border-neutral-200 rounded-xl ${className}`} onClick={onClick}>{children}</div>
+}
+function Btn({ onClick, disabled, children, variant = 'primary', size = 'md', className = '', type }: {
+  onClick?: () => void; disabled?: boolean; children: React.ReactNode; type?: 'button'|'submit'
+  variant?: 'primary'|'outline'|'ghost'|'success'|'danger'; size?: 'sm'|'md'; className?: string
+}) {
+  const base  = 'inline-flex items-center gap-1.5 font-medium transition-all disabled:opacity-40 cursor-pointer whitespace-nowrap'
+  const sizes = { sm: 'h-7 px-2.5 text-[11px] rounded-lg', md: 'h-9 px-3.5 text-[12px] rounded-xl' }
+  const vars  = {
+    primary: 'bg-neutral-900 hover:bg-neutral-800 text-white',
+    outline: 'border border-neutral-200 text-neutral-600 hover:bg-neutral-50',
+    ghost:   'text-neutral-500 hover:text-neutral-700 hover:bg-neutral-100',
+    success: 'bg-emerald-600 text-white hover:bg-emerald-700',
+    danger:  'bg-red-500 text-white hover:bg-red-600',
+  }
+  return <button type={type} onClick={onClick} disabled={disabled} className={`${base} ${sizes[size]} ${vars[variant]} ${className}`}>{children}</button>
+}
+function SectionLabel({ children, className = '' }: { children: React.ReactNode; className?: string }) {
+  return <p className={`text-[10px] font-medium text-neutral-400 uppercase tracking-wide ${className}`}>{children}</p>
+}
+function Badge({ children, className = '' }: { children: React.ReactNode; className?: string }) {
+  return <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${className}`}>{children}</span>
+}
+function Toggle({ on, onToggle }: { on: boolean; onToggle: () => void }) {
+  return (
+    <button onClick={onToggle} className={`w-10 h-5 rounded-full relative transition-colors ${on ? 'bg-emerald-500' : 'bg-neutral-200'}`}>
+      <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all ${on ? 'right-0.5' : 'left-0.5'}`} />
+    </button>
+  )
+}
+
+// ─── Widget Preview ───────────────────────────────────────────────────────────
+
 function WidgetPreview({ config, messages, onSend, loading, onToggle, isOpen }: {
   config: Config
-  messages: Array<{role: string; content: string; quick_replies?: string[]}>
-  onSend: (msg: string) => void
-  loading: boolean
-  onToggle: () => void
-  isOpen: boolean
+  messages: Array<{role:string;content:string;quick_replies?:string[]}>
+  onSend: (msg:string) => void; loading: boolean; onToggle: () => void; isOpen: boolean
 }) {
   const [input, setInput] = useState('')
   const endRef = useRef<HTMLDivElement>(null)
   const btnSize = config.widget_size === 'small' ? 44 : config.widget_size === 'large' ? 64 : 52
-  const isRect = config.widget_button_shape === 'rectangle'
+  const isRect  = config.widget_button_shape === 'rectangle'
   const borderRadius = config.widget_button_shape === 'circle' ? '50%' : config.widget_button_shape === 'rounded' ? '16px' : '12px'
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages])
@@ -85,69 +109,57 @@ function WidgetPreview({ config, messages, onSend, loading, onToggle, isOpen }: 
   const handleSend = () => { if (!input.trim()) return; onSend(input.trim()); setInput('') }
 
   return (
-    <div className="relative bg-gray-100 rounded-2xl overflow-hidden" style={{ height: 520 }}>
-      {/* Fake background */}
-      <div className="absolute inset-0 p-5 opacity-25 pointer-events-none select-none">
-        <div className="h-4 bg-gray-400 rounded w-2/3 mb-3" />
-        <div className="h-3 bg-gray-300 rounded w-full mb-2" />
-        <div className="h-3 bg-gray-300 rounded w-5/6 mb-2" />
-        <div className="h-3 bg-gray-300 rounded w-4/5 mb-5" />
-        <div className="grid grid-cols-3 gap-2">{[1,2,3].map(i => <div key={i} className="h-16 bg-gray-200 rounded-lg" />)}</div>
+    <div className="relative bg-neutral-100 rounded-xl overflow-hidden" style={{ height: 520 }}>
+      <div className="absolute inset-0 p-5 opacity-20 pointer-events-none select-none">
+        <div className="h-4 bg-neutral-400 rounded w-2/3 mb-3" />
+        <div className="h-3 bg-neutral-300 rounded w-full mb-2" />
+        <div className="h-3 bg-neutral-300 rounded w-5/6 mb-5" />
+        <div className="grid grid-cols-3 gap-2">{[1,2,3].map(i => <div key={i} className="h-16 bg-neutral-200 rounded-lg" />)}</div>
       </div>
 
-      {/* Chat window */}
       <AnimatePresence>
         {isOpen && (
-          <motion.div
-            initial={{ scale: 0.9, opacity: 0, y: 12 }} animate={{ scale: 1, opacity: 1, y: 0 }}
-            exit={{ scale: 0.9, opacity: 0, y: 12 }} transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-            className="absolute flex flex-col rounded-2xl overflow-hidden shadow-2xl bg-white"
-            style={{ width: 280, height: 380, bottom: config.widget_bottom_offset + btnSize + 10, [config.widget_position === 'bottom-right' ? 'right' : 'left']: 12 }}
-          >
+          <motion.div initial={{ scale:0.9,opacity:0,y:12 }} animate={{ scale:1,opacity:1,y:0 }} exit={{ scale:0.9,opacity:0,y:12 }} transition={{ type:'spring',stiffness:400,damping:30 }}
+            className="absolute flex flex-col rounded-xl overflow-hidden shadow-2xl bg-white"
+            style={{ width:280, height:380, bottom: config.widget_bottom_offset+btnSize+10, [config.widget_position==='bottom-right'?'right':'left']:12 }}>
             <div className="flex items-center gap-2.5 px-3 py-2.5 shrink-0" style={{ background: config.widget_color }}>
               {config.widget_avatar_url
                 ? <img src={config.widget_avatar_url} alt="" className="w-8 h-8 rounded-full object-cover border-2 border-white/30" />
-                : <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center border-2 border-white/30"><Bot className="w-4 h-4 text-white" /></div>
-              }
+                : <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center border-2 border-white/30"><Bot className="w-4 h-4 text-white" /></div>}
               <div>
-                <p className="text-white text-xs font-semibold">{config.agent_name || 'Asistent'}</p>
-                <div className="flex items-center gap-1 mt-0.5"><div className="w-1.5 h-1.5 rounded-full bg-green-400" /><p className="text-white/80 text-[10px]">Online</p></div>
+                <p className="text-white text-xs font-semibold">{config.agent_name||'Asistent'}</p>
+                <div className="flex items-center gap-1 mt-0.5"><div className="w-1.5 h-1.5 rounded-full bg-emerald-400" /><p className="text-white/80 text-[10px]">Online</p></div>
               </div>
               <button onClick={onToggle} className="ml-auto w-6 h-6 rounded-full bg-white/15 flex items-center justify-center hover:bg-white/25 transition-colors">
                 <X className="w-3 h-3 text-white" />
               </button>
             </div>
-
-            <div className="flex-1 overflow-y-auto p-3 space-y-2.5 bg-gray-50">
+            <div className="flex-1 overflow-y-auto p-3 space-y-2.5 bg-neutral-50">
               {messages.length === 0 ? (
                 <div className="text-center py-6">
-                  <Bot className="w-7 h-7 text-gray-200 mx-auto mb-2" />
-                  <p className="text-[11px] text-gray-400 mb-3">Trimite un mesaj ca să testezi</p>
+                  <Bot className="w-7 h-7 text-neutral-200 mx-auto mb-2" />
+                  <p className="text-[11px] text-neutral-400 mb-3">Trimite un mesaj ca să testezi</p>
                   <div className="flex flex-wrap gap-1.5 justify-center">
-                    {(config.quick_replies || []).slice(0,3).map((qr: string) => (
+                    {(config.quick_replies||[]).slice(0,3).map((qr:string) => (
                       <button key={qr} onClick={() => onSend(qr)}
                         className="text-[10px] px-2 py-1 rounded-full border font-medium hover:opacity-80 transition-all"
-                        style={{ color: config.widget_color, borderColor: config.widget_color + '50', background: config.widget_color + '10' }}>
-                        {qr}
-                      </button>
+                        style={{ color:config.widget_color, borderColor:config.widget_color+'50', background:config.widget_color+'10' }}>{qr}</button>
                     ))}
                   </div>
                 </div>
-              ) : messages.map((msg, i) => (
-                <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+              ) : messages.map((msg,i) => (
+                <div key={i} className={`flex ${msg.role==='user'?'justify-end':'justify-start'}`}>
                   <div className="max-w-[85%] space-y-1.5">
-                    <div className={`px-3 py-2 rounded-2xl text-[11px] leading-relaxed ${msg.role === 'user' ? 'text-white rounded-br-sm' : 'bg-white text-gray-800 shadow-sm rounded-bl-sm'}`}
-                      style={msg.role === 'user' ? { background: config.widget_color } : {}}>
+                    <div className={`px-3 py-2 rounded-xl text-[11px] leading-relaxed ${msg.role==='user'?'text-white rounded-br-sm':'bg-white text-neutral-800 shadow-sm rounded-bl-sm'}`}
+                      style={msg.role==='user'?{background:config.widget_color}:{}}>
                       {msg.content}
                     </div>
                     {msg.quick_replies && msg.quick_replies.length > 0 && (
                       <div className="flex flex-wrap gap-1">
-                        {msg.quick_replies.map((qr: string) => (
+                        {msg.quick_replies.map((qr:string) => (
                           <button key={qr} onClick={() => onSend(qr)}
                             className="text-[10px] px-2 py-1 rounded-full border font-medium hover:opacity-80 transition-all"
-                            style={{ color: config.widget_color, borderColor: config.widget_color + '50', background: config.widget_color + '10' }}>
-                            {qr}
-                          </button>
+                            style={{ color:config.widget_color, borderColor:config.widget_color+'50', background:config.widget_color+'10' }}>{qr}</button>
                         ))}
                       </div>
                     )}
@@ -156,146 +168,109 @@ function WidgetPreview({ config, messages, onSend, loading, onToggle, isOpen }: 
               ))}
               {loading && (
                 <div className="flex justify-start">
-                  <div className="bg-white rounded-2xl rounded-bl-sm px-3 py-2.5 shadow-sm flex gap-1">
-                    {[0,1,2].map(i => <div key={i} className="w-1.5 h-1.5 rounded-full bg-gray-300 animate-bounce" style={{ animationDelay: `${i*0.15}s` }} />)}
+                  <div className="bg-white rounded-xl rounded-bl-sm px-3 py-2.5 shadow-sm flex gap-1">
+                    {[0,1,2].map(i => <div key={i} className="w-1.5 h-1.5 rounded-full bg-neutral-300 animate-bounce" style={{ animationDelay:`${i*0.15}s` }} />)}
                   </div>
                 </div>
               )}
               <div ref={endRef} />
             </div>
-
-            <div className="p-2.5 border-t border-gray-100 bg-white flex gap-2">
-              <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSend()}
-                placeholder="Scrie un mesaj..." className="flex-1 text-[11px] bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:border-blue-300 transition-colors" />
-              <button onClick={handleSend} disabled={!input.trim() || loading}
+            <div className="p-2.5 border-t border-neutral-100 bg-white flex gap-2">
+              <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key==='Enter' && handleSend()}
+                placeholder="Scrie un mesaj..." className="flex-1 text-[11px] bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 focus:outline-none focus:border-blue-300 transition-colors" />
+              <button onClick={handleSend} disabled={!input.trim()||loading}
                 className="w-8 h-8 rounded-xl flex items-center justify-center text-white hover:opacity-80 disabled:opacity-40 transition-all"
-                style={{ background: config.widget_color }}>
-                <Send className="w-3.5 h-3.5" />
-              </button>
+                style={{ background:config.widget_color }}><Send className="w-3.5 h-3.5" /></button>
             </div>
-            <div className="text-center py-1.5 text-[9px] text-gray-300 bg-white">Powered by <span className="text-gray-400">Hontrio</span></div>
+            <div className="text-center py-1.5 text-[9px] text-neutral-300 bg-white">Powered by <span className="text-neutral-400">Hontrio</span></div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Intro bubble */}
       <AnimatePresence>
         {!isOpen && config.widget_intro_animation && (
-          <motion.div initial={{ opacity: 0, y: 8, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} transition={{ delay: 0.6 }}
-            className="absolute rounded-2xl px-3 py-2.5 shadow-lg text-[11px] text-gray-700 font-medium max-w-[170px] cursor-pointer hover:shadow-xl transition-shadow"
-            style={{
-              background: '#fff', bottom: config.widget_bottom_offset + btnSize + 14,
-              [config.widget_position === 'bottom-right' ? 'right' : 'left']: 12,
-              boxShadow: '0 4px 20px rgba(0,0,0,.12),0 0 0 1px rgba(0,0,0,.06)',
-              borderBottomRightRadius: config.widget_position === 'bottom-right' ? 4 : 16,
-              borderBottomLeftRadius: config.widget_position === 'bottom-left' ? 4 : 16,
-            }}
+          <motion.div initial={{ opacity:0,y:8,scale:0.95 }} animate={{ opacity:1,y:0,scale:1 }} exit={{ opacity:0,scale:0.9 }} transition={{ delay:0.6 }}
+            className="absolute rounded-xl px-3 py-2.5 shadow-lg text-[11px] text-neutral-700 font-medium max-w-[170px] cursor-pointer hover:shadow-xl transition-shadow"
+            style={{ background:'#fff', bottom:config.widget_bottom_offset+btnSize+14, [config.widget_position==='bottom-right'?'right':'left']:12, boxShadow:'0 4px 20px rgba(0,0,0,.12),0 0 0 1px rgba(0,0,0,.06)', borderBottomRightRadius:config.widget_position==='bottom-right'?4:16, borderBottomLeftRadius:config.widget_position==='bottom-left'?4:16 }}
             onClick={onToggle}>
-            👋 {(config.welcome_message || 'Cu ce te pot ajuta?').slice(0, 55)}
+            👋 {(config.welcome_message||'Cu ce te pot ajuta?').slice(0,55)}
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Button */}
-      <motion.button whileHover={{ scale: 1.08 }} whileTap={{ scale: 0.95 }} onClick={onToggle}
+      <motion.button whileHover={{ scale:1.08 }} whileTap={{ scale:0.95 }} onClick={onToggle}
         className="absolute flex items-center justify-center gap-2 text-white"
-        style={{
-          background: config.widget_color, borderRadius,
-          width: isRect ? 'auto' : btnSize, height: isRect ? Math.round(btnSize * 0.65) : btnSize,
-          paddingLeft: isRect ? 14 : 0, paddingRight: isRect ? 14 : 0,
-          bottom: config.widget_bottom_offset, [config.widget_position === 'bottom-right' ? 'right' : 'left']: 12,
-          boxShadow: `0 4px 16px ${config.widget_color}66`,
-        }}>
+        style={{ background:config.widget_color, borderRadius, width:isRect?'auto':btnSize, height:isRect?Math.round(btnSize*0.65):btnSize, paddingLeft:isRect?14:0, paddingRight:isRect?14:0, bottom:config.widget_bottom_offset, [config.widget_position==='bottom-right'?'right':'left']:12, boxShadow:`0 4px 16px ${config.widget_color}66` }}>
         {config.widget_avatar_url && !isOpen
           ? <img src={config.widget_avatar_url} alt="" className="w-7 h-7 rounded-full object-cover" />
-          : <MessageCircle style={{ width: config.widget_size === 'small' ? 18 : config.widget_size === 'large' ? 26 : 22, height: 'auto' }} />
-        }
-        {isRect && <span className="text-sm font-semibold whitespace-nowrap">{config.widget_button_label || 'Ajutor?'}</span>}
+          : <MessageCircle style={{ width:config.widget_size==='small'?18:config.widget_size==='large'?26:22, height:'auto' }} />}
+        {isRect && <span className="text-sm font-semibold whitespace-nowrap">{config.widget_button_label||'Ajutor?'}</span>}
       </motion.button>
     </div>
   )
 }
 
-// ── MAIN PAGE ─────────────────────────────────────────────────────────────────
+// ─── MAIN PAGE ────────────────────────────────────────────────────────────────
+
 export default function AgentPage() {
-  const [config, setConfig] = useState<Config>(defaultConfig)
-  const [stats, setStats] = useState<Stats | null>(null)
-  const [intents, setIntents] = useState<Record<string, number>>({})
+  const [config, setConfig]       = useState<Config>(defaultConfig)
+  const [stats, setStats]         = useState<Stats | null>(null)
   const [analytics, setAnalytics] = useState<Analytics | null>(null)
   const [knowledgeDocs, setKnowledgeDocs] = useState<KnowledgeDoc[]>([])
-  const [kUploadType, setKUploadType] = useState<'file' | 'url' | 'text'>('file')
-  const [kUrl, setKUrl] = useState('')
-  const [kText, setKText] = useState('')
-  const [kName, setKName] = useState('')
+  const [kUploadType, setKUploadType] = useState<'file'|'url'|'text'>('file')
+  const [kUrl, setKUrl]           = useState('')
+  const [kText, setKText]         = useState('')
+  const [kName, setKName]         = useState('')
   const [kUploading, setKUploading] = useState(false)
-  const [kError, setKError] = useState('')
-  const kFileRef = useRef<HTMLInputElement>(null)
-  const [analyticsRange, setAnalyticsRange] = useState<7 | 30>(30)
+  const [kError, setKError]       = useState('')
+  const kFileRef                  = useRef<HTMLInputElement>(null)
+  const [analyticsRange, setAnalyticsRange] = useState<7|30>(30)
   const [analyticsLoading, setAnalyticsLoading] = useState(false)
   const [storeUserId, setStoreUserId] = useState('')
-  const [storeUrl, setStoreUrl] = useState('')
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-  const [saved, setSaved] = useState(false)
-  const [copied, setCopied] = useState(false)
-  const [downloading, setDownloading] = useState(false)
-  const [activeTab, setActiveTab] = useState<'overview' | 'settings' | 'knowledge' | 'intelligence' | 'notifications' | 'install'>('overview')
-  const [activeSettingsTab, setActiveSettingsTab] = useState<'identity' | 'appearance' | 'advanced'>('identity')
+  const [loading, setLoading]     = useState(true)
+  const [saving, setSaving]       = useState(false)
+  const [saved, setSaved]         = useState(false)
+  const [copied, setCopied]       = useState(false)
+  const [activeTab, setActiveTab] = useState<'overview'|'settings'|'knowledge'|'intelligence'|'notifications'|'install'>('overview')
+  const [activeSettingsTab, setActiveSettingsTab] = useState<'identity'|'appearance'|'advanced'>('identity')
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
-  const avatarInputRef = useRef<HTMLInputElement>(null)
+  const avatarInputRef            = useRef<HTMLInputElement>(null)
   const [previewOpen, setPreviewOpen] = useState(false)
-  const [previewMessages, setPreviewMessages] = useState<Array<{role: string; content: string; quick_replies?: string[]}>>([])
+  const [previewMessages, setPreviewMessages] = useState<Array<{role:string;content:string;quick_replies?:string[]}>>([])
   const [previewLoading, setPreviewLoading] = useState(false)
-
-  // Intelligence states
-  const [intelStats, setIntelStats] = useState<{ total_products: number; intelligence: Record<string, number>; coverage: number } | null>(null)
+  const [intelStats, setIntelStats] = useState<{total_products:number;intelligence:Record<string,number>;coverage:number}|null>(null)
   const [intelGenerating, setIntelGenerating] = useState(false)
-  const [intelResult, setIntelResult] = useState<{ generated: number; skipped: number; failed: number; credits_used: number } | null>(null)
+  const [intelResult, setIntelResult] = useState<{generated:number;skipped:number;failed:number;credits_used:number}|null>(null)
   const [intelError, setIntelError] = useState('')
 
   const loadIntelStats = async () => {
-    try {
-      const res = await fetch('/api/agent/generate-intelligence')
-      const data = await res.json()
-      if (data.total_products !== undefined) setIntelStats(data)
-    } catch {}
+    try { const res = await fetch('/api/agent/generate-intelligence'); const data = await res.json(); if (data.total_products !== undefined) setIntelStats(data) } catch {}
   }
 
-  const generateIntelligence = async (force = false) => {
+  const generateIntelligence = async (force=false) => {
     setIntelGenerating(true); setIntelResult(null); setIntelError('')
     try {
-      const res = await fetch('/api/agent/generate-intelligence', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ force }),
-      })
+      const res  = await fetch('/api/agent/generate-intelligence', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ force }) })
       const data = await res.json()
-      if (!res.ok) { setIntelError(data.error || 'Eroare'); return }
-      setIntelResult(data)
-      loadIntelStats()
-    } catch { setIntelError('Eroare de rețea') }
-    finally { setIntelGenerating(false) }
+      if (!res.ok) { setIntelError(data.error||'Eroare'); return }
+      setIntelResult(data); loadIntelStats()
+    } catch { setIntelError('Eroare de rețea') } finally { setIntelGenerating(false) }
   }
 
-  useEffect(() => { loadData() }, [])
-
   const loadKnowledge = async () => {
-    try {
-      const r = await fetch('/api/agent/knowledge')
-      const data = await r.json()
-      if (data.documents) setKnowledgeDocs(data.documents)
-    } catch {}
+    try { const r = await fetch('/api/agent/knowledge'); const data = await r.json(); if (data.documents) setKnowledgeDocs(data.documents) } catch {}
   }
 
   const uploadKnowledge = async (file?: File) => {
     setKUploading(true); setKError('')
     try {
       const fd = new FormData()
-      if (file) { fd.append('file', file); fd.append('name', kName || file.name) }
-      else if (kUploadType === 'url') { fd.append('url', kUrl); fd.append('name', kName || kUrl) }
-      else { fd.append('text', kText); fd.append('name', kName || 'Text manual') }
-      const r = await fetch('/api/agent/knowledge/upload', { method: 'POST', body: fd })
+      if (file) { fd.append('file', file); fd.append('name', kName||file.name) }
+      else if (kUploadType==='url') { fd.append('url', kUrl); fd.append('name', kName||kUrl) }
+      else { fd.append('text', kText); fd.append('name', kName||'Text manual') }
+      const r = await fetch('/api/agent/knowledge/upload', { method:'POST', body:fd })
       const data = await r.json()
-      if (!r.ok) { setKError(data.error || 'Eroare upload'); return }
+      if (!r.ok) { setKError(data.error||'Eroare upload'); return }
       setKUrl(''); setKText(''); setKName('')
       await loadKnowledge()
     } catch { setKError('Eroare la upload') } finally { setKUploading(false) }
@@ -303,807 +278,711 @@ export default function AgentPage() {
 
   const deleteKnowledge = async (id: string) => {
     if (!confirm('Ștergi acest document?')) return
-    await fetch('/api/agent/knowledge', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) })
+    await fetch('/api/agent/knowledge', { method:'DELETE', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ id }) })
     setKnowledgeDocs(prev => prev.filter(d => d.id !== id))
   }
 
-  const loadAnalytics = async (days = analyticsRange) => {
+  const loadAnalytics = async (days=analyticsRange) => {
     setAnalyticsLoading(true)
-    try {
-      const r = await fetch(`/api/agent/analytics?days=${days}`)
-      const data = await r.json()
-      if (data.summary) setAnalytics(data)
-    } catch {} finally { setAnalyticsLoading(false) }
+    try { const r = await fetch(`/api/agent/analytics?days=${days}`); const data = await r.json(); if (data.summary) setAnalytics(data) } catch {} finally { setAnalyticsLoading(false) }
   }
 
   const loadData = async () => {
     try {
-      const [configRes, statsRes, meRes] = await Promise.all([
-        fetch('/api/agent/config'), fetch('/api/agent/conversations'), fetch('/api/user/me'),
-      ])
-      const configData = await configRes.json()
-      const statsData = await statsRes.json()
-      const meData = await meRes.json()
+      const [configRes, statsRes, meRes] = await Promise.all([fetch('/api/agent/config'), fetch('/api/agent/conversations'), fetch('/api/user/me')])
+      const configData = await configRes.json(); const statsData = await statsRes.json(); const meData = await meRes.json()
       if (configData.config) setConfig({ ...defaultConfig, ...configData.config })
-      if (configData.store?.store_url) setStoreUrl(configData.store.store_url)
       if (meData.user?.id) setStoreUserId(meData.user.id)
       if (statsData.stats) setStats(statsData.stats)
-      if (statsData.intents) setIntents(statsData.intents)
-    } catch (e) { console.error(e) } finally { setLoading(false) }
+    } catch {} finally { setLoading(false) }
     loadAnalytics()
   }
 
+  useEffect(() => { loadData() }, [])
+
   const handleSave = async () => {
     setSaving(true)
-    try {
-      const res = await fetch('/api/agent/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(config) })
-      if (res.ok) { setSaved(true); setTimeout(() => setSaved(false), 3000) }
-    } catch {} finally { setSaving(false) }
+    try { const res = await fetch('/api/agent/config', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(config) }); if (res.ok) { setSaved(true); setTimeout(()=>setSaved(false),3000) } } catch {} finally { setSaving(false) }
   }
 
   const handleToggle = async () => {
     const newActive = !config.is_active
     setConfig(c => ({ ...c, is_active: newActive }))
-    await fetch('/api/agent/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...config, is_active: newActive }) })
+    await fetch('/api/agent/config', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ ...config, is_active: newActive }) })
   }
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]; if (!file) return
     setUploadingAvatar(true)
-    try {
-      const formData = new FormData(); formData.append('file', file)
-      const res = await fetch('/api/user/avatar', { method: 'POST', body: formData })
-      const data = await res.json()
-      if (data.url) setConfig(c => ({ ...c, widget_avatar_url: data.url }))
-    } catch {} finally { setUploadingAvatar(false) }
+    try { const fd = new FormData(); fd.append('file', file); const res = await fetch('/api/user/avatar', { method:'POST', body:fd }); const data = await res.json(); if (data.url) setConfig(c => ({ ...c, widget_avatar_url: data.url })) } catch {} finally { setUploadingAvatar(false) }
   }
 
   const sendPreview = async (msg: string) => {
     if (!msg || previewLoading) return
-    const newMessages = [...previewMessages, { role: 'user', content: msg }]
+    const newMessages = [...previewMessages, { role:'user', content:msg }]
     setPreviewMessages(newMessages); setPreviewLoading(true); setPreviewOpen(true)
     try {
-      const res = await fetch('/api/agent/chat', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: msg, history: newMessages.slice(-6).map(m => ({ role: m.role, content: m.content })), session_id: 'preview-' + Date.now(), store_user_id: storeUserId }),
-      })
+      const res  = await fetch('/api/agent/chat', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ message:msg, history:newMessages.slice(-6).map(m=>({ role:m.role, content:m.content })), session_id:'preview-'+Date.now(), store_user_id:storeUserId }) })
       const data = await res.json()
-      setPreviewMessages(prev => [...prev, { role: 'assistant', content: data.message, quick_replies: data.quick_replies }])
-    } catch { setPreviewMessages(prev => [...prev, { role: 'assistant', content: 'Eroare la conectare.' }]) }
+      setPreviewMessages(prev => [...prev, { role:'assistant', content:data.message, quick_replies:data.quick_replies }])
+    } catch { setPreviewMessages(prev => [...prev, { role:'assistant', content:'Eroare la conectare.' }]) }
     finally { setPreviewLoading(false) }
   }
 
-  const snippetCode = `<!-- HONTRIO AI Agent -->\n<script>\n  window.HontrioAgent = {\n    userId: "${storeUserId}",\n    color: "${config.widget_color}",\n    position: "${config.widget_position}",\n    size: "${config.widget_size}",\n    bottomOffset: ${config.widget_bottom_offset},\n  };\n</script>\n<script src="https://hontrio.com/agent-widget.js" async></script>`
+  const snippetCode = `<!-- HONTRIO AI Agent -->\n<script>\n  window.HontrioAgent = {\n    userId: "${storeUserId}",\n    color: "${config.widget_color}",\n    position: "${config.widget_position}",\n  };\n</script>\n<script src="https://hontrio.com/agent-widget.js" async></script>`
 
-  const copySnippet = () => { navigator.clipboard.writeText(snippetCode); setCopied(true); setTimeout(() => setCopied(false), 2000) }
+  const copySnippet = () => { navigator.clipboard.writeText(snippetCode); setCopied(true); setTimeout(()=>setCopied(false),2000) }
 
-  const downloadPlugin = async () => {
-    setDownloading(true)
-    try {
-      const res = await fetch('/api/plugin/download'); if (!res.ok) throw new Error()
-      const blob = await res.blob(); const url = URL.createObjectURL(blob)
-      const a = document.createElement('a'); a.href = url; a.download = 'hontrio-agent.zip'; a.click(); URL.revokeObjectURL(url)
-    } catch { alert('Eroare la descărcare.') } finally { setDownloading(false) }
-  }
+  const MAIN_TABS = [
+    { id:'overview',      label:'Statistici',  icon:TrendingUp },
+    { id:'settings',      label:'Configurare', icon:Settings2  },
+    { id:'knowledge',     label:'Cunoștințe',  icon:BookOpen   },
+    { id:'intelligence',  label:'Intelligence',icon:Zap        },
+    { id:'notifications', label:'Notificări',  icon:Bell       },
+    { id:'install',       label:'Instalare',   icon:ExternalLink},
+  ] as const
 
-  if (loading) return <div className="space-y-4">{[1,2,3].map(i => <div key={i} className="h-32 bg-gray-100 rounded-2xl animate-pulse" />)}</div>
+  if (loading) return (
+    <div className="space-y-4">{[1,2,3].map(i => <div key={i} className="h-32 bg-neutral-100 rounded-xl animate-pulse" />)}</div>
+  )
+
+  // ── intent bar colors
+  const INTENT_COLORS: Record<string,string> = { buying_ready:'#16a34a', browsing:'#2563eb', comparing:'#7c3aed', info_shipping:'#d97706', problem:'#ef4444', escalate:'#ef4444', greeting:'#94a3b8' }
 
   return (
-    <div className="space-y-6">
-      <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}>
-        <div className="flex items-center justify-between">
-          <div><h1 className="text-2xl font-bold text-gray-900">AI Agent</h1><p className="text-gray-500 text-sm mt-0.5">Asistent conversațional pentru magazinul tău</p></div>
-          <button onClick={handleToggle} className="flex items-center gap-2 text-sm font-medium">
-            {config.is_active ? <><ToggleRight className="h-8 w-8 text-green-500" /><span className="text-green-600">Activ</span></> : <><ToggleLeft className="h-8 w-8 text-gray-300" /><span className="text-gray-400">Inactiv</span></>}
-          </button>
+    <div className="space-y-5">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-[22px] font-semibold text-neutral-900 tracking-tight">AI Agent</h1>
+          <p className="text-[13px] text-neutral-400 mt-0.5">Asistent conversațional pentru magazinul tău</p>
         </div>
-      </motion.div>
+        <button onClick={handleToggle} className="flex items-center gap-2 text-[12px] font-medium">
+          {config.is_active
+            ? <><span className="h-8 w-8 flex items-center justify-center rounded-full bg-emerald-100"><span className="w-3 h-3 rounded-full bg-emerald-500 animate-pulse block" /></span><span className="text-emerald-600">Activ</span></>
+            : <><span className="h-8 w-8 flex items-center justify-center rounded-full bg-neutral-100"><span className="w-3 h-3 rounded-full bg-neutral-300 block" /></span><span className="text-neutral-400">Inactiv</span></>}
+        </button>
+      </div>
 
-      <div className={`rounded-2xl p-4 flex items-center justify-between ${config.is_active ? 'bg-green-50 border border-green-100' : 'bg-gray-50 border border-gray-100'}`}>
+      {/* Status banner */}
+      <div className={`rounded-xl p-4 flex items-center justify-between border ${config.is_active ? 'bg-emerald-50 border-emerald-100' : 'bg-neutral-50 border-neutral-100'}`}>
         <div className="flex items-center gap-3">
-          <div className={`h-2.5 w-2.5 rounded-full ${config.is_active ? 'bg-green-500 animate-pulse' : 'bg-gray-300'}`} />
-          <span className={`text-sm font-medium ${config.is_active ? 'text-green-700' : 'text-gray-500'}`}>
+          <div className={`h-2 w-2 rounded-full ${config.is_active ? 'bg-emerald-500 animate-pulse' : 'bg-neutral-300'}`} />
+          <span className={`text-[13px] font-medium ${config.is_active ? 'text-emerald-700' : 'text-neutral-500'}`}>
             {config.is_active ? `"${config.agent_name}" este activ` : 'Agentul este oprit'}
           </span>
         </div>
-        {!config.is_active && <Button onClick={handleToggle} size="sm" className="bg-green-500 hover:bg-green-600 text-white rounded-xl gap-1.5 text-xs"><Power className="h-3.5 w-3.5" />Activează</Button>}
+        {!config.is_active && (
+          <Btn onClick={handleToggle} variant="success" size="sm">
+            <Power className="h-3 w-3" />Activează
+          </Btn>
+        )}
       </div>
 
-      <div className="flex gap-1 p-1 bg-gray-100 rounded-xl w-fit">
-        {[{ id: 'overview', label: 'Statistici', icon: TrendingUp }, { id: 'settings', label: 'Configurare', icon: Settings2 }, { id: 'knowledge', label: 'Cunoștințe', icon: BookOpen }, { id: 'intelligence', label: 'Intelligence', icon: Zap }, { id: 'notifications', label: 'Notificări', icon: Bell }, { id: 'install', label: 'Instalare', icon: ExternalLink }].map(tab => (
-          <button key={tab.id} onClick={() => { setActiveTab(tab.id as any); if (tab.id === 'overview') loadAnalytics(); if (tab.id === 'knowledge') loadKnowledge(); if (tab.id === 'intelligence') loadIntelStats() }}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === tab.id ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
-            <tab.icon className="h-4 w-4" />{tab.label}
+      {/* Tabs */}
+      <div className="flex gap-1 p-1 bg-neutral-100 rounded-xl w-fit overflow-x-auto">
+        {MAIN_TABS.map(tab => (
+          <button key={tab.id} onClick={() => { setActiveTab(tab.id); if (tab.id==='overview') loadAnalytics(); if (tab.id==='knowledge') loadKnowledge(); if (tab.id==='intelligence') loadIntelStats() }}
+            className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-[12px] font-medium transition-all whitespace-nowrap ${activeTab===tab.id ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-500 hover:text-neutral-700'}`}>
+            <tab.icon className="h-3.5 w-3.5" />{tab.label}
           </button>
         ))}
       </div>
 
-      {/* STATISTICS */}
+      {/* ─── OVERVIEW ─── */}
       {activeTab === 'overview' && (
-        <div className="space-y-5">
+        <div className="space-y-4">
           <div className="flex justify-end">
-            <button onClick={() => loadAnalytics()} disabled={analyticsLoading}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-all disabled:opacity-50">
-              {analyticsLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ArrowUpRight className="h-3.5 w-3.5 rotate-180" />}
-              Actualizează
-            </button>
+            <Btn variant="ghost" size="sm" onClick={() => loadAnalytics()} disabled={analyticsLoading}>
+              {analyticsLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <ArrowUpRight className="h-3 w-3 rotate-180" />}Actualizează
+            </Btn>
           </div>
-          {/* KPI Cards */}
+
+          {/* KPI cards */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {[
-              { label: 'Conversații (30z)', value: analytics?.summary.totalSessions ?? stats?.total ?? 0, icon: MessageCircle, color: 'blue', sub: analytics?.summary.weekTrend ? `${analytics.summary.weekTrend > 0 ? '+' : ''}${analytics.summary.weekTrend}% vs săpt. trecută` : undefined },
-              { label: 'Vizitatori unici', value: analytics?.summary.uniqueVisitors ?? 0, icon: Users, color: 'violet', sub: analytics ? `${analytics.summary.returningVisitors} reveniri` : undefined },
-              { label: 'Mesaje / conv.', value: analytics?.summary.avgMessages ?? stats?.avgMessages ?? 0, icon: Zap, color: 'amber', sub: undefined },
-              { label: 'Escaladări', value: analytics?.summary.escalated ?? stats?.escalated ?? 0, icon: Phone, color: 'red', sub: analytics?.summary.totalSessions ? `${Math.round((( analytics.summary.escalated) / analytics.summary.totalSessions) * 100)}% din total` : undefined },
+              { label:'Conversații (30z)', value:analytics?.summary.totalSessions??stats?.total??0,  icon:MessageCircle, color:'text-blue-600',   bg:'bg-blue-50',   sub:analytics?.summary.weekTrend ? `${analytics.summary.weekTrend>0?'+':''}${analytics.summary.weekTrend}% vs săpt. trecută` : undefined },
+              { label:'Vizitatori unici',  value:analytics?.summary.uniqueVisitors??0,               icon:Users,         color:'text-violet-600', bg:'bg-violet-50', sub:analytics?`${analytics.summary.returningVisitors} reveniri`:undefined },
+              { label:'Mesaje / conv.',    value:analytics?.summary.avgMessages??stats?.avgMessages??0, icon:Zap,          color:'text-amber-600',  bg:'bg-amber-50',  sub:undefined },
+              { label:'Escaladări',        value:analytics?.summary.escalated??stats?.escalated??0,  icon:Phone,         color:'text-red-500',    bg:'bg-red-50',    sub:analytics?.summary.totalSessions ? `${Math.round((analytics.summary.escalated/analytics.summary.totalSessions)*100)}% din total` : undefined },
             ].map(stat => (
-              <Card key={stat.label} className="border-0 shadow-sm rounded-2xl">
-                <CardContent className="p-4">
-                  <div className={`h-8 w-8 rounded-xl bg-${stat.color}-100 flex items-center justify-center mb-2`}><stat.icon className={`h-4 w-4 text-${stat.color}-600`} /></div>
-                  <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
-                  <p className="text-xs text-gray-500 mt-0.5">{stat.label}</p>
-                  {stat.sub && <p className="text-xs text-green-600 font-medium mt-1">{stat.sub}</p>}
-                </CardContent>
+              <Card key={stat.label} className="p-4">
+                <div className={`h-8 w-8 rounded-xl ${stat.bg} flex items-center justify-center mb-3`}>
+                  <stat.icon className={`h-4 w-4 ${stat.color}`} />
+                </div>
+                <p className="text-[22px] font-bold text-neutral-900 tabular-nums">{stat.value}</p>
+                <p className="text-[11px] text-neutral-400 mt-0.5">{stat.label}</p>
+                {stat.sub && <p className="text-[10px] text-emerald-600 font-medium mt-1">{stat.sub}</p>}
               </Card>
             ))}
           </div>
 
-          {/* Grafic conversații pe zile */}
+          {/* Conversații pe zile */}
           {analytics?.conversationsPerDay && analytics.conversationsPerDay.length > 0 && (
-            <Card className="border-0 shadow-sm rounded-2xl"><CardContent className="p-5">
+            <Card className="p-5">
               <div className="flex items-center justify-between mb-4">
-                <p className="text-sm font-semibold text-gray-900">Conversații pe zile</p>
+                <p className="text-[13px] font-semibold text-neutral-900">Conversații pe zile</p>
                 <div className="flex gap-1">
-                  {([7, 30] as const).map(d => (
-                    <button key={d} onClick={async () => {
-                      setAnalyticsRange(d); loadAnalytics(d)
-                    }} className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${analyticsRange === d ? 'bg-blue-600 text-white' : 'text-gray-500 hover:bg-gray-100'}`}>{d === 7 ? '7 zile' : '30 zile'}</button>
+                  {([7,30] as const).map(d => (
+                    <button key={d} onClick={() => { setAnalyticsRange(d); loadAnalytics(d) }}
+                      className={`h-7 px-3 rounded-lg text-[11px] font-medium transition-all ${analyticsRange===d ? 'bg-blue-600 text-white' : 'text-neutral-500 hover:bg-neutral-100'}`}>
+                      {d} zile
+                    </button>
                   ))}
                 </div>
               </div>
-              {analyticsLoading ? <div className="h-28 flex items-center justify-center"><Loader2 className="h-5 w-5 animate-spin text-gray-400" /></div> : (() => {
-                const data = analytics.conversationsPerDay.slice(-(analyticsRange))
-                const max = Math.max(...data.map(d => d.count), 1)
-                return (
-                  <div className="flex items-end gap-1 h-28">
-                    {(data as {date:string;count:number}[]).map((d, i) => (
-                      <div key={i} className="flex-1 flex flex-col items-center gap-1 group relative">
-                        <div className="absolute -top-7 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-xs rounded px-1.5 py-0.5 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">{d.count} conv.</div>
-                        <div className="w-full rounded-t-sm transition-all" style={{ height: `${Math.max(4, (d.count / max) * 100)}%`, background: d.count > 0 ? '#2563eb' : '#e5e7eb' }} />
-                        {(analyticsRange === 7 || i % 5 === 0) && <span className="text-[9px] text-gray-400 rotate-0">{d.date.slice(5)}</span>}
+              {analyticsLoading
+                ? <div className="h-28 flex items-center justify-center"><Loader2 className="h-5 w-5 animate-spin text-neutral-300" /></div>
+                : (() => {
+                    const data = analytics.conversationsPerDay.slice(-analyticsRange)
+                    const max  = Math.max(...data.map(d => d.count), 1)
+                    return (
+                      <div className="flex items-end gap-1 h-28">
+                        {data.map((d, i) => (
+                          <div key={i} className="flex-1 flex flex-col items-center gap-1 group relative">
+                            <div className="absolute -top-7 left-1/2 -translate-x-1/2 bg-neutral-900 text-white text-[10px] rounded px-1.5 py-0.5 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">{d.count} conv.</div>
+                            <div className="w-full rounded-t-sm transition-all" style={{ height:`${Math.max(4,(d.count/max)*100)}%`, background:d.count>0?'#2563eb':'#e5e7eb' }} />
+                            {(analyticsRange===7||i%5===0) && <span className="text-[9px] text-neutral-400">{d.date.slice(5)}</span>}
+                          </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
-                )
-              })()}
-            </CardContent></Card>
+                    )
+                  })()
+              }
+            </Card>
           )}
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {/* Intenții vizitatori */}
+            {/* Intenții */}
             {analytics?.intentCounts && Object.keys(analytics.intentCounts).length > 0 && (
-              <Card className="border-0 shadow-sm rounded-2xl"><CardContent className="p-5">
-                <div className="flex items-center gap-2 mb-4"><BarChart2 className="h-4 w-4 text-blue-600" /><p className="text-sm font-semibold text-gray-900">Intențiile vizitatorilor</p></div>
+              <Card className="p-5">
+                <div className="flex items-center gap-2 mb-4">
+                  <BarChart2 className="h-4 w-4 text-blue-600" />
+                  <p className="text-[13px] font-semibold text-neutral-900">Intențiile vizitatorilor</p>
+                </div>
                 <div className="space-y-2.5">
                   {(() => {
-                    const INTENT_COLORS: Record<string,string> = { buying_ready:'#16a34a', browsing:'#2563eb', comparing:'#7c3aed', info_shipping:'#d97706', problem:'#dc2626', escalate:'#dc2626', greeting:'#6b7280', order_tracking:'#0891b2' }
-                    const entries = Object.entries(analytics.intentCounts) as [string, number][]
-                    const total = entries.reduce((s, [,v]) => s + v, 0)
-                    return entries.sort((a,b) => b[1]-a[1]).slice(0,6).map(([intent, count]) => (
+                    const entries = Object.entries(analytics.intentCounts) as [string,number][]
+                    const total   = entries.reduce((s,[,v])=>s+v,0)
+                    return entries.sort((a,b)=>b[1]-a[1]).slice(0,6).map(([intent,count]) => (
                       <div key={intent} className="flex items-center gap-3">
-                        <span className="text-xs text-gray-600 w-28 shrink-0">{INTENT_LABELS[intent] || intent}</span>
-                        <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden"><div className="h-full rounded-full transition-all" style={{ width: `${Math.round((count/total)*100)}%`, background: INTENT_COLORS[intent] || '#2563eb' }} /></div>
-                        <span className="text-xs font-semibold text-gray-700 w-8 text-right">{count}</span>
+                        <span className="text-[11px] text-neutral-600 w-28 shrink-0">{INTENT_LABELS[intent]||intent}</span>
+                        <div className="flex-1 h-1.5 bg-neutral-100 rounded-full overflow-hidden">
+                          <div className="h-full rounded-full transition-all" style={{ width:`${Math.round((count/total)*100)}%`, background:INTENT_COLORS[intent]||'#2563eb' }} />
+                        </div>
+                        <span className="text-[11px] font-semibold text-neutral-700 w-6 text-right tabular-nums">{count}</span>
                       </div>
                     ))
                   })()}
                 </div>
-              </CardContent></Card>
+              </Card>
             )}
 
             {/* Heatmap ore */}
             {analytics?.hourCounts && (
-              <Card className="border-0 shadow-sm rounded-2xl"><CardContent className="p-5">
-                <div className="flex items-center gap-2 mb-4"><Clock className="h-4 w-4 text-amber-500" /><p className="text-sm font-semibold text-gray-900">Ore de vârf</p></div>
+              <Card className="p-5">
+                <div className="flex items-center gap-2 mb-4">
+                  <Clock className="h-4 w-4 text-amber-500" />
+                  <p className="text-[13px] font-semibold text-neutral-900">Ore de vârf</p>
+                </div>
                 <div className="grid grid-cols-12 gap-1">
                   {analytics.hourCounts.map((count, h) => {
                     const max = Math.max(...analytics.hourCounts, 1)
-                    const intensity = count / max
+                    const intensity = count/max
                     return (
                       <div key={h} className="relative group">
-                        <div className="h-8 rounded transition-all" style={{ background: count > 0 ? `rgba(37,99,235,${0.15 + intensity * 0.85})` : '#f3f4f6' }} />
-                        <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-xs rounded px-1.5 py-0.5 opacity-0 group-hover:opacity-100 whitespace-nowrap z-10">{h}:00 — {count}</div>
-                        {h % 6 === 0 && <p className="text-[9px] text-gray-400 text-center mt-1">{h}h</p>}
+                        <div className="h-8 rounded transition-all" style={{ background:count>0?`rgba(37,99,235,${0.15+intensity*0.85})`:'#f3f4f6' }} />
+                        <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-neutral-900 text-white text-[10px] rounded px-1.5 py-0.5 opacity-0 group-hover:opacity-100 whitespace-nowrap z-10">{h}:00 — {count}</div>
+                        {h%6===0 && <p className="text-[9px] text-neutral-400 text-center mt-1">{h}h</p>}
                       </div>
                     )
                   })}
                 </div>
-              </CardContent></Card>
+              </Card>
             )}
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {/* Top produse cerute */}
             {analytics?.topProducts && analytics.topProducts.length > 0 && (
-              <Card className="border-0 shadow-sm rounded-2xl"><CardContent className="p-5">
-                <div className="flex items-center gap-2 mb-4"><Star className="h-4 w-4 text-amber-500" /><p className="text-sm font-semibold text-gray-900">Top produse cerute</p></div>
+              <Card className="p-5">
+                <div className="flex items-center gap-2 mb-4"><Star className="h-4 w-4 text-amber-400 fill-amber-400" /><p className="text-[13px] font-semibold text-neutral-900">Top produse cerute</p></div>
                 <div className="space-y-2">
-                  {analytics.topProducts.slice(0,7).map((p, i) => (
+                  {analytics.topProducts.slice(0,7).map((p,i) => (
                     <div key={p.id} className="flex items-center gap-3">
-                      <span className="text-xs font-bold text-gray-400 w-4">{i+1}</span>
-                      <span className="text-xs text-gray-700 flex-1 truncate">{p.name}</span>
-                      <span className="text-xs font-semibold text-blue-600">{p.count}×</span>
+                      <span className="text-[11px] font-bold text-neutral-300 w-4 tabular-nums">{i+1}</span>
+                      <span className="text-[11px] text-neutral-700 flex-1 truncate">{p.name}</span>
+                      <span className="text-[11px] font-semibold text-blue-600 tabular-nums">{p.count}×</span>
                     </div>
                   ))}
                 </div>
-              </CardContent></Card>
+              </Card>
             )}
-
-            {/* Top căutări */}
             {analytics?.topSearches && analytics.topSearches.length > 0 && (
-              <Card className="border-0 shadow-sm rounded-2xl"><CardContent className="p-5">
-                <div className="flex items-center gap-2 mb-4"><Search className="h-4 w-4 text-violet-500" /><p className="text-sm font-semibold text-gray-900">Top căutări</p></div>
+              <Card className="p-5">
+                <div className="flex items-center gap-2 mb-4"><Search className="h-4 w-4 text-violet-500" /><p className="text-[13px] font-semibold text-neutral-900">Top căutări</p></div>
                 <div className="space-y-2">
-                  {analytics.topSearches.slice(0,7).map((s, i) => (
+                  {analytics.topSearches.slice(0,7).map((s,i) => (
                     <div key={s.query} className="flex items-center gap-3">
-                      <span className="text-xs font-bold text-gray-400 w-4">{i+1}</span>
-                      <span className="text-xs text-gray-700 flex-1 truncate capitalize">{s.query}</span>
-                      <span className="text-xs font-semibold text-violet-600">{s.count}×</span>
+                      <span className="text-[11px] font-bold text-neutral-300 w-4 tabular-nums">{i+1}</span>
+                      <span className="text-[11px] text-neutral-700 flex-1 truncate capitalize">{s.query}</span>
+                      <span className="text-[11px] font-semibold text-violet-600 tabular-nums">{s.count}×</span>
                     </div>
                   ))}
                 </div>
-              </CardContent></Card>
+              </Card>
             )}
           </div>
 
-          {/* Empty state */}
           {!analytics?.summary?.totalSessions && !stats?.total && (
-            <Card className="border-0 shadow-sm rounded-2xl"><CardContent className="p-10 text-center">
-              <BarChart2 className="h-10 w-10 text-gray-300 mx-auto mb-3" />
-              <p className="text-sm font-medium text-gray-500">Nicio conversație încă</p>
-              <p className="text-xs text-gray-400 mt-1">Datele vor apărea odată ce vizitatoarele încep să interacționeze cu agentul.</p>
-            </CardContent></Card>
+            <Card className="p-10 text-center">
+              <BarChart2 className="h-10 w-10 text-neutral-200 mx-auto mb-3" />
+              <p className="text-[13px] font-medium text-neutral-500">Nicio conversație încă</p>
+              <p className="text-[11px] text-neutral-400 mt-1">Datele vor apărea odată ce vizitatoarele interacționează cu agentul.</p>
+            </Card>
           )}
         </div>
       )}
 
-      {/* SETTINGS */}
+      {/* ─── SETTINGS ─── */}
       {activeTab === 'settings' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="space-y-4">
-            <div className="flex gap-1 p-1 bg-gray-100 rounded-xl">
-              {[{ id: 'identity', label: 'Identitate', icon: Bot }, { id: 'appearance', label: 'Aspect', icon: Palette }, { id: 'advanced', label: 'Avansat', icon: Code2 }].map(t => (
-                <button key={t.id} onClick={() => setActiveSettingsTab(t.id as any)}
-                  className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-medium transition-all ${activeSettingsTab === t.id ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+            {/* Sub-tabs */}
+            <div className="flex gap-1 p-1 bg-neutral-100 rounded-xl">
+              {([{ id:'identity',label:'Identitate',icon:Bot },{ id:'appearance',label:'Aspect',icon:Palette },{ id:'advanced',label:'Avansat',icon:Code2 }] as const).map(t => (
+                <button key={t.id} onClick={() => setActiveSettingsTab(t.id)}
+                  className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-[11px] font-medium transition-all ${activeSettingsTab===t.id?'bg-white text-neutral-900 shadow-sm':'text-neutral-500 hover:text-neutral-700'}`}>
                   <t.icon className="h-3.5 w-3.5" />{t.label}
                 </button>
               ))}
             </div>
 
             {activeSettingsTab === 'identity' && (
-              <Card className="border-0 shadow-sm rounded-2xl"><CardContent className="p-5 space-y-4">
+              <Card className="p-5 space-y-4">
+                {/* Avatar */}
                 <div>
-                  <label className="text-xs font-semibold text-gray-700 block mb-2">Avatar agent</label>
+                  <SectionLabel className="mb-2 block">Avatar agent</SectionLabel>
                   <div className="flex items-center gap-3">
-                    <div className="w-14 h-14 rounded-2xl overflow-hidden border-2 border-gray-100 bg-gray-50 flex items-center justify-center shrink-0">
-                      {config.widget_avatar_url ? <img src={config.widget_avatar_url} alt="" className="w-full h-full object-cover" /> : <Bot className="w-6 h-6 text-gray-300" />}
+                    <div className="w-14 h-14 rounded-xl overflow-hidden border-2 border-neutral-100 bg-neutral-50 flex items-center justify-center shrink-0">
+                      {config.widget_avatar_url ? <img src={config.widget_avatar_url} alt="" className="w-full h-full object-cover" /> : <Bot className="w-6 h-6 text-neutral-300" />}
                     </div>
                     <div className="space-y-1.5 flex-1">
-                      <button onClick={() => avatarInputRef.current?.click()} disabled={uploadingAvatar}
-                        className="flex items-center gap-2 text-xs font-medium px-3 py-2 rounded-xl border border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition-all w-full justify-center">
+                      <Btn variant="outline" onClick={() => avatarInputRef.current?.click()} disabled={uploadingAvatar} className="w-full justify-center">
                         {uploadingAvatar ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
                         {uploadingAvatar ? 'Se urcă...' : 'Încarcă poză'}
-                      </button>
-                      {config.widget_avatar_url && <button onClick={() => setConfig(c => ({ ...c, widget_avatar_url: '' }))} className="text-xs text-red-400 hover:text-red-500 w-full text-center">Șterge avatarul</button>}
+                      </Btn>
+                      {config.widget_avatar_url && <button onClick={() => setConfig(c => ({ ...c, widget_avatar_url:'' }))} className="text-[11px] text-red-400 hover:text-red-500 w-full text-center">Șterge avatarul</button>}
                     </div>
                     <input ref={avatarInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
                   </div>
-                  <p className="text-xs text-gray-400 mt-2">Sau URL direct:</p>
-                  <input value={config.widget_avatar_url} onChange={e => setConfig(c => ({ ...c, widget_avatar_url: e.target.value }))}
-                    placeholder="https://exemplu.ro/avatar.jpg"
-                    className="mt-1.5 w-full text-xs border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:border-blue-400 transition-colors" />
+                  <p className="text-[10px] text-neutral-400 mt-2">Sau URL direct:</p>
+                  <input value={config.widget_avatar_url} onChange={e => setConfig(c => ({ ...c, widget_avatar_url:e.target.value }))} placeholder="https://exemplu.ro/avatar.jpg"
+                    className="mt-1.5 w-full text-[12px] border border-neutral-200 rounded-xl px-3 py-2 focus:outline-none focus:border-blue-400 transition-colors" />
                 </div>
-                <div className="h-px bg-gray-100" />
+                <div className="h-px bg-neutral-100" />
                 <div>
-                  <label className="text-xs font-semibold text-gray-700 block mb-1.5">Numele agentului</label>
-                  <input value={config.agent_name} onChange={e => setConfig(c => ({ ...c, agent_name: e.target.value }))} placeholder="ex: Maria"
-                    className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 focus:outline-none focus:border-blue-400 transition-colors" />
-                </div>
-                <div>
-                  <label className="text-xs font-semibold text-gray-700 block mb-1.5">Mesaj de bun venit</label>
-                  <textarea value={config.welcome_message} onChange={e => setConfig(c => ({ ...c, welcome_message: e.target.value }))} rows={3}
-                    className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 focus:outline-none focus:border-blue-400 transition-colors resize-none" />
+                  <SectionLabel className="mb-1.5 block">Numele agentului</SectionLabel>
+                  <input value={config.agent_name} onChange={e => setConfig(c => ({ ...c, agent_name:e.target.value }))} placeholder="ex: Maria"
+                    className="w-full text-[13px] border border-neutral-200 rounded-xl px-3 py-2.5 focus:outline-none focus:border-blue-400 transition-colors" />
                 </div>
                 <div>
-                  <label className="text-xs font-semibold text-gray-700 block mb-2">Răspunsuri rapide</label>
-                  {(config.quick_replies || []).map((qr, i) => (
+                  <SectionLabel className="mb-1.5 block">Mesaj de bun venit</SectionLabel>
+                  <textarea value={config.welcome_message} onChange={e => setConfig(c => ({ ...c, welcome_message:e.target.value }))} rows={3}
+                    className="w-full text-[13px] border border-neutral-200 rounded-xl px-3 py-2.5 focus:outline-none focus:border-blue-400 transition-colors resize-none" />
+                </div>
+                <div>
+                  <SectionLabel className="mb-2 block">Răspunsuri rapide</SectionLabel>
+                  {(config.quick_replies||[]).map((qr,i) => (
                     <div key={i} className="flex items-center gap-2 mb-2">
-                      <input value={qr} onChange={e => { const u = [...(config.quick_replies||[])]; u[i] = e.target.value; setConfig(c => ({ ...c, quick_replies: u })) }}
-                        className="flex-1 text-xs border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:border-blue-400 transition-colors" />
-                      <button onClick={() => setConfig(c => ({ ...c, quick_replies: (c.quick_replies||[]).filter((_,j) => j !== i) }))}
-                        className="p-1.5 rounded-lg text-gray-300 hover:text-red-400 hover:bg-red-50 transition-all"><X className="w-3.5 h-3.5" /></button>
+                      <input value={qr} onChange={e => { const u=[...(config.quick_replies||[])]; u[i]=e.target.value; setConfig(c=>({...c,quick_replies:u})) }}
+                        className="flex-1 text-[12px] border border-neutral-200 rounded-xl px-3 py-2 focus:outline-none focus:border-blue-400 transition-colors" />
+                      <button onClick={() => setConfig(c => ({ ...c, quick_replies:(c.quick_replies||[]).filter((_,j)=>j!==i) }))} className="p-1.5 rounded-lg text-neutral-300 hover:text-red-400 hover:bg-red-50 transition-all">
+                        <X className="w-3.5 h-3.5" />
+                      </button>
                     </div>
                   ))}
-                  {(config.quick_replies || []).length < 5 && (
-                    <button onClick={() => setConfig(c => ({ ...c, quick_replies: [...(c.quick_replies||[]), ''] }))} className="text-xs text-blue-500 hover:text-blue-600 font-medium">+ Adaugă răspuns rapid</button>
+                  {(config.quick_replies||[]).length < 5 && (
+                    <button onClick={() => setConfig(c => ({ ...c, quick_replies:[...(c.quick_replies||[]),''] }))} className="text-[12px] text-blue-500 hover:text-blue-600 font-medium">+ Adaugă răspuns rapid</button>
                   )}
                 </div>
-                <div className="h-px bg-gray-100" />
+                <div className="h-px bg-neutral-100" />
                 <div>
-                  <label className="text-xs font-semibold text-gray-700 block mb-1.5 flex items-center gap-1.5"><Phone className="w-3.5 h-3.5 text-green-500" />WhatsApp escaladare</label>
-                  <input value={config.whatsapp_number} onChange={e => setConfig(c => ({ ...c, whatsapp_number: e.target.value }))} placeholder="40712345678"
-                    className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 focus:outline-none focus:border-blue-400 transition-colors" />
+                  <SectionLabel className="mb-1.5 flex items-center gap-1.5"><Phone className="w-3.5 h-3.5 text-emerald-500" />WhatsApp escaladare</SectionLabel>
+                  <input value={config.whatsapp_number} onChange={e => setConfig(c => ({ ...c, whatsapp_number:e.target.value }))} placeholder="40712345678"
+                    className="w-full text-[13px] border border-neutral-200 rounded-xl px-3 py-2.5 focus:outline-none focus:border-blue-400 transition-colors mt-1.5" />
                 </div>
-              </CardContent></Card>
+              </Card>
             )}
 
             {activeSettingsTab === 'appearance' && (
-              <Card className="border-0 shadow-sm rounded-2xl"><CardContent className="p-5 space-y-5">
+              <Card className="p-5 space-y-5">
+                {/* Culoare */}
                 <div>
-                  <label className="text-xs font-semibold text-gray-700 block mb-2">Culoare principală</label>
+                  <SectionLabel className="mb-2 block">Culoare principală</SectionLabel>
                   <div className="flex gap-2 flex-wrap items-center">
                     {COLORS.map(color => (
-                      <button key={color} onClick={() => setConfig(c => ({ ...c, widget_color: color }))}
-                        className={`w-7 h-7 rounded-full transition-all ${config.widget_color === color ? 'ring-2 ring-offset-2 ring-gray-400 scale-110' : 'hover:scale-105'}`}
-                        style={{ backgroundColor: color }} />
+                      <button key={color} onClick={() => setConfig(c => ({ ...c, widget_color:color }))}
+                        className={`w-7 h-7 rounded-full transition-all ${config.widget_color===color?'ring-2 ring-offset-2 ring-neutral-400 scale-110':'hover:scale-105'}`}
+                        style={{ backgroundColor:color }} />
                     ))}
-                    <input type="color" value={config.widget_color} onChange={e => setConfig(c => ({ ...c, widget_color: e.target.value }))}
-                      className="w-7 h-7 rounded-full cursor-pointer border border-gray-200" />
-                    <span className="text-xs text-gray-400 font-mono">{config.widget_color}</span>
+                    <input type="color" value={config.widget_color} onChange={e => setConfig(c => ({ ...c, widget_color:e.target.value }))} className="w-7 h-7 rounded-full cursor-pointer border border-neutral-200" />
+                    <span className="text-[10px] text-neutral-400 font-mono">{config.widget_color}</span>
                   </div>
                 </div>
+                {/* Formă buton */}
                 <div>
-                  <label className="text-xs font-semibold text-gray-700 block mb-2">Formă buton</label>
+                  <SectionLabel className="mb-2 block">Formă buton</SectionLabel>
                   <div className="grid grid-cols-3 gap-2">
-                    {[{ id: 'circle', label: 'Cerc', icon: Circle }, { id: 'rounded', label: 'Rotunjit', icon: Square }, { id: 'rectangle', label: 'Text + icon', icon: RectangleHorizontal }].map(s => (
-                      <button key={s.id} onClick={() => setConfig(c => ({ ...c, widget_button_shape: s.id }))}
-                        className={`flex flex-col items-center gap-1.5 py-3 rounded-xl border text-xs font-medium transition-all ${config.widget_button_shape === s.id ? 'border-blue-500 bg-blue-50 text-blue-600' : 'border-gray-200 text-gray-500 hover:border-gray-300'}`}>
+                    {[{ id:'circle',label:'Cerc',icon:Circle },{ id:'rounded',label:'Rotunjit',icon:Square },{ id:'rectangle',label:'Text + icon',icon:RectangleHorizontal }].map(s => (
+                      <button key={s.id} onClick={() => setConfig(c => ({ ...c, widget_button_shape:s.id }))}
+                        className={`flex flex-col items-center gap-1.5 py-3 rounded-xl border text-[11px] font-medium transition-all ${config.widget_button_shape===s.id?'border-blue-500 bg-blue-50 text-blue-600':'border-neutral-200 text-neutral-500 hover:border-neutral-400'}`}>
                         <s.icon className="w-4 h-4" />{s.label}
                       </button>
                     ))}
                   </div>
-                  {config.widget_button_shape === 'rectangle' && (
-                    <input value={config.widget_button_label} onChange={e => setConfig(c => ({ ...c, widget_button_label: e.target.value }))}
-                      placeholder="Text buton (ex: Ajutor?)" className="mt-2 w-full text-xs border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:border-blue-400 transition-colors" />
+                  {config.widget_button_shape==='rectangle' && (
+                    <input value={config.widget_button_label} onChange={e => setConfig(c => ({ ...c, widget_button_label:e.target.value }))} placeholder="Text buton (ex: Ajutor?)"
+                      className="mt-2 w-full text-[12px] border border-neutral-200 rounded-xl px-3 py-2 focus:outline-none focus:border-blue-400 transition-colors" />
                   )}
                 </div>
+                {/* Dimensiune */}
                 <div>
-                  <label className="text-xs font-semibold text-gray-700 block mb-2">Dimensiune</label>
+                  <SectionLabel className="mb-2 block">Dimensiune</SectionLabel>
                   <div className="flex gap-2">
-                    {[{ id: 'small', label: 'Mic' }, { id: 'medium', label: 'Mediu' }, { id: 'large', label: 'Mare' }].map(s => (
-                      <button key={s.id} onClick={() => setConfig(c => ({ ...c, widget_size: s.id }))}
-                        className={`flex-1 py-2 text-xs rounded-xl border font-medium transition-all ${config.widget_size === s.id ? 'border-blue-500 bg-blue-50 text-blue-600' : 'border-gray-200 text-gray-500 hover:border-gray-300'}`}>{s.label}</button>
+                    {[{ id:'small',label:'Mic' },{ id:'medium',label:'Mediu' },{ id:'large',label:'Mare' }].map(s => (
+                      <button key={s.id} onClick={() => setConfig(c => ({ ...c, widget_size:s.id }))}
+                        className={`flex-1 py-2 text-[11px] rounded-xl border font-medium transition-all ${config.widget_size===s.id?'border-blue-500 bg-blue-50 text-blue-600':'border-neutral-200 text-neutral-500 hover:border-neutral-400'}`}>{s.label}</button>
                     ))}
                   </div>
                 </div>
+                {/* Poziție */}
                 <div>
-                  <label className="text-xs font-semibold text-gray-700 block mb-2">Poziție</label>
+                  <SectionLabel className="mb-2 block">Poziție</SectionLabel>
                   <div className="flex gap-2">
-                    {[{ id: 'bottom-right', label: 'Dreapta jos' }, { id: 'bottom-left', label: 'Stânga jos' }].map(pos => (
-                      <button key={pos.id} onClick={() => setConfig(c => ({ ...c, widget_position: pos.id }))}
-                        className={`flex-1 py-2 text-xs rounded-xl border font-medium transition-all ${config.widget_position === pos.id ? 'border-blue-500 bg-blue-50 text-blue-600' : 'border-gray-200 text-gray-500 hover:border-gray-300'}`}>{pos.label}</button>
+                    {[{ id:'bottom-right',label:'Dreapta jos' },{ id:'bottom-left',label:'Stânga jos' }].map(pos => (
+                      <button key={pos.id} onClick={() => setConfig(c => ({ ...c, widget_position:pos.id }))}
+                        className={`flex-1 py-2 text-[11px] rounded-xl border font-medium transition-all ${config.widget_position===pos.id?'border-blue-500 bg-blue-50 text-blue-600':'border-neutral-200 text-neutral-500 hover:border-neutral-400'}`}>{pos.label}</button>
                     ))}
                   </div>
                 </div>
+                {/* Offset */}
                 <div>
-                  <label className="text-xs font-semibold text-gray-700 block mb-2">Distanță față de jos — <span className="font-bold text-gray-900">{config.widget_bottom_offset}px</span></label>
-                  <input type="range" min="16" max="120" value={config.widget_bottom_offset} onChange={e => setConfig(c => ({ ...c, widget_bottom_offset: Number(e.target.value) }))} className="w-full accent-blue-500" />
-                  <p className="text-xs text-gray-400 mt-1">Util dacă ai butoane WhatsApp sau telefon în colț</p>
+                  <SectionLabel className="mb-2 block">Distanță față de jos — <span className="text-neutral-700 font-semibold">{config.widget_bottom_offset}px</span></SectionLabel>
+                  <input type="range" min={16} max={120} value={config.widget_bottom_offset} onChange={e => setConfig(c => ({ ...c, widget_bottom_offset:Number(e.target.value) }))} className="w-full accent-blue-500" />
                 </div>
-                <div className="flex items-center justify-between py-2 border-t border-gray-100">
-                  <div><p className="text-xs font-semibold text-gray-700">Animație de introducere</p><p className="text-xs text-gray-400 mt-0.5">Bubble cu mesajul de bun venit la load</p></div>
-                  <button onClick={() => setConfig(c => ({ ...c, widget_intro_animation: !c.widget_intro_animation }))}
-                    className={`w-10 h-6 rounded-full transition-colors relative ${config.widget_intro_animation ? 'bg-blue-500' : 'bg-gray-200'}`}>
-                    <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${config.widget_intro_animation ? 'left-5' : 'left-1'}`} />
-                  </button>
+                {/* Animație */}
+                <div className="flex items-center justify-between py-2 border-t border-neutral-100">
+                  <div>
+                    <p className="text-[12px] font-semibold text-neutral-700">Animație de introducere</p>
+                    <p className="text-[10px] text-neutral-400 mt-0.5">Bubble cu mesajul de bun venit la load</p>
+                  </div>
+                  <Toggle on={config.widget_intro_animation} onToggle={() => setConfig(c => ({ ...c, widget_intro_animation:!c.widget_intro_animation }))} />
                 </div>
-              </CardContent></Card>
+              </Card>
             )}
 
             {activeSettingsTab === 'advanced' && (
-              <Card className="border-0 shadow-sm rounded-2xl"><CardContent className="p-5 space-y-4">
+              <Card className="p-5 space-y-4">
                 <div>
-                  <label className="text-xs font-semibold text-gray-700 flex items-center gap-1.5 mb-1"><Code2 className="w-3.5 h-3.5 text-purple-500" />CSS Custom</label>
-                  <p className="text-xs text-gray-400 mb-2">Suprascrie stilurile implicite ale widget-ului.</p>
-                  <textarea value={config.widget_custom_css} onChange={e => setConfig(c => ({ ...c, widget_custom_css: e.target.value }))}
-                    placeholder={`/* Exemplu */\n#_h * { font-family: 'Georgia', serif !important; }\n#_h_b { box-shadow: 0 0 20px rgba(37,99,235,.5) !important; }`}
+                  <SectionLabel className="flex items-center gap-1.5 mb-1"><Code2 className="w-3.5 h-3.5 text-violet-500" />CSS Custom</SectionLabel>
+                  <p className="text-[10px] text-neutral-400 mb-2">Suprascrie stilurile implicite ale widget-ului.</p>
+                  <textarea value={config.widget_custom_css} onChange={e => setConfig(c => ({ ...c, widget_custom_css:e.target.value }))}
+                    placeholder={`/* Exemplu */\n#_h * { font-family: 'Georgia', serif !important; }`}
                     rows={12} spellCheck={false}
-                    className="w-full text-xs font-mono border border-gray-200 rounded-xl px-3 py-2.5 focus:outline-none focus:border-purple-400 transition-colors resize-none bg-gray-50" />
+                    className="w-full text-[11px] font-mono border border-neutral-200 rounded-xl px-3 py-2.5 focus:outline-none focus:border-violet-400 transition-colors resize-none bg-neutral-50" />
                 </div>
                 <div className="bg-amber-50 border border-amber-100 rounded-xl p-3">
-                  <p className="text-xs font-semibold text-amber-800 mb-1.5">🎨 Selectori principali</p>
-                  <div className="space-y-0.5 text-xs font-mono text-amber-700">
-                    {[['#_h_b', 'Butonul'], ['#_h_w', 'Fereastra chat'], ['#_h_hd', 'Header'], ['._h_r.u ._h_bb', 'Mesaje utilizator'], ['._h_r.b ._h_bb', 'Mesaje agent'], ['#_h_bl', 'Bubble intro']].map(([s, d]) => (
+                  <p className="text-[11px] font-semibold text-amber-800 mb-1.5">🎨 Selectori principali</p>
+                  <div className="space-y-0.5 text-[10px] font-mono text-amber-700">
+                    {[['#_h_b','Butonul'],['#_h_w','Fereastra chat'],['#_h_hd','Header'],['._h_r.u ._h_bb','Mesaje utilizator'],['._h_r.b ._h_bb','Mesaje agent'],['#_h_bl','Bubble intro']].map(([s,d]) => (
                       <div key={s} className="flex gap-2"><span className="shrink-0">{s}</span><span className="text-amber-500">— {d}</span></div>
                     ))}
                   </div>
                 </div>
-              </CardContent></Card>
+              </Card>
             )}
 
-            <Button onClick={handleSave} disabled={saving} className="w-full bg-gray-900 hover:bg-gray-800 text-white rounded-xl h-11 gap-2">
-              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : saved ? <Check className="h-4 w-4" /> : <Save className="h-4 w-4" />}
+            <Btn onClick={handleSave} disabled={saving} variant={saved?'success':'primary'} className="w-full justify-center h-10">
+              {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : saved ? <Check className="h-3.5 w-3.5" /> : <Save className="h-3.5 w-3.5" />}
               {saving ? 'Salvez...' : saved ? 'Salvat!' : 'Salvează configurarea'}
-            </Button>
+            </Btn>
           </div>
 
           {/* Preview */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <div><p className="text-sm font-semibold text-gray-900">Preview live</p><p className="text-xs text-gray-400">Modificările se văd instant</p></div>
-              {previewMessages.length > 0 && <button onClick={() => { setPreviewMessages([]); setPreviewOpen(false) }} className="text-xs text-gray-400 hover:text-gray-600">Resetează</button>}
+              <div>
+                <p className="text-[13px] font-semibold text-neutral-900">Preview live</p>
+                <p className="text-[11px] text-neutral-400">Modificările se văd instant</p>
+              </div>
+              {previewMessages.length > 0 && <Btn variant="ghost" size="sm" onClick={() => { setPreviewMessages([]); setPreviewOpen(false) }}>Resetează</Btn>}
             </div>
-            <WidgetPreview config={config} messages={previewMessages} onSend={sendPreview} loading={previewLoading} onToggle={() => setPreviewOpen(p => !p)} isOpen={previewOpen} />
-            <p className="text-xs text-gray-400 text-center">Apasă butonul din preview ca să deschizi chat-ul și să testezi</p>
+            <WidgetPreview config={config} messages={previewMessages} onSend={sendPreview} loading={previewLoading} onToggle={() => setPreviewOpen(p=>!p)} isOpen={previewOpen} />
+            <p className="text-[10px] text-neutral-400 text-center">Apasă butonul din preview ca să deschizi chat-ul și să testezi</p>
           </div>
         </div>
       )}
 
-      {/* INTELLIGENCE */}
+      {/* ─── INTELLIGENCE ─── */}
       {activeTab === 'intelligence' && (
-        <div className="space-y-5">
-          {/* Header card */}
-          <Card className="border-0 shadow-sm rounded-2xl">
-            <CardContent className="p-5">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center">
-                  <Zap className="h-5 w-5 text-white" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-sm font-semibold text-gray-900">Product Intelligence</h3>
-                  <p className="text-xs text-gray-400">AI generează cunoștințe detaliate per produs — rezumate tehnice, FAQ-uri, obiecții, beneficii — pentru răspunsuri mult mai bune în chat.</p>
-                </div>
+        <div className="space-y-4">
+          <Card className="p-5">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center">
+                <Zap className="h-5 w-5 text-white" />
               </div>
-
-              {/* Stats row */}
-              {intelStats && (
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
-                  <div className="p-3 bg-gray-50 rounded-xl text-center">
-                    <p className="text-lg font-bold text-gray-900">{intelStats.total_products}</p>
-                    <p className="text-[10px] text-gray-400 font-medium">Total produse</p>
-                  </div>
-                  <div className="p-3 bg-emerald-50 rounded-xl text-center">
-                    <p className="text-lg font-bold text-emerald-600">{intelStats.intelligence?.ready || 0}</p>
-                    <p className="text-[10px] text-emerald-500 font-medium">Cu intelligence</p>
-                  </div>
-                  <div className="p-3 bg-amber-50 rounded-xl text-center">
-                    <p className="text-lg font-bold text-amber-600">{(intelStats.intelligence?.processing || 0) + (intelStats.intelligence?.pending || 0)}</p>
-                    <p className="text-[10px] text-amber-500 font-medium">În procesare</p>
-                  </div>
-                  <div className="p-3 bg-red-50 rounded-xl text-center">
-                    <p className="text-lg font-bold text-red-500">{intelStats.intelligence?.failed || 0}</p>
-                    <p className="text-[10px] text-red-400 font-medium">Eșuate</p>
-                  </div>
-                </div>
-              )}
-
-              {/* Coverage bar */}
-              {intelStats && intelStats.total_products > 0 && (
-                <div className="mb-5">
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-xs font-medium text-gray-600">Acoperire Intelligence</span>
-                    <span className="text-xs font-bold text-gray-900">{intelStats.coverage}%</span>
-                  </div>
-                  <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden">
-                    <div className="h-full bg-gradient-to-r from-amber-500 to-orange-500 rounded-full transition-all duration-700"
-                      style={{ width: `${intelStats.coverage}%` }} />
-                  </div>
-                  <p className="text-[10px] text-gray-400 mt-1">
-                    {intelStats.intelligence?.ready || 0} din {intelStats.total_products} produse au cunoștințe AI generate
-                  </p>
-                </div>
-              )}
-
-              {/* Actions */}
-              <div className="flex flex-wrap gap-2">
-                <Button onClick={() => generateIntelligence(false)} disabled={intelGenerating}
-                  className="bg-blue-600 hover:bg-blue-700 rounded-xl h-10 px-5 text-sm">
-                  {intelGenerating
-                    ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Se generează...</>
-                    : <><Zap className="h-4 w-4 mr-2" />Generează Intelligence</>
-                  }
-                </Button>
-                <Button onClick={() => generateIntelligence(true)} disabled={intelGenerating}
-                  variant="outline" className="rounded-xl h-10 px-4 text-sm border-gray-200">
-                  <ArrowUpRight className="h-4 w-4 mr-1.5 rotate-180" />
-                  Regenerează tot (forțat)
-                </Button>
+              <div className="flex-1">
+                <p className="text-[14px] font-semibold text-neutral-900">Product Intelligence</p>
+                <p className="text-[11px] text-neutral-400">AI generează cunoștințe detaliate per produs pentru răspunsuri mult mai bune.</p>
               </div>
+            </div>
 
-              {/* Cost info */}
-              <p className="text-[10px] text-gray-400 mt-2">
-                Cost: 2 credite per produs. Produsele neschimbate sunt ignorate automat (nu consumă credite).
-              </p>
-
-              {/* Result message */}
-              {intelResult && (
-                <div className="mt-4 p-4 bg-emerald-50 border border-emerald-100 rounded-xl">
-                  <div className="flex items-start gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-emerald-600 mt-0.5 shrink-0" />
-                    <div className="text-sm text-emerald-700">
-                      <p className="font-semibold">Generare completă!</p>
-                      <p className="text-xs mt-1">
-                        {intelResult.generated} generate · {intelResult.skipped} ignorate (neschimbate) · {intelResult.failed} eșuate · {intelResult.credits_used} credite consumate
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {intelError && (
-                <div className="mt-4 p-4 bg-red-50 border border-red-100 rounded-xl">
-                  <div className="flex items-start gap-2">
-                    <AlertTriangle className="h-4 w-4 text-red-500 mt-0.5 shrink-0" />
-                    <p className="text-sm text-red-600">{intelError}</p>
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* How it works */}
-          <Card className="border-0 shadow-sm rounded-2xl">
-            <CardContent className="p-5">
-              <p className="text-sm font-semibold text-gray-900 mb-3">Cum funcționează</p>
-              <div className="space-y-3">
+            {intelStats && (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
                 {[
-                  { step: '1', title: 'Analiză produs', desc: 'AI citește titlul, descrierea, specificațiile, beneficiile și variațiile fiecărui produs.' },
-                  { step: '2', title: 'Generare cunoștințe', desc: 'Se creează un profil complet: rezumat tehnic, beneficii, FAQ-uri, obiecții frecvente, pentru cine e ideal.' },
-                  { step: '3', title: 'Embedding semantic', desc: 'Fiecare profil primește un vector embedding care permite căutare semantică — agentul înțelege sensul, nu doar cuvintele.' },
-                  { step: '4', title: 'Răspunsuri inteligente', desc: 'Când un client întreabă ceva, agentul folosește cunoștințele detaliate pentru răspunsuri precise și convingătoare.' },
-                ].map(item => (
-                  <div key={item.step} className="flex items-start gap-3">
-                    <span className="h-6 w-6 rounded-full bg-amber-100 text-amber-700 text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">{item.step}</span>
-                    <div>
-                      <p className="text-sm font-medium text-gray-900">{item.title}</p>
-                      <p className="text-xs text-gray-400 leading-relaxed">{item.desc}</p>
-                    </div>
+                  { label:'Total produse',    val:intelStats.total_products,                bg:'bg-neutral-50',  text:'text-neutral-900' },
+                  { label:'Cu intelligence',  val:intelStats.intelligence?.ready||0,         bg:'bg-emerald-50', text:'text-emerald-600' },
+                  { label:'În procesare',     val:(intelStats.intelligence?.processing||0)+(intelStats.intelligence?.pending||0), bg:'bg-amber-50', text:'text-amber-600' },
+                  { label:'Eșuate',           val:intelStats.intelligence?.failed||0,         bg:'bg-red-50',     text:'text-red-500'    },
+                ].map(x => (
+                  <div key={x.label} className={`${x.bg} rounded-xl p-3 text-center`}>
+                    <p className={`text-[18px] font-bold ${x.text} tabular-nums`}>{x.val}</p>
+                    <SectionLabel className="mt-0.5">{x.label}</SectionLabel>
                   </div>
                 ))}
               </div>
-            </CardContent>
+            )}
+
+            {intelStats && intelStats.total_products > 0 && (
+              <div className="mb-5">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-[12px] font-medium text-neutral-600">Acoperire Intelligence</span>
+                  <span className="text-[12px] font-bold text-neutral-900 tabular-nums">{intelStats.coverage}%</span>
+                </div>
+                <div className="h-2 bg-neutral-100 rounded-full overflow-hidden">
+                  <div className="h-full bg-gradient-to-r from-amber-400 to-orange-500 rounded-full transition-all duration-700" style={{ width:`${intelStats.coverage}%` }} />
+                </div>
+                <p className="text-[10px] text-neutral-400 mt-1">{intelStats.intelligence?.ready||0} din {intelStats.total_products} produse au cunoștințe AI generate</p>
+              </div>
+            )}
+
+            <div className="flex flex-wrap gap-2">
+              <Btn onClick={() => generateIntelligence(false)} disabled={intelGenerating} className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl h-9 px-4 text-[12px]">
+                {intelGenerating ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />Se generează...</> : <><Zap className="h-3.5 w-3.5 text-amber-300" />Generează Intelligence</>}
+              </Btn>
+              <Btn onClick={() => generateIntelligence(true)} disabled={intelGenerating} variant="outline">
+                <ArrowUpRight className="h-3.5 w-3.5 rotate-180" />Regenerează tot
+              </Btn>
+            </div>
+            <p className="text-[10px] text-neutral-400 mt-2">Cost: 2 credite per produs. Produsele neschimbate sunt ignorate automat.</p>
+
+            {intelResult && (
+              <div className="mt-4 p-3 bg-emerald-50 border border-emerald-100 rounded-xl flex items-start gap-2">
+                <CheckCircle2 className="h-4 w-4 text-emerald-600 mt-0.5 shrink-0" />
+                <div>
+                  <p className="text-[12px] font-semibold text-emerald-700">Generare completă!</p>
+                  <p className="text-[11px] text-emerald-600 mt-0.5">{intelResult.generated} generate · {intelResult.skipped} ignorate · {intelResult.failed} eșuate · {intelResult.credits_used} credite</p>
+                </div>
+              </div>
+            )}
+            {intelError && (
+              <div className="mt-4 p-3 bg-red-50 border border-red-100 rounded-xl flex items-start gap-2">
+                <AlertTriangle className="h-4 w-4 text-red-500 mt-0.5 shrink-0" />
+                <p className="text-[12px] text-red-600">{intelError}</p>
+              </div>
+            )}
           </Card>
 
-          {/* Auto-refresh info */}
-          <Card className="border-0 shadow-sm rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-50">
-            <CardContent className="p-5">
-              <div className="flex items-center gap-2 mb-2">
-                <ArrowUpRight className="h-4 w-4 text-blue-600 rotate-180" />
-                <span className="text-sm font-semibold text-blue-900">Auto-refresh via webhook</span>
-              </div>
-              <p className="text-xs text-blue-700 leading-relaxed">
-                Când un produs este creat sau modificat în WooCommerce, intelligence-ul se regenerează automat via webhook. Costă 2 credite per produs actualizat. Produsele șterse din WooCommerce au intelligence-ul șters automat.
-              </p>
-              <p className="text-xs text-blue-600 mt-2 font-medium">
-                Asigură-te că pluginul Hontrio v2.1+ este instalat și activat pentru a beneficia de auto-refresh.
-              </p>
-            </CardContent>
+          {/* Cum funcționează */}
+          <Card className="p-5">
+            <p className="text-[13px] font-semibold text-neutral-900 mb-3">Cum funcționează</p>
+            <div className="space-y-3">
+              {[
+                { step:'1', color:'bg-blue-100 text-blue-700',   title:'Analiză produs',        desc:'AI citește titlul, descrierea, specificațiile și variațiile.' },
+                { step:'2', color:'bg-amber-100 text-amber-700', title:'Generare cunoștințe',   desc:'Se creează profil complet: rezumat, beneficii, FAQ, obiecții frecvente.' },
+                { step:'3', color:'bg-violet-100 text-violet-700',title:'Embedding semantic',   desc:'Fiecare profil primește un vector pentru căutare semantică.' },
+                { step:'4', color:'bg-emerald-100 text-emerald-700',title:'Răspunsuri inteligente',desc:'Agentul folosește cunoștințele detaliate pentru răspunsuri precise.' },
+              ].map(item => (
+                <div key={item.step} className="flex items-start gap-3">
+                  <span className={`h-6 w-6 rounded-full ${item.color} text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5`}>{item.step}</span>
+                  <div>
+                    <p className="text-[12px] font-semibold text-neutral-900">{item.title}</p>
+                    <p className="text-[11px] text-neutral-400 leading-relaxed">{item.desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
           </Card>
+
+          <div className="bg-blue-50 border border-blue-100 rounded-xl p-4">
+            <div className="flex items-center gap-2 mb-1.5"><ArrowUpRight className="h-4 w-4 text-blue-600 rotate-180" /><span className="text-[12px] font-semibold text-blue-900">Auto-refresh via webhook</span></div>
+            <p className="text-[11px] text-blue-700 leading-relaxed">Când un produs este creat sau modificat în WooCommerce, intelligence-ul se regenerează automat. Asigură-te că pluginul Hontrio v2.1+ este activ.</p>
+          </div>
         </div>
       )}
 
-      {/* NOTIFICATIONS */}
+      {/* ─── NOTIFICATIONS ─── */}
       {activeTab === 'notifications' && (
-        <div className="space-y-5">
-          {/* Email config */}
-          <Card className="border-0 shadow-sm rounded-2xl"><CardContent className="p-5 space-y-4">
+        <div className="space-y-4">
+          <Card className="p-5 space-y-4">
             <div className="flex items-center gap-2">
-              <Bell className="h-4 w-4 text-blue-600" />
-              <p className="text-sm font-semibold text-gray-900">Notificări email</p>
+              <Bell className="h-4 w-4 text-blue-500" />
+              <p className="text-[13px] font-semibold text-neutral-900">Notificări email</p>
             </div>
-            <p className="text-xs text-gray-500">Primești un email instant când un client are nevoie de ajutor uman sau raportează o problemă.</p>
-
+            <p className="text-[12px] text-neutral-500">Primești email instant când un client are nevoie de ajutor uman sau raportează o problemă.</p>
             <div>
-              <label className="text-xs font-semibold text-gray-700 mb-1.5 block">Email pentru notificări</label>
-              <input value={config.notify_email || ''} onChange={e => setConfig(c => ({ ...c, notify_email: e.target.value }))}
-                type="email" placeholder="tu@magazin.ro"
-                className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              <SectionLabel className="mb-1.5 block">Email pentru notificări</SectionLabel>
+              <input value={config.notify_email||''} onChange={e => setConfig(c => ({ ...c, notify_email:e.target.value }))} type="email" placeholder="tu@magazin.ro"
+                className="w-full text-[13px] border border-neutral-200 rounded-xl px-3 py-2.5 focus:outline-none focus:border-blue-400 transition-colors" />
             </div>
-
             <div className="space-y-2">
               {[
-                { key: 'notify_on_escalation', label: '🔴 Client solicită agent uman', desc: 'Clientul cere să vorbească cu o persoană reală' },
-                { key: 'notify_on_problem', label: '⚠️ Problemă cu comanda', desc: 'Clientul raportează o problemă sau reclamație' },
+                { key:'notify_on_escalation', label:'🔴 Client solicită agent uman', desc:'Clientul cere să vorbească cu o persoană reală' },
+                { key:'notify_on_problem',    label:'⚠️ Problemă cu comanda',      desc:'Clientul raportează o problemă sau reclamație' },
               ].map(({ key, label, desc }) => (
-                <div key={key} onClick={() => setConfig(c => ({ ...c, [key]: !(c as any)[key] }))}
-                  className="flex items-center justify-between p-3.5 rounded-xl border border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors">
+                <div key={key} onClick={() => setConfig(c => ({ ...c, [key]:!(c as any)[key] }))}
+                  className="flex items-center justify-between p-3.5 rounded-xl border border-neutral-100 hover:bg-neutral-50 cursor-pointer transition-colors">
                   <div>
-                    <p className="text-sm font-medium text-gray-800">{label}</p>
-                    <p className="text-xs text-gray-400 mt-0.5">{desc}</p>
+                    <p className="text-[12px] font-medium text-neutral-800">{label}</p>
+                    <p className="text-[10px] text-neutral-400 mt-0.5">{desc}</p>
                   </div>
-                  <div className={`w-10 h-6 rounded-full transition-colors relative shrink-0 ${(config as any)[key] ? 'bg-blue-600' : 'bg-gray-200'}`}>
-                    <div className={`w-4 h-4 bg-white rounded-full absolute top-1 transition-all shadow-sm ${(config as any)[key] ? 'left-5' : 'left-1'}`} />
-                  </div>
+                  <Toggle on={(config as any)[key]} onToggle={() => setConfig(c => ({ ...c, [key]:!(c as any)[key] }))} />
                 </div>
               ))}
             </div>
-
-            {!config.notify_email ? (
-              <div className="flex items-center gap-2 p-3 bg-amber-50 rounded-xl">
-                <AlertCircle className="h-4 w-4 text-amber-500 shrink-0" />
-                <p className="text-xs text-amber-700">Adaugă o adresă de email ca să activezi notificările.</p>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2 p-3 bg-green-50 rounded-xl">
-                <Check className="h-4 w-4 text-green-600 shrink-0" />
-                <p className="text-xs text-green-700">Notificările vor fi trimise la <strong>{config.notify_email}</strong></p>
-              </div>
-            )}
-
-            <Button onClick={handleSave} disabled={saving} className="w-full bg-gray-900 hover:bg-gray-800 text-white rounded-xl h-11 gap-2">
-              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : saved ? <Check className="h-4 w-4" /> : <Save className="h-4 w-4" />}
+            {!config.notify_email
+              ? <div className="flex items-center gap-2 p-3 bg-amber-50 border border-amber-100 rounded-xl"><AlertCircle className="h-4 w-4 text-amber-500 shrink-0" /><p className="text-[11px] text-amber-700">Adaugă o adresă de email ca să activezi notificările.</p></div>
+              : <div className="flex items-center gap-2 p-3 bg-emerald-50 border border-emerald-100 rounded-xl"><Check className="h-4 w-4 text-emerald-600 shrink-0" /><p className="text-[11px] text-emerald-700">Notificările vor fi trimise la <strong>{config.notify_email}</strong></p></div>}
+            <Btn onClick={handleSave} disabled={saving} variant={saved?'success':'primary'} className="w-full justify-center h-10">
+              {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : saved ? <Check className="h-3.5 w-3.5" /> : <Save className="h-3.5 w-3.5" />}
               {saving ? 'Salvez...' : saved ? 'Salvat!' : 'Salvează'}
-            </Button>
-          </CardContent></Card>
-
-          {/* Info */}
-          <div className="flex gap-3 p-4 bg-blue-50 rounded-xl">
-            <Bell className="h-4 w-4 text-blue-600 shrink-0 mt-0.5" />
-            <div>
-              <p className="text-xs font-medium text-blue-800 mb-1">Cum funcționează?</p>
-              <p className="text-xs text-blue-600">Când un client spune "vreau să vorbesc cu cineva" sau raportează o problemă, primești imediat un email cu ultimele mesaje din conversație. Nu se trimit duplicate pentru aceeași conversație.</p>
-            </div>
+            </Btn>
+          </Card>
+          <div className="flex gap-3 p-4 bg-blue-50 border border-blue-100 rounded-xl">
+            <Bell className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" />
+            <p className="text-[11px] text-blue-700">Când un client spune „vreau să vorbesc cu cineva" sau raportează o problemă, primești imediat un email cu ultimele mesaje din conversație.</p>
           </div>
         </div>
       )}
 
-      {/* KNOWLEDGE / RAG */}
+      {/* ─── KNOWLEDGE ─── */}
       {activeTab === 'knowledge' && (
-        <div className="space-y-5">
-          {/* Upload card */}
-          <Card className="border-0 shadow-sm rounded-2xl"><CardContent className="p-5">
-            <div className="flex items-center gap-2 mb-4">
-              <BookOpen className="h-4 w-4 text-blue-600" />
-              <p className="text-sm font-semibold text-gray-900">Adaugă cunoștințe</p>
+        <div className="space-y-4">
+          <Card className="p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <BookOpen className="h-4 w-4 text-blue-500" />
+              <p className="text-[13px] font-semibold text-neutral-900">Adaugă cunoștințe</p>
             </div>
-            <p className="text-xs text-gray-500 mb-4">Încarcă documente, adaugă un URL sau scrie direct text. Agentul va răspunde la întrebări bazat pe aceste informații.</p>
-
-            {/* Type selector */}
-            <div className="flex gap-1 bg-gray-100 rounded-xl p-1 mb-4">
-              {([['file','📄 Fișier'],['url','🔗 URL'],['text','✏️ Text']] as const).map(([t, label]) => (
-                <button key={t} onClick={() => setKUploadType(t)}
-                  className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-all ${kUploadType === t ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
-                  {label}
-                </button>
+            <p className="text-[11px] text-neutral-500 mb-4">Agentul va răspunde la întrebări bazat pe aceste informații.</p>
+            <div className="flex gap-1 bg-neutral-100 rounded-xl p-1 mb-4">
+              {([['file','📄 Fișier'],['url','🔗 URL'],['text','✏️ Text']] as const).map(([t,label]) => (
+                <button key={t} onClick={() => setKUploadType(t)} className={`flex-1 py-1.5 rounded-lg text-[11px] font-medium transition-all ${kUploadType===t?'bg-white text-neutral-900 shadow-sm':'text-neutral-500 hover:text-neutral-700'}`}>{label}</button>
               ))}
             </div>
-
             <div className="space-y-3">
               <input value={kName} onChange={e => setKName(e.target.value)} placeholder="Nume document (opțional)"
-                className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
-
-              {kUploadType === 'file' && (
-                <div onClick={() => kFileRef.current?.click()}
-                  className="border-2 border-dashed border-gray-200 rounded-xl p-6 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-all">
-                  <Upload className="h-6 w-6 text-gray-400 mx-auto mb-2" />
-                  <p className="text-xs text-gray-500">Click sau drag & drop</p>
-                  <p className="text-xs text-gray-400 mt-1">PDF, TXT, MD — max 5MB</p>
-                  <input ref={kFileRef} type="file" accept=".pdf,.txt,.md" className="hidden"
-                    onChange={e => { const f = e.target.files?.[0]; if (f) uploadKnowledge(f); e.target.value = '' }} />
+                className="w-full text-[12px] border border-neutral-200 rounded-xl px-3 py-2 focus:outline-none focus:border-blue-400 transition-colors" />
+              {kUploadType==='file' && (
+                <div onClick={() => kFileRef.current?.click()} className="border-2 border-dashed border-neutral-200 rounded-xl p-6 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-all">
+                  <Upload className="h-6 w-6 text-neutral-300 mx-auto mb-2" />
+                  <p className="text-[11px] text-neutral-500">Click sau drag & drop</p>
+                  <p className="text-[10px] text-neutral-400 mt-1">PDF, TXT, MD — max 5MB</p>
+                  <input ref={kFileRef} type="file" accept=".pdf,.txt,.md" className="hidden" onChange={e => { const f=e.target.files?.[0]; if(f) uploadKnowledge(f); e.target.value='' }} />
                 </div>
               )}
-
-              {kUploadType === 'url' && (
-                <input value={kUrl} onChange={e => setKUrl(e.target.value)} placeholder="https://magazin.ro/politica-retur"
-                  className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              {kUploadType==='url' && <input value={kUrl} onChange={e => setKUrl(e.target.value)} placeholder="https://magazin.ro/politica-retur" className="w-full text-[12px] border border-neutral-200 rounded-xl px-3 py-2 focus:outline-none focus:border-blue-400 transition-colors" />}
+              {kUploadType==='text' && <textarea value={kText} onChange={e => setKText(e.target.value)} rows={5} placeholder="Ex: Livrăm în 24-48h prin Fan Courier..." className="w-full text-[12px] border border-neutral-200 rounded-xl px-3 py-2 focus:outline-none focus:border-blue-400 transition-colors resize-none" />}
+              {kError && <p className="text-[11px] text-red-500 flex items-center gap-1"><AlertTriangle className="h-3 w-3" />{kError}</p>}
+              {(kUploadType==='url'||kUploadType==='text') && (
+                <Btn onClick={() => uploadKnowledge()} disabled={kUploading||(!kUrl&&!kText)} className="w-full justify-center bg-blue-600 hover:bg-blue-700 text-white rounded-xl h-9 text-[12px]">
+                  {kUploading ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />Se procesează...</> : <><PlusCircle className="h-3.5 w-3.5" />Adaugă</>}
+                </Btn>
               )}
-
-              {kUploadType === 'text' && (
-                <textarea value={kText} onChange={e => setKText(e.target.value)} rows={5}
-                  placeholder="Ex: Livrăm în 24-48h prin Fan Courier. Returul e gratuit în 30 de zile..."
-                  className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
-              )}
-
-              {kError && <p className="text-xs text-red-500 flex items-center gap-1"><AlertTriangle className="h-3 w-3" />{kError}</p>}
-
-              {(kUploadType === 'url' || kUploadType === 'text') && (
-                <Button onClick={() => uploadKnowledge()} disabled={kUploading || (!kUrl && !kText)}
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm">
-                  {kUploading ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />Se procesează...</> : <><PlusCircle className="h-4 w-4 mr-2" />Adaugă</>}
-                </Button>
-              )}
-              {kUploading && kUploadType === 'file' && (
-                <div className="flex items-center gap-2 text-xs text-blue-600"><Loader2 className="h-4 w-4 animate-spin" />Se procesează documentul...</div>
-              )}
+              {kUploading && kUploadType==='file' && <div className="flex items-center gap-2 text-[11px] text-blue-600"><Loader2 className="h-3.5 w-3.5 animate-spin" />Se procesează documentul...</div>}
             </div>
-          </CardContent></Card>
+          </Card>
 
-          {/* Documents list */}
-          <Card className="border-0 shadow-sm rounded-2xl"><CardContent className="p-5">
+          <Card className="p-5">
             <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <FileText className="h-4 w-4 text-gray-500" />
-                <p className="text-sm font-semibold text-gray-900">Documente ({knowledgeDocs.length})</p>
-              </div>
-              <button onClick={loadKnowledge} className="text-xs text-gray-400 hover:text-gray-600 transition-colors">↻ Actualizează</button>
+              <div className="flex items-center gap-2"><FileText className="h-4 w-4 text-neutral-400" /><p className="text-[13px] font-semibold text-neutral-900">Documente ({knowledgeDocs.length})</p></div>
+              <Btn variant="ghost" size="sm" onClick={loadKnowledge}>↻ Actualizează</Btn>
             </div>
-
-            {knowledgeDocs.length === 0 ? (
-              <div className="text-center py-8">
-                <BookOpen className="h-10 w-10 text-gray-200 mx-auto mb-3" />
-                <p className="text-sm text-gray-400">Niciun document adăugat</p>
-                <p className="text-xs text-gray-400 mt-1">Adaugă politica de livrare, FAQ, garanții etc.</p>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {knowledgeDocs.map(doc => (
-                  <div key={doc.id} className="flex items-center gap-3 p-3 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors group">
-                    <div className="shrink-0">
-                      {doc.type === 'pdf' ? <FileText className="h-4 w-4 text-red-500" /> :
-                       doc.type === 'url' ? <Link2 className="h-4 w-4 text-blue-500" /> :
-                       <FileText className="h-4 w-4 text-gray-500" />}
+            {knowledgeDocs.length === 0
+              ? <div className="text-center py-8"><BookOpen className="h-10 w-10 text-neutral-200 mx-auto mb-3" /><p className="text-[12px] text-neutral-400">Niciun document adăugat</p></div>
+              : <div className="space-y-2">
+                  {knowledgeDocs.map(doc => (
+                    <div key={doc.id} className="flex items-center gap-3 p-3 rounded-xl bg-neutral-50 hover:bg-neutral-100 transition-colors group">
+                      <div className="shrink-0">
+                        {doc.type==='pdf' ? <FileText className="h-4 w-4 text-red-400" /> : doc.type==='url' ? <Link2 className="h-4 w-4 text-blue-500" /> : <FileText className="h-4 w-4 text-neutral-400" />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[12px] font-medium text-neutral-800 truncate">{doc.name}</p>
+                        <p className="text-[10px] text-neutral-400">{doc.status==='ready'?`${doc.chunk_count} segmente`:doc.status==='processing'?'Se procesează...':doc.error_msg||'Eroare'}</p>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        {doc.status==='ready' && <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />}
+                        {doc.status==='processing' && <Loader2 className="h-3.5 w-3.5 text-blue-500 animate-spin" />}
+                        {doc.status==='error' && <AlertTriangle className="h-3.5 w-3.5 text-red-500" />}
+                        <button onClick={() => deleteKnowledge(doc.id)} className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-100 rounded-lg transition-all">
+                          <Trash2 className="h-3.5 w-3.5 text-red-400" />
+                        </button>
+                      </div>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium text-gray-800 truncate">{doc.name}</p>
-                      <p className="text-xs text-gray-400">
-                        {doc.status === 'ready' ? `${doc.chunk_count} segmente` :
-                         doc.status === 'processing' ? 'Se procesează...' : doc.error_msg || 'Eroare'}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      {doc.status === 'ready' && <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />}
-                      {doc.status === 'processing' && <Loader2 className="h-3.5 w-3.5 text-blue-500 animate-spin" />}
-                      {doc.status === 'error' && <AlertTriangle className="h-3.5 w-3.5 text-red-500" />}
-                      <button onClick={() => deleteKnowledge(doc.id)}
-                        className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-100 rounded-lg transition-all">
-                        <Trash2 className="h-3.5 w-3.5 text-red-500" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent></Card>
-
-          {/* Info box */}
-          <div className="flex gap-2 p-4 bg-blue-50 rounded-xl">
-            <BookOpen className="h-4 w-4 text-blue-600 shrink-0 mt-0.5" />
-            <div>
-              <p className="text-xs font-medium text-blue-800">Ce să adaugi?</p>
-              <p className="text-xs text-blue-600 mt-1">Politica de livrare și retur, garanții, FAQ, instrucțiuni de utilizare, informații despre brand. Agentul va cita automat informațiile relevante când clienții întreabă.</p>
-            </div>
+                  ))}
+                </div>}
+          </Card>
+          <div className="flex gap-2 p-4 bg-blue-50 border border-blue-100 rounded-xl">
+            <BookOpen className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" />
+            <p className="text-[11px] text-blue-700">Adaugă politica de livrare și retur, garanții, FAQ, instrucțiuni de utilizare. Agentul va cita informațiile relevante automat.</p>
           </div>
         </div>
       )}
 
-      {/* INSTALL */}
+      {/* ─── INSTALL ─── */}
       {activeTab === 'install' && (
         <div className="space-y-4">
-          <Card className="border-0 shadow-sm rounded-2xl overflow-hidden">
-            <div className="bg-gradient-to-br from-slate-800 to-slate-900 p-6">
+          <Card className="overflow-hidden">
+            <div className="bg-neutral-900 p-6">
               <div className="flex items-start gap-4">
-                <div className="h-12 w-12 rounded-2xl bg-blue-500/20 border border-blue-400/30 flex items-center justify-center shrink-0 text-2xl">🔌</div>
-                <div><p className="text-white font-bold text-base">Plugin WordPress — instalare 1 click</p><p className="text-slate-400 text-sm mt-1">Pluginul unificat Hontrio include AI Agent + Risk Shield. Se descarcă din Setări.</p></div>
+                <div className="h-12 w-12 rounded-xl bg-blue-500/20 border border-blue-400/30 flex items-center justify-center shrink-0 text-2xl">🔌</div>
+                <div>
+                  <p className="text-white font-semibold text-[15px]">Plugin WordPress — instalare 1 click</p>
+                  <p className="text-neutral-400 text-[12px] mt-1">Pluginul Hontrio include AI Agent + Risk Shield.</p>
+                </div>
               </div>
-              <a href="/settings?tab=plugin" className="mt-5 w-full bg-blue-500 hover:bg-blue-400 text-white rounded-xl h-11 gap-2 font-semibold text-sm flex items-center justify-center">
-                <ArrowUpRight className="h-4 w-4 mr-2" />Descarcă din Setări → Plugin WP
+              <a href="/settings?tab=plugin" className="mt-5 w-full bg-blue-500 hover:bg-blue-400 text-white rounded-xl h-10 gap-2 font-semibold text-[13px] flex items-center justify-center transition-colors">
+                <ArrowUpRight className="h-4 w-4" />Descarcă din Setări → Plugin WP
               </a>
             </div>
             <div className="p-5 space-y-3">
-              {[{ step: '1', text: 'Descarcă ZIP-ul' }, { step: '2', text: 'WordPress → Plugins → Add New → Upload Plugin' }, { step: '3', text: 'Selectează ZIP și Install Now' }, { step: '4', text: 'Activate Plugin — gata!' }].map(s => (
+              {[{ step:'1',text:'Descarcă ZIP-ul' },{ step:'2',text:'WordPress → Plugins → Add New → Upload Plugin' },{ step:'3',text:'Selectează ZIP și Install Now' },{ step:'4',text:'Activate Plugin — gata!' }].map(s => (
                 <div key={s.step} className="flex items-center gap-3">
-                  <div className="h-6 w-6 rounded-full bg-blue-100 flex items-center justify-center text-xs font-bold text-blue-600 shrink-0">{s.step}</div>
-                  <p className="text-sm text-gray-700">{s.text}</p>
+                  <div className="h-6 w-6 rounded-full bg-blue-100 flex items-center justify-center text-[10px] font-bold text-blue-600 shrink-0">{s.step}</div>
+                  <p className="text-[13px] text-neutral-700">{s.text}</p>
                 </div>
               ))}
             </div>
           </Card>
           <details className="group">
-            <summary className="cursor-pointer text-sm text-gray-400 hover:text-gray-600 flex items-center gap-2 select-none">
+            <summary className="cursor-pointer text-[12px] text-neutral-400 hover:text-neutral-600 flex items-center gap-2 select-none">
               <ChevronRight className="h-4 w-4 group-open:rotate-90 transition-transform" />Instalare manuală (cod snippet)
             </summary>
-            <Card className="border-0 shadow-sm rounded-2xl overflow-hidden mt-2">
-              <div className="bg-slate-900 p-4">
-                <div className="bg-black/30 rounded-xl p-3 font-mono text-xs text-green-400 leading-relaxed whitespace-pre-wrap">{snippetCode}</div>
-                <button onClick={copySnippet} className={`mt-3 flex items-center gap-2 text-xs font-medium px-4 py-2 rounded-lg transition-all ${copied ? 'bg-green-500 text-white' : 'bg-white/10 text-white hover:bg-white/20'}`}>
-                  {copied ? <><Check className="h-3.5 w-3.5" />Copiat!</> : <><Copy className="h-3.5 w-3.5" />Copiază codul</>}
-                </button>
+            <Card className="overflow-hidden mt-2">
+              <div className="bg-neutral-900 p-4">
+                <div className="bg-black/30 rounded-xl p-3 font-mono text-[11px] text-emerald-400 leading-relaxed whitespace-pre-wrap">{snippetCode}</div>
+                <Btn onClick={copySnippet} variant={copied?'success':'ghost'} size="sm" className="mt-3">
+                  {copied ? <><Check className="h-3 w-3" />Copiat!</> : <><Copy className="h-3 w-3" />Copiază codul</>}
+                </Btn>
               </div>
             </Card>
           </details>
           {!config.whatsapp_number && (
-            <div className="flex items-start gap-3 bg-amber-50 border border-amber-100 rounded-2xl p-4">
+            <div className="flex items-start gap-3 bg-amber-50 border border-amber-100 rounded-xl p-4">
               <AlertCircle className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
-              <div><p className="text-sm font-semibold text-amber-800">Numărul WhatsApp lipsește</p><p className="text-xs text-amber-600 mt-0.5">Fără WhatsApp, vizitatorii nu pot fi escaladați.</p></div>
+              <div>
+                <p className="text-[13px] font-semibold text-amber-800">Numărul WhatsApp lipsește</p>
+                <p className="text-[11px] text-amber-600 mt-0.5">Fără WhatsApp, vizitatorii nu pot fi escaladați.</p>
+              </div>
             </div>
           )}
         </div>
