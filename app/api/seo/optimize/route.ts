@@ -230,6 +230,76 @@ Returnează DOAR JSON valid:
   }
 }
 
+
+// ─── POST-PROCESS: Ajustează automat conținutul AI să maximizeze scorul ──────
+function postProcessSeoResult(result: Record<string, any>, focusKeyword: string): Record<string, any> {
+  const kw = (focusKeyword || result.focus_keyword || '').trim().toLowerCase()
+
+  // 1. TITLE: Ensure 50-70 chars + contains keyword
+  if (result.optimized_title) {
+    let title = result.optimized_title.trim()
+    // If keyword not in title, prepend it
+    if (kw && !title.toLowerCase().includes(kw)) {
+      const kwCapitalized = kw.charAt(0).toUpperCase() + kw.slice(1)
+      title = `${kwCapitalized} — ${title}`
+    }
+    // Trim to 70 chars if too long (cut at last space)
+    if (title.length > 70) {
+      title = title.substring(0, 67).replace(/\s+\S*$/, '') + '...'
+      if (title.length > 70) title = title.substring(0, 70)
+    }
+    // Pad if too short (under 50)
+    if (title.length < 50 && kw) {
+      title = title + ' | Calitate Premium'
+      if (title.length < 50) title = title + ' Online'
+    }
+    result.optimized_title = title
+  }
+
+  // 2. META DESCRIPTION: Ensure 120-155 chars + contains keyword
+  if (result.meta_description) {
+    let meta = result.meta_description.trim()
+    // If keyword not in meta, prepend
+    if (kw && !meta.toLowerCase().includes(kw)) {
+      const kwCap = kw.charAt(0).toUpperCase() + kw.slice(1)
+      meta = `${kwCap} — ${meta}`
+    }
+    // Trim to 155
+    if (meta.length > 155) {
+      meta = meta.substring(0, 152).replace(/\s+\S*$/, '') + '...'
+      if (meta.length > 155) meta = meta.substring(0, 155)
+    }
+    // Pad if under 120
+    if (meta.length < 120) {
+      if (!meta.endsWith('.')) meta += '.'
+      const pads = [' Comandă acum!', ' Livrare rapidă.', ' Calitate garantată.', ' Vezi oferta!']
+      for (const pad of pads) {
+        if (meta.length < 120) meta += pad
+      }
+      if (meta.length > 155) meta = meta.substring(0, 155)
+    }
+    result.meta_description = meta
+  }
+
+  // 3. SHORT DESCRIPTION: Ensure >= 80 chars
+  if (result.optimized_short_description) {
+    const shortPlain = result.optimized_short_description.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
+    if (shortPlain.length < 80) {
+      // Short desc is too short — the AI should have generated more but pad as fallback
+      result.optimized_short_description += ' Produs de calitate superioară, ideal pentru nevoile dumneavoastră.'
+    }
+  }
+
+  // 4. FOCUS KEYWORD: Ensure it's set
+  if (!result.focus_keyword || result.focus_keyword.trim().length < 2) {
+    // Extract from title as fallback
+    const titleWords = (result.optimized_title || '').split(/[\s—|–-]+/).filter((w: string) => w.length > 3)
+    result.focus_keyword = titleWords.slice(0, 3).join(' ').toLowerCase()
+  }
+
+  return result
+}
+
 // ─── ROUTE HANDLER ────────────────────────────────────────────────────────────
 export async function POST(request: Request) {
   try {
@@ -337,6 +407,12 @@ export async function POST(request: Request) {
       reference_type: 'seo_optimization',
       reference_id: product_id,
     })
+
+    // Post-procesare: ajustează dimensiunile pentru scor maxim
+    if (result) {
+      const kwForProcess = result.focus_keyword || product.focus_keyword || ''
+      Object.assign(result, postProcessSeoResult(result, kwForProcess))
+    }
 
     // Daca sectiunea e 'all', suprascrie seo_score cu calculul nostru real
     // (nu cel estimat de GPT care poate fi incorect/exagerat)
