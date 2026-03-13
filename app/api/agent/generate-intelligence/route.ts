@@ -52,7 +52,8 @@ export async function POST(req: Request) {
     if (!store) return NextResponse.json({ error: 'Niciun magazin' }, { status: 404 })
 
     let query = supabase.from('products').select('*').eq('user_id', userId).is('parent_id', null)
-    if (productIds) query = query.in('id', productIds)
+    if (productIds) query = query.in('id', productIds.slice(0, 50)) // FIX: max 50 produse per cerere
+    else query = query.limit(50) // FIX: cap la 50 fără product_ids explicit
     const { data: products } = await query
     if (!products?.length) return NextResponse.json({ error: 'Niciun produs' }, { status: 404 })
 

@@ -1,11 +1,72 @@
 // AI request deduplication and cost guard
 // Prevents paying multiple times for identical requests
+// FIX: Job tracking cu Redis (fallback in-memory cu TTL strict)
 
 import { createAdminClient } from '@/lib/supabase/admin'
 
-const MAX_PROMPT_CHARS = 10000 // Max chars in a single prompt input
+const MAX_PROMPT_CHARS = 10000
 const MAX_TITLE_CHARS = 500
 const MAX_DESCRIPTION_CHARS = 50000
+
+// ─── Redis job tracking (optional, falls back to in-memory) ──────────────────
+let redisClient: any = null
+async function getRedis() {
+  if (redisClient) return redisClient
+  try {
+    const url = process.env.UPSTASH_REDIS_REST_URL
+    const token = process.env.UPSTASH_REDIS_REST_TOKEN
+    if (!url || !token) return null
+    const { Redis } = await import('@upstash/redis')
+    redisClient = new Redis({ url, token })
+    return redisClient
+  } catch { return null }
+}
+
+// ─── In-memory fallback with strict TTL ──────────────────────────────────────
+const runningJobs = new Map<string, number>()
+
+// Cleanup vechi la 60s
+if (typeof setInterval !== 'undefined') {
+  setInterval(() => {
+    const now = Date.now()
+    for (const [key, startedAt] of runningJobs.entries()) {
+      if (now - startedAt > 5 * 60 * 1000) runningJobs.delete(key)
+    }
+  }, 60 * 1000)
+}
+
+export async function markJobRunningAsync(key: string): Promise<boolean> {
+  const redis = await getRedis()
+  if (redis) {
+    // SET NX cu TTL de 5 minute — atomic, distribuit
+    const result = await redis.set(`hontrio:job:${key}`, Date.now(), { nx: true, ex: 300 })
+    return result === 'OK'
+  }
+  // Fallback in-memory
+  if (runningJobs.has(key)) return false
+  runningJobs.set(key, Date.now())
+  return true
+}
+
+export async function markJobDoneAsync(key: string): Promise<void> {
+  const redis = await getRedis()
+  if (redis) {
+    await redis.del(`hontrio:job:${key}`)
+    return
+  }
+  runningJobs.delete(key)
+}
+
+// Sync wrappers (backward compat — for code that can't be async)
+export function markJobRunning(key: string): boolean {
+  if (runningJobs.has(key)) return false
+  runningJobs.set(key, Date.now())
+  return true
+}
+
+export function markJobDone(key: string): void {
+  runningJobs.delete(key)
+}
 
 // Simple hash function for dedup keys
 function simpleHash(str: string): string {
@@ -13,35 +74,24 @@ function simpleHash(str: string): string {
   for (let i = 0; i < str.length; i++) {
     const char = str.charCodeAt(i)
     hash = ((hash << 5) - hash) + char
-    hash = hash & hash // Convert to 32bit integer
+    hash = hash & hash
   }
   return Math.abs(hash).toString(36)
 }
 
-// Generate dedup key from operation context
 export function dedupKey(
-  userId: string,
-  operation: string,
-  productId: string,
-  inputHash: string,
+  userId: string, operation: string, productId: string, inputHash: string,
 ): string {
   return `${userId}:${operation}:${productId}:${inputHash}`
 }
 
-// Check if we already have a cached result for this exact request
 export async function checkDedup(
-  userId: string,
-  operation: string,
-  productId: string,
-  inputData: string,
+  userId: string, operation: string, productId: string, inputData: string,
 ): Promise<{ cached: boolean; result?: any }> {
   const hash = simpleHash(inputData)
-  const key = dedupKey(userId, operation, productId, hash)
 
-  const supabase = createAdminClient()
-
-  // Check if product already has optimized content matching this input
   if (operation === 'text_full') {
+    const supabase = createAdminClient()
     const { data: product } = await supabase
       .from('products')
       .select('optimized_title, meta_description, optimized_short_description, optimized_long_description, benefits, seo_score, seo_suggestions, status')
@@ -49,7 +99,6 @@ export async function checkDedup(
       .eq('user_id', userId)
       .single()
 
-    // If already optimized, return cached result
     if (product && product.status === 'optimized' && product.optimized_title) {
       return {
         cached: true,
@@ -69,28 +118,6 @@ export async function checkDedup(
   return { cached: false }
 }
 
-// In-memory tracking of running jobs to prevent duplicate concurrent requests
-const runningJobs = new Map<string, number>()
-
-// Clean up old entries every 5 minutes
-setInterval(() => {
-  const now = Date.now()
-  for (const [key, startedAt] of runningJobs.entries()) {
-    if (now - startedAt > 5 * 60 * 1000) runningJobs.delete(key)
-  }
-}, 5 * 60 * 1000)
-
-export function markJobRunning(key: string): boolean {
-  if (runningJobs.has(key)) return false // Already running
-  runningJobs.set(key, Date.now())
-  return true
-}
-
-export function markJobDone(key: string): void {
-  runningJobs.delete(key)
-}
-
-// Cost guard — validate input sizes before calling AI
 export function validateAiInput(input: {
   title?: string
   description?: string
@@ -108,7 +135,19 @@ export function validateAiInput(input: {
   return { valid: true }
 }
 
-// Count active jobs for a user
+export async function countUserJobsAsync(userId: string): Promise<number> {
+  const redis = await getRedis()
+  if (redis) {
+    const keys = await redis.keys(`hontrio:job:${userId}:*`)
+    return keys?.length || 0
+  }
+  let count = 0
+  for (const key of runningJobs.keys()) {
+    if (key.startsWith(userId + ':')) count++
+  }
+  return count
+}
+
 export function countUserJobs(userId: string): number {
   let count = 0
   for (const key of runningJobs.keys()) {
@@ -117,7 +156,6 @@ export function countUserJobs(userId: string): number {
   return count
 }
 
-// Max concurrent AI jobs per user
 export const MAX_CONCURRENT_JOBS_PER_USER = 2
 export const MAX_CONCURRENT_JOBS_GLOBAL = 10
 
@@ -126,10 +164,8 @@ export function canStartJob(userId: string): { allowed: boolean; reason?: string
   if (userJobs >= MAX_CONCURRENT_JOBS_PER_USER) {
     return { allowed: false, reason: `Ai deja ${userJobs} operații active. Așteaptă să se finalizeze.` }
   }
-
   if (runningJobs.size >= MAX_CONCURRENT_JOBS_GLOBAL) {
     return { allowed: false, reason: 'Sistemul este ocupat. Încearcă din nou în câteva secunde.' }
   }
-
   return { allowed: true }
 }

@@ -24,7 +24,7 @@ export async function POST(request: Request) {
     const userId = (session.user as any).id
 
     // Rate limit
-    const rl = rateLimitExpensive(userId, 'onboarding-complete')
+    const rl = await rateLimitExpensive(userId, 'onboarding-complete')
     if (!rl.success) {
       return NextResponse.json({ error: 'Prea multe încercări' }, { status: 429 })
     }

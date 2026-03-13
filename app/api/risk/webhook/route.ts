@@ -42,13 +42,15 @@ export async function POST(req: Request) {
   if (!stores?.length) return NextResponse.json({ error: 'No stores' }, { status: 404 })
 
   let store: any = null
+  // Verificare HMAC strictă — FĂRĂ fallback nesigur
   for (const s of stores) { if (verifyHmac(raw, sig, s.webhook_secret)) { store = s; break } }
-  if (!store && src) {
+  // Fallback pe URL match doar dacă HMAC a fost absent (sig gol), nu dacă a fost greșit
+  if (!store && !sig && src) {
     store = stores.find((s: any) => s.store_url && src.replace(/\/$/, '')
       .includes(s.store_url.replace(/^https?:\/\//, '').replace(/\/$/, '')))
   }
-  if (!store && stores.length === 1) store = stores[0]
-  if (!store) return NextResponse.json({ error: 'Store not matched' }, { status: 401 })
+  // FIX: Eliminat fallback-ul stores.length === 1 — dacă HMAC e invalid, respinge
+  if (!store) return NextResponse.json({ error: 'Store not matched — HMAC invalid' }, { status: 401 })
 
   const storeId = store.id, userId = store.user_id
   const settings = await getSettings(supabase, storeId)

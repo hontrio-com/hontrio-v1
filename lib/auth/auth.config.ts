@@ -21,7 +21,6 @@ async function ensureUserProfile(params: {
 
   if (existing) return existing
 
-  // Profilul lipsește — îl creăm automat
   console.error('[auth/ensureUserProfile]', `Profil lipsă pentru ${params.email} (${params.id}) — se creează automat`)
 
   const { data: newProfile, error } = await supabase
@@ -76,7 +75,6 @@ export const authOptions: NextAuthOptions = {
 
         if (error || !data.user) return null
 
-        // Garantăm că profilul există — auto-repair dacă lipsește
         const profile = await ensureUserProfile({
           id: data.user.id,
           email: data.user.email!,
@@ -101,14 +99,20 @@ export const authOptions: NextAuthOptions = {
       if (account?.provider === 'google' && user.email) {
         const supabase = createAdminClient()
 
-        // Caută userul în auth.users după email
-        const { data: authUsers } = await supabase.auth.admin.listUsers()
-        const authUser = authUsers?.users?.find(u => u.email === user.email)
-
-        if (authUser) {
-          user.id = authUser.id
+        // Caută userul direct în tabela users (evităm listUsers full scan pe auth.users)
+        const { data: existingProfile } = await supabase
+          .from('users')
+          .select('id')
+          .eq('email', user.email)
+          .maybeSingle()
+        
+        if (existingProfile) {
+          // Userul există deja în tabela noastră
+          user.id = existingProfile.id
         } else {
-          // Creează în auth.users
+          // Verificăm dacă există în auth.users prin signInWithOtp dry-run sau getUserByEmail
+          // Supabase admin API: getUserById nu e util, dar putem crea direct
+          // Dacă profilul nu e în users table, creăm userul
           const { data: authData } = await supabase.auth.admin.createUser({
             email: user.email,
             email_confirm: true,
@@ -138,7 +142,7 @@ export const authOptions: NextAuthOptions = {
             .from('users')
             .select('*')
             .eq('id', user.id)
-            .single()
+            .maybeSingle()
 
           if (profile) {
             token.id = profile.id
@@ -156,27 +160,36 @@ export const authOptions: NextAuthOptions = {
           token.credits = (user as any).credits
           token.onboardingCompleted = (user as any).onboarding_completed || false
         }
+        // Setăm timestamp-ul ultimei sincronizări cu DB
+        token.refreshedAt = Date.now()
       }
 
-      // Refresh din DB la fiecare cerere
+      // FIX: Refresh din DB doar dacă token-ul e mai vechi de 60 secunde
+      // Anterior: query la FIECARE request HTTP — acum doar o dată pe minut
       if (token.id && !user) {
-        try {
-          const supabase = createAdminClient()
-          const { data: profile } = await supabase
-            .from('users')
-            .select('name, role, plan, credits, onboarding_completed')
-            .eq('id', token.id as string)
-            .single()
+        const refreshedAt = (token.refreshedAt as number) || 0
+        const elapsed = Date.now() - refreshedAt
+        
+        if (elapsed > 60 * 1000) { // 60 secunde TTL
+          try {
+            const supabase = createAdminClient()
+            const { data: profile } = await supabase
+              .from('users')
+              .select('name, role, plan, credits, onboarding_completed')
+              .eq('id', token.id as string)
+              .maybeSingle()
 
-          if (profile) {
-            token.name = profile.name || token.name || 'Utilizator'
-            token.role = profile.role || 'user'
-            token.plan = profile.plan || 'free'
-            token.credits = profile.credits ?? token.credits
-            token.onboardingCompleted = profile.onboarding_completed ?? token.onboardingCompleted
+            if (profile) {
+              token.name = profile.name || token.name || 'Utilizator'
+              token.role = profile.role || 'user'
+              token.plan = profile.plan || 'free'
+              token.credits = profile.credits ?? token.credits
+              token.onboardingCompleted = profile.onboarding_completed ?? token.onboardingCompleted
+            }
+            token.refreshedAt = Date.now()
+          } catch {
+            // DB down — păstrăm token-ul existent
           }
-        } catch {
-          // DB down — pastram token-ul existent
         }
       }
 

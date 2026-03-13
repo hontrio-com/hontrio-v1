@@ -13,7 +13,7 @@ export async function POST(request: Request) {
     if (!session?.user) return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
 
     const userId = (session.user as any).id
-    const limit = rateLimitExpensive(userId, 'competitor')
+    const limit = await rateLimitExpensive(userId, 'competitor')
     if (!limit.success) return NextResponse.json({ error: 'Prea multe cereri.' }, { status: 429 })
 
     const { competitor_url, product_id } = await request.json()

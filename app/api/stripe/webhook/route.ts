@@ -153,6 +153,14 @@ export async function POST(request: Request) {
         const userId = subscription.metadata?.user_id
 
         if (userId) {
+          // FIX: Creditele rămân — userul le poate folosi până se termină
+          // Doar planul se schimbă la free, nu resetăm creditele
+          const { data: cancelledUser } = await supabase
+            .from('users')
+            .select('credits')
+            .eq('id', userId)
+            .single()
+
           await supabase
             .from('users')
             .update({
@@ -163,10 +171,10 @@ export async function POST(request: Request) {
 
           await supabase.from('credit_transactions').insert({
             user_id: userId,
-            type: 'refund',
+            type: 'usage',
             amount: 0,
-            balance_after: 0,
-            description: 'Abonament anulat — plan schimbat la Free',
+            balance_after: cancelledUser?.credits ?? 0,
+            description: 'Abonament anulat — plan schimbat la Free (creditele rămân)',
             reference_type: 'subscription_cancelled',
           })
         }

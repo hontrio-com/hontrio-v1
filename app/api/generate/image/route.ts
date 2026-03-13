@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { openai } from '@/lib/openai/client'
 import { KieClient } from '@/lib/kie/client'
 import { rateLimitExpensive } from '@/lib/security/rate-limit'
+// Note: rateLimitExpensive is now async but has sync fallback for backward compat
 import { canStartJob, markJobRunning, markJobDone } from '@/lib/security/ai-guard'
 
 // ─── Costuri per stil ─────────────────────────────────────────────────────────
@@ -479,8 +480,8 @@ export async function POST(request: Request) {
 
     const userId = (session.user as any).id
 
-    // Rate limit
-    const limit = rateLimitExpensive(userId, 'image')
+    // Rate limit (async cu Redis)
+    const limit = await rateLimitExpensive(userId, 'image')
     if (!limit.success) {
       return NextResponse.json({ error: 'Prea multe cereri. Așteaptă un minut.' }, { status: 429 })
     }
@@ -626,8 +627,6 @@ export async function POST(request: Request) {
     }
 
     const startTime = Date.now()
-    let generatedUrl: string | null = null
-
     try {
       // ── PASUL 1: GPT construiește promptul ultra-detaliat ────────────────
       const detailedPrompt = await buildPromptWithGPT({
@@ -677,7 +676,7 @@ export async function POST(request: Request) {
           credits_used: creditCost,
           status: 'processing',
         },
-        credits_remaining: user.credits - creditCost,
+        credits_remaining: newCreditsUpfront,
       })
 
     } catch (err) {
@@ -695,51 +694,7 @@ export async function POST(request: Request) {
       )
     }
 
-    // NOTE: credits are deducted by the SSE progress endpoint on completion
-    // to avoid charging for failed generations. Keep this block for legacy sync calls.
-    markJobDone(jobKey)
-    const processingTime = Date.now() - startTime
-
-    // ── Actualizează înregistrarea cu rezultatul ───────────────────────────
-    await supabase
-      .from('generated_images')
-      .update({
-        generated_image_url: generatedUrl,
-        status: 'completed',
-        processing_time_ms: processingTime,
-        quality_score: 85,
-      })
-      .eq('id', imageRecord!.id)
-
-    // ── Scade creditele ────────────────────────────────────────────────────
-    const newCredits = (user?.credits ?? 0) - creditCost
-    await supabase
-      .from('users')
-      .update({ credits: newCredits })
-      .eq('id', userId)
-
-    await supabase.from('credit_transactions').insert({
-      user_id: userId,
-      type: 'usage',
-      amount: -creditCost,
-      balance_after: newCredits,
-      description: `Generare imagine ${style}: ${productTitle}`,
-      reference_type: 'image_generation',
-      reference_id: imageRecord!.id,
-    })
-
-    return NextResponse.json({
-      success: true,
-      image: {
-        id: imageRecord!.id,
-        generated_image_url: generatedUrl,
-        style,
-        credits_used: creditCost,
-        status: 'completed',
-        processing_time_ms: processingTime,
-      },
-      credits_remaining: newCredits,
-    })
+    // Cod sincron eliminat — creditele se deduc upfront, generarea e 100% async via SSE
   } catch (err) {
     console.error('Generate image route error:', err)
     return NextResponse.json(

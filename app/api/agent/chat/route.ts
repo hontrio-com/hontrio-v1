@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { openai } from '@/lib/openai/client'
 import { sendEmail, buildEscalationEmail } from '@/lib/email'
+import { rateLimitAgentChat, rateLimitAgentVisitor, getClientIp } from '@/lib/security/rate-limit'
 
 type Intent = 'buying_ready'|'browsing'|'comparing'|'compatibility'|'info_product'|'info_shipping'|'problem'|'off_topic'|'escalate'|'greeting'
 
@@ -495,7 +496,13 @@ async function searchProducts(query:string, userId:string, max=3, boostIds: stri
   }))
 }
 
+// Cache catalog per user — 5 min TTL
+const catalogCache = new Map<string, { data: string; at: number }>()
+
 async function buildCatalog(userId:string):Promise<string> {
+  const cached = catalogCache.get(userId)
+  if (cached && Date.now() - cached.at < 5 * 60 * 1000) return cached.data
+
   const supabase=createAdminClient()
   // Paginare — aduce TOATE produsele, nu doar 500
   let allProducts: any[] = []
@@ -532,7 +539,14 @@ async function buildCatalog(userId:string):Promise<string> {
     }
     return `${c} (${i.titles.length}${r}): ${i.titles.join(', ')}`
   })
-  return `${allProducts.length} produse în ${Object.keys(by).length} categorii:\n${lines.join('\n')}`
+  const result = `${allProducts.length} produse în ${Object.keys(by).length} categorii:\n${lines.join('\n')}`
+  catalogCache.set(userId, { data: result, at: Date.now() })
+  // Cleanup old entries
+  if (catalogCache.size > 100) {
+    const now = Date.now()
+    for (const [k, v] of catalogCache) { if (now - v.at > 10 * 60 * 1000) catalogCache.delete(k) }
+  }
+  return result
 }
 
 async function searchKnowledge(query: string, userId: string): Promise<string> {
@@ -699,9 +713,37 @@ async function persistMemory(params: {
 }
 
 export async function POST(request:Request) {
+  // Helper: construiește CORS headers pe baza store_url
+  const buildCorsHeaders = (storeUrl?: string) => {
+    if (!storeUrl) return { 'Access-Control-Allow-Origin': '*' }
+    try {
+      const origin = new URL(storeUrl).origin
+      return { 'Access-Control-Allow-Origin': origin }
+    } catch { return { 'Access-Control-Allow-Origin': '*' } }
+  }
+
   try {
+    // FIX: Rate limiting per IP și per visitor
+    const clientIp = getClientIp(request)
+    const ipLimit = await rateLimitAgentChat(clientIp)
+    if (!ipLimit.success) {
+      return NextResponse.json({ error: 'Prea multe mesaje. Așteaptă un moment.' }, { status: 429 })
+    }
+
     const {message, history=[], session_id, store_user_id, visitor_id, full_history=[]} = await request.json()
     if(!message||!store_user_id)return NextResponse.json({error:'Parametri lipsă'},{status:400})
+
+    // FIX: Rate limit per visitor (100/zi)
+    if (visitor_id) {
+      const visitorLimit = await rateLimitAgentVisitor(visitor_id)
+      if (!visitorLimit.success) {
+        return NextResponse.json({ error: 'Ai atins limita zilnică de mesaje.' }, { status: 429 })
+      }
+    }
+
+    // FIX: Cap mesaj la 1000 caractere — previne prompt injection cu mesaje uriașe
+    const safeMessage = typeof message === 'string' ? message.slice(0, 1000) : ''
+    if (!safeMessage) return NextResponse.json({ error: 'Mesaj invalid' }, { status: 400 })
 
     // Base URL pentru apeluri interne
     const reqUrl = new URL(request.url)
@@ -718,8 +760,8 @@ export async function POST(request:Request) {
     const [catalog, memory, ragContext, trainingContext] = await Promise.all([
       buildCatalog(store_user_id),
       getVisitorMemory(store_user_id, visitor_id),
-      searchKnowledge(message, store_user_id),
-      searchTrainingCorrections(message, store_user_id),
+      searchKnowledge(safeMessage, store_user_id),
+      searchTrainingCorrections(safeMessage, store_user_id),
     ])
     console.log('[Chat] RAG context length:', ragContext.length, 'chars')
 
@@ -730,7 +772,7 @@ export async function POST(request:Request) {
       messages:[
         {role:'system',content:systemPrompt},
         ...history.slice(-8).map((m:any)=>({role:m.role as 'user'|'assistant',content:m.content})),
-        {role:'user',content:message},
+        {role:'user',content:safeMessage},
       ],
       temperature:0.45, max_tokens:500, response_format:{type:'json_object'},
     })
@@ -839,7 +881,7 @@ export async function POST(request:Request) {
         messages:[
           {role:'system',content:systemPrompt},
           ...history.slice(-6).map((m:any)=>({role:m.role as 'user'|'assistant',content:m.content})),
-          {role:'user',content:message},
+          {role:'user',content:safeMessage},
           {role:'system',content:`Produse găsite (cu stoc real):\n${ctx}${cross}${memCtx}${intelSection}\n\nFOARTE IMPORTANT: Prezintă EXACT aceste produse. Folosește CUNOȘTINȚELE DETALIATE pentru întrebări tehnice. Dacă stocul e "Stoc epuizat" spune-o clar. Max 2 propoziții. JSON.`},
         ],
         temperature:0.4, max_tokens:300, response_format:{type:'json_object'},
@@ -879,21 +921,25 @@ export async function POST(request:Request) {
     if(allProducts.length>0)response.products=allProducts
     if(redirectUrl)response.redirect_url=redirectUrl
 
-    const currentHistory=[...history,{role:'user',content:message},{role:'assistant',content:response.message}]
+    const currentHistory=[...history,{role:'user',content:safeMessage},{role:'assistant',content:response.message}]
 
     saveConv({supabase,userId:store_user_id,sessionId:session_id,visitorId:visitor_id,intent:response.intent,products:allProducts.map(p=>p.id)}).catch(()=>{})
 
     if(visitor_id){
-      persistMemory({
-        userId:store_user_id, visitorId:visitor_id, sessionId:session_id,
-        messages:full_history.length>0?full_history:currentHistory,
-        searchQueries:searchQueriesUsed, productsShown:allProducts.map(p=>p.id), intent:response.intent,
-      }).catch(()=>{})
+      // FIX: Persistă memoria doar la fiecare 5 mesaje pentru a reduce costurile GPT
+      const msgCount = full_history.length || currentHistory.length
+      if (msgCount % 5 === 0 || response.intent === 'escalate' || response.intent === 'problem') {
+        persistMemory({
+          userId:store_user_id, visitorId:visitor_id, sessionId:session_id,
+          messages:full_history.length>0?full_history:currentHistory,
+          searchQueries:searchQueriesUsed, productsShown:allProducts.map(p=>p.id), intent:response.intent,
+        }).catch(()=>{})
+      }
     }
 
     // 13. Unanswered questions tracking
     if(response.intent==='off_topic'||(response.intent==='escalate'&&response.confidence<0.6)||response.confidence<0.35){
-      trackUnanswered({supabase,userId:store_user_id,sessionId:session_id,question:message,intent:response.intent,confidence:response.confidence||0}).catch(()=>{})
+      trackUnanswered({supabase,userId:store_user_id,sessionId:session_id,question:safeMessage,intent:response.intent,confidence:response.confidence||0}).catch(()=>{})
     }
 
     // 15. Product events tracking
@@ -911,15 +957,16 @@ export async function POST(request:Request) {
       sendEscalationNotification({
         supabase, config, storeName,
         userId: store_user_id, sessionId: session_id, visitorId: visitor_id,
-        message, intent: response.intent,
+        message: safeMessage, intent: response.intent,
         history: full_history.length > 0 ? full_history : currentHistory,
       }).catch(() => {})
     }
 
-    return NextResponse.json(response,{headers:{'Access-Control-Allow-Origin':'*'}})
+    const corsHeaders = buildCorsHeaders(store?.store_url)
+    return NextResponse.json(response,{headers:corsHeaders})
   }catch(err:any){
     console.error('[Agent]',err)
-    return NextResponse.json({message:'Ups! Ceva n-a funcționat. Încearcă din nou!',intent:'browsing',confidence:0,quick_replies:['Încearcă din nou'],show_whatsapp:false},{headers:{'Access-Control-Allow-Origin':'*'}})
+    return NextResponse.json({message:'Ups! Ceva n-a funcționat. Încearcă din nou!',intent:'browsing',confidence:0,quick_replies:['Încearcă din nou'],show_whatsapp:false},{headers:{'Access-Control-Allow-Origin':'*'}})  // error fallback keeps * since we don't have store context
   }
 }
 
@@ -950,7 +997,7 @@ async function sendEscalationNotification(p: {
     const html = buildEscalationEmail({
       agentName: p.config.agent_name || 'Asistent',
       storeName: p.storeName,
-      visitorMessage: p.message,
+      visitorMessage: safeMessage || p.message,
       intent: p.intent,
       conversationHistory: p.history,
     })
@@ -966,7 +1013,7 @@ async function sendEscalationNotification(p: {
     if (sent) {
       await p.supabase.from('escalation_notifications').insert({
         user_id: p.userId, session_id: p.sessionId, visitor_id: p.visitorId,
-        trigger_intent: p.intent, trigger_message: p.message,
+        trigger_intent: p.intent, trigger_message: safeMessage || p.message,
         email_sent_to: p.config.notify_email, status: 'sent',
       })
       console.log('[Notification] Escalation email sent to', p.config.notify_email)

@@ -1,36 +1,71 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# HONTRIO.COM — AI Growth Engine pentru eCommerce
 
-## Getting Started
+Platformă SaaS care conectează magazine WooCommerce și oferă unelte AI pentru optimizarea produselor: generare imagini, optimizare SEO, AI Agent conversational.
 
-First, run the development server:
+## Stack Tehnologic
+
+- **Frontend + Backend:** Next.js 16 (App Router) + React 19 + TypeScript
+- **UI:** Tailwind CSS v4 + shadcn/ui + Framer Motion
+- **Bază de date:** Supabase (PostgreSQL + Auth + Storage + Realtime)
+- **Generare imagini:** KIE API (Nano Banana Pro)
+- **Generare text:** OpenAI (GPT-4o / GPT-4o-mini)
+- **Plăți:** Stripe (abonamente + credite)
+- **Autentificare:** NextAuth v4 (credentials + Google OAuth)
+- **Rate Limiting:** Upstash Redis
+- **Hosting:** Vercel
+
+## Setup Local
 
 ```bash
+# 1. Clonează repo-ul
+git clone https://github.com/hontrio-com/hontrio-v1.git
+cd hontrio-v1
+
+# 2. Instalează dependențele
+npm install
+
+# 3. Configurează variabilele de mediu
+cp .env.example .env.local
+# Completează valorile în .env.local
+
+# 4. Rulează migrările DB (în Supabase SQL Editor)
+# Copiază conținutul din migrations/001_add_indexes.sql
+
+# 5. Pornește serverul
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Structura Proiectului
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```
+app/
+├── (auth)/          # Login, Register, Forgot/Reset Password
+├── (dashboard)/     # Dashboard, Products, Images, SEO, Settings, etc.
+├── admin/           # Admin panel (stats, users, costs, tickets)
+├── api/             # API routes
+├── onboarding/      # Onboarding flow (6 pași)
+├── page.tsx         # Landing page
+│
+lib/
+├── auth/            # NextAuth config
+├── security/        # Rate limit (Redis), CSRF, encryption, sanitize
+├── supabase/        # Supabase clients (admin, server, client)
+├── openai/          # OpenAI client + text generation
+├── kie/             # KIE API client (image generation)
+├── stripe/          # Stripe client + plans config
+├── woocommerce/     # WooCommerce API adapter
+├── risk/            # Fraud detection engine
+├── seo/             # SEO score calculator
+├── credits.ts       # Centralized credit costs
+│
+migrations/
+├── 001_add_indexes.sql  # DB indexes + atomic credit function
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Variabile de Mediu Necesare
 
-## Learn More
+Vezi `.env.example` pentru lista completă.
 
-To learn more about Next.js, take a look at the following resources:
+## Deployment
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Proiectul e configurat pentru Vercel cu cron jobs definite în `vercel.json`.

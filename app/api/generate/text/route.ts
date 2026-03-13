@@ -16,7 +16,7 @@ export async function POST(request: Request) {
     const userId = (session.user as any).id
 
     // Rate limit: max 10 text generations per minute
-    const limit = rateLimitExpensive(userId, 'text')
+    const limit = await rateLimitExpensive(userId, 'text')
     if (!limit.success) {
       return NextResponse.json({ error: 'Prea multe cereri. Așteaptă un minut.' }, { status: 429 })
     }

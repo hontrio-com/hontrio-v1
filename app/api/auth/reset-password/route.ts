@@ -58,17 +58,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Linkul a expirat. Solicita un nou link de resetare.' }, { status: 400 })
     }
 
-    // Find the actual auth user by email (in case users.id != auth.users.id)
-    const { data: authUsers } = await supabase.auth.admin.listUsers()
-    const authUser = authUsers?.users?.find(u => u.email?.toLowerCase() === cleanEmail)
-
-    if (!authUser) {
-      console.error('[Reset Password] Auth user not found for email:', cleanEmail)
-      return NextResponse.json({ error: 'Eroare la actualizarea parolei' }, { status: 500 })
-    }
-
-    // Update password using the auth user's actual ID
-    const { error: updateError } = await supabase.auth.admin.updateUserById(authUser.id, {
+    // FIX: Folosim user.id direct (din tabela users, care e identic cu auth.users.id)
+    // Eliminat listUsers() full scan — nu e necesar deoarece users.id = auth.users.id
+    const { error: updateError } = await supabase.auth.admin.updateUserById(user.id, {
       password,
     })
 
@@ -77,7 +69,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Eroare la actualizarea parolei' }, { status: 500 })
     }
 
-    console.log('[Reset Password] Password updated for:', cleanEmail, 'auth_id:', authUser.id)
+    console.log('[Reset Password] Password updated for:', cleanEmail, 'user_id:', user.id)
 
     // Delete all reset tokens for this user (one-time use)
     await supabase.from('password_reset_tokens').delete().eq('user_id', user.id)

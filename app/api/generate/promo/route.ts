@@ -545,7 +545,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Stilul si textul sunt obligatorii' }, { status: 400 })
     }
 
-    const limit = rateLimitExpensive(userId, 'promo')
+    const limit = await rateLimitExpensive(userId, 'promo')
     if (!limit.success) {
       return NextResponse.json({ error: 'Prea multe cereri. Asteapta un minut.' }, { status: 429 })
     }

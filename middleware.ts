@@ -35,7 +35,19 @@ export async function middleware(request: NextRequest) {
     // Skip auth check for public API routes
     if (
       pathname.startsWith('/api/auth') ||
-      pathname.startsWith('/api/stripe/webhook')
+      pathname.startsWith('/api/stripe/webhook') ||
+      pathname.startsWith('/api/agent/chat') ||
+      pathname.startsWith('/api/agent/public-config') ||
+      pathname.startsWith('/api/agent/config-stream') ||
+      pathname.startsWith('/api/agent/stock') ||
+      pathname.startsWith('/api/agent/order') ||
+      pathname.startsWith('/api/agent/product-webhook') ||
+      pathname.startsWith('/api/agent/product-events') ||
+      pathname.startsWith('/api/agent/plugin-update') ||
+      pathname.startsWith('/api/agent/download-plugin') ||
+      pathname.startsWith('/api/risk/webhook') ||
+      pathname.startsWith('/api/plugin/') ||
+      pathname.startsWith('/api/cron/')
     ) {
       return response
     }
@@ -46,6 +58,7 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith('/login') ||
     pathname.startsWith('/register') ||
     pathname.startsWith('/forgot-password') ||
+    pathname.startsWith('/reset-password') ||
     pathname.startsWith('/api/auth')
   ) {
     if (token && (pathname === '/login' || pathname === '/register')) {
@@ -114,6 +127,21 @@ export const config = {
     '/api/stripe/checkout',
     '/api/stripe/portal',
     '/api/stripe/credits',
+    '/api/seo/:path*',
+    '/api/risk/:path*',
+    '/api/competitor/:path*',
+    '/api/brand-kit/:path*',
+    '/api/search/:path*',
+    '/api/agent/generate-intelligence',
+    '/api/agent/config/:path*',
+    '/api/agent/knowledge/:path*',
+    '/api/agent/training/:path*',
+    '/api/agent/triggers/:path*',
+    '/api/agent/inbox/:path*',
+    '/api/agent/analytics/:path*',
+    '/api/agent/conversations/:path*',
+    '/api/agent/memory/:path*',
+    '/api/agent/unanswered/:path*',
     '/login',
     '/register',
   ],

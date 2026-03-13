@@ -42,7 +42,7 @@ export async function POST(request: Request) {
     if (!session?.user) return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
 
     const userId = (session.user as any).id
-    const limit = rateLimitApi(userId, 'create-ticket')
+    const limit = await rateLimitApi(userId, 'create-ticket')
     if (!limit.success) return NextResponse.json({ error: 'Prea multe tichete. Așteaptă puțin.' }, { status: 429 })
 
     const { subject, message, category, priority, attachments } = await request.json()

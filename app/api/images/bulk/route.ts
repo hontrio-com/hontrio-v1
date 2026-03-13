@@ -27,6 +27,9 @@ export async function POST(request: Request) {
     if (!style) return NextResponse.json({ error: 'Stilul este obligatoriu' }, { status: 400 })
     const creditCost = STYLE_COSTS[style] || 3
 
+    // FIX: Cap max_products server-side — clientul nu poate cere mai mult de 200
+    const safeMaxProducts = Math.min(Math.max(1, max_products || 100), 200)
+
     // Determine product list
     let products: { id: string; original_title: string; optimized_title: string | null }[] = []
 
@@ -44,7 +47,7 @@ export async function POST(request: Request) {
         .from('products')
         .select('id, original_title, optimized_title, original_images, total_sales')
         .eq('user_id', userId)
-        .limit(max_products)
+        .limit(safeMaxProducts)
 
       if (priority === 'no_image') {
         query = query.or('original_images.is.null,original_images.eq.{}')
@@ -57,7 +60,7 @@ export async function POST(request: Request) {
       }
 
       const { data } = await query
-      products = (data || []).slice(0, max_products)
+      products = (data || []).slice(0, safeMaxProducts)
     }
 
     if (products.length === 0) {

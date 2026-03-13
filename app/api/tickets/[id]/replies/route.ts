@@ -17,7 +17,7 @@ export async function POST(
     const { id } = await params
     const userId = (session.user as any).id
 
-    const limit = rateLimitApi(userId, 'ticket-reply')
+    const limit = await rateLimitApi(userId, 'ticket-reply')
     if (!limit.success) {
       return NextResponse.json({ error: 'Prea multe mesaje. Așteaptă puțin.' }, { status: 429 })
     }

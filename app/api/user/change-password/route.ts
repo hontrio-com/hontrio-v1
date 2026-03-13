@@ -14,7 +14,7 @@ export async function POST(request: Request) {
     const userId = (session.user as any).id
 
     // Rate limit: max 5 password changes per hour
-    const limit = rateLimitExpensive(userId, 'change-password')
+    const limit = await rateLimitExpensive(userId, 'change-password')
     if (!limit.success) {
       return NextResponse.json({ error: 'Prea multe încercări. Așteaptă câteva minute.' }, { status: 429 })
     }

@@ -24,11 +24,43 @@ export async function GET() {
       .from('users')
       .select('id, email, name, role, plan, credits, onboarding_completed, avatar_url, created_at')
       .eq('id', userId)
-      .single()
+      .maybeSingle()
 
-    if (error || !user) {
-      logApiError(ROUTE, 404, 'User negăsit în DB', { userId, dbError: error?.message })
-      return NextResponse.json({ error: 'Utilizatorul nu a fost găsit' }, { status: 404 })
+    if (error) {
+      logApiError(ROUTE, 500, 'DB error la user/me', { userId, dbError: error.message })
+      return NextResponse.json({ error: 'Eroare la citirea profilului' }, { status: 500 })
+    }
+
+    if (!user) {
+      // Auto-repair: creăm profilul dacă lipsește
+      logApiError(ROUTE, 404, 'User negăsit — se repară automat', { userId })
+      const { data: newUser, error: createErr } = await supabase
+        .from('users')
+        .insert({
+          id: userId,
+          email: (session.user as any).email || '',
+          name: session.user.name || 'Utilizator',
+          role: 'user',
+          credits: 20,
+          plan: 'free',
+          onboarding_completed: false,
+        })
+        .select('id, email, name, role, plan, credits, onboarding_completed, avatar_url, created_at')
+        .single()
+
+      if (createErr || !newUser) {
+        return NextResponse.json({ error: 'Utilizatorul nu a fost găsit și nu s-a putut crea' }, { status: 404 })
+      }
+
+      return NextResponse.json({
+        user: newUser,
+        credits: newUser.credits,
+        plan: newUser.plan,
+        role: newUser.role,
+        name: newUser.name,
+        email: newUser.email,
+        avatar_url: newUser.avatar_url,
+      })
     }
 
     return NextResponse.json({

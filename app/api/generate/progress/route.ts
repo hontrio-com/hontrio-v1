@@ -63,11 +63,12 @@ export async function GET(request: Request) {
             const urls: string[] = result.resultUrls || []
 
             if (imageRecordId && urls[0]) {
-              // Load image record to get credit cost
+              // Load image record — FIX: verificăm ownership cu user_id
               const { data: imgRecord } = await supabase
                 .from('generated_images')
-                .select('credits_used, product_id')
+                .select('credits_used, product_id, user_id')
                 .eq('id', imageRecordId)
+                .eq('user_id', userId)
                 .single()
 
               // Update image record to completed
@@ -81,28 +82,8 @@ export async function GET(request: Request) {
                 })
                 .eq('id', imageRecordId)
 
-              // Deduct credits
-              if (imgRecord?.credits_used) {
-                const { data: user } = await supabase
-                  .from('users')
-                  .select('credits')
-                  .eq('id', userId)
-                  .single()
-
-                if (user) {
-                  const newCredits = user.credits - imgRecord.credits_used
-                  await supabase.from('users').update({ credits: newCredits }).eq('id', userId)
-                  await supabase.from('credit_transactions').insert({
-                    user_id: userId,
-                    type: 'usage',
-                    amount: -imgRecord.credits_used,
-                    balance_after: newCredits,
-                    description: `Generare imagine AI`,
-                    reference_type: 'image_generation',
-                    reference_id: imageRecordId,
-                  })
-                }
-              }
+              // Creditele au fost deduse la crearea taskului (/api/generate/image)
+              // Aici doar salvăm rezultatul
             }
 
             controller.enqueue(send({
@@ -118,6 +99,28 @@ export async function GET(request: Request) {
           if (task.state === 'fail') {
             if (imageRecordId) {
               await supabase.from('generated_images').update({ status: 'failed' }).eq('id', imageRecordId)
+              
+              // FIX: Refund creditele deduse la creare — generarea a eșuat
+              const { data: failedImg } = await supabase
+                .from('generated_images')
+                .select('credits_used')
+                .eq('id', imageRecordId)
+                .eq('user_id', userId)
+                .single()
+              
+              if (failedImg?.credits_used) {
+                const { data: currentUser } = await supabase.from('users').select('credits').eq('id', userId).single()
+                if (currentUser) {
+                  const refundedCredits = currentUser.credits + failedImg.credits_used
+                  await supabase.from('users').update({ credits: refundedCredits }).eq('id', userId)
+                  await supabase.from('credit_transactions').insert({
+                    user_id: userId, type: 'refund', amount: failedImg.credits_used,
+                    balance_after: refundedCredits,
+                    description: 'Refund — generare imagine eșuată',
+                    reference_type: 'image_generation_refund', reference_id: imageRecordId,
+                  })
+                }
+              }
             }
             controller.enqueue(send({ type: 'error', message: task.failMsg || 'Generarea a eșuat' }))
             controller.close()

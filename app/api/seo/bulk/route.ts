@@ -31,7 +31,7 @@ export async function POST(request: Request) {
     }
 
     const userId = (session.user as any).id
-    const limit = rateLimitExpensive(userId, 'seo-bulk')
+    const limit = await rateLimitExpensive(userId, 'seo-bulk')
     if (!limit.success) {
       return NextResponse.json({ error: 'Prea multe cereri. Asteapta un minut.' }, { status: 429 })
     }
@@ -139,25 +139,31 @@ export async function POST(request: Request) {
       }
     }
 
-    if (creditsUsed > 0) {
-      const newBalance = user.credits - creditsUsed
-      await supabase.from('users').update({ credits: newBalance }).eq('id', userId)
-      await supabase.from('credit_transactions').insert({
-        user_id:         userId,
-        type:            'usage',
-        amount:          -creditsUsed,
-        balance_after:   newBalance,
-        description:     `SEO Bulk — ${succeeded} produse optimizate`,
-        reference_type:  'seo_bulk',
-      })
+    // Creditele au fost deduse la început — refund pentru cele eșuate
+    if (failed > 0) {
+      const refundAmount = failed * CREDIT_COST_PER_PRODUCT
+      const { data: currentUser } = await supabase.from('users').select('credits').eq('id', userId).single()
+      if (currentUser) {
+        const newBal = currentUser.credits + refundAmount
+        await supabase.from('users').update({ credits: newBal }).eq('id', userId)
+        await supabase.from('credit_transactions').insert({
+          user_id: userId,
+          type: 'refund',
+          amount: refundAmount,
+          balance_after: newBal,
+          description: \`SEO Bulk refund — \${failed} produse eșuate\`,
+          reference_type: 'seo_bulk_refund',
+        })
+      }
     }
 
+    const { data: finalUser } = await supabase.from('users').select('credits').eq('id', userId).single()
     return NextResponse.json({
       success:           true,
       succeeded,
       failed,
-      credits_used:      creditsUsed,
-      credits_remaining: user.credits - creditsUsed,
+      credits_used:      succeeded * CREDIT_COST_PER_PRODUCT,
+      credits_remaining: finalUser?.credits ?? 0,
     })
 
   } catch (err: any) {

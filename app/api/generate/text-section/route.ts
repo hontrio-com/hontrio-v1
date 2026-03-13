@@ -18,7 +18,7 @@ export async function POST(request: Request) {
     const userId = (session.user as any).id
 
     // Rate limit
-    const limit = rateLimitExpensive(userId, 'text-section')
+    const limit = await rateLimitExpensive(userId, 'text-section')
     if (!limit.success) {
       return NextResponse.json({ error: 'Prea multe cereri. Așteaptă un minut.' }, { status: 429 })
     }

@@ -12,7 +12,7 @@ export async function GET() {
     const userId = (session.user as any).id
     const supabase = createAdminClient()
 
-    const { data } = await supabase.from('brand_kits').select('*').eq('user_id', userId).single()
+    const { data } = await supabase.from('brand_kits').select('*').eq('user_id', userId).maybeSingle()
     return NextResponse.json({ brand_kit: data || null })
   } catch {
     return NextResponse.json({ error: 'Eroare internă' }, { status: 500 })

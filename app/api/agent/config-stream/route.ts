@@ -43,8 +43,19 @@ export async function GET(request: Request) {
         catch { clearInterval(heartbeat); sseClients.get(userId)?.delete(controller) }
       }, 25000)
 
+      // FIX: Timeout explicit de 30 minute — conexiunile nu rămân deschise indefinit
+      const maxTimeout = setTimeout(() => {
+        clearInterval(heartbeat)
+        sseClients.get(userId)?.delete(controller)
+        try {
+          controller.enqueue(encoder.encode('event: timeout\ndata: {"reason":"max_duration"}\n\n'))
+          controller.close()
+        } catch {}
+      }, 30 * 60 * 1000) // 30 minute
+
       request.signal.addEventListener('abort', () => {
         clearInterval(heartbeat)
+        clearTimeout(maxTimeout)
         sseClients.get(userId)?.delete(controller)
         try { controller.close() } catch {}
       })

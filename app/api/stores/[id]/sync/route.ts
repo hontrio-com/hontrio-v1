@@ -75,7 +75,7 @@ export async function POST(
     const userId = (session.user as any).id
 
     // Rate limit: max 2 syncs per 10 minutes
-    const limit = rateLimitSync(userId)
+    const limit = await rateLimitSync(userId)
     if (!limit.success) {
       return NextResponse.json(
         { error: 'Sincronizare prea frecventă. Așteaptă câteva minute.' },

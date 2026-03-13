@@ -7,7 +7,7 @@ export async function POST(request: Request) {
   try {
     // Rate limit by IP
     const ip = getClientIp(request)
-    const limit = rateLimitRegister(ip)
+    const limit = await rateLimitRegister(ip)
     if (!limit.success) {
       return NextResponse.json(
         { error: 'Prea multe încercări. Încearcă din nou mai târziu.' },

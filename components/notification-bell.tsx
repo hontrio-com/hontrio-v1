@@ -40,10 +40,14 @@ export default function NotificationBell() {
   const [markingAll, setMarkingAll] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
 
-  // Fetch on mount and every 30 seconds
+  // Fetch on mount and every 60 seconds — only when tab is visible
   useEffect(() => {
     fetchNotifications()
-    const interval = setInterval(fetchNotifications, 30000)
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        fetchNotifications()
+      }
+    }, 60000)
     return () => clearInterval(interval)
   }, [])
 

@@ -15,7 +15,7 @@ export async function POST(request: Request) {
     if (!session?.user) return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
 
     const userId = (session.user as any).id
-    const limit = rateLimitExpensive(userId, 'keywords-gap')
+    const limit = await rateLimitExpensive(userId, 'keywords-gap')
     if (!limit.success) return NextResponse.json({ error: 'Prea multe cereri. Așteaptă un minut.' }, { status: 429 })
 
     const { my_url, competitor_url } = await request.json()

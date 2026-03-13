@@ -29,7 +29,7 @@ export async function POST(request: Request) {
       .from('users')
       .select('id, email, name')
       .eq('email', cleanEmail)
-      .single()
+      .maybeSingle()
 
     // Always return same response (anti user enumeration)
     if (user) {
