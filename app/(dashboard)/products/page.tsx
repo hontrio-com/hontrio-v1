@@ -115,9 +115,9 @@ function Dropdown({ label, options, value, onChange }: {
   return (
     <div ref={ref} className="relative">
       <button onClick={() => setOpen(!open)}
-        className="flex items-center gap-1.5 h-9 px-3 rounded-xl border border-neutral-200 bg-white text-[12px] font-medium text-neutral-600 hover:border-neutral-300 hover:text-neutral-900 transition-all whitespace-nowrap">
-        <span>{current?.label || label}</span>
-        <ChevronDown className={`h-3.5 w-3.5 text-neutral-400 transition-transform ${open ? 'rotate-180' : ''}`} />
+        className="flex items-center gap-1 h-9 px-2.5 rounded-xl border border-neutral-200 bg-white text-[12px] font-medium text-neutral-600 hover:border-neutral-300 hover:text-neutral-900 transition-all max-w-[140px]">
+        <span className="truncate">{current?.label || label}</span>
+        <ChevronDown className={`h-3.5 w-3.5 text-neutral-400 transition-transform shrink-0 ${open ? 'rotate-180' : ''}`} />
       </button>
       <AnimatePresence>
         {open && (
@@ -415,8 +415,9 @@ export default function ProductsPage() {
       <div className="bg-white border border-neutral-200 rounded-xl overflow-hidden">
 
         {/* Toolbar */}
-        <div className="flex items-center gap-2 p-3 border-b border-neutral-100">
-          <div className="relative flex-1 max-w-sm">
+        <div className="flex flex-col gap-2 p-3 border-b border-neutral-100">
+          {/* Row 1: search */}
+          <div className="relative w-full">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-neutral-300 pointer-events-none" />
             <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Caută produse..."
               className="w-full h-9 pl-9 pr-8 rounded-xl bg-neutral-50 border border-neutral-100 text-[13px] text-neutral-700 placeholder:text-neutral-300 focus:outline-none focus:border-neutral-300 focus:bg-white transition-all" />
@@ -427,7 +428,8 @@ export default function ProductsPage() {
             )}
           </div>
 
-          <div className="flex items-center gap-2 ml-auto">
+          {/* Row 2: filters + view toggle */}
+          <div className="flex items-center gap-2">
             <Dropdown label="Sortare" options={SORT_OPTS} value={filters.sort}
               onChange={v => setFilters(f => ({ ...f, sort: v as SortOption }))} />
 
@@ -441,11 +443,10 @@ export default function ProductsPage() {
               <button onClick={clearFilters}
                 className="flex items-center gap-1 h-9 px-2.5 rounded-xl text-[12px] text-neutral-400 hover:text-red-500 hover:bg-red-50 transition-all">
                 <X className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Resetează</span>
               </button>
             )}
 
-            <div className="flex items-center border border-neutral-200 rounded-xl overflow-hidden bg-neutral-50 p-0.5">
+            <div className="flex items-center border border-neutral-200 rounded-xl overflow-hidden bg-neutral-50 p-0.5 ml-auto">
               {(['grid', 'list'] as const).map(v => (
                 <button key={v} onClick={() => setView(v)}
                   className={`h-7 w-7 flex items-center justify-center rounded-lg transition-all ${view === v ? 'bg-white shadow-sm text-neutral-900' : 'text-neutral-400 hover:text-neutral-600'}`}>

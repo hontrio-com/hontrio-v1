@@ -220,7 +220,7 @@ export default function SEOPage() {
       </div>
 
       {/* Tab Nav */}
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-1 overflow-x-auto scrollbar-none">
         {[
           { id: 'products', label: 'Produse SEO',   icon: Package },
           { id: 'store',    label: 'Audit Magazin', icon: Globe   },
@@ -228,9 +228,9 @@ export default function SEOPage() {
           const Icon = tab.icon
           return (
             <button key={tab.id} onClick={() => setActiveTab(tab.id as any)}
-              className={`flex items-center gap-1.5 h-8 px-3 rounded-xl text-[12px] font-medium transition-all
+              className={`flex items-center gap-1.5 h-8 px-3 rounded-xl text-[12px] font-medium transition-all whitespace-nowrap shrink-0
                 ${activeTab === tab.id ? 'bg-neutral-900 text-white' : 'text-neutral-500 hover:bg-neutral-100 hover:text-neutral-700'}`}>
-              <Icon className="h-3.5 w-3.5" />{tab.label}
+              <Icon className="h-3.5 w-3.5 shrink-0" />{tab.label}
               {tab.id === 'products' && unoptimized > 0 && (
                 <span className="bg-red-500 text-white text-[9px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
                   {unoptimized > 9 ? '9+' : unoptimized}
@@ -418,12 +418,12 @@ export default function SEOPage() {
                 <p className="text-[11px] text-neutral-500">Performanță, SEO tehnic, Core Web Vitals</p>
               </div>
             </div>
-            <div className="flex gap-2 mb-3">
+            <div className="flex flex-col sm:flex-row gap-2 mb-3">
               <input type="url" value={storeUrl} onChange={e => setStoreUrl(e.target.value)}
                 placeholder="https://magazinul-tau.ro" onKeyDown={e => e.key === 'Enter' && runAudit()}
                 className="flex-1 bg-white/10 border border-white/15 rounded-xl px-4 py-2.5 text-white placeholder-neutral-500 text-[13px] focus:outline-none focus:border-white/40 transition-all" />
               <button onClick={runAudit} disabled={auditing || !storeUrl.trim()}
-                className="flex items-center gap-2 bg-white text-neutral-900 rounded-xl px-4 py-2.5 text-[13px] font-semibold hover:bg-neutral-100 disabled:opacity-40 transition-all shrink-0">
+                className="flex items-center justify-center gap-2 bg-white text-neutral-900 rounded-xl px-4 py-2.5 text-[13px] font-semibold hover:bg-neutral-100 disabled:opacity-40 transition-all shrink-0">
                 {auditing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
                 {auditing ? 'Analizez...' : 'Analizează'}
               </button>

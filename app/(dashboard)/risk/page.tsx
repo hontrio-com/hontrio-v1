@@ -502,17 +502,19 @@ function SettingsTab({ settings, mlAccuracy, mlTotalPredictions, savingSettings,
       {/* Praguri scor */}
       <Card className="p-5">
         <SectionLabel>Praguri Scor Risc</SectionLabel>
-        <div className="space-y-4">
+        <div className="space-y-4 mt-3">
           {[
             { key: 'score_watch_threshold',        label: 'Prag Watch',        color: 'text-amber-600' },
             { key: 'score_problematic_threshold',  label: 'Prag Problematic',  color: 'text-orange-600' },
             { key: 'score_blocked_threshold',      label: 'Prag Blocat',       color: 'text-red-600' },
           ].map(item => (
-            <div key={item.key} className="flex items-center gap-4">
-              <span className="text-[12px] text-neutral-500 w-36 shrink-0">{item.label}</span>
+            <div key={item.key} className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[12px] text-neutral-500">{item.label}</span>
+                <span className={`text-[13px] font-bold tabular-nums ${item.color}`}>{local[item.key]}</span>
+              </div>
               <input type="range" min={20} max={95} step={1} value={local[item.key] || 50}
-                onChange={e => set(item.key, parseInt(e.target.value))} className="flex-1 accent-neutral-900" />
-              <span className={`text-[13px] font-bold w-8 text-right tabular-nums ${item.color}`}>{local[item.key]}</span>
+                onChange={e => set(item.key, parseInt(e.target.value))} className="w-full accent-neutral-900" />
             </div>
           ))}
         </div>
@@ -922,7 +924,7 @@ export default function RiskShieldPage() {
       </div>
 
       {/* Tab Nav */}
-      <div className="flex items-center gap-1 overflow-x-auto">
+      <div className="flex items-center gap-1 overflow-x-auto pb-1 scrollbar-none -mx-1 px-1">
         {[
           { key: 'customers',  label: 'Clienți',   icon: Users      },
           { key: 'alerts',     label: 'Alerte',    icon: Bell,  badge: unreadAlerts },
@@ -935,9 +937,9 @@ export default function RiskShieldPage() {
           const Icon = tab.icon
           return (
             <button key={tab.key} onClick={() => setActiveTab(tab.key as any)}
-              className={`flex items-center gap-1.5 h-8 px-3 rounded-xl text-[12px] font-medium transition-all whitespace-nowrap
+              className={`flex items-center gap-1.5 h-8 px-2.5 sm:px-3 rounded-xl text-[11px] sm:text-[12px] font-medium transition-all whitespace-nowrap shrink-0
                 ${activeTab === tab.key ? 'bg-neutral-900 text-white' : 'text-neutral-500 hover:bg-neutral-100 hover:text-neutral-700'}`}>
-              <Icon className="h-3.5 w-3.5" />{tab.label}
+              <Icon className="h-3.5 w-3.5 shrink-0" />{tab.label}
               {(tab as any).badge ? (
                 <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-red-500 text-white font-bold min-w-[16px] text-center">{(tab as any).badge}</span>
               ) : null}
@@ -967,20 +969,21 @@ export default function RiskShieldPage() {
               </div>
             ) : (
               <div className="divide-y divide-neutral-50">
-                <div className="px-4 py-2.5 grid grid-cols-12 gap-3 text-[10px] font-medium text-neutral-400 uppercase tracking-wide bg-neutral-50">
-                  <div className="col-span-4">Client</div>
-                  <div className="col-span-2">Risc</div>
+                {/* Header - hidden on mobile */}
+                <div className="hidden sm:grid px-4 py-2.5 grid-cols-12 gap-3 text-[10px] font-medium text-neutral-400 uppercase tracking-wide bg-neutral-50">
+                  <div className="col-span-5">Client</div>
+                  <div className="col-span-3">Risc</div>
                   <div className="col-span-2 hidden lg:block">Scor</div>
                   <div className="col-span-2">Comenzi</div>
-                  <div className="col-span-2 hidden md:block">Rată</div>
                 </div>
                 {customers.map((customer, i) => {
                   const rate = collectionRate(customer)
                   return (
                     <motion.div key={customer.id} initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.015 }}
                       onClick={() => openProfile(customer)}
-                      className="px-4 py-3 grid grid-cols-12 gap-3 items-center hover:bg-neutral-50 transition-colors cursor-pointer">
-                      <div className="col-span-4 flex items-center gap-2.5 min-w-0">
+                      className="cursor-pointer hover:bg-neutral-50 transition-colors">
+                      {/* Mobile layout */}
+                      <div className="sm:hidden flex items-center gap-3 px-4 py-3">
                         <div className={`h-9 w-9 rounded-xl flex items-center justify-center font-bold text-[13px] shrink-0
                           ${customer.risk_label === 'blocked'     ? 'bg-red-600 text-white' :
                             customer.risk_label === 'problematic' ? 'bg-orange-500 text-white' :
@@ -989,36 +992,48 @@ export default function RiskShieldPage() {
                             'bg-neutral-100 text-neutral-600'}`}>
                           {(customer.name || customer.email || customer.phone || '?')[0].toUpperCase()}
                         </div>
-                        <div className="min-w-0">
+                        <div className="flex-1 min-w-0">
                           <p className="text-[13px] font-medium text-neutral-900 truncate">{customer.name || '—'}</p>
                           <p className="text-[11px] text-neutral-400 truncate">{customer.phone || customer.email || '—'}</p>
                         </div>
-                        {(customer.in_local_blacklist || customer.in_global_blacklist) && (
-                          <Ban className="h-3.5 w-3.5 text-red-400 shrink-0" />
-                        )}
-                      </div>
-                      <div className="col-span-2"><RiskBadge label={customer.risk_label} /></div>
-                      <div className="col-span-2 hidden lg:block">
-                        <div className="flex items-center gap-2">
-                          <div className="h-1.5 w-14 bg-neutral-100 rounded-full overflow-hidden">
-                            <div className={`h-full rounded-full ${customer.risk_score >= 81 ? 'bg-red-500' : customer.risk_score >= 61 ? 'bg-orange-400' : customer.risk_score >= 41 ? 'bg-amber-400' : 'bg-emerald-500'}`}
-                              style={{ width: `${customer.risk_score}%` }} />
-                          </div>
-                          <span className="text-[11px] text-neutral-400 tabular-nums">{customer.risk_score}</span>
+                        <div className="flex flex-col items-end gap-1 shrink-0">
+                          <RiskBadge label={customer.risk_label} />
+                          <span className="text-[11px] text-neutral-400 tabular-nums">{customer.total_orders} cmz</span>
                         </div>
                       </div>
-                      <div className="col-span-2">
-                        <span className="text-[13px] font-semibold text-neutral-900 tabular-nums">{customer.total_orders}</span>
-                        <span className="text-[10px] text-neutral-300 ml-1">cmz</span>
-                      </div>
-                      <div className="col-span-2 hidden md:flex items-center gap-1.5">
-                        {rate === null ? <span className="text-[11px] text-neutral-300">—</span> : (
-                          <>
-                            <span className={`text-[13px] font-semibold tabular-nums ${rate >= 70 ? 'text-emerald-600' : rate >= 50 ? 'text-amber-600' : 'text-red-600'}`}>{rate}%</span>
-                            {rate < 50  && <TrendingDown className="h-3 w-3 text-red-400" />}
-                            {rate >= 80 && <TrendingUp   className="h-3 w-3 text-emerald-400" />}
-                          </>
-                        )}
+                      {/* Desktop layout */}
+                      <div className="hidden sm:grid px-4 py-3 grid-cols-12 gap-3 items-center">
+                        <div className="col-span-5 flex items-center gap-2.5 min-w-0">
+                          <div className={`h-9 w-9 rounded-xl flex items-center justify-center font-bold text-[13px] shrink-0
+                            ${customer.risk_label === 'blocked'     ? 'bg-red-600 text-white' :
+                              customer.risk_label === 'problematic' ? 'bg-orange-500 text-white' :
+                              customer.risk_label === 'watch'       ? 'bg-amber-400 text-amber-900' :
+                              customer.risk_label === 'trusted'     ? 'bg-emerald-100 text-emerald-700' :
+                              'bg-neutral-100 text-neutral-600'}`}>
+                            {(customer.name || customer.email || customer.phone || '?')[0].toUpperCase()}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-[13px] font-medium text-neutral-900 truncate">{customer.name || '—'}</p>
+                            <p className="text-[11px] text-neutral-400 truncate">{customer.phone || customer.email || '—'}</p>
+                          </div>
+                          {(customer.in_local_blacklist || customer.in_global_blacklist) && (
+                            <Ban className="h-3.5 w-3.5 text-red-400 shrink-0" />
+                          )}
+                        </div>
+                        <div className="col-span-3"><RiskBadge label={customer.risk_label} /></div>
+                        <div className="col-span-2 hidden lg:block">
+                          <div className="flex items-center gap-2">
+                            <div className="h-1.5 w-14 bg-neutral-100 rounded-full overflow-hidden">
+                              <div className={`h-full rounded-full ${customer.risk_score >= 81 ? 'bg-red-500' : customer.risk_score >= 61 ? 'bg-orange-400' : customer.risk_score >= 41 ? 'bg-amber-400' : 'bg-emerald-500'}`}
+                                style={{ width: `${customer.risk_score}%` }} />
+                            </div>
+                            <span className="text-[11px] text-neutral-400 tabular-nums">{customer.risk_score}</span>
+                          </div>
+                        </div>
+                        <div className="col-span-2">
+                          <span className="text-[13px] font-semibold text-neutral-900 tabular-nums">{customer.total_orders}</span>
+                          <span className="text-[10px] text-neutral-300 ml-1">cmz</span>
+                        </div>
                       </div>
                     </motion.div>
                   )
@@ -1242,7 +1257,7 @@ export default function RiskShieldPage() {
                 </div>
               </Card>
 
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {heatmapData.slice(0, 3).map((p, i) => (
                   <Card key={p.county} className={`p-4 ${p.riskLevel === 'high' ? 'bg-red-50 border-red-100' : 'bg-amber-50 border-amber-100'}`}>
                     <p className="text-[10px] text-neutral-400 mb-1">#{i+1} risc maxim</p>

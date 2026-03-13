@@ -1454,14 +1454,14 @@ export default function ImagesPage() {
       </div>
 
       {/* Main tabs */}
-      <div className="flex gap-1 p-1 bg-neutral-100 rounded-xl w-fit">
+      <div className="flex gap-1 p-1 bg-neutral-100 rounded-xl overflow-x-auto scrollbar-none">
         {MAIN_TABS.map(t => {
           const Icon     = t.icon
           const isActive = mainTab === t.value
           return (
             <button key={t.value} onClick={() => setMainTab(t.value)}
-              className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-[12px] font-medium transition-all ${isActive ? 'bg-white shadow-sm text-neutral-900' : 'text-neutral-500 hover:text-neutral-700'}`}>
-              <Icon className="h-3.5 w-3.5" />
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-[12px] font-medium transition-all whitespace-nowrap shrink-0 ${isActive ? 'bg-white shadow-sm text-neutral-900' : 'text-neutral-500 hover:text-neutral-700'}`}>
+              <Icon className="h-3.5 w-3.5 shrink-0" />
               {t.label}
               {t.value === 'gallery' && gallery.length > 0 && (
                 <Badge className={`ml-0.5 ${isActive ? 'bg-neutral-100 text-neutral-600' : 'bg-neutral-200 text-neutral-500'}`}>{gallery.length}</Badge>

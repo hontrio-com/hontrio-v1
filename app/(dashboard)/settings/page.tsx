@@ -338,14 +338,14 @@ export default function SettingsPage() {
       </AnimatePresence>
 
       {/* Tab nav */}
-      <div className="flex items-center gap-1 flex-wrap">
+      <div className="flex items-center gap-1 overflow-x-auto pb-0.5 scrollbar-none">
         {TABS.map(t => {
           const Icon = t.icon
           return (
             <button key={t.value} onClick={() => setTab(t.value)}
-              className={`flex items-center gap-1.5 h-8 px-3 rounded-xl text-[12px] font-medium transition-all
+              className={`flex items-center gap-1.5 h-8 px-3 rounded-xl text-[12px] font-medium transition-all whitespace-nowrap shrink-0
                 ${tab === t.value ? 'bg-neutral-900 text-white' : 'text-neutral-500 hover:bg-neutral-100 hover:text-neutral-700'}`}>
-              <Icon className="h-3.5 w-3.5" />{t.label}
+              <Icon className="h-3.5 w-3.5 shrink-0" />{t.label}
             </button>
           )
         })}

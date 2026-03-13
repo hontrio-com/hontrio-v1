@@ -380,11 +380,11 @@ export default function AgentPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 p-1 bg-neutral-100 rounded-xl w-fit overflow-x-auto">
+      <div className="flex gap-1 p-1 bg-neutral-100 rounded-xl overflow-x-auto scrollbar-none">
         {MAIN_TABS.map(tab => (
           <button key={tab.id} onClick={() => { setActiveTab(tab.id); if (tab.id==='overview') loadAnalytics(); if (tab.id==='knowledge') loadKnowledge(); if (tab.id==='intelligence') loadIntelStats() }}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-[12px] font-medium transition-all whitespace-nowrap ${activeTab===tab.id ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-500 hover:text-neutral-700'}`}>
-            <tab.icon className="h-3.5 w-3.5" />{tab.label}
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-[12px] font-medium transition-all whitespace-nowrap shrink-0 ${activeTab===tab.id ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-500 hover:text-neutral-700'}`}>
+            <tab.icon className="h-3.5 w-3.5 shrink-0" /><span className="hidden sm:inline">{tab.label}</span><span className="sm:hidden">{tab.label.split(' ')[0]}</span>
           </button>
         ))}
       </div>
