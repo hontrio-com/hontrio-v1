@@ -2,9 +2,48 @@ import { getToken } from 'next-auth/jwt'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
+// ─── Hostname detection ──────────────────────────────────────────────────────
+// hontrio.com (no subdomain) → landing/marketing pages
+// app.hontrio.com → platform (dashboard, auth, API)
+// localhost → both (for development)
+
+const APP_SUBDOMAIN = 'app'
+const MAIN_DOMAIN = 'hontrio.com'
+
+function getHostType(request: NextRequest): 'landing' | 'app' {
+  const host = request.headers.get('host') || ''
+  if (host.includes('localhost') || host.includes('127.0.0.1')) return 'app'
+  if (host.includes('.vercel.app')) return 'app'
+  if (host.startsWith(`${APP_SUBDOMAIN}.`)) return 'app'
+  return 'landing'
+}
+
 export async function middleware(request: NextRequest) {
-  const token = await getToken({ req: request })
   const { pathname } = request.nextUrl
+  const hostType = getHostType(request)
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // LANDING DOMAIN (hontrio.com) — only serve public pages
+  // ═══════════════════════════════════════════════════════════════════════════
+  if (hostType === 'landing') {
+    if (
+      pathname === '/' ||
+      pathname.startsWith('/_next') ||
+      pathname.startsWith('/favicon') ||
+      /\.(svg|png|jpg|jpeg|gif|ico|css|js|woff|woff2)$/.test(pathname)
+    ) {
+      return NextResponse.next()
+    }
+    // Any platform route on bare domain → redirect to app.hontrio.com
+    const appUrl = new URL(pathname, `https://${APP_SUBDOMAIN}.${MAIN_DOMAIN}`)
+    appUrl.search = request.nextUrl.search
+    return NextResponse.redirect(appUrl)
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // APP DOMAIN (app.hontrio.com) — full platform with auth
+  // ═══════════════════════════════════════════════════════════════════════════
+  const token = await getToken({ req: request })
   const response = NextResponse.next()
 
   // ===== SECURITY HEADERS =====
@@ -19,6 +58,8 @@ export async function middleware(request: NextRequest) {
     const allowedOrigins = [
       process.env.NEXTAUTH_URL || 'http://localhost:3000',
       process.env.NEXT_PUBLIC_APP_URL || '',
+      `https://${MAIN_DOMAIN}`,
+      `https://${APP_SUBDOMAIN}.${MAIN_DOMAIN}`,
     ].filter(Boolean)
 
     if (allowedOrigins.includes(origin)) {
@@ -91,7 +132,7 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // Redirect root
+  // Root on app subdomain → go to dashboard
   if (pathname === '/') {
     return NextResponse.redirect(new URL('/dashboard', request.url))
   }
@@ -144,5 +185,7 @@ export const config = {
     '/api/agent/unanswered/:path*',
     '/login',
     '/register',
+    '/forgot-password',
+    '/reset-password',
   ],
 }
