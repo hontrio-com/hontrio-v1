@@ -132,8 +132,20 @@ FORMAT RĂSPUNS — JSON strict:
 // Normalizare text românesc: elimină diacritice, lowercase, trim
 function normalize(s: string): string {
   return s.toLowerCase()
-    .replace(/ă/g,'a').replace(/â/g,'a').replace(/î/g,'i').replace(/ș/g,'s').replace(/ț/g,'t')
-    .replace(/Ă/g,'a').replace(/Â/g,'a').replace(/Î/g,'i').replace(/Ș/g,'s').replace(/Ț/g,'t')
+    // Diacritice românești
+    .replace(/[ăâ]/g,'a').replace(/î/g,'i').replace(/ș/g,'s').replace(/ț/g,'t')
+    .replace(/[ĂÂ]/g,'a').replace(/Î/g,'i').replace(/Ș/g,'s').replace(/Ț/g,'t')
+    // Diacritice spaniole/portugheze/franceze/germane/italiene — FOARTE IMPORTANT
+    // pentru magazine cu produse importate (nume în alte limbi)
+    .replace(/[áàäãå]/g,'a').replace(/[ÁÀÄÃÅ]/g,'a')
+    .replace(/[éèëê]/g,'e').replace(/[ÉÈËÊ]/g,'e')
+    .replace(/[íìïî]/g,'i').replace(/[ÍÌÏÎ]/g,'i')
+    .replace(/[óòöõø]/g,'o').replace(/[ÓÒÖÕØ]/g,'o')
+    .replace(/[úùüû]/g,'u').replace(/[ÚÙÜÛ]/g,'u')
+    .replace(/[ñ]/g,'n').replace(/[Ñ]/g,'n')
+    .replace(/[ç]/g,'c').replace(/[Ç]/g,'c')
+    .replace(/[ß]/g,'ss')
+    .replace(/[ý]/g,'y').replace(/[Ý]/g,'y')
     .replace(/[^a-z0-9\s]/g,' ').replace(/\s+/g,' ').trim()
 }
 
@@ -373,6 +385,45 @@ async function searchProducts(query:string, userId:string, max=3, boostIds: stri
   const supabase=createAdminClient()
   const keywords = extractKeywords(query)
   if (!keywords.normalized.length) return []
+
+  const queryNorm = normalize(query)
+
+  // ── Source 0: EXACT MATCH — dacă query-ul e (aproape) identic cu un titlu ──
+  // Asta rezolvă cazul când utilizatorul copiază exact numele produsului
+  try {
+    // Caută cu ilike pentru match case-insensitive direct în DB
+    const { data: exactMatches } = await supabase.from('products')
+      .select('id,external_id,original_title,optimized_title,price,original_images,category,optimized_short_description,original_description')
+      .eq('user_id', userId).is('parent_id', null)
+      .or(`original_title.ilike.%${query.replace(/[%_]/g,'\\$&').slice(0,100)}%,optimized_title.ilike.%${query.replace(/[%_]/g,'\\$&').slice(0,100)}%`)
+      .limit(5)
+    
+    if (exactMatches?.length) {
+      // Scorează prin similaritate cu titlul normalizat
+      const scored = exactMatches.map(p => {
+        const tNorm = normalize(p.optimized_title || p.original_title || '')
+        const s = queryNorm === tNorm ? 1.0 
+          : tNorm.includes(queryNorm) || queryNorm.includes(tNorm) ? 0.95
+          : sim(queryNorm, tNorm)
+        return { product: p, score: s }
+      }).filter(x => x.score >= 0.70).sort((a,b) => b.score - a.score)
+
+      if (scored.length > 0 && scored[0].score >= 0.85) {
+        // Match foarte puternic — returnează direct fără alte căutări
+        return scored.slice(0, max).map(c => ({
+          id: c.product.id,
+          external_id: c.product.external_id,
+          title: c.product.optimized_title || c.product.original_title,
+          price: c.product.price,
+          image: c.product.original_images?.[0] || null,
+          category: c.product.category,
+          description: (c.product.optimized_short_description || c.product.original_description || '').replace(/<[^>]*>/g, '').substring(0, 100),
+          url: c.product.external_id ? '__STORE__/?p=' + c.product.external_id : '',
+          score: Math.round(c.score * 100),
+        }))
+      }
+    }
+  } catch {}
 
   // Colectăm candidați din AMBELE surse, apoi scorăm unificat
   type Candidate = {
