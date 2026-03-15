@@ -259,13 +259,15 @@ export default function AgentPage() {
     } catch {}
   }
 
-  const generateIntelligence = async (force=false) => {
+  const generateIntelligence = async (force: boolean = false, selectedOnly: boolean = false) => {
     setIntelGenerating(true); setIntelResult(null); setIntelError('')
     try {
-      const res  = await fetch('/api/agent/generate-intelligence', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ force }) })
+      const body: Record<string, any> = { force }
+      if (selectedOnly && intelSelected.size > 0) body.product_ids = Array.from(intelSelected)
+      const res = await fetch('/api/agent/generate-intelligence', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) })
       const data = await res.json()
       if (!res.ok) { setIntelError(data.error||'Eroare'); return }
-      setIntelResult(data); loadIntelStats()
+      setIntelResult(data); setIntelSelected(new Set()); loadIntelStats()
     } catch { setIntelError('Eroare de rețea') } finally { setIntelGenerating(false) }
   }
 
