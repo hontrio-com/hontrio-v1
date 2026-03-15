@@ -26,7 +26,7 @@ function Toast({ message, type, onClose }: { message: string; type: 'success' | 
       {type === 'success' ? <CheckCircle className="h-4 w-4" /> : <AlertCircle className="h-4 w-4 text-red-500" />}
       <span className="text-sm font-medium">{message}</span>
       <button onClick={onClose} className="ml-1 p-0.5 rounded-full hover:bg-neutral-100 transition-colors"><X className="h-3.5 w-3.5 text-neutral-400" /></button>
-    </div>
+    </motion.div>
   )
 }
 
@@ -139,7 +139,7 @@ export default function RegisterPage() {
             {pwLen > 0 && (
               <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="flex gap-1 mt-2 px-1">
                 {[1,2,3,4].map(i => (<div key={i} className={`h-[3px] flex-1 rounded-full transition-all duration-300 ${i <= pwStrength ? pwColors[pwStrength] : 'bg-neutral-100'}`} />))}
-              </div>
+              </motion.div>
             )}
           </div>
           <motion.div whileTap={{ scale: 0.985 }} className="pt-0.5">
@@ -147,7 +147,7 @@ export default function RegisterPage() {
               className="w-full h-[46px] rounded-xl bg-neutral-900 hover:bg-neutral-800 active:bg-neutral-950 text-white text-[14px] font-medium flex items-center justify-center gap-2 transition-all disabled:opacity-50 cursor-pointer">
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <><span>Creeaza cont gratuit</span><ArrowRight className="h-4 w-4" /></>}
             </button>
-          </div>
+          </motion.div>
         </form>
 
         <div className="mt-6 space-y-3">

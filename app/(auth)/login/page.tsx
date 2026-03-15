@@ -26,7 +26,7 @@ function Toast({ message, type, onClose }: { message: string; type: 'success' | 
       {type === 'success' ? <CheckCircle className="h-4 w-4" /> : <AlertCircle className="h-4 w-4 text-red-500" />}
       <span className="text-sm font-medium">{message}</span>
       <button onClick={onClose} className="ml-1 p-0.5 rounded-full hover:bg-neutral-100 transition-colors"><X className="h-3.5 w-3.5 text-neutral-400" /></button>
-    </div>
+    </motion.div>
   )
 }
 
@@ -127,7 +127,7 @@ function LoginContent() {
               className="w-full h-[46px] rounded-xl bg-neutral-900 hover:bg-neutral-800 active:bg-neutral-950 text-white text-[14px] font-medium flex items-center justify-center gap-2 transition-all disabled:opacity-50 cursor-pointer">
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <><span>Conecteaza-te</span><ArrowRight className="h-4 w-4" /></>}
             </button>
-          </div>
+          </motion.div>
         </form>
 
         <p
