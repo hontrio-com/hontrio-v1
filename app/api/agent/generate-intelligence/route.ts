@@ -158,11 +158,63 @@ export async function GET(req: Request) {
     if (!session?.user) return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
     const supabase = createAdminClient()
     const userId = (session.user as any).id
+    const { searchParams } = new URL(req.url)
+    const details = searchParams.get('details') === 'true'
+    const productId = searchParams.get('product_id')
+
+    // Dacă se cere intelligence-ul unui produs specific
+    if (productId) {
+      const { data: intel } = await supabase.from('product_intelligence')
+        .select('*').eq('product_id', productId).eq('user_id', userId).single()
+      return NextResponse.json({ intelligence: intel || null })
+    }
+
     const { count: totalProducts } = await supabase.from('products')
       .select('id', { count: 'exact', head: true }).eq('user_id', userId).is('parent_id', null)
     const { data: stats } = await supabase.from('product_intelligence').select('status').eq('user_id', userId)
     const sc: Record<string, number> = { ready: 0, pending: 0, processing: 0, failed: 0 }
     for (const s of (stats || [])) sc[s.status] = (sc[s.status] || 0) + 1
-    return NextResponse.json({ total_products: totalProducts || 0, intelligence: sc, coverage: sc.ready > 0 ? Math.round((sc.ready / (totalProducts || 1)) * 100) : 0 })
+
+    // Dacă se cer detalii, returnează lista de produse cu statusul intelligence
+    let products: any[] = []
+    if (details) {
+      const { data: prods } = await supabase.from('products')
+        .select('id, original_title, optimized_title, category, price, original_images')
+        .eq('user_id', userId).is('parent_id', null)
+        .order('original_title', { ascending: true }).limit(500)
+
+      const { data: intels } = await supabase.from('product_intelligence')
+        .select('product_id, status, generated_at, technical_summary, sales_summary, best_for, top_benefits, key_specs, faq_candidates')
+        .eq('user_id', userId)
+
+      const intelMap = new Map((intels || []).map((i: any) => [i.product_id, i]))
+
+      products = (prods || []).map((p: any) => {
+        const intel = intelMap.get(p.id)
+        return {
+          id: p.id,
+          title: p.optimized_title || p.original_title || 'Produs fără titlu',
+          category: p.category,
+          price: p.price,
+          image: p.original_images?.[0] || null,
+          intel_status: intel?.status || 'none',
+          generated_at: intel?.generated_at || null,
+          // Include rezumat scurt pentru preview
+          technical_summary: intel?.technical_summary || null,
+          sales_summary: intel?.sales_summary || null,
+          best_for: intel?.best_for || null,
+          top_benefits: intel?.top_benefits || null,
+          key_specs: intel?.key_specs || null,
+          faq_candidates: intel?.faq_candidates || null,
+        }
+      })
+    }
+
+    return NextResponse.json({
+      total_products: totalProducts || 0,
+      intelligence: sc,
+      coverage: sc.ready > 0 ? Math.round((sc.ready / (totalProducts || 1)) * 100) : 0,
+      ...(details ? { products } : {}),
+    })
   } catch (err: any) { return NextResponse.json({ error: err.message }, { status: 500 }) }
 }

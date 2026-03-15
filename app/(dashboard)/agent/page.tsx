@@ -238,13 +238,25 @@ export default function AgentPage() {
   const [previewOpen, setPreviewOpen] = useState(false)
   const [previewMessages, setPreviewMessages] = useState<Array<{role:string;content:string;quick_replies?:string[]}>>([])
   const [previewLoading, setPreviewLoading] = useState(false)
-  const [intelStats, setIntelStats] = useState<{total_products:number;intelligence:Record<string,number>;coverage:number}|null>(null)
+  const [intelStats, setIntelStats] = useState<{total_products:number;intelligence:Record<string,number>;coverage:number;products?:any[]}|null>(null)
   const [intelGenerating, setIntelGenerating] = useState(false)
   const [intelResult, setIntelResult] = useState<{generated:number;skipped:number;failed:number;credits_used:number}|null>(null)
   const [intelError, setIntelError] = useState('')
+  const [intelProducts, setIntelProducts] = useState<any[]>([])
+  const [intelSelected, setIntelSelected] = useState<Set<string>>(new Set())
+  const [intelExpanded, setIntelExpanded] = useState<string|null>(null)
+  const [intelSearch, setIntelSearch] = useState('')
+  const [intelFilter, setIntelFilter] = useState<'all'|'ready'|'none'|'failed'>('all')
 
   const loadIntelStats = async () => {
-    try { const res = await fetch('/api/agent/generate-intelligence'); const data = await res.json(); if (data.total_products !== undefined) setIntelStats(data) } catch {}
+    try {
+      const res = await fetch('/api/agent/generate-intelligence?details=true')
+      const data = await res.json()
+      if (data.total_products !== undefined) {
+        setIntelStats(data)
+        if (data.products) setIntelProducts(data.products)
+      }
+    } catch {}
   }
 
   const generateIntelligence = async (force=false) => {
@@ -725,26 +737,37 @@ export default function AgentPage() {
       )}
 
       {/* ─── INTELLIGENCE ─── */}
-      {activeTab === 'intelligence' && (
+      {activeTab === 'intelligence' && (() => {
+        const filteredProducts = intelProducts.filter(p => {
+          if (intelSearch && !p.title.toLowerCase().includes(intelSearch.toLowerCase()) && !(p.category||'').toLowerCase().includes(intelSearch.toLowerCase())) return false
+          if (intelFilter === 'ready' && p.intel_status !== 'ready') return false
+          if (intelFilter === 'none' && p.intel_status !== 'none') return false
+          if (intelFilter === 'failed' && p.intel_status !== 'failed') return false
+          return true
+        })
+        const allFilteredSelected = filteredProducts.length > 0 && filteredProducts.every(p => intelSelected.has(p.id))
+        const toggleAll = () => {
+          if (allFilteredSelected) setIntelSelected(new Set())
+          else setIntelSelected(new Set(filteredProducts.map(p => p.id)))
+        }
+        return (
         <div className="space-y-4">
+          {/* Stats */}
           <Card className="p-5">
             <div className="flex items-center gap-3 mb-4">
-              <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center">
-                <Zap className="h-5 w-5 text-white" />
-              </div>
+              <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center"><Zap className="h-5 w-5 text-white" /></div>
               <div className="flex-1">
                 <p className="text-[14px] font-semibold text-neutral-900">Product Intelligence</p>
-                <p className="text-[11px] text-neutral-400">AI generează cunoștințe detaliate per produs pentru răspunsuri mult mai bune.</p>
+                <p className="text-[11px] text-neutral-400">AI generează cunoștințe detaliate per produs pentru răspunsuri mai precise.</p>
               </div>
             </div>
-
             {intelStats && (
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
                 {[
-                  { label:'Total produse',    val:intelStats.total_products,                bg:'bg-neutral-50',  text:'text-neutral-900' },
-                  { label:'Cu intelligence',  val:intelStats.intelligence?.ready||0,         bg:'bg-emerald-50', text:'text-emerald-600' },
-                  { label:'În procesare',     val:(intelStats.intelligence?.processing||0)+(intelStats.intelligence?.pending||0), bg:'bg-amber-50', text:'text-amber-600' },
-                  { label:'Eșuate',           val:intelStats.intelligence?.failed||0,         bg:'bg-red-50',     text:'text-red-500'    },
+                  { label:'Total produse',  val:intelStats.total_products, bg:'bg-neutral-50', text:'text-neutral-900' },
+                  { label:'Cu intelligence', val:intelStats.intelligence?.ready||0, bg:'bg-emerald-50', text:'text-emerald-600' },
+                  { label:'În procesare', val:(intelStats.intelligence?.processing||0)+(intelStats.intelligence?.pending||0), bg:'bg-amber-50', text:'text-amber-600' },
+                  { label:'Eșuate', val:intelStats.intelligence?.failed||0, bg:'bg-red-50', text:'text-red-500' },
                 ].map(x => (
                   <div key={x.label} className={`${x.bg} rounded-xl p-3 text-center`}>
                     <p className={`text-[18px] font-bold ${x.text} tabular-nums`}>{x.val}</p>
@@ -753,74 +776,152 @@ export default function AgentPage() {
                 ))}
               </div>
             )}
-
             {intelStats && intelStats.total_products > 0 && (
-              <div className="mb-5">
+              <div className="mb-4">
                 <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-[12px] font-medium text-neutral-600">Acoperire Intelligence</span>
+                  <span className="text-[12px] font-medium text-neutral-600">Acoperire</span>
                   <span className="text-[12px] font-bold text-neutral-900 tabular-nums">{intelStats.coverage}%</span>
                 </div>
                 <div className="h-2 bg-neutral-100 rounded-full overflow-hidden">
                   <div className="h-full bg-gradient-to-r from-amber-400 to-orange-500 rounded-full transition-all duration-700" style={{ width:`${intelStats.coverage}%` }} />
                 </div>
-                <p className="text-[10px] text-neutral-400 mt-1">{intelStats.intelligence?.ready||0} din {intelStats.total_products} produse au cunoștințe AI generate</p>
               </div>
             )}
-
-            <div className="flex flex-wrap gap-2">
-              <Btn onClick={() => generateIntelligence(false)} disabled={intelGenerating} className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl h-9 px-4 text-[12px]">
-                {intelGenerating ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />Se generează...</> : <><Zap className="h-3.5 w-3.5 text-amber-300" />Generează Intelligence</>}
-              </Btn>
-              <Btn onClick={() => generateIntelligence(true)} disabled={intelGenerating} variant="outline">
-                <ArrowUpRight className="h-3.5 w-3.5 rotate-180" />Regenerează tot
-              </Btn>
-            </div>
-            <p className="text-[10px] text-neutral-400 mt-2">Cost: 2 credite per produs. Produsele neschimbate sunt ignorate automat.</p>
-
             {intelResult && (
-              <div className="mt-4 p-3 bg-emerald-50 border border-emerald-100 rounded-xl flex items-start gap-2">
+              <div className="p-3 bg-emerald-50 border border-emerald-100 rounded-xl flex items-start gap-2 mb-3">
                 <CheckCircle2 className="h-4 w-4 text-emerald-600 mt-0.5 shrink-0" />
-                <div>
-                  <p className="text-[12px] font-semibold text-emerald-700">Generare completă!</p>
-                  <p className="text-[11px] text-emerald-600 mt-0.5">{intelResult.generated} generate · {intelResult.skipped} ignorate · {intelResult.failed} eșuate · {intelResult.credits_used} credite</p>
-                </div>
+                <p className="text-[11px] text-emerald-600">{intelResult.generated} generate · {intelResult.skipped} ignorate · {intelResult.failed} eșuate · {intelResult.credits_used} credite</p>
               </div>
             )}
             {intelError && (
-              <div className="mt-4 p-3 bg-red-50 border border-red-100 rounded-xl flex items-start gap-2">
+              <div className="p-3 bg-red-50 border border-red-100 rounded-xl flex items-start gap-2 mb-3">
                 <AlertTriangle className="h-4 w-4 text-red-500 mt-0.5 shrink-0" />
                 <p className="text-[12px] text-red-600">{intelError}</p>
               </div>
             )}
           </Card>
 
-          {/* Cum funcționează */}
+          {/* Product Selector + Intelligence Viewer */}
           <Card className="p-5">
-            <p className="text-[13px] font-semibold text-neutral-900 mb-3">Cum funcționează</p>
-            <div className="space-y-3">
-              {[
-                { step:'1', color:'bg-blue-100 text-blue-700',   title:'Analiză produs',        desc:'AI citește titlul, descrierea, specificațiile și variațiile.' },
-                { step:'2', color:'bg-amber-100 text-amber-700', title:'Generare cunoștințe',   desc:'Se creează profil complet: rezumat, beneficii, FAQ, obiecții frecvente.' },
-                { step:'3', color:'bg-violet-100 text-violet-700',title:'Embedding semantic',   desc:'Fiecare profil primește un vector pentru căutare semantică.' },
-                { step:'4', color:'bg-emerald-100 text-emerald-700',title:'Răspunsuri inteligente',desc:'Agentul folosește cunoștințele detaliate pentru răspunsuri precise.' },
-              ].map(item => (
-                <div key={item.step} className="flex items-start gap-3">
-                  <span className={`h-6 w-6 rounded-full ${item.color} text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5`}>{item.step}</span>
-                  <div>
-                    <p className="text-[12px] font-semibold text-neutral-900">{item.title}</p>
-                    <p className="text-[11px] text-neutral-400 leading-relaxed">{item.desc}</p>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mb-4">
+              <div className="flex-1 relative w-full">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-neutral-300" />
+                <input value={intelSearch} onChange={e => setIntelSearch(e.target.value)} placeholder="Caută produse..." className="w-full pl-9 pr-3 h-9 bg-neutral-50 border border-neutral-200 rounded-xl text-[13px] outline-none focus:border-neutral-400" />
+              </div>
+              <div className="flex gap-1.5 flex-wrap">
+                {([['all','Toate'],['ready','Cu AI'],['none','Fără AI'],['failed','Eșuate']] as const).map(([v,l]) => (
+                  <button key={v} onClick={() => setIntelFilter(v)} className={`px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all ${intelFilter===v ? 'bg-neutral-900 text-white' : 'bg-neutral-100 text-neutral-500 hover:bg-neutral-200'}`}>{l}</button>
+                ))}
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex flex-wrap items-center gap-2 mb-4 pb-4 border-b border-neutral-100">
+              <button onClick={toggleAll} className="text-[11px] text-blue-600 hover:text-blue-800 font-medium">
+                {allFilteredSelected ? 'Deselectează tot' : `Selectează tot (${filteredProducts.length})`}
+              </button>
+              {intelSelected.size > 0 && (
+                <>
+                  <span className="text-[11px] text-neutral-300">|</span>
+                  <span className="text-[11px] text-neutral-500">{intelSelected.size} selectate</span>
+                  <Btn onClick={() => generateIntelligence(false, true)} disabled={intelGenerating} className="bg-blue-600 hover:bg-blue-700 text-white rounded-lg h-8 px-3 text-[11px] ml-auto">
+                    {intelGenerating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Zap className="h-3 w-3" />}
+                    Generează pentru selectate ({intelSelected.size})
+                  </Btn>
+                </>
+              )}
+              {intelSelected.size === 0 && (
+                <div className="flex gap-2 ml-auto">
+                  <Btn onClick={() => generateIntelligence(false)} disabled={intelGenerating} className="bg-blue-600 hover:bg-blue-700 text-white rounded-lg h-8 px-3 text-[11px]">
+                    {intelGenerating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Zap className="h-3 w-3" />}
+                    Generează tot
+                  </Btn>
+                  <Btn onClick={() => generateIntelligence(true)} disabled={intelGenerating} variant="outline" className="h-8 px-3 text-[11px]">Regenerează</Btn>
+                </div>
+              )}
+            </div>
+
+            {/* Product list */}
+            <div className="space-y-2 max-h-[600px] overflow-y-auto">
+              {filteredProducts.length === 0 && <p className="text-[12px] text-neutral-400 text-center py-8">Niciun produs găsit</p>}
+              {filteredProducts.map(p => (
+                <div key={p.id} className="border border-neutral-100 rounded-xl overflow-hidden hover:border-neutral-200 transition-colors">
+                  {/* Product row */}
+                  <div className="flex items-center gap-3 p-3 cursor-pointer" onClick={() => setIntelExpanded(intelExpanded === p.id ? null : p.id)}>
+                    <input type="checkbox" checked={intelSelected.has(p.id)} onChange={e => {
+                      e.stopPropagation()
+                      const next = new Set(intelSelected)
+                      if (next.has(p.id)) next.delete(p.id); else next.add(p.id)
+                      setIntelSelected(next)
+                    }} onClick={e => e.stopPropagation()} className="h-4 w-4 rounded border-neutral-300 text-blue-600 shrink-0" />
+                    {p.image ? <img src={p.image} alt="" className="w-10 h-10 rounded-lg object-cover shrink-0 bg-neutral-100" /> : <div className="w-10 h-10 rounded-lg bg-neutral-100 flex items-center justify-center shrink-0"><FileText className="h-4 w-4 text-neutral-300" /></div>}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[13px] font-medium text-neutral-900 truncate">{p.title}</p>
+                      <p className="text-[11px] text-neutral-400">{p.category || 'Fără categorie'}{p.price ? ` · ${p.price} RON` : ''}</p>
+                    </div>
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold shrink-0 ${
+                      p.intel_status === 'ready' ? 'bg-emerald-50 text-emerald-600' :
+                      p.intel_status === 'processing' ? 'bg-amber-50 text-amber-600' :
+                      p.intel_status === 'failed' ? 'bg-red-50 text-red-500' :
+                      'bg-neutral-50 text-neutral-400'
+                    }`}>{p.intel_status === 'ready' ? 'AI Ready' : p.intel_status === 'processing' ? 'Procesare...' : p.intel_status === 'failed' ? 'Eșuat' : 'Fără AI'}</span>
+                    <ChevronRight className={`h-4 w-4 text-neutral-300 transition-transform shrink-0 ${intelExpanded === p.id ? 'rotate-90' : ''}`} />
                   </div>
+
+                  {/* Expanded intelligence view */}
+                  {intelExpanded === p.id && p.intel_status === 'ready' && (
+                    <div className="border-t border-neutral-100 bg-neutral-50/50 p-4 space-y-4">
+                      {p.technical_summary && (
+                        <div><p className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-1">Rezumat tehnic</p><p className="text-[12px] text-neutral-700 leading-relaxed">{p.technical_summary}</p></div>
+                      )}
+                      {p.sales_summary && (
+                        <div><p className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-1">Argument de vânzare</p><p className="text-[12px] text-neutral-700 leading-relaxed">{p.sales_summary}</p></div>
+                      )}
+                      {p.best_for && (
+                        <div><p className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-1">Ideal pentru</p><p className="text-[12px] text-neutral-700 leading-relaxed">{p.best_for}</p></div>
+                      )}
+                      {p.top_benefits && p.top_benefits.length > 0 && (
+                        <div><p className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-1.5">Beneficii principale</p>
+                          <div className="flex flex-wrap gap-1.5">{p.top_benefits.map((b: string, i: number) => (
+                            <span key={i} className="px-2.5 py-1 bg-emerald-50 text-emerald-700 rounded-lg text-[11px] font-medium">{b}</span>
+                          ))}</div>
+                        </div>
+                      )}
+                      {p.key_specs && Object.keys(p.key_specs).length > 0 && (
+                        <div><p className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-1.5">Specificații cheie</p>
+                          <div className="grid grid-cols-2 gap-2">{Object.entries(p.key_specs).map(([k, v]) => (
+                            <div key={k} className="bg-white rounded-lg p-2 border border-neutral-100">
+                              <p className="text-[10px] text-neutral-400">{k}</p>
+                              <p className="text-[12px] font-semibold text-neutral-900">{String(v)}</p>
+                            </div>
+                          ))}</div>
+                        </div>
+                      )}
+                      {p.faq_candidates && p.faq_candidates.length > 0 && (
+                        <div><p className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-1.5">FAQ generate</p>
+                          <div className="space-y-2">{p.faq_candidates.map((f: any, i: number) => (
+                            <div key={i} className="bg-white rounded-lg p-3 border border-neutral-100">
+                              <p className="text-[11px] font-semibold text-neutral-900 mb-1">{f.q}</p>
+                              <p className="text-[11px] text-neutral-500 leading-relaxed">{f.a}</p>
+                            </div>
+                          ))}</div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {intelExpanded === p.id && p.intel_status !== 'ready' && (
+                    <div className="border-t border-neutral-100 bg-neutral-50/50 p-4 text-center">
+                      <p className="text-[12px] text-neutral-400">{p.intel_status === 'failed' ? 'Generarea a eșuat. Selectează produsul și regenerează.' : p.intel_status === 'processing' ? 'Se procesează...' : 'Intelligence-ul nu a fost generat încă. Selectează produsul și apasă Generează.'}</p>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
+            <p className="text-[10px] text-neutral-400 mt-3">Cost: 2 credite per produs. Produsele neschimbate sunt ignorate automat.</p>
           </Card>
-
-          <div className="bg-blue-50 border border-blue-100 rounded-xl p-4">
-            <div className="flex items-center gap-2 mb-1.5"><ArrowUpRight className="h-4 w-4 text-blue-600 rotate-180" /><span className="text-[12px] font-semibold text-blue-900">Auto-refresh via webhook</span></div>
-            <p className="text-[11px] text-blue-700 leading-relaxed">Când un produs este creat sau modificat în WooCommerce, intelligence-ul se regenerează automat. Asigură-te că pluginul Hontrio v2.1+ este activ.</p>
-          </div>
         </div>
-      )}
+        )
+      })()}
 
       {/* ─── NOTIFICATIONS ─── */}
       {activeTab === 'notifications' && (
