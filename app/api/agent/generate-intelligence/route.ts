@@ -218,3 +218,81 @@ export async function GET(req: Request) {
     })
   } catch (err: any) { return NextResponse.json({ error: err.message }, { status: 500 }) }
 }
+
+// PATCH — editare manuală a intelligence-ului unui produs
+export async function PATCH(req: Request) {
+  try {
+    const session = await getServerSession(authOptions)
+    if (!session?.user) return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
+    const userId = (session.user as any).id
+    const body = await req.json()
+    const { product_id, fields } = body
+
+    if (!product_id || !fields || typeof fields !== 'object') {
+      return NextResponse.json({ error: 'product_id și fields sunt obligatorii' }, { status: 400 })
+    }
+
+    const supabase = createAdminClient()
+
+    // Verifică ownership
+    const { data: existing } = await supabase
+      .from('product_intelligence')
+      .select('id')
+      .eq('product_id', product_id)
+      .eq('user_id', userId)
+      .single()
+
+    if (!existing) {
+      return NextResponse.json({ error: 'Intelligence negăsit pentru acest produs' }, { status: 404 })
+    }
+
+    // Câmpuri editabile
+    const allowed = [
+      'technical_summary', 'sales_summary', 'best_for', 'not_ideal_for',
+      'top_benefits', 'key_specs', 'faq_candidates', 'common_objections',
+      'comparison_points', 'compatibility_notes', 'care_instructions', 'confidence_notes',
+    ]
+
+    const update: Record<string, any> = { updated_at: new Date().toISOString() }
+    for (const [k, v] of Object.entries(fields)) {
+      if (allowed.includes(k)) update[k] = v
+    }
+
+    // Regenerează full_text din câmpurile actualizate
+    const { data: intel } = await supabase
+      .from('product_intelligence')
+      .select('*')
+      .eq('id', existing.id)
+      .single()
+
+    if (intel) {
+      const merged = { ...intel, ...update }
+      const fullText = [
+        merged.technical_summary, merged.sales_summary, merged.best_for,
+        merged.not_ideal_for,
+        Array.isArray(merged.top_benefits) ? merged.top_benefits.join('. ') : '',
+        merged.key_specs ? Object.entries(merged.key_specs).map(([k,v]) => k+': '+v).join('. ') : '',
+        Array.isArray(merged.faq_candidates) ? merged.faq_candidates.map((f:any) => f.q+' '+f.a).join('. ') : '',
+        merged.compatibility_notes, merged.care_instructions,
+      ].filter(Boolean).join('\n')
+      update.full_text = fullText
+
+      // Regenerează embedding cu textul actualizat
+      try {
+        const emb = await openai.embeddings.create({ model: 'text-embedding-3-small', input: fullText.slice(0, 8000) })
+        update.embedding = JSON.stringify(emb.data[0].embedding)
+      } catch {}
+    }
+
+    const { error } = await supabase
+      .from('product_intelligence')
+      .update(update)
+      .eq('id', existing.id)
+
+    if (error) throw error
+
+    return NextResponse.json({ ok: true })
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message }, { status: 500 })
+  }
+}

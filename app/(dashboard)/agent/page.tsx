@@ -247,6 +247,36 @@ export default function AgentPage() {
   const [intelExpanded, setIntelExpanded] = useState<string|null>(null)
   const [intelSearch, setIntelSearch] = useState('')
   const [intelFilter, setIntelFilter] = useState<'all'|'ready'|'none'|'failed'>('all')
+  const [intelEditing, setIntelEditing] = useState<Record<string, any>>({})
+  const [intelSaving, setIntelSaving] = useState(false)
+
+  const startEditIntel = (productId: string, product: any) => {
+    setIntelEditing({
+      productId,
+      technical_summary: product.technical_summary || '',
+      sales_summary: product.sales_summary || '',
+      best_for: product.best_for || '',
+      top_benefits: product.top_benefits || [],
+      key_specs: product.key_specs || {},
+      faq_candidates: product.faq_candidates || [],
+    })
+  }
+
+  const saveEditIntel = async () => {
+    if (!intelEditing.productId) return
+    setIntelSaving(true)
+    try {
+      const { productId, ...fields } = intelEditing
+      const res = await fetch('/api/agent/generate-intelligence', {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ product_id: productId, fields }),
+      })
+      if (res.ok) {
+        setIntelEditing({})
+        loadIntelStats()
+      }
+    } catch {} finally { setIntelSaving(false) }
+  }
 
   const loadIntelStats = async () => {
     try {
@@ -871,46 +901,121 @@ export default function AgentPage() {
                   </div>
 
                   {/* Expanded intelligence view */}
-                  {intelExpanded === p.id && p.intel_status === 'ready' && (
+                  {intelExpanded === p.id && p.intel_status === 'ready' && (() => {
+                    const isEd = intelEditing.productId === p.id
+                    const ed = isEd ? intelEditing : null
+                    const setField = (key: string, val: any) => setIntelEditing(prev => ({ ...prev, [key]: val }))
+                    return (
                     <div className="border-t border-neutral-100 bg-neutral-50/50 p-4 space-y-4">
-                      {p.technical_summary && (
-                        <div><p className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-1">Rezumat tehnic</p><p className="text-[12px] text-neutral-700 leading-relaxed">{p.technical_summary}</p></div>
-                      )}
-                      {p.sales_summary && (
-                        <div><p className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-1">Argument de vânzare</p><p className="text-[12px] text-neutral-700 leading-relaxed">{p.sales_summary}</p></div>
-                      )}
-                      {p.best_for && (
-                        <div><p className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-1">Ideal pentru</p><p className="text-[12px] text-neutral-700 leading-relaxed">{p.best_for}</p></div>
-                      )}
-                      {p.top_benefits && p.top_benefits.length > 0 && (
-                        <div><p className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-1.5">Beneficii principale</p>
-                          <div className="flex flex-wrap gap-1.5">{p.top_benefits.map((b: string, i: number) => (
+                      {/* Edit / Save / Cancel buttons */}
+                      <div className="flex justify-end gap-2">
+                        {!isEd ? (
+                          <button onClick={(e) => { e.stopPropagation(); startEditIntel(p.id, p) }} className="text-[11px] font-medium text-blue-600 hover:text-blue-800 flex items-center gap-1"><Settings2 className="h-3 w-3" />Editează</button>
+                        ) : (
+                          <>
+                            <button onClick={() => setIntelEditing({})} className="text-[11px] font-medium text-neutral-400 hover:text-neutral-600">Anulează</button>
+                            <button onClick={saveEditIntel} disabled={intelSaving} className="text-[11px] font-semibold text-white bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded-lg flex items-center gap-1 disabled:opacity-50">{intelSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}Salvează</button>
+                          </>
+                        )}
+                      </div>
+
+                      {/* Technical summary */}
+                      <div>
+                        <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-1">Rezumat tehnic</p>
+                        {isEd ? <textarea value={ed?.technical_summary||''} onChange={e => setField('technical_summary', e.target.value)} className="w-full text-[12px] text-neutral-700 bg-white border border-neutral-200 rounded-lg p-2.5 leading-relaxed outline-none focus:border-blue-400 min-h-[60px] resize-y" />
+                          : <p className="text-[12px] text-neutral-700 leading-relaxed">{p.technical_summary || 'N/A'}</p>}
+                      </div>
+
+                      {/* Sales summary */}
+                      <div>
+                        <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-1">Argument de vânzare</p>
+                        {isEd ? <textarea value={ed?.sales_summary||''} onChange={e => setField('sales_summary', e.target.value)} className="w-full text-[12px] text-neutral-700 bg-white border border-neutral-200 rounded-lg p-2.5 leading-relaxed outline-none focus:border-blue-400 min-h-[60px] resize-y" />
+                          : <p className="text-[12px] text-neutral-700 leading-relaxed">{p.sales_summary || 'N/A'}</p>}
+                      </div>
+
+                      {/* Best for */}
+                      <div>
+                        <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-1">Ideal pentru</p>
+                        {isEd ? <textarea value={ed?.best_for||''} onChange={e => setField('best_for', e.target.value)} className="w-full text-[12px] text-neutral-700 bg-white border border-neutral-200 rounded-lg p-2.5 leading-relaxed outline-none focus:border-blue-400 min-h-[40px] resize-y" />
+                          : <p className="text-[12px] text-neutral-700 leading-relaxed">{p.best_for || 'N/A'}</p>}
+                      </div>
+
+                      {/* Benefits */}
+                      <div>
+                        <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-1.5">Beneficii principale</p>
+                        {isEd ? (
+                          <div className="space-y-1.5">
+                            {(ed?.top_benefits||[]).map((b: string, i: number) => (
+                              <div key={i} className="flex gap-2 items-center">
+                                <input value={b} onChange={e => { const arr = [...(ed?.top_benefits||[])]; arr[i] = e.target.value; setField('top_benefits', arr) }} className="flex-1 text-[11px] bg-white border border-neutral-200 rounded-lg px-2.5 py-1.5 outline-none focus:border-blue-400" />
+                                <button onClick={() => { const arr = [...(ed?.top_benefits||[])]; arr.splice(i,1); setField('top_benefits', arr) }} className="text-red-400 hover:text-red-600"><X className="h-3 w-3" /></button>
+                              </div>
+                            ))}
+                            <button onClick={() => setField('top_benefits', [...(ed?.top_benefits||[]), ''])} className="text-[11px] text-blue-600 hover:text-blue-800 font-medium">+ Adaugă beneficiu</button>
+                          </div>
+                        ) : (
+                          <div className="flex flex-wrap gap-1.5">{(p.top_benefits||[]).map((b: string, i: number) => (
                             <span key={i} className="px-2.5 py-1 bg-emerald-50 text-emerald-700 rounded-lg text-[11px] font-medium">{b}</span>
                           ))}</div>
+                        )}
+                      </div>
+
+                      {/* Key specs */}
+                      {(isEd || (p.key_specs && Object.keys(p.key_specs).length > 0)) && (
+                        <div>
+                          <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-1.5">Specificații cheie</p>
+                          {isEd ? (
+                            <div className="space-y-1.5">
+                              {Object.entries(ed?.key_specs||{}).map(([k, v]) => (
+                                <div key={k} className="flex gap-2 items-center">
+                                  <input value={k} onChange={e => { const specs = {...(ed?.key_specs||{})}; const val = specs[k]; delete specs[k]; specs[e.target.value] = val; setField('key_specs', specs) }} className="w-1/3 text-[11px] bg-white border border-neutral-200 rounded-lg px-2.5 py-1.5 outline-none focus:border-blue-400" placeholder="Spec" />
+                                  <input value={String(v)} onChange={e => { const specs = {...(ed?.key_specs||{})}; specs[k] = e.target.value; setField('key_specs', specs) }} className="flex-1 text-[11px] bg-white border border-neutral-200 rounded-lg px-2.5 py-1.5 outline-none focus:border-blue-400" placeholder="Valoare" />
+                                  <button onClick={() => { const specs = {...(ed?.key_specs||{})}; delete specs[k]; setField('key_specs', specs) }} className="text-red-400 hover:text-red-600"><X className="h-3 w-3" /></button>
+                                </div>
+                              ))}
+                              <button onClick={() => setField('key_specs', {...(ed?.key_specs||{}), '': ''})} className="text-[11px] text-blue-600 hover:text-blue-800 font-medium">+ Adaugă specificație</button>
+                            </div>
+                          ) : (
+                            <div className="grid grid-cols-2 gap-2">{Object.entries(p.key_specs||{}).map(([k, v]) => (
+                              <div key={k} className="bg-white rounded-lg p-2 border border-neutral-100">
+                                <p className="text-[10px] text-neutral-400">{k}</p>
+                                <p className="text-[12px] font-semibold text-neutral-900">{String(v)}</p>
+                              </div>
+                            ))}</div>
+                          )}
                         </div>
                       )}
-                      {p.key_specs && Object.keys(p.key_specs).length > 0 && (
-                        <div><p className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-1.5">Specificații cheie</p>
-                          <div className="grid grid-cols-2 gap-2">{Object.entries(p.key_specs).map(([k, v]) => (
-                            <div key={k} className="bg-white rounded-lg p-2 border border-neutral-100">
-                              <p className="text-[10px] text-neutral-400">{k}</p>
-                              <p className="text-[12px] font-semibold text-neutral-900">{String(v)}</p>
+
+                      {/* FAQ */}
+                      {(isEd || (p.faq_candidates && p.faq_candidates.length > 0)) && (
+                        <div>
+                          <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-1.5">FAQ</p>
+                          {isEd ? (
+                            <div className="space-y-2">
+                              {(ed?.faq_candidates||[]).map((f: any, i: number) => (
+                                <div key={i} className="bg-white rounded-lg p-2.5 border border-neutral-200 space-y-1.5">
+                                  <div className="flex items-center gap-2">
+                                    <input value={f.q||''} onChange={e => { const arr = [...(ed?.faq_candidates||[])]; arr[i] = {...arr[i], q: e.target.value}; setField('faq_candidates', arr) }} placeholder="Întrebare" className="flex-1 text-[11px] font-semibold bg-transparent outline-none" />
+                                    <button onClick={() => { const arr = [...(ed?.faq_candidates||[])]; arr.splice(i,1); setField('faq_candidates', arr) }} className="text-red-400 hover:text-red-600"><X className="h-3 w-3" /></button>
+                                  </div>
+                                  <textarea value={f.a||''} onChange={e => { const arr = [...(ed?.faq_candidates||[])]; arr[i] = {...arr[i], a: e.target.value}; setField('faq_candidates', arr) }} placeholder="Răspuns" className="w-full text-[11px] text-neutral-600 bg-transparent outline-none resize-y min-h-[30px]" />
+                                </div>
+                              ))}
+                              <button onClick={() => setField('faq_candidates', [...(ed?.faq_candidates||[]), {q:'',a:''}])} className="text-[11px] text-blue-600 hover:text-blue-800 font-medium">+ Adaugă FAQ</button>
                             </div>
-                          ))}</div>
-                        </div>
-                      )}
-                      {p.faq_candidates && p.faq_candidates.length > 0 && (
-                        <div><p className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-1.5">FAQ generate</p>
-                          <div className="space-y-2">{p.faq_candidates.map((f: any, i: number) => (
-                            <div key={i} className="bg-white rounded-lg p-3 border border-neutral-100">
-                              <p className="text-[11px] font-semibold text-neutral-900 mb-1">{f.q}</p>
-                              <p className="text-[11px] text-neutral-500 leading-relaxed">{f.a}</p>
-                            </div>
-                          ))}</div>
+                          ) : (
+                            <div className="space-y-2">{(p.faq_candidates||[]).map((f: any, i: number) => (
+                              <div key={i} className="bg-white rounded-lg p-3 border border-neutral-100">
+                                <p className="text-[11px] font-semibold text-neutral-900 mb-1">{f.q}</p>
+                                <p className="text-[11px] text-neutral-500 leading-relaxed">{f.a}</p>
+                              </div>
+                            ))}</div>
+                          )}
                         </div>
                       )}
                     </div>
-                  )}
+                    )
+                  })()}
                   {intelExpanded === p.id && p.intel_status !== 'ready' && (
                     <div className="border-t border-neutral-100 bg-neutral-50/50 p-4 text-center">
                       <p className="text-[12px] text-neutral-400">{p.intel_status === 'failed' ? 'Generarea a eșuat. Selectează produsul și regenerează.' : p.intel_status === 'processing' ? 'Se procesează...' : 'Intelligence-ul nu a fost generat încă. Selectează produsul și apasă Generează.'}</p>
