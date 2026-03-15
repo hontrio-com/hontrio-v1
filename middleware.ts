@@ -86,6 +86,8 @@ export async function middleware(request: NextRequest) {
       pathname.startsWith('/api/agent/product-events') ||
       pathname.startsWith('/api/agent/plugin-update') ||
       pathname.startsWith('/api/agent/download-plugin') ||
+      pathname.startsWith('/api/agent/triggers') ||
+      pathname.startsWith('/api/agent/memory') ||
       pathname.startsWith('/api/risk/webhook') ||
       pathname.startsWith('/api/plugin/') ||
       pathname.startsWith('/api/cron/')

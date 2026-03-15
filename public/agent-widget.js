@@ -777,6 +777,10 @@ function pollConfig(){
       // Compară cu config-ul curent — aplică doar dacă s-a schimbat
       var hash=JSON.stringify([d.agent_name,d.welcome_message,d.widget_color,d.quick_replies,d.widget_avatar_url,d.widget_position,d.is_active]);
       if(hash!==_lastConfigHash){
+        if(_lastConfigHash!==''){
+          // Config changed — clear cached session so fresh welcome/quick_replies show
+          try{sessionStorage.removeItem(_SESS_KEY);msgs=[];_extras=[];welcomed=false;}catch(e){}
+        }
         _lastConfigHash=hash;
         applyConfig(d);
         window._hCfg=d;
