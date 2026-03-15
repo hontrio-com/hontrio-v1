@@ -26,24 +26,11 @@ function Toast({ message, type, onClose }: { message: string; type: 'success' | 
       {type === 'success' ? <CheckCircle className="h-4 w-4" /> : <AlertCircle className="h-4 w-4 text-red-500" />}
       <span className="text-sm font-medium">{message}</span>
       <button onClick={onClose} className="ml-1 p-0.5 rounded-full hover:bg-neutral-100 transition-colors"><X className="h-3.5 w-3.5 text-neutral-400" /></button>
-    </motion.div>
-  )
-}
-
-function LiquidBg() {
-  return (
-    <div className="fixed inset-0 overflow-hidden pointer-events-none">
-      <motion.div className="absolute rounded-full" style={{ width: '55vw', height: '55vw', maxWidth: 700, maxHeight: 700, left: '-8%', top: '-12%', background: 'radial-gradient(circle, rgba(0,0,0,0.045) 0%, rgba(0,0,0,0.02) 40%, transparent 70%)', filter: 'blur(80px)' }}
-        animate={{ x: [0, 60, -30, 40, 0], y: [0, -40, 50, -20, 0] }} transition={{ duration: 28, repeat: Infinity, ease: 'easeInOut' }} />
-      <motion.div className="absolute rounded-full" style={{ width: '50vw', height: '50vw', maxWidth: 650, maxHeight: 650, right: '-10%', bottom: '-8%', background: 'radial-gradient(circle, rgba(0,0,0,0.04) 0%, rgba(0,0,0,0.015) 45%, transparent 70%)', filter: 'blur(70px)' }}
-        animate={{ x: [0, -50, 35, -25, 0], y: [0, 45, -35, 20, 0] }} transition={{ duration: 32, repeat: Infinity, ease: 'easeInOut' }} />
-      <motion.div className="absolute rounded-full" style={{ width: '40vw', height: '40vw', maxWidth: 500, maxHeight: 500, left: '30%', top: '40%', background: 'radial-gradient(circle, rgba(0,0,0,0.035) 0%, rgba(0,0,0,0.01) 50%, transparent 70%)', filter: 'blur(90px)' }}
-        animate={{ x: [0, 40, -50, 20, 0], y: [0, -35, 30, -15, 0], scale: [1, 1.08, 0.95, 1.03, 1] }} transition={{ duration: 24, repeat: Infinity, ease: 'easeInOut' }} />
-      <motion.div className="absolute rounded-full" style={{ width: '25vw', height: '25vw', maxWidth: 350, maxHeight: 350, right: '15%', top: '15%', background: 'radial-gradient(circle, rgba(0,0,0,0.03) 0%, transparent 65%)', filter: 'blur(60px)' }}
-        animate={{ x: [0, -30, 20, -10, 0], y: [0, 25, -20, 10, 0] }} transition={{ duration: 20, repeat: Infinity, ease: 'easeInOut' }} />
     </div>
   )
 }
+
+
 
 function LoginContent() {
   const router = useRouter()
@@ -77,41 +64,40 @@ function LoginContent() {
   const ii = (n: string) => `absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 transition-colors duration-200 ${focused === n ? 'text-neutral-900' : 'text-neutral-300'}`
 
   return (
-    <div className="min-h-[100dvh] flex items-center justify-center bg-white relative px-5">
-      <LiquidBg />
+    <div className="min-h-[100dvh] flex items-center justify-center relative px-5">
       <AnimatePresence>{toast && <Toast {...toast} onClose={() => setToast(null)} />}</AnimatePresence>
 
-      <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
-        className="relative z-10 w-full max-w-[400px] text-center">
+      <div className="relative z-10 w-full max-w-[400px] text-center animate-[fadeInUp_0.5s_ease-out]">
+        <style>{`@keyframes fadeInUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}`}</style>
 
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="mb-10">
+        <div className="mb-10">
           <img src="/logo-black.png" alt="Hontrio" style={{ height: 34, width: 'auto' }} className="inline-block" />
-        </motion.div>
+        </div>
 
-        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="mb-8">
+        <div className="mb-8">
           <h1 className="text-[26px] font-semibold text-neutral-900 tracking-tight">Bine ai revenit</h1>
           <p className="text-neutral-400 text-[14px] mt-2 font-light">Conecteaza-te pentru a continua</p>
-        </motion.div>
+        </div>
 
         {registered && (
-          <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
+          <div
             className="flex items-center justify-center gap-3 px-4 py-3 border border-neutral-200 rounded-xl mb-6 bg-neutral-50 text-left">
             <CheckCircle className="h-4 w-4 text-neutral-700 shrink-0" /><span className="text-[13px] text-neutral-600">Cont creat cu succes. Conecteaza-te.</span>
-          </motion.div>
+          </div>
         )}
 
-        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} whileTap={{ scale: 0.985 }}>
+        <div>
           <button onClick={handleGoogle} disabled={gLoading}
             className="w-full flex items-center justify-center gap-3 h-[48px] rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 active:scale-[0.985] transition-all text-[14px] font-medium text-neutral-700 disabled:opacity-50 cursor-pointer">
             {gLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <GoogleIcon />} Continua cu Google
           </button>
-        </motion.div>
+        </div>
 
         <div className="flex items-center gap-4 my-6">
           <div className="h-px flex-1 bg-neutral-100" /><span className="text-[11px] text-neutral-300 uppercase tracking-[0.15em] font-medium select-none">sau</span><div className="h-px flex-1 bg-neutral-100" />
         </div>
 
-        <motion.form initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }} onSubmit={handleSubmit} className="space-y-3.5 text-left">
+        <form onSubmit={handleSubmit} className="space-y-3.5 text-left">
           <div>
             <label className="block text-[12px] font-medium text-neutral-400 mb-1.5 uppercase tracking-wide">Email</label>
             <div className={ic('email')}>
@@ -141,14 +127,14 @@ function LoginContent() {
               className="w-full h-[46px] rounded-xl bg-neutral-900 hover:bg-neutral-800 active:bg-neutral-950 text-white text-[14px] font-medium flex items-center justify-center gap-2 transition-all disabled:opacity-50 cursor-pointer">
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <><span>Conecteaza-te</span><ArrowRight className="h-4 w-4" /></>}
             </button>
-          </motion.div>
-        </motion.form>
+          </div>
+        </form>
 
-        <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }}
+        <p
           className="text-[14px] text-neutral-400 mt-7">
           Nu ai cont?{' '}<Link href="/register" className="text-neutral-900 font-medium hover:underline underline-offset-4">Creeaza cont gratuit</Link>
-        </motion.p>
-      </motion.div>
+        </p>
+      </div>
     </div>
   )
 }

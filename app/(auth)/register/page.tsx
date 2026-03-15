@@ -26,22 +26,11 @@ function Toast({ message, type, onClose }: { message: string; type: 'success' | 
       {type === 'success' ? <CheckCircle className="h-4 w-4" /> : <AlertCircle className="h-4 w-4 text-red-500" />}
       <span className="text-sm font-medium">{message}</span>
       <button onClick={onClose} className="ml-1 p-0.5 rounded-full hover:bg-neutral-100 transition-colors"><X className="h-3.5 w-3.5 text-neutral-400" /></button>
-    </motion.div>
-  )
-}
-
-function LiquidBg() {
-  return (
-    <div className="fixed inset-0 overflow-hidden pointer-events-none">
-      <motion.div className="absolute rounded-full" style={{ width: '55vw', height: '55vw', maxWidth: 700, maxHeight: 700, left: '-8%', top: '-12%', background: 'radial-gradient(circle, rgba(0,0,0,0.045) 0%, rgba(0,0,0,0.02) 40%, transparent 70%)', filter: 'blur(80px)' }}
-        animate={{ x: [0, 60, -30, 40, 0], y: [0, -40, 50, -20, 0] }} transition={{ duration: 28, repeat: Infinity, ease: 'easeInOut' }} />
-      <motion.div className="absolute rounded-full" style={{ width: '50vw', height: '50vw', maxWidth: 650, maxHeight: 650, right: '-10%', bottom: '-8%', background: 'radial-gradient(circle, rgba(0,0,0,0.04) 0%, rgba(0,0,0,0.015) 45%, transparent 70%)', filter: 'blur(70px)' }}
-        animate={{ x: [0, -50, 35, -25, 0], y: [0, 45, -35, 20, 0] }} transition={{ duration: 32, repeat: Infinity, ease: 'easeInOut' }} />
-      <motion.div className="absolute rounded-full" style={{ width: '40vw', height: '40vw', maxWidth: 500, maxHeight: 500, left: '30%', top: '40%', background: 'radial-gradient(circle, rgba(0,0,0,0.035) 0%, rgba(0,0,0,0.01) 50%, transparent 70%)', filter: 'blur(90px)' }}
-        animate={{ x: [0, 40, -50, 20, 0], y: [0, -35, 30, -15, 0], scale: [1, 1.08, 0.95, 1.03, 1] }} transition={{ duration: 24, repeat: Infinity, ease: 'easeInOut' }} />
     </div>
   )
 }
+
+
 
 export default function RegisterPage() {
   const router = useRouter()
@@ -87,41 +76,40 @@ export default function RegisterPage() {
   const pwColors = ['', 'bg-red-400', 'bg-amber-400', 'bg-neutral-400', 'bg-neutral-900']
 
   return (
-    <div className="min-h-[100dvh] flex items-center justify-center bg-white relative px-5 py-6">
-      <LiquidBg />
+    <div className="min-h-[100dvh] flex items-center justify-center relative px-5 py-6">
       <AnimatePresence>{toast && <Toast {...toast} onClose={() => setToast(null)} />}</AnimatePresence>
 
-      <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
-        className="relative z-10 w-full max-w-[400px] text-center">
+      <div className="relative z-10 w-full max-w-[400px] text-center animate-[fadeInUp_0.5s_ease-out]">
+        <style>{`@keyframes fadeInUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}`}</style>
 
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="mb-8">
+        <div className="mb-8">
           <img src="/logo-black.png" alt="Hontrio" style={{ height: 34, width: 'auto' }} className="inline-block" />
-        </motion.div>
+        </div>
 
-        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="mb-5">
+        <div className="mb-5">
           <h1 className="text-[26px] font-semibold text-neutral-900 tracking-tight">Creeaza cont</h1>
           <p className="text-neutral-400 text-[14px] mt-1.5 font-light">Incepe sa optimizezi produsele cu AI</p>
-        </motion.div>
+        </div>
 
-        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18 }} className="flex items-center justify-center mb-6">
+        <div className="flex items-center justify-center mb-6">
           <div className="flex items-center gap-2 px-4 py-1.5 rounded-full border border-neutral-200 bg-neutral-50">
             <Zap className="h-3.5 w-3.5 text-neutral-700" />
             <span className="text-[12px] font-medium text-neutral-600">20 credite gratuite incluse</span>
           </div>
-        </motion.div>
+        </div>
 
-        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.22 }} whileTap={{ scale: 0.985 }}>
+        <div>
           <button onClick={handleGoogle} disabled={gLoading}
             className="w-full flex items-center justify-center gap-3 h-[46px] rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 active:scale-[0.985] transition-all text-[14px] font-medium text-neutral-700 disabled:opacity-50 cursor-pointer">
             {gLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <GoogleIcon />} Continua cu Google
           </button>
-        </motion.div>
+        </div>
 
         <div className="flex items-center gap-4 my-5">
           <div className="h-px flex-1 bg-neutral-100" /><span className="text-[11px] text-neutral-300 uppercase tracking-[0.15em] font-medium select-none">sau</span><div className="h-px flex-1 bg-neutral-100" />
         </div>
 
-        <motion.form initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.27 }} onSubmit={handleSubmit} className="space-y-3 text-left">
+        <form onSubmit={handleSubmit} className="space-y-3 text-left">
           <div>
             <label className="block text-[12px] font-medium text-neutral-400 mb-1.5 uppercase tracking-wide">Nume complet</label>
             <div className={ic('name')}>
@@ -151,7 +139,7 @@ export default function RegisterPage() {
             {pwLen > 0 && (
               <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="flex gap-1 mt-2 px-1">
                 {[1,2,3,4].map(i => (<div key={i} className={`h-[3px] flex-1 rounded-full transition-all duration-300 ${i <= pwStrength ? pwColors[pwStrength] : 'bg-neutral-100'}`} />))}
-              </motion.div>
+              </div>
             )}
           </div>
           <motion.div whileTap={{ scale: 0.985 }} className="pt-0.5">
@@ -159,18 +147,18 @@ export default function RegisterPage() {
               className="w-full h-[46px] rounded-xl bg-neutral-900 hover:bg-neutral-800 active:bg-neutral-950 text-white text-[14px] font-medium flex items-center justify-center gap-2 transition-all disabled:opacity-50 cursor-pointer">
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <><span>Creeaza cont gratuit</span><ArrowRight className="h-4 w-4" /></>}
             </button>
-          </motion.div>
-        </motion.form>
+          </div>
+        </form>
 
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }} className="mt-6 space-y-3">
+        <div className="mt-6 space-y-3">
           <p className="text-[14px] text-neutral-400">
             Ai deja cont?{' '}<Link href="/login" className="text-neutral-900 font-medium hover:underline underline-offset-4">Conecteaza-te</Link>
           </p>
           <p className="text-[11px] text-neutral-300 leading-relaxed">
             Prin crearea contului, esti de acord cu{' '}<Link href="#" className="underline hover:text-neutral-500">Termenii</Link>{' '}si{' '}<Link href="#" className="underline hover:text-neutral-500">Politica de Confidentialitate</Link>
           </p>
-        </motion.div>
-      </motion.div>
+        </div>
+      </div>
     </div>
   )
 }
