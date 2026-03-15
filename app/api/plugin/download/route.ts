@@ -279,7 +279,7 @@ export async function GET() {
 
     const userId   = (session.user as any).id
     const supabase = createAdminClient()
-    const apiBase  = process.env.NEXT_PUBLIC_APP_URL || 'https://hontrio.com'
+    const apiBase  = process.env.NEXT_PUBLIC_APP_URL || 'https://app.hontrio.com'
 
     const [storeRes, configRes] = await Promise.all([
       supabase.from('stores').select('id, store_url, webhook_secret').eq('user_id', userId).single(),

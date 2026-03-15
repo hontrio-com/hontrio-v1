@@ -6,7 +6,7 @@ var COLOR=cfg.color||'#2563eb';
 var POS=cfg.position||'bottom-right';
 var SZ=cfg.size||'medium';
 var OFFSET=cfg.bottomOffset||20;
-var BASE=(cfg.apiBase||'https://hontrio.com').replace(/\/$/,'');
+var BASE=(cfg.apiBase||'https://app.hontrio.com').replace(/\/$/,'');
 if(!UID){console.warn('[Hontrio] userId lipsește');return;}
 
 var IS_R=POS!=='bottom-left';
@@ -157,7 +157,8 @@ function iOk(){return'<svg width="13" height="13" viewBox="0 0 24 24" fill="none
 var wrap=document.createElement('div');wrap.id='_h';
 var btn=document.createElement('button');btn.id='_h_b';btn.setAttribute('aria-label','Chat');
 var badge=document.createElement('div');badge.id='_h_bg';
-btn.innerHTML=iChat();btn.appendChild(badge);
+btn.innerHTML='<span id="_h_bico" style="display:flex;align-items:center;justify-content:center">'+iChat()+'</span><span id="_h_bav" style="display:none"></span>';
+btn.appendChild(badge);
 
 // Bubble proactiv
 var bubble=document.createElement('div');bubble.id='_h_bl';
@@ -645,7 +646,7 @@ function openChat(){
   var bl=document.getElementById('_h_bl');
   if(bl)bl.style.display='none';
   document.getElementById('_h_w').classList.add('on');
-  btn.innerHTML=iX(ICN_S)+'<div id="_h_bg"></div>';
+  btn.innerHTML='<span style="display:flex;align-items:center;justify-content:center">'+iX(ICN_S)+'</span><div id="_h_bg"></div>';
   badge=btn.querySelector('#_h_bg');
   unread=0;updBadge();inp.focus();
   // Dacă s-a deschis după un trigger, arată mesajul triggerului în chat
@@ -660,7 +661,13 @@ function openChat(){
 function closeChat(){
   isOpen=false;
   document.getElementById('_h_w').classList.remove('on');
-  btn.innerHTML=iChat()+'<div id="_h_bg"></div>';
+  // Restaurează butonul cu avatar dacă există
+  var avUrl=(window._hCfg&&window._hCfg.widget_avatar_url)||'';
+  if(avUrl){
+    btn.innerHTML='<span id="_h_bico" style="display:none">'+iChat()+'</span><span id="_h_bav" style="display:flex;align-items:center;justify-content:center"><img src="'+avUrl+'" alt="" style="width:28px;height:28px;object-fit:cover;border-radius:50%;"></span><div id="_h_bg"></div>';
+  } else {
+    btn.innerHTML='<span id="_h_bico" style="display:flex;align-items:center;justify-content:center">'+iChat()+'</span><span id="_h_bav" style="display:none"></span><div id="_h_bg"></div>';
+  }
   badge=btn.querySelector('#_h_bg');
   updBadge();
 }
@@ -760,24 +767,23 @@ fetch(BASE+'/api/agent/memory?userId='+UID+'&visitorId='+vid)
 
 // Removed: misleading 25s fallback badge — triggers handle notifications now
 
-// ── REAL-TIME CONFIG (SSE — actualizare instant din dashboard) ───────────────
-function connectConfigStream(){
-  if(!window.EventSource)return; // fallback — browser vechi
-  var es=new EventSource(BASE+'/api/agent/config-stream?userId='+UID);
-  es.onmessage=function(e){
-    try{
-      var d=JSON.parse(e.data);
-      if(d&&d.widget_color){
+// ── CONFIG POLLING (actualizare din dashboard la fiecare 30s) ─────────────────
+var _lastConfigHash='';
+function pollConfig(){
+  fetch(BASE+'/api/agent/public-config?userId='+UID)
+    .then(function(r){return r.ok?r.json():null;})
+    .then(function(d){
+      if(!d)return;
+      // Compară cu config-ul curent — aplică doar dacă s-a schimbat
+      var hash=JSON.stringify([d.agent_name,d.welcome_message,d.widget_color,d.quick_replies,d.widget_avatar_url,d.widget_position,d.is_active]);
+      if(hash!==_lastConfigHash){
+        _lastConfigHash=hash;
         applyConfig(d);
         window._hCfg=d;
       }
-    }catch(err){}
-  };
-  es.onerror=function(){
-    // Reconectare automată după 5s dacă conexiunea pică
-    es.close();
-    setTimeout(connectConfigStream,5000);
-  };
+    })
+    .catch(function(){});
 }
-connectConfigStream();
+// Polling la fiecare 30 secunde
+setInterval(pollConfig,30000);
 })();

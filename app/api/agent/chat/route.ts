@@ -678,10 +678,15 @@ async function persistMemory(params: {
 
     const updatedViewed = [...params.productsShown, ...(existing?.viewed_product_ids||[])].filter((v,i,a)=>a.indexOf(v)===i).slice(0,50)
 
+    // Verifică dacă sesiunea curentă e deja salvată (să nu incrementeze total_sessions per mesaj)
+    const { data: existingSess } = await supabase
+      .from('visitor_sessions').select('session_id').eq('session_id', params.sessionId).maybeSingle()
+    const isNewSession = !existingSess
+
     await supabase.from('visitor_memory').upsert({
       user_id: params.userId, visitor_id: params.visitorId,
-      total_sessions: (existing?.total_sessions || 0) + 1,
-      total_messages: (existing?.total_messages || 0) + params.messages.length,
+      total_sessions: (existing?.total_sessions || 0) + (isNewSession ? 1 : 0),
+      total_messages: (existing?.total_messages || 0) + 2,
       last_seen_at: new Date().toISOString(),
       first_seen_at: existing?.first_seen_at || new Date().toISOString(),
       preferred_categories: updatedCategories,

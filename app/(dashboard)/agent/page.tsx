@@ -329,7 +329,8 @@ export default function AgentPage() {
     finally { setPreviewLoading(false) }
   }
 
-  const snippetCode = `<!-- HONTRIO AI Agent -->\n<script>\n  window.HontrioAgent = {\n    userId: "${storeUserId}",\n    color: "${config.widget_color}",\n    position: "${config.widget_position}",\n  };\n</script>\n<script src="https://hontrio.com/agent-widget.js" async></script>`
+  const appBase = typeof window !== 'undefined' ? window.location.origin : 'https://app.hontrio.com'
+  const snippetCode = `<!-- HONTRIO AI Agent -->\n<script>\n  window.HontrioAgent = {\n    userId: "${storeUserId}",\n    apiBase: "${appBase}",\n    color: "${config.widget_color}",\n    position: "${config.widget_position}",\n  };\n</script>\n<script src="${appBase}/agent-widget.js" async></script>`
 
   const copySnippet = () => { navigator.clipboard.writeText(snippetCode); setCopied(true); setTimeout(()=>setCopied(false),2000) }
 

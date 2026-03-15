@@ -32,7 +32,7 @@ export async function GET() {
     const color = config?.widget_color || '#2563eb'
     const position = config?.widget_position || 'bottom-right'
     const size = config?.widget_size || 'medium'
-    const apiBase = process.env.NEXT_PUBLIC_APP_URL || 'https://hontrio.com'
+    const apiBase = process.env.NEXT_PUBLIC_APP_URL || 'https://app.hontrio.com'
     const storeName = store?.store_name || ''
 
     // Generate plugin PHP content

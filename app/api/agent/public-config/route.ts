@@ -25,7 +25,6 @@ export async function GET(request: Request) {
       .eq('user_id', userId)
       .single()
 
-    console.log('[PublicConfig] userId:', userId, '| config:', JSON.stringify(config), '| error:', error?.message)
 
     // Dacă nu există config deloc, returnăm defaults în loc de 403
     // Ca widgetul să funcționeze chiar dacă agentul nu e configurat complet
