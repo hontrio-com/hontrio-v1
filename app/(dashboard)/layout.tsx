@@ -114,6 +114,7 @@ function useSearchShortcut(onOpen: () => void) {
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { data: session } = useSession()
   const { locale, setLocale } = useLocale()
+  const { t } = useT()
 
   const toggleLocale = () => setLocale(locale === 'ro' ? 'en' : 'ro')
   const pathname = usePathname()
