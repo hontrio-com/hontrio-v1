@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { openai } from '@/lib/openai/client'
 import { rateLimitExpensive } from '@/lib/security/rate-limit'
 import { calculateSeoScore } from '@/lib/seo/score'
+import { getAILanguage } from '@/lib/i18n/ai-languages'
 
 // ─── CREDIT COSTS ─────────────────────────────────────────────────────────────
 const CREDIT_COSTS: Record<string, number> = {
@@ -29,13 +30,19 @@ function buildBrandContext(user: any): string {
   if (user?.business_name) lines.push(`Magazin: ${user.business_name}`)
   if (user?.niche) lines.push(`Nișă/Industrie: ${user.niche}`)
   if (user?.brand_tone) lines.push(`Ton comunicare: ${TONE_DESCRIPTIONS[user.brand_tone] || user.brand_tone}`)
-  if (user?.brand_language === 'en') lines.push('Limbă: Engleză — scrie tot conținutul în Engleză')
+  if (user?.brand_language && user.brand_language !== 'ro') {
+    const L = getAILanguage(user.brand_language)
+    lines.push(`Language: ${L.nativeName} — ${L.seoLanguageInstruction}`)
+  }
   return lines.length > 0 ? `\n\nIDENTITATEA BRANDULUI:\n${lines.join('\n')}` : ''
 }
 
 // ─── MASTER SEO SYSTEM PROMPT ─────────────────────────────────────────────────
 // Based on Google Search Quality Guidelines, E-E-A-T principles, and eCommerce best practices
-const SEO_SYSTEM_PROMPT = `Ești un expert SEO senior specializat în eCommerce pentru piața românească, cu cunoștințe avansate despre:
+function buildSeoSystemPrompt(lang: string): string {
+  const L = getAILanguage(lang)
+  return `${L.seoExpertRole}
+Advanced knowledge of:
 - Google Search Quality Guidelines și E-E-A-T (Experience, Expertise, Authoritativeness, Trustworthiness)
 - Google Merchant Center și structured data (Product, Offer, AggregateRating în JSON-LD)
 - Core Web Vitals și optimizarea pentru mobile-first indexing
@@ -51,7 +58,12 @@ PRINCIPII FUNDAMENTALE pe care le aplici mereu:
 5. HTML SAFETY: Dacă conținutul original are HTML/tabele, optimizezi conținutul TEXT dar PĂSTREZI structura HTML identică
 6. LUNGIME: Nu există lungime "corectă" — calitatea și utilitatea sunt criteriile, nu numărul de cuvinte
 
-Răspunzi ÎNTOTDEAUNA în română, STRICT cu JSON valid, fără markdown, fără backticks.`
+${L.seoLanguageInstruction}
+ALWAYS respond with valid JSON only, no markdown, no backticks.`
+}
+
+// Default for backward compat
+const SEO_SYSTEM_PROMPT = buildSeoSystemPrompt('ro')
 
 // ─── SECTION-SPECIFIC PROMPTS ─────────────────────────────────────────────────
 function buildSectionPrompt(section: string, product: any): string {
@@ -367,11 +379,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Secțiune invalidă' }, { status: 400 })
     }
 
-    // Inject brand context into system prompt
+    // Inject brand context + language into system prompt
     const brandCtx = buildBrandContext(userProfile)
+    const userLang = userProfile?.brand_language || 'ro'
+    const baseSeoPrompt = buildSeoSystemPrompt(userLang)
     const systemPrompt = brandCtx
-      ? SEO_SYSTEM_PROMPT + brandCtx + '\n\nRespectă STRICT tonul și limba specificată pentru brand în tot conținutul generat.'
-      : SEO_SYSTEM_PROMPT
+      ? baseSeoPrompt + brandCtx + '\n\nStrictly respect the tone and language specified for the brand in all generated content.'
+      : baseSeoPrompt
 
     // Generate with GPT-4o
     const completion = await openai.chat.completions.create({

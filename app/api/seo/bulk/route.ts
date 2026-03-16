@@ -5,13 +5,19 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { openai } from '@/lib/openai/client'
 import { rateLimitExpensive } from '@/lib/security/rate-limit'
 import { calculateSeoScore } from '@/lib/seo/score'
+import { getAILanguage } from '@/lib/i18n/ai-languages'
 
 // Costul per produs la bulk (= 5 credite, acelasi ca "all" sections individual)
 const CREDIT_COST_PER_PRODUCT = 5
 
-const SEO_BULK_SYSTEM_PROMPT = `Esti un expert SEO senior specializat in eCommerce pentru piata romaneasca.
-Generezi continut SEO complet si de calitate pentru produse WooCommerce.
-Raspunzi INTOTDEAUNA STRICT cu JSON valid, fara markdown, fara backticks, fara text in afara JSON-ului.`
+function buildBulkSeoPrompt(lang: string): string {
+  const L = getAILanguage(lang)
+  return `${L.seoExpertRole}
+You generate complete, quality SEO content for eCommerce products.
+${L.seoLanguageInstruction}
+ALWAYS respond STRICTLY with valid JSON, no markdown, no backticks, no text outside JSON.`
+}
+const SEO_BULK_SYSTEM_PROMPT = buildBulkSeoPrompt('ro')
 
 function buildBulkPrompt(product: any): string {
   const title = product.original_title || ''
@@ -88,7 +94,7 @@ export async function POST(request: Request) {
 
     const { data: user } = await supabase
       .from('users')
-      .select('credits')
+      .select('credits, brand_language')
       .eq('id', userId)
       .single()
 
@@ -132,7 +138,7 @@ export async function POST(request: Request) {
         const completion = await openai.chat.completions.create({
           model: 'gpt-4o-mini',
           messages: [
-            { role: 'system', content: SEO_BULK_SYSTEM_PROMPT },
+            { role: 'system', content: buildBulkSeoPrompt(uc?.brand_language || 'ro') },
             { role: 'user', content: prompt },
           ],
           temperature: 0.5,

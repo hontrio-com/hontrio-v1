@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth/auth.config'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { openai } from '@/lib/openai/client'
 import crypto from 'crypto'
+import { getAILanguage } from '@/lib/i18n/ai-languages'
 
 function computeHash(data: any): string {
   return crypto.createHash('md5').update(JSON.stringify(data)).digest('hex')
@@ -20,7 +21,7 @@ const PROMPT = `Analizezi un produs dintr-un magazin online. Pe baza datelor pri
 REGULI STRICTE:
 - Folosește DOAR informația din datele produsului. Nu inventa specificații.
 - Dacă nu ai o informație, scrie "Informație nedisponibilă" — NU presupune.
-- Scrie în română, natural, concis dar util.
+- Write in the language specified below. Be natural, concise but useful.
 
 Răspunde STRICT în acest format JSON (fără markdown, fără backticks):
 {
@@ -97,7 +98,14 @@ export async function POST(req: Request) {
           content_hash: hash, status: 'processing', updated_at: new Date().toISOString(),
         }, { onConflict: 'product_id' })
 
-        const ctx = `PRODUS: ${src.title}\nCATEGORIE: ${src.category}\nPREȚ: ${src.price ? src.price + ' RON' : 'Nedisponibil'}\nDESCRIERE: ${src.desc || 'Lipsă'}\nDESCRIERE SCURTĂ: ${src.short || 'Lipsă'}\n${src.benefits ? `BENEFICII: ${JSON.stringify(src.benefits)}` : ''}${src.specs ? `\nSPECIFICAȚII: ${JSON.stringify(src.specs)}` : ''}${variants.length ? `\nVARIAȚII: ${variants.map(v => `${v.name || v.title} (${v.price} RON)`).join(', ')}` : ''}`
+        // Get user language for intelligence generation
+        const { data: userLang } = await supabase.from('users').select('brand_language').eq('id', userId).single()
+        const L = getAILanguage(userLang?.brand_language)
+
+        const ctx = `LANGUAGE: Write ALL content in ${L.nativeName}.
+${L.intelLanguageInstruction}
+
+PRODUS: ${src.title}\nCATEGORIE: ${src.category}\nPREȚ: ${src.price ? src.price + ' RON' : 'Nedisponibil'}\nDESCRIERE: ${src.desc || 'Lipsă'}\nDESCRIERE SCURTĂ: ${src.short || 'Lipsă'}\n${src.benefits ? `BENEFICII: ${JSON.stringify(src.benefits)}` : ''}${src.specs ? `\nSPECIFICAȚII: ${JSON.stringify(src.specs)}` : ''}${variants.length ? `\nVARIAȚII: ${variants.map(v => `${v.name || v.title} (${v.price} RON)`).join(', ')}` : ''}`
 
         const gpt = await openai.chat.completions.create({
           model: 'gpt-4o-mini', messages: [{ role: 'system', content: PROMPT }, { role: 'user', content: ctx }],
