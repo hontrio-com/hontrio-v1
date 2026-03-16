@@ -1,5 +1,7 @@
 'use client'
 
+import { useT } from '@/lib/i18n/context'
+
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -755,7 +757,7 @@ function PromoGenerator({ onImageGenerated, brandKit }: { onImageGenerated: (img
                 <Btn variant="ghost" onClick={() => { setStep('select_image'); setSelectedStyle(null); setPromoText(null) }}>← Înapoi</Btn>
                 <Btn onClick={() => { if (!promoText) setPromoText({ headline: 'Titlu Produs', subtitle: 'Subtitlu', benefits: ['Beneficiu 1', 'Beneficiu 2', 'Beneficiu 3'], cta: 'Comandă Acum', price_text: null }); setStep('edit_text') }}
                   disabled={!selectedStyle || loadingText}>
-                  {loadingText ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />Se generează...</> : <>Editează textele <Edit3 className="h-3.5 w-3.5" /></>}
+                  {loadingText ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />{t('images.generating')}</> : <>Editează textele <Edit3 className="h-3.5 w-3.5" /></>}
                 </Btn>
               </div>
             </motion.div>
@@ -925,7 +927,7 @@ function BulkTab() {
     <div className="space-y-4">
       <Card className="overflow-hidden">
         <div className="px-5 py-4 border-b border-neutral-100">
-          <p className="text-[13px] font-semibold text-neutral-900">Generare în masă</p>
+          <p className="text-[13px] font-semibold text-neutral-900">{t('images.bulk_generate')}</p>
           <p className="text-[11px] text-neutral-400 mt-0.5">Procesează sute de produse automat în background</p>
         </div>
         <div className="p-5 space-y-5">
@@ -1139,7 +1141,7 @@ function BrandTab() {
     <div className="space-y-4">
       <Card className="p-5 flex items-start justify-between gap-4">
         <div>
-          <p className="text-[13px] font-semibold text-neutral-900">Brand Kit</p>
+          <p className="text-[13px] font-semibold text-neutral-900">{t('images.brand_kit')}</p>
           <p className="text-[11px] text-neutral-400 mt-0.5">Definești identitatea vizuală — aplicată automat în toate generările</p>
         </div>
         <Btn variant="outline" onClick={handleDetect} disabled={detecting}>
@@ -1279,7 +1281,7 @@ function GalleryTab({ gallery, onUpdate }: { gallery: GeneratedImage[]; onUpdate
         </div>
         <div className="relative flex-1 min-w-[160px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-neutral-400" />
-          <input placeholder="Caută..." value={search} onChange={e => setSearch(e.target.value)}
+          <input placeholder={t('common.search')} value={search} onChange={e => setSearch(e.target.value)}
             className="w-full pl-9 h-8 text-[12px] rounded-xl border border-neutral-200 focus:outline-none focus:border-neutral-400 bg-white px-3" />
         </div>
         {filtered.length > 0 && (
@@ -1409,6 +1411,7 @@ const MAIN_TABS: { value: MainTab; label: string; icon: any }[] = [
 ]
 
 export default function ImagesPage() {
+  const { t } = useT()
   const { credits }     = useCredits()
   const [mainTab, setMainTab] = useState<MainTab>('generator')
   const [genTab, setGenTab]   = useState<GenTab>('product')
@@ -1435,7 +1438,7 @@ export default function ImagesPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-[22px] font-semibold text-neutral-900 tracking-tight">Imagini AI</h1>
+          <h1 className="text-[22px] font-semibold text-neutral-900 tracking-tight">{t('images.title')}</h1>
           <p className="text-[13px] text-neutral-400 mt-0.5">Generare, bulk processing, brand kit și galerie</p>
         </div>
         <div className="flex items-center gap-2">

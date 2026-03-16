@@ -1,5 +1,7 @@
 'use client'
 
+import { useT } from '@/lib/i18n/context'
+
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -524,6 +526,7 @@ function LongDescPreview({ html }: { html: string }) {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function ProductSEOPage() {
+  const { t } = useT()
   const params    = useParams()
   const router    = useRouter()
   const productId = params.id as string
@@ -767,7 +770,7 @@ export default function ProductSEOPage() {
             { key: 'meta_description',  label: 'Meta Description',          maxChars: 155, minChars: 120, placeholder: 'Meta description — max 155 car., include CTA',      hint: 'Apare sub titlu în Google. Crește CTR cu un beneficiu clar și CTA.',           creditCost: 1 },
             { key: 'focus_keyword',     label: 'Focus Keyword',             maxChars: 60,                 placeholder: 'ex: mop spin inox, tricou bumbac organic',          hint: 'Query-ul principal al cumpărătorilor. 2-4 cuvinte, natural și specific.',       creditCost: 1 },
             { key: 'short_description', label: 'Descriere Scurtă',          maxChars: 350, minChars: 80,  placeholder: 'Descriere scurtă — apare înainte de Adaugă în coș', hint: '2-4 propoziții care conving clientul.',                                          creditCost: 2, isHtml: /<[a-z][\s\S]*>/i.test(sections.short_description.current) },
-            { key: 'long_description',  label: 'Descriere Lungă (HTML)',                                  placeholder: '<h3>Titlu</h3><p>Conținut...</p>',                  hint: 'Editor HTML. Structura existentă e PĂSTRATĂ — AI optimizează textul, nu tagurile.', creditCost: 2, isHtml: true },
+            { key: 'long_description',  label: 'Descriere Lungă (HTML)',                                  placeholder: '<h3>{t('seo.title_field')}</h3><p>Conținut...</p>',                  hint: 'Editor HTML. Structura existentă e PĂSTRATĂ — AI optimizează textul, nu tagurile.', creditCost: 2, isHtml: true },
           ] as any[]).map((cfg, i) => (
             <motion.div key={cfg.key} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 + i * 0.04 }}>
               {cfg.key === 'title' && <DuplicateWarning productId={productId} title={sections.title.current} />}

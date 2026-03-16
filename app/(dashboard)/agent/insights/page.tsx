@@ -1,5 +1,7 @@
 'use client'
 
+import { useT } from '@/lib/i18n/context'
+
 import { useState, useEffect } from 'react'
 import {
   AlertCircle, BookOpen, Plus, Trash2, ToggleLeft, ToggleRight,
@@ -350,19 +352,20 @@ function ReviewsTab() {
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 export default function InsightsPage() {
+  const { t } = useT()
   const [tab, setTab] = useState<'unanswered'|'heatmap'|'training'|'reviews'>('unanswered')
 
   const tabs = [
-    { id:'unanswered', label:'Fără răspuns',    icon:AlertCircle },
-    { id:'heatmap',    label:'Heatmap produse', icon:TrendingUp  },
-    { id:'training',   label:'Antrenament',     icon:BookOpen    },
-    { id:'reviews',    label:'Review-uri',       icon:MessageCircle },
+    { id:'unanswered', label:t('agent.unanswered'),    icon:AlertCircle },
+    { id:'heatmap',    label:t('agent.heatmap'), icon:TrendingUp  },
+    { id:'training',   label:t('agent.training'),     icon:BookOpen    },
+    { id:'reviews',    label:t('agent.reviews'),       icon:MessageCircle },
   ] as const
 
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-[22px] font-semibold text-neutral-900 tracking-tight">Insights & Antrenament</h1>
+        <h1 className="text-[22px] font-semibold text-neutral-900 tracking-tight">{t('agent.insights_title')}</h1>
         <p className="text-[13px] text-neutral-400 mt-0.5">Îmbunătățește continuu agentul bazat pe date reale</p>
       </div>
 

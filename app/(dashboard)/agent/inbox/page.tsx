@@ -1,5 +1,7 @@
 'use client'
 
+import { useT } from '@/lib/i18n/context'
+
 import { useState, useEffect, useCallback } from 'react'
 import { MessageCircle, Search, Star, Archive, ChevronRight, Loader2, AlertTriangle, Clock, RefreshCw, X } from 'lucide-react'
 
@@ -31,6 +33,7 @@ function Badge({ label, bg, text }: { label: string; bg: string; text: string })
 }
 
 export default function InboxPage() {
+  const { t } = useT()
   const [convs, setConvs]               = useState<Conversation[]>([])
   const [selected, setSelected]         = useState<Conversation | null>(null)
   const [loading, setLoading]           = useState(true)
@@ -81,7 +84,7 @@ export default function InboxPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-[22px] font-semibold text-neutral-900 tracking-tight">Inbox conversații</h1>
+          <h1 className="text-[22px] font-semibold text-neutral-900 tracking-tight">{t('agent.inbox_title')}</h1>
           <p className="text-[13px] text-neutral-400 mt-0.5">{total} conversații în ultimele {days} zile</p>
         </div>
         <button onClick={load} className="flex items-center gap-1.5 text-[11px] text-neutral-400 hover:text-neutral-600 transition-colors px-2.5 py-1.5 rounded-lg hover:bg-neutral-100">
@@ -98,7 +101,7 @@ export default function InboxPage() {
         </div>
         <select value={intentFilter} onChange={e => { setIntentFilter(e.target.value); setPage(1) }}
           className="text-[12px] border border-neutral-200 rounded-xl px-3 py-2 focus:outline-none focus:border-neutral-400 bg-white text-neutral-600">
-          <option value="">Toate intențiile</option>
+          <option value="">{t('common.all')}</option>
           {Object.entries(INTENT_META).map(([k,v]) => <option key={k} value={k}>{v.label}</option>)}
         </select>
         <select value={days} onChange={e => { setDays(Number(e.target.value)); setPage(1) }}
@@ -117,7 +120,7 @@ export default function InboxPage() {
           ) : convs.length === 0 ? (
             <div className="text-center py-16">
               <MessageCircle className="h-10 w-10 text-neutral-200 mx-auto mb-3" />
-              <p className="text-[13px] text-neutral-400">Nicio conversație găsită</p>
+              <p className="text-[13px] text-neutral-400">{t('agent.no_conversations')}</p>
             </div>
           ) : (
             <div className="divide-y divide-neutral-50">
@@ -164,7 +167,7 @@ export default function InboxPage() {
           {!selected ? (
             <div className="text-center py-16">
               <MessageCircle className="h-10 w-10 text-neutral-200 mx-auto mb-3" />
-              <p className="text-[13px] text-neutral-400">Selectează o conversație</p>
+              <p className="text-[13px] text-neutral-400">{t('agent.no_conversations')}</p>
             </div>
           ) : (
             <div className="space-y-4">
@@ -224,7 +227,7 @@ export default function InboxPage() {
                     <div className="h-6 w-px bg-neutral-100" />
                     <div className="flex items-center gap-1.5">
                       <AlertTriangle className="h-3.5 w-3.5 text-red-500" />
-                      <span className="text-[11px] font-medium text-red-600">Escaladare</span>
+                      <span className="text-[11px] font-medium text-red-600">{t('agent.escalated')}</span>
                     </div>
                   </>
                 )}

@@ -1,5 +1,7 @@
 'use client'
 
+import { useT } from '@/lib/i18n/context'
+
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -210,6 +212,7 @@ function StatusBadge({ status }: { status: string }) {
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 export default function SupportPage() {
+  const { t } = useT()
   const [tickets, setTickets]           = useState<Ticket[]>([])
   const [loading, setLoading]           = useState(true)
   const [view, setView]                 = useState<'list' | 'create' | 'detail'>('list')

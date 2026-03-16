@@ -1,5 +1,7 @@
 'use client'
 
+import { useT } from '@/lib/i18n/context'
+
 import { useState, useEffect, useRef } from 'react'
 import { useSession } from 'next-auth/react'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -132,6 +134,7 @@ function Toast({ type, text, onClose }: { type: string; text: string; onClose: (
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 export default function SettingsPage() {
+  const { t } = useT()
   const { data: session } = useSession()
   const [tab, setTab]             = useState('general')
   const [store, setStore]         = useState<StoreData | null>(null)
@@ -329,7 +332,7 @@ export default function SettingsPage() {
 
       {/* Header */}
       <div>
-        <h1 className="text-[22px] font-semibold text-neutral-900 tracking-tight">Setări</h1>
+        <h1 className="text-[22px] font-semibold text-neutral-900 tracking-tight">{t('settings.title')}</h1>
         <p className="text-[13px] text-neutral-400 mt-0.5">Administrează contul, brandul și integrările</p>
       </div>
 
@@ -406,7 +409,7 @@ export default function SettingsPage() {
                   <span className="text-[12px] font-medium bg-neutral-100 text-neutral-700 px-2 py-0.5 rounded-md capitalize">{userPlan}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-[13px] text-neutral-500">Credite</span>
+                  <span className="text-[13px] text-neutral-500">{t('settings.credits_billing')}</span>
                   <span className="text-[13px] font-semibold text-neutral-900">{credits}</span>
                 </div>
                 {memberSince && (
@@ -536,7 +539,7 @@ export default function SettingsPage() {
                     <Store className="h-4 w-4 text-neutral-500" />
                   </div>
                   <div className="flex-1">
-                    <p className="text-[13px] font-semibold text-neutral-900">Magazin conectat</p>
+                    <p className="text-[13px] font-semibold text-neutral-900">{t('settings.store_connected')}</p>
                     <p className="text-[11px] text-neutral-400">WooCommerce activ</p>
                   </div>
                   <span className="flex items-center gap-1 text-[11px] font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md">
@@ -547,8 +550,8 @@ export default function SettingsPage() {
                 <div className="space-y-2 mb-4">
                   {[
                     { icon: Globe,     label: 'URL Magazin',          value: <a href={store.store_url} target="_blank" rel="noopener" className="text-[13px] text-neutral-600 flex items-center gap-1 hover:text-neutral-900">{store.store_url.replace(/^https?:\/\//, '')}<ExternalLink className="h-3 w-3" /></a> },
-                    { icon: Package,   label: 'Produse sincronizate', value: <span className="text-[13px] font-semibold text-neutral-900">{store.products_count}</span> },
-                    { icon: RefreshCw, label: 'Ultima sincronizare',  value: <span className="text-[13px] text-neutral-600">{store.last_sync_at ? new Date(store.last_sync_at).toLocaleString('ro-RO') : 'Niciodată'}</span> },
+                    { icon: Package,   label: '{t('settings.products_synced')}', value: <span className="text-[13px] font-semibold text-neutral-900">{store.products_count}</span> },
+                    { icon: RefreshCw, label: '{t('settings.last_sync')}',  value: <span className="text-[13px] text-neutral-600">{store.last_sync_at ? new Date(store.last_sync_at).toLocaleString('ro-RO') : 'Niciodată'}</span> },
                   ].map((row, i) => (
                     <div key={i} className="flex items-center justify-between px-3 py-2.5 bg-neutral-50 rounded-xl">
                       <div className="flex items-center gap-2">
@@ -771,7 +774,7 @@ export default function SettingsPage() {
                   <Lock className="h-4 w-4 text-neutral-500" />
                 </div>
                 <div>
-                  <p className="text-[13px] font-semibold text-neutral-900">Schimbă parola</p>
+                  <p className="text-[13px] font-semibold text-neutral-900">{t('settings.change_password')}</p>
                   <p className="text-[11px] text-neutral-400">Actualizează parola contului tău</p>
                 </div>
               </div>

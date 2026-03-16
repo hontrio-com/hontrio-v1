@@ -1,5 +1,7 @@
 'use client'
 
+import { useT } from '@/lib/i18n/context'
+
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -608,6 +610,7 @@ function timeAgo(dateStr: string) {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function RiskShieldPage() {
+  const { t } = useT()
   const [stores, setStores]                     = useState<Store[]>([])
   const [selectedStore, setSelectedStore]       = useState<string>('')
   const [customers, setCustomers]               = useState<Customer[]>([])
@@ -847,7 +850,7 @@ export default function RiskShieldPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-[22px] font-semibold text-neutral-900 tracking-tight">Risk Shield</h1>
+          <h1 className="text-[22px] font-semibold text-neutral-900 tracking-tight">{t('risk.title')}</h1>
           <p className="text-[13px] text-neutral-400 mt-0.5">Protecție retururi COD · Detectare fraudă · Intelligence global</p>
         </div>
         <div className="flex flex-wrap gap-2 items-center">
@@ -974,7 +977,7 @@ export default function RiskShieldPage() {
                   <div className="col-span-5">Client</div>
                   <div className="col-span-3">Risc</div>
                   <div className="col-span-2 hidden lg:block">Scor</div>
-                  <div className="col-span-2">Comenzi</div>
+                  <div className="col-span-2">{t('risk.orders')}</div>
                 </div>
                 {customers.map((customer, i) => {
                   const rate = collectionRate(customer)

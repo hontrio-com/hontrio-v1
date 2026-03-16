@@ -1,5 +1,7 @@
 'use client'
 
+import { useT } from '@/lib/i18n/context'
+
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -1096,6 +1098,7 @@ const TABS = [
 type TabId = typeof TABS[number]['id']
 
 export default function CompetitorPage() {
+  const { t } = useT()
   const [myUrl, setMyUrl]                 = useState('')
   const [competitorUrl, setCompetitorUrl] = useState('')
   const [inputVal, setInputVal]           = useState('')
@@ -1179,7 +1182,7 @@ export default function CompetitorPage() {
 
       {/* Header */}
       <div>
-        <h1 className="text-[22px] font-semibold text-neutral-900 tracking-tight">Analiză Competitori</h1>
+        <h1 className="text-[22px] font-semibold text-neutral-900 tracking-tight">{t('seo.competitors')}</h1>
         <p className="text-[13px] text-neutral-400 mt-1">Monitorizează, compară și depășește orice competitor SEO</p>
       </div>
 

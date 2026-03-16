@@ -1,5 +1,7 @@
 'use client'
 
+import { useT } from '@/lib/i18n/context'
+
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -108,6 +110,7 @@ function CWVBadge({ score, value, label }: { score: number; value: string; label
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function SEOPage() {
+  const { t } = useT()
   const [activeTab, setActiveTab]         = useState<'products' | 'store'>('products')
   const [storeUrl, setStoreUrl]           = useState('')
   const [strategy, setStrategy]           = useState<'mobile' | 'desktop'>('mobile')
@@ -211,7 +214,7 @@ export default function SEOPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-[22px] font-semibold text-neutral-900 tracking-tight">Optimizare SEO</h1>
+          <h1 className="text-[22px] font-semibold text-neutral-900 tracking-tight">{t('seo.title')}</h1>
           <p className="text-[13px] text-neutral-400 mt-0.5">Audit magazin · Optimizare produse · Bulk · Competitor</p>
         </div>
         <span className="hidden sm:inline-flex items-center gap-1.5 text-[11px] font-medium text-neutral-500 bg-neutral-100 px-2.5 py-1 rounded-full">

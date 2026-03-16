@@ -1,5 +1,7 @@
 'use client'
 
+import { useT } from '@/lib/i18n/context'
+
 import { useState, useEffect } from 'react'
 import {
   Zap, Plus, Trash2, Save, ToggleLeft, ToggleRight,
@@ -17,11 +19,11 @@ interface Trigger {
 
 const TRIGGER_META: Record<TriggerType, { label: string; icon: any; iconColor: string; badgeBg: string; badgeText: string; desc: string }> = {
   exit_intent:      { label:'Intenție de ieșire', icon:MousePointer,  iconColor:'text-red-500',    badgeBg:'bg-red-50',    badgeText:'text-red-600',    desc:'Se activează când cursorul iese din fereastra browserului' },
-  time_on_page:     { label:'Timp pe pagină',      icon:Clock,         iconColor:'text-blue-500',   badgeBg:'bg-blue-50',   badgeText:'text-blue-600',   desc:'Se activează după X secunde petrecute pe pagină' },
-  scroll_depth:     { label:'Adâncime scroll',     icon:TrendingDown,  iconColor:'text-violet-500', badgeBg:'bg-violet-50', badgeText:'text-violet-600', desc:'Se activează când vizitatorul scrollează X% din pagină' },
+  time_on_page:     { label:t('agent.time_on_page'),      icon:Clock,         iconColor:'text-blue-500',   badgeBg:'bg-blue-50',   badgeText:'text-blue-600',   desc:'Se activează după X secunde petrecute pe pagină' },
+  scroll_depth:     { label:t('agent.scroll_depth'),     icon:TrendingDown,  iconColor:'text-violet-500', badgeBg:'bg-violet-50', badgeText:'text-violet-600', desc:'Se activează când vizitatorul scrollează X% din pagină' },
   cart_abandonment: { label:'Coș abandonat',       icon:ShoppingCart,  iconColor:'text-orange-500', badgeBg:'bg-orange-50', badgeText:'text-orange-600', desc:'Se activează când are produse în coș dar nu finalizează' },
-  page_specific:    { label:'Pagină specifică',    icon:FileText,      iconColor:'text-emerald-500',badgeBg:'bg-emerald-50',badgeText:'text-emerald-600',desc:'Se activează pe anumite tipuri de pagini după X secunde' },
-  inactivity:       { label:'Inactivitate',        icon:Moon,          iconColor:'text-neutral-500',badgeBg:'bg-neutral-100',badgeText:'text-neutral-600',desc:'Se activează când vizitatorul nu face nimic X secunde' },
+  page_specific:    { label:t('agent.page_specific'),    icon:FileText,      iconColor:'text-emerald-500',badgeBg:'bg-emerald-50',badgeText:'text-emerald-600',desc:'Se activează pe anumite tipuri de pagini după X secunde' },
+  inactivity:       { label:t('agent.inactivity'),        icon:Moon,          iconColor:'text-neutral-500',badgeBg:'bg-neutral-100',badgeText:'text-neutral-600',desc:'Se activează când vizitatorul nu face nimic X secunde' },
 }
 
 const PAGE_OPTIONS = [
@@ -39,6 +41,7 @@ function Card({ children, className = '' }: { children: React.ReactNode; classNa
 }
 
 export default function TriggersPage() {
+  const { t } = useT()
   const [triggers, setTriggers] = useState<Trigger[]>([])
   const [loading, setLoading]   = useState(true)
   const [saving, setSaving]     = useState<string|null>(null)

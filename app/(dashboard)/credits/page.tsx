@@ -1,5 +1,7 @@
 'use client'
 
+import { useT } from '@/lib/i18n/context'
+
 import { useState, useEffect, Suspense } from 'react'
 import { useSession } from 'next-auth/react'
 import { useSearchParams } from 'next/navigation'
@@ -171,7 +173,7 @@ function SubscriptionPageInner() {
 
       {/* Header */}
       <div>
-        <h1 className="text-[22px] font-semibold text-neutral-900 tracking-tight">Abonament & Credite</h1>
+        <h1 className="text-[22px] font-semibold text-neutral-900 tracking-tight">{t('credits.title')}</h1>
         <p className="text-[13px] text-neutral-400 mt-0.5">Gestionează planul, creditele și facturarea</p>
       </div>
 
@@ -198,7 +200,7 @@ function SubscriptionPageInner() {
               <div className="flex items-center gap-2">
                 <p className="text-[15px] font-semibold text-neutral-900">Plan {currentPlan.name}</p>
                 {userPlan !== 'free' && (
-                  <span className="text-[10px] font-semibold bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded-md">Activ</span>
+                  <span className="text-[10px] font-semibold bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded-md">{t('agent.active')}</span>
                 )}
               </div>
               <p className="text-[12px] text-neutral-400">{currentPlan.description}</p>
@@ -206,7 +208,7 @@ function SubscriptionPageInner() {
           </div>
           <div className="flex items-center gap-4">
             <div>
-              <p className="text-[11px] text-neutral-400 mb-0.5">Credite disponibile</p>
+              <p className="text-[11px] text-neutral-400 mb-0.5">{t('credits.credits_remaining')}</p>
               <p className="text-[28px] font-bold text-neutral-900 tabular-nums leading-none">{balance}</p>
               <div className="h-1 w-24 bg-neutral-100 rounded-full mt-1.5">
                 <motion.div initial={{ width: 0 }} animate={{ width: `${Math.min((balance / currentPlan.credits) * 100, 100)}%` }}
@@ -270,7 +272,7 @@ function SubscriptionPageInner() {
 
                       <div className="mb-4">
                         {plan.price === 0
-                          ? <p className="text-[28px] font-bold text-neutral-900">Gratuit</p>
+                          ? <p className="text-[28px] font-bold text-neutral-900">{t('credits.free_trial')}</p>
                           : <p className="text-[28px] font-bold text-neutral-900">{plan.price} <span className="text-[14px] font-normal text-neutral-400">RON{plan.period}</span></p>
                         }
                         <p className="text-[11px] text-neutral-400 mt-0.5"><span className="font-medium text-neutral-600">{plan.credits} credite</span> incluse</p>
@@ -335,7 +337,7 @@ function SubscriptionPageInner() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
           <div className="lg:col-span-2">
             <Card className="p-5">
-              <p className="text-[13px] font-semibold text-neutral-900 mb-0.5">Cumpără credite suplimentare</p>
+              <p className="text-[13px] font-semibold text-neutral-900 mb-0.5">{t('credits.buy_credits')}</p>
               <p className="text-[12px] text-neutral-400 mb-4">Creditele nu expiră și se adaugă la balanța ta</p>
               <div className="space-y-2">
                 {PACKS.map(pack => (
@@ -350,7 +352,7 @@ function SubscriptionPageInner() {
                           <p className="text-[14px] font-semibold text-neutral-900">{pack.credits} credite</p>
                           {pack.popular && <span className="text-[9px] font-bold bg-neutral-900 text-white px-1.5 py-0.5 rounded-md">POPULAR</span>}
                         </div>
-                        <p className="text-[11px] text-neutral-400 tabular-nums">{pack.perCredit.toFixed(2)} RON / credit</p>
+                        <p className="text-[11px] text-neutral-400 tabular-nums">{pack.perCredit.toFixed(2)} RON / {t('credits.per_credit')}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
@@ -368,7 +370,7 @@ function SubscriptionPageInner() {
 
           <div className="space-y-4">
             <Card className="p-5">
-              <p className="text-[11px] font-medium text-neutral-400 uppercase tracking-wide mb-3">Cost per acțiune</p>
+              <p className="text-[11px] font-medium text-neutral-400 uppercase tracking-wide mb-3">{t('images.credits_cost')}</p>
               <div className="space-y-2">
                 {COSTS.map((item, i) => {
                   const Icon = item.icon
@@ -404,14 +406,14 @@ function SubscriptionPageInner() {
           <div className="lg:col-span-2">
             <Card className="p-5">
               <div className="flex items-center justify-between mb-4">
-                <p className="text-[13px] font-semibold text-neutral-900">Istoric tranzacții</p>
+                <p className="text-[13px] font-semibold text-neutral-900">{t('credits.transaction_history')}</p>
                 <span className="text-[11px] text-neutral-400">{transactions.length} total</span>
               </div>
 
               {transactions.length === 0 ? (
                 <div className="text-center py-12">
                   <Clock className="h-8 w-8 text-neutral-200 mx-auto mb-3" />
-                  <p className="text-[13px] font-medium text-neutral-500">Nicio tranzacție încă</p>
+                  <p className="text-[13px] font-medium text-neutral-500">{t('credits.no_transactions')}</p>
                   <p className="text-[12px] text-neutral-400 mt-1">Tranzacțiile vor apărea aici</p>
                 </div>
               ) : (
@@ -513,6 +515,7 @@ function SubscriptionPageInner() {
 }
 
 export default function SubscriptionPage() {
+  const { t } = useT()
   return (
     <Suspense fallback={<div className="flex items-center justify-center h-64"><Loader2 className="h-6 w-6 animate-spin text-neutral-300" /></div>}>
       <SubscriptionPageInner />

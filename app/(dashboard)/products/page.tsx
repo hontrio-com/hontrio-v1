@@ -1,5 +1,7 @@
 'use client'
 
+import { useT } from '@/lib/i18n/context'
+
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -268,8 +270,8 @@ function EmptyState({ hasSearch, onClear }: { hasSearch: boolean; onClear: () =>
       <div className="h-14 w-14 rounded-xl bg-neutral-100 flex items-center justify-center mx-auto mb-4">
         <Search className="h-6 w-6 text-neutral-300" />
       </div>
-      <p className="text-[14px] font-medium text-neutral-500 mb-1">Niciun produs găsit</p>
-      <p className="text-[13px] text-neutral-400 mb-4">Încearcă un alt termen de căutare</p>
+      <p className="text-[14px] font-medium text-neutral-500 mb-1">{t('products.no_products_found')}</p>
+      <p className="text-[13px] text-neutral-400 mb-4">{t('products.try_other_search')}</p>
       <button onClick={onClear} className="h-8 px-4 rounded-xl border border-neutral-200 text-[12px] font-medium text-neutral-600 hover:bg-neutral-50 transition-all">
         Resetează căutarea
       </button>
@@ -281,8 +283,8 @@ function EmptyState({ hasSearch, onClear }: { hasSearch: boolean; onClear: () =>
       <div className="h-16 w-16 rounded-xl bg-neutral-100 flex items-center justify-center mx-auto mb-4">
         <Store className="h-7 w-7 text-neutral-300" />
       </div>
-      <p className="text-[15px] font-semibold text-neutral-700 mb-1">Niciun produs sincronizat</p>
-      <p className="text-[13px] text-neutral-400 mb-5">Conectează-ți magazinul pentru a importa produsele</p>
+      <p className="text-[15px] font-semibold text-neutral-700 mb-1">{t('products.no_products')}</p>
+      <p className="text-[13px] text-neutral-400 mb-5">{t('products.connect_store_desc')}</p>
       <Link href="/settings">
         <button className="h-9 px-5 rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white text-[13px] font-medium transition-all">
           Conectează magazinul
@@ -293,6 +295,7 @@ function EmptyState({ hasSearch, onClear }: { hasSearch: boolean; onClear: () =>
 }
 
 export default function ProductsPage() {
+  const { t } = useT()
   const [products, setProducts] = useState<Product[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -371,7 +374,7 @@ export default function ProductsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-[22px] font-semibold text-neutral-900 tracking-tight">Produse</h1>
+          <h1 className="text-[22px] font-semibold text-neutral-900 tracking-tight">{t('products.title')}</h1>
           <p className="text-[13px] text-neutral-400 mt-0.5">
             {total > 0 ? `${total} produse în catalog` : 'Gestionează și optimizează produsele'}
           </p>
@@ -386,7 +389,7 @@ export default function ProductsPage() {
           disabled={syncing}
           className="flex items-center gap-1.5 h-9 px-3.5 rounded-xl border border-neutral-200 bg-white text-[12px] font-medium text-neutral-600 hover:border-neutral-300 hover:text-neutral-900 transition-all disabled:opacity-50">
           <RefreshCw className={`h-3.5 w-3.5 ${syncing ? 'animate-spin' : ''}`} />
-          <span className="hidden sm:inline">Sincronizează</span>
+          <span className="hidden sm:inline">{t('products.sync')}</span>
         </button>
       </div>
 
@@ -419,7 +422,7 @@ export default function ProductsPage() {
           {/* Row 1: search */}
           <div className="relative w-full">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-neutral-300 pointer-events-none" />
-            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Caută produse..."
+            <input value={search} onChange={e => setSearch(e.target.value)} placeholder={t('products.search_placeholder')}
               className="w-full h-9 pl-9 pr-8 rounded-xl bg-neutral-50 border border-neutral-100 text-[13px] text-neutral-700 placeholder:text-neutral-300 focus:outline-none focus:border-neutral-300 focus:bg-white transition-all" />
             {search && (
               <button onClick={() => setSearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-300 hover:text-neutral-500">
@@ -537,12 +540,12 @@ export default function ProductsPage() {
                 {selected.size === products.length && products.length > 0 && <span className="text-neutral-900 text-[10px]">✓</span>}
               </button>
               <div className="w-10 shrink-0" />
-              <span className="flex-1 text-[11px] font-medium text-neutral-400 uppercase tracking-wider">Produs</span>
+              <span className="flex-1 text-[11px] font-medium text-neutral-400 uppercase tracking-wider">{t('products.product')}</span>
               <div className="flex items-center gap-3 shrink-0">
                 <span className="text-[11px] font-medium text-neutral-400 uppercase tracking-wider w-10 text-right">AI</span>
                 <span className="text-[11px] font-medium text-neutral-400 uppercase tracking-wider w-10 text-right">SEO</span>
-                <span className="text-[11px] font-medium text-neutral-400 uppercase tracking-wider w-16 text-right">Preț</span>
-                <span className="text-[11px] font-medium text-neutral-400 uppercase tracking-wider w-20">Status</span>
+                <span className="text-[11px] font-medium text-neutral-400 uppercase tracking-wider w-16 text-right">{t('products.price')}</span>
+                <span className="text-[11px] font-medium text-neutral-400 uppercase tracking-wider w-20">{t('products.status')}</span>
               </div>
               <div className="w-5" />
             </div>
