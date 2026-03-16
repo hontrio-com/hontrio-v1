@@ -69,6 +69,7 @@ const PAGES = [
 const STYLE_LABELS: Record<string, string> = { white_background: 'Fundal Alb', lifestyle: 'Lifestyle', premium_dark: 'Premium Dark', artisan: 'Artisan', seasonal: 'Sezonier', manual: 'Custom' }
 
 function SearchDropdown({ results, loading, query, onNavigate }: { results: { products: any[]; images: any[]; pages: any[] }; loading: boolean; query: string; onNavigate: (h: string) => void }) {
+  const { t } = useT()
   const hasAny = results.products.length > 0 || results.images.length > 0 || results.pages.length > 0
   if (loading && !hasAny) return <div className="flex items-center gap-2 px-4 py-4 text-sm text-neutral-400"><Loader2 className="h-4 w-4 animate-spin" />{t('common.loading')}</div>
   if (!hasAny) return <div className="px-4 py-5 text-center"><Search className="h-7 w-7 text-neutral-200 mx-auto mb-2" /><p className="text-sm text-neutral-400">{t('common.no_results')} "{query}"</p></div>
