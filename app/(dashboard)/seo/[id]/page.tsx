@@ -146,9 +146,9 @@ function GooglePreview({ title, description, url, mobile }: { title: string; des
 // ─── Live Score Widget ────────────────────────────────────────────────────────
 
 function LiveScoreWidget({ sections, collapsed, onToggle }: {
-  const { t } = useT()
   sections: Record<SectionKey, SectionState>; collapsed: boolean; onToggle: () => void
 }) {
+  const { t } = useT()
   const { score, breakdown } = calcLiveScore(sections)
   const c      = score >= 80 ? '#10b981' : score >= 50 ? '#f59e0b' : '#ef4444'
   const textC  = score >= 80 ? 'text-emerald-600' : score >= 50 ? 'text-amber-600' : 'text-red-500'

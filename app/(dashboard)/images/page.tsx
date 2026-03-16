@@ -204,8 +204,8 @@ function ProductPicker({ onSelect, onClose }: { onSelect: (p: Product) => void; 
 // ─── Image Source Selector ────────────────────────────────────────────────────
 
 function ImageSourceSelector({ selectedProduct, setSelectedProduct, selectedProductImage, setSelectedProductImage,
-  const { t } = useT()
   uploadedImage, setUploadedImage, setUploadedImageFile, showPicker, setShowPicker, fileInputRef }: any) {
+  const { t } = useT()
   return (
     <div className="space-y-4">
       <p className="text-[13px] font-semibold text-neutral-900">Alege imaginea de referință</p>
@@ -328,10 +328,10 @@ function GeneratingScreen({ taskId, imageRecordId, onDone, onError, variantCount
 // ─── Style Selector ───────────────────────────────────────────────────────────
 
 function StyleSelector({ styles, selected, onSelect, credits, season }: {
-  const { t } = useT()
   styles: typeof PRODUCT_STYLES; selected: string | null; onSelect: (v: string) => void
   credits: number; season?: ReturnType<typeof getCurrentSeason>
 }) {
+  const { t } = useT()
   return (
     <div className="space-y-3">
       {season && styles.find(s => s.value === season.style) && (

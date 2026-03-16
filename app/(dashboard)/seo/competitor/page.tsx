@@ -202,10 +202,10 @@ function FieldRow({ label, mine, theirs, minLen, maxLen, winner, onSteal }: {
 // ─── Steal Modal ──────────────────────────────────────────────────────────────
 
 function StealModal({ open, field, myCurrent, competitorValue, competitorUrl, onClose, onApplied }: {
-  const { t } = useT()
   open: boolean; field: string; myCurrent: string; competitorValue: string; competitorUrl: string
   onClose: () => void; onApplied: (val: string) => void
 }) {
+  const { t } = useT()
   const [loading, setLoading]   = useState(false)
   const [result, setResult]     = useState<{ improved_value: string; explanation: string; char_count: number } | null>(null)
   const [applying, setApplying] = useState(false)
@@ -305,10 +305,10 @@ function StealModal({ open, field, myCurrent, competitorValue, competitorUrl, on
 // ─── TAB: OVERVIEW ────────────────────────────────────────────────────────────
 
 function TabOverview({ result, onSteal }: {
-  const { t } = useT()
   result: ComparisonResult | null
   onSteal: (field: string, val: string, current: string) => void
 }) {
+  const { t } = useT()
   if (!result) return (
     <Card className="p-12 text-center">
       <BarChart3 className="h-10 w-10 text-neutral-200 mx-auto mb-4" />

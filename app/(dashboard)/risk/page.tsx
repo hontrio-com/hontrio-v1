@@ -180,9 +180,9 @@ function BehaviorBar({ label, value, max, color = 'bg-neutral-900' }: { label: s
 // ─── Timeline ─────────────────────────────────────────────────────────────────
 
 function Timeline({ orders, onUpdateStatus, updatingOrder }: {
-  const { t } = useT()
   orders: Order[]; onUpdateStatus: (id: string, status: string) => void; updatingOrder: string | null
 }) {
+  const { t } = useT()
   const sorted = [...orders].sort((a, b) => new Date(b.ordered_at).getTime() - new Date(a.ordered_at).getTime())
   return (
     <div className="relative">
@@ -347,11 +347,11 @@ function CustomerBadges({ customer }: { customer: Customer }) {
 // ─── Cluster Tab ──────────────────────────────────────────────────────────────
 
 function ClusterTab({ storeId, customers, onOpenProfile }: {
-  const { t } = useT()
   storeId: string
   customers: Array<{ id: string; name: string | null; phone: string | null; risk_score: number; risk_label: string }>
   onOpenProfile: (id: string) => void
 }) {
+  const { t } = useT()
   const [loading, setLoading] = useState(false)
   const [clusters, setClusters] = useState<any[]>([])
   const [ran, setRan] = useState(false)
@@ -449,10 +449,10 @@ function ClusterTab({ storeId, customers, onOpenProfile }: {
 // ─── Settings Tab ─────────────────────────────────────────────────────────────
 
 function SettingsTab({ settings, mlAccuracy, mlTotalPredictions, savingSettings, onSave }: {
-  const { t } = useT()
   settings: any; mlAccuracy: number | null; mlTotalPredictions: number
   savingSettings: boolean; onSave: (updates: any) => Promise<void>
 }) {
+  const { t } = useT()
   const [local, setLocal] = useState<any>(settings || {})
   if (settings && JSON.stringify(settings) !== JSON.stringify(local) && Object.keys(local).length < 5) setLocal(settings)
   const set = (key: string, val: any) => setLocal((prev: any) => ({ ...prev, [key]: val }))
