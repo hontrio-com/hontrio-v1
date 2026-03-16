@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import { useT } from '@/lib/i18n/context'
 import { useSession } from 'next-auth/react'
 import { motion } from 'framer-motion'
 import { Package, ImageIcon, TrendingUp, Sparkles, ArrowRight, ArrowUpRight, Zap, CheckCircle, Clock, CreditCard, Search, Bot, Store, RefreshCw, AlertTriangle, ChevronRight, Circle, ExternalLink } from 'lucide-react'
@@ -53,7 +54,8 @@ export default function DashboardPage() {
   const { data: session } = useSession()
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
-  const userName = session?.user?.name?.split(' ')[0] || 'Utilizator'
+  const { t } = useT()
+  const userName = session?.user?.name?.split(' ')[0] || 'User'
   const userPlan = (session?.user as any)?.plan || 'free'
 
   useEffect(() => { fetch('/api/dashboard').then(r => r.json()).then(setData).catch(() => {}).finally(() => setLoading(false)) }, [])
@@ -83,7 +85,7 @@ export default function DashboardPage() {
               <h1 className="text-[22px] font-semibold text-neutral-900 tracking-tight">{getGreeting()}, {userName}</h1>
               <span className="text-[11px] font-medium px-2.5 py-0.5 rounded-full bg-neutral-100 text-neutral-500 uppercase tracking-wide">{userPlan}</span>
             </div>
-            <p className="text-neutral-400 mt-0.5 text-[14px]">Rezumatul performantei magazinului tau</p>
+            <p className="text-neutral-400 mt-0.5 text-[14px]">{t('dashboard.welcome')}</p>
           </div>
           <Link href="/products">
             <motion.button whileTap={{ scale: 0.985 }} className="h-10 px-5 rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white text-[13px] font-medium inline-flex items-center gap-2 transition-all cursor-pointer">
@@ -100,7 +102,7 @@ export default function DashboardPage() {
             <div className="absolute top-0 right-0 w-40 h-40 bg-white/[0.03] rounded-full -translate-y-1/2 translate-x-1/2 pointer-events-none" />
             <div className="flex items-center justify-between mb-4">
               <div>
-                <p className="font-semibold text-[15px]">Configurare cont</p>
+                <p className="font-semibold text-[15px]">{t('onboarding.title')}</p>
                 <p className="text-neutral-400 text-[13px]">{data.onboardingProgress} din {data.onboardingChecklist.length} pasi completati</p>
               </div>
               <div className="relative h-12 w-12">
@@ -155,9 +157,9 @@ export default function DashboardPage() {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           {[
             { label: 'Total produse', value: data?.totalProducts || 0, icon: Package, href: '/products' },
-            { label: 'Imagini generate', value: data?.totalImages || 0, icon: ImageIcon, href: '/images' },
-            { label: 'Scor SEO mediu', value: data?.avgSeoScore || 0, suffix: '/100', icon: Search, href: '/seo' },
-            { label: 'Credite ramase', value: data?.creditsRemaining || 0, icon: CreditCard, href: '/credits', bar: true },
+            { label: t('dashboard.ai_images'), value: data?.totalImages || 0, icon: ImageIcon, href: '/images' },
+            { label: t('dashboard.seo_score'), value: data?.avgSeoScore || 0, suffix: '/100', icon: Search, href: '/seo' },
+            { label: t('dashboard.credits_remaining'), value: data?.creditsRemaining || 0, icon: CreditCard, href: '/credits', bar: true },
           ].map((stat, i) => (
             <motion.div key={stat.label} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 + i * 0.06 }}>
               <Link href={stat.href}>
@@ -189,14 +191,14 @@ export default function DashboardPage() {
           {/* Optimization progress */}
           <div className="bg-white border border-neutral-200 rounded-xl p-5">
             <div className="flex items-center justify-between mb-4">
-              <p className="text-[15px] font-semibold text-neutral-900">Progres optimizare</p>
-              <Link href="/products" className="text-[12px] text-neutral-400 hover:text-neutral-700 flex items-center gap-1 transition-colors">Vezi toate<ArrowRight className="h-3 w-3" /></Link>
+              <p className="text-[15px] font-semibold text-neutral-900">{t('dashboard.seo_score')}</p>
+              <Link href="/products" className="text-[12px] text-neutral-400 hover:text-neutral-700 flex items-center gap-1 transition-colors">{t('common.view')} {t('common.all')}<ArrowRight className="h-3 w-3" /></Link>
             </div>
             {noProducts ? (
               <div className="text-center py-10">
                 <div className="h-14 w-14 rounded-xl bg-neutral-100 flex items-center justify-center mx-auto mb-3"><Package className="h-7 w-7 text-neutral-300" /></div>
-                <p className="text-neutral-400 text-[14px] mb-3">Niciun produs sincronizat</p>
-                <Link href="/settings"><button className="h-9 px-4 rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white text-[13px] font-medium transition-all">Conecteaza magazinul</button></Link>
+                <p className="text-neutral-400 text-[14px] mb-3">{t('products.no_products')}</p>
+                <Link href="/settings"><button className="h-9 px-4 rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white text-[13px] font-medium transition-all">{t('onboarding.connect_store')}</button></Link>
               </div>
             ) : (<>
               <div className="grid grid-cols-3 gap-3 mb-5">
@@ -217,7 +219,7 @@ export default function DashboardPage() {
                   </div>
                 ))}
               </div>
-              <p className="text-[11px] font-medium text-neutral-400 uppercase tracking-wider mb-2">Ultimele produse</p>
+              <p className="text-[11px] font-medium text-neutral-400 uppercase tracking-wider mb-2">{t('dashboard.recent_activity')}</p>
               <div className="space-y-1">
                 {(data?.recentProducts || []).map(p => (
                   <Link key={p.id} href={`/seo/${p.id}`}>
@@ -253,7 +255,7 @@ export default function DashboardPage() {
                   <p className="text-[13px] font-medium text-neutral-900 truncate">{data.worstProduct.title || 'Produs fara titlu'}</p>
                   <p className="text-[12px] text-neutral-400">Scor SEO: <span className="font-semibold text-neutral-900">{data.worstProduct.seo_score}/100</span></p>
                 </div>
-                <Link href={`/seo/${data.worstProduct.id}`}><button className="h-8 px-3 rounded-lg bg-neutral-900 hover:bg-neutral-800 text-white text-[12px] font-medium transition-all shrink-0">Optimizeaza</button></Link>
+                <Link href={`/seo/${data.worstProduct.id}`}><button className="h-8 px-3 rounded-lg bg-neutral-900 hover:bg-neutral-800 text-white text-[12px] font-medium transition-all shrink-0">{t('seo.optimize_all')}</button></Link>
               </div>
             </div>
           )}
@@ -264,8 +266,8 @@ export default function DashboardPage() {
           {/* SEO Donut */}
           <div className="bg-white border border-neutral-200 rounded-xl p-5">
             <div className="flex items-center justify-between mb-4">
-              <p className="text-[15px] font-semibold text-neutral-900">Distributie SEO</p>
-              <Link href="/seo" className="text-[12px] text-neutral-400 hover:text-neutral-700 flex items-center gap-1 transition-colors">Detalii<ChevronRight className="h-3 w-3" /></Link>
+              <p className="text-[15px] font-semibold text-neutral-900">{t('dashboard.seo_score')}</p>
+              <Link href="/seo" className="text-[12px] text-neutral-400 hover:text-neutral-700 flex items-center gap-1 transition-colors">{t('common.view')}<ChevronRight className="h-3 w-3" /></Link>
             </div>
             <div className="flex items-center gap-4">
               <div className="relative shrink-0">
@@ -285,7 +287,7 @@ export default function DashboardPage() {
 
           {/* Store */}
           <div className="bg-white border border-neutral-200 rounded-xl p-5">
-            <p className="text-[15px] font-semibold text-neutral-900 flex items-center gap-2 mb-3"><Store className="h-4 w-4 text-neutral-400" />Magazin</p>
+            <p className="text-[15px] font-semibold text-neutral-900 flex items-center gap-2 mb-3"><Store className="h-4 w-4 text-neutral-400" />{t('sidebar.settings')}</p>
             {data?.store ? (
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
@@ -300,20 +302,20 @@ export default function DashboardPage() {
                   <div className="bg-neutral-50 rounded-lg p-2.5 text-center"><p className="text-[12px] font-semibold text-neutral-600 capitalize">{data.store.platform}</p><p className="text-[11px] text-neutral-400">Platforma</p></div>
                 </div>
                 {data.store.last_sync_at && <p className="text-[11px] text-neutral-400 flex items-center gap-1"><RefreshCw className="h-3 w-3" />Ultima sync: {formatTime(data.store.last_sync_at)}</p>}
-                <Link href="/settings"><button className="w-full text-[12px] text-neutral-500 hover:text-neutral-900 flex items-center justify-center gap-1 py-1 transition-colors">Gestioneaza<ExternalLink className="h-3 w-3" /></button></Link>
+                <Link href="/settings"><button className="w-full text-[12px] text-neutral-500 hover:text-neutral-900 flex items-center justify-center gap-1 py-1 transition-colors">{t('common.settings')}<ExternalLink className="h-3 w-3" /></button></Link>
               </div>
             ) : (
               <div className="text-center py-4">
                 <div className="h-10 w-10 rounded-lg bg-neutral-100 flex items-center justify-center mx-auto mb-2"><Store className="h-5 w-5 text-neutral-300" /></div>
-                <p className="text-[13px] text-neutral-400 mb-3">Niciun magazin conectat</p>
-                <Link href="/settings"><button className="h-8 px-4 rounded-lg border border-neutral-200 text-[12px] font-medium text-neutral-600 hover:bg-neutral-50 transition-all">Conecteaza acum</button></Link>
+                <p className="text-[13px] text-neutral-400 mb-3">{t('products.no_products_desc')}</p>
+                <Link href="/settings"><button className="h-8 px-4 rounded-lg border border-neutral-200 text-[12px] font-medium text-neutral-600 hover:bg-neutral-50 transition-all">{t('onboarding.connect_store')}</button></Link>
               </div>
             )}
           </div>
 
           {/* Agent */}
           <div className="bg-white border border-neutral-200 rounded-xl p-5">
-            <p className="text-[15px] font-semibold text-neutral-900 flex items-center gap-2 mb-3"><Bot className="h-4 w-4 text-neutral-400" />AI Agent</p>
+            <p className="text-[15px] font-semibold text-neutral-900 flex items-center gap-2 mb-3"><Bot className="h-4 w-4 text-neutral-400" />{t('sidebar.ai_agent')}</p>
             {data?.agent ? (
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
@@ -325,22 +327,22 @@ export default function DashboardPage() {
                 </div>
                 <div className="bg-neutral-50 rounded-lg p-3 flex items-center gap-3">
                   <div className="h-9 w-9 rounded-lg bg-neutral-200 flex items-center justify-center shrink-0"><Zap className="h-4 w-4 text-neutral-600" /></div>
-                  <div><p className="text-[20px] font-bold text-neutral-900 tabular-nums">{data.agent.conversations_today}</p><p className="text-[12px] text-neutral-400">conversatii azi</p></div>
+                  <div><p className="text-[20px] font-bold text-neutral-900 tabular-nums">{data.agent.conversations_today}</p><p className="text-[12px] text-neutral-400">{t('agent.conversations')}</p></div>
                 </div>
-                <Link href="/agent"><button className="w-full text-[12px] text-neutral-500 hover:text-neutral-900 flex items-center justify-center gap-1 py-1 transition-colors">Deschide Agent<ExternalLink className="h-3 w-3" /></button></Link>
+                <Link href="/agent"><button className="w-full text-[12px] text-neutral-500 hover:text-neutral-900 flex items-center justify-center gap-1 py-1 transition-colors">{t('dashboard.view_agent')}<ExternalLink className="h-3 w-3" /></button></Link>
               </div>
             ) : (
               <div className="text-center py-4">
                 <div className="h-10 w-10 rounded-lg bg-neutral-100 flex items-center justify-center mx-auto mb-2"><Bot className="h-5 w-5 text-neutral-300" /></div>
-                <p className="text-[13px] text-neutral-400 mb-3">Agent neconfigurat</p>
-                <Link href="/agent"><button className="h-8 px-4 rounded-lg border border-neutral-200 text-[12px] font-medium text-neutral-600 hover:bg-neutral-50 transition-all">Configureaza</button></Link>
+                <p className="text-[13px] text-neutral-400 mb-3">{t('agent.inactive')}</p>
+                <Link href="/agent"><button className="h-8 px-4 rounded-lg border border-neutral-200 text-[12px] font-medium text-neutral-600 hover:bg-neutral-50 transition-all">{t('sidebar.config')}</button></Link>
               </div>
             )}
           </div>
 
           {/* Activity */}
           <div className="bg-white border border-neutral-200 rounded-xl p-5">
-            <p className="text-[15px] font-semibold text-neutral-900 flex items-center gap-2 mb-3"><Clock className="h-4 w-4 text-neutral-400" />Activitate recenta</p>
+            <p className="text-[15px] font-semibold text-neutral-900 flex items-center gap-2 mb-3"><Clock className="h-4 w-4 text-neutral-400" />{t('dashboard.recent_activity')}</p>
             {data?.recentTransactions?.length ? (
               <div className="space-y-2.5">
                 {data.recentTransactions.map((t, i) => (
@@ -354,7 +356,7 @@ export default function DashboardPage() {
                 ))}
               </div>
             ) : (
-              <div className="text-center py-5"><Clock className="h-7 w-7 text-neutral-200 mx-auto mb-2" /><p className="text-[13px] text-neutral-400">Nicio activitate inca</p></div>
+              <div className="text-center py-5"><Clock className="h-7 w-7 text-neutral-200 mx-auto mb-2" /><p className="text-[13px] text-neutral-400">{t('dashboard.no_activity')}</p></div>
             )}
           </div>
         </motion.div>

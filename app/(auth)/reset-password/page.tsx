@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, Suspense } from 'react'
+import { useT } from '@/lib/i18n/context'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -36,6 +37,7 @@ function ResetContent() {
   const searchParams = useSearchParams()
   const token = searchParams.get('token') || ''
   const email = searchParams.get('email') || ''
+  const { t } = useT()
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
   const [showPw, setShowPw] = useState(false)
@@ -119,12 +121,12 @@ function ResetContent() {
             <div className="h-16 w-16 rounded-2xl bg-neutral-100 flex items-center justify-center mx-auto mb-6">
               <KeyRound className="h-7 w-7 text-neutral-700" />
             </div>
-            <h1 className="text-[26px] font-semibold text-neutral-900 tracking-tight mb-2">Parola noua</h1>
+            <h1 className="text-[26px] font-semibold text-neutral-900 tracking-tight mb-2">{t('auth.new_password')}</h1>
             <p className="text-neutral-400 text-[14px] mb-8 font-light">Seteaza o parola noua pentru contul tau</p>
 
             <form onSubmit={handleSubmit} className="space-y-3.5 text-left">
               <div>
-                <label className="block text-[12px] font-medium text-neutral-400 mb-1.5 uppercase tracking-wide">Parola noua</label>
+                <label className="block text-[12px] font-medium text-neutral-400 mb-1.5 uppercase tracking-wide">{t('auth.new_password')}</label>
                 <div className={ic('password')}>
                   <Lock className={`absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 transition-colors duration-200 ${focused === 'password' ? 'text-neutral-900' : 'text-neutral-300'}`} />
                   <input type={showPw ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} onFocus={() => setFocused('password')} onBlur={() => setFocused(null)}
@@ -142,7 +144,7 @@ function ResetContent() {
               </div>
 
               <div>
-                <label className="block text-[12px] font-medium text-neutral-400 mb-1.5 uppercase tracking-wide">Confirma parola</label>
+                <label className="block text-[12px] font-medium text-neutral-400 mb-1.5 uppercase tracking-wide">{t('auth.confirm_password')}</label>
                 <div className={ic('confirm')}>
                   <Lock className={`absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 transition-colors duration-200 ${focused === 'confirm' ? 'text-neutral-900' : 'text-neutral-300'}`} />
                   <input type="password" value={confirm} onChange={e => setConfirm(e.target.value)} onFocus={() => setFocused('confirm')} onBlur={() => setFocused(null)}
@@ -159,7 +161,7 @@ function ResetContent() {
               <motion.div whileTap={{ scale: 0.985 }} className="pt-0.5">
                 <button type="submit" disabled={loading}
                   className="w-full h-[46px] rounded-xl bg-neutral-900 hover:bg-neutral-800 active:bg-neutral-950 text-white text-[14px] font-medium flex items-center justify-center gap-2 transition-all disabled:opacity-50 cursor-pointer">
-                  {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <span>Reseteaza parola</span>}
+                  {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <span>{t('auth.reset_button')}</span>}
                 </button>
               </motion.div>
             </form>

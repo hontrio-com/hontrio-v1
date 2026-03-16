@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useT, useLocale } from '@/lib/i18n/context'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -33,6 +34,8 @@ function LiquidBg() {
 }
 
 export default function ForgotPasswordPage() {
+  const { t } = useT()
+  const { locale, setLocale } = useLocale()
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)
   const [sent, setSent] = useState(false)
@@ -103,7 +106,7 @@ export default function ForgotPasswordPage() {
               <motion.div whileTap={{ scale: 0.985 }}>
                 <button type="submit" disabled={loading}
                   className="w-full h-[46px] rounded-xl bg-neutral-900 hover:bg-neutral-800 active:bg-neutral-950 text-white text-[14px] font-medium flex items-center justify-center gap-2 transition-all disabled:opacity-50 cursor-pointer">
-                  {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <span>Trimite link de resetare</span>}
+                  {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <span>{t('auth.send_reset')}</span>}
                 </button>
               </motion.div>
             </motion.form>

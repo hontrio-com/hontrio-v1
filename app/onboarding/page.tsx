@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useT, useLocale } from '@/lib/i18n/context'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -13,7 +14,8 @@ import {
   Lock, KeyRound, Sparkles, Check,
 } from 'lucide-react'
 
-const STEPS = ['Bun venit', 'Afacerea ta', 'Magazin', 'Produse', 'Plan', 'Gata']
+const STEPS_RO = ['Bun venit', 'Afacerea ta', 'Magazin', 'Produse', 'Plan', 'Gata']
+const STEPS_EN = ['Welcome', 'Your Business', 'Store', 'Products', 'Plan', 'Done']
 
 const PLANS = [
   { id: 'free', name: 'Free Trial', price: 0, unit: 'RON', features: ['20 credite gratuite', '1 magazin conectat', 'Toate functiile AI'], recommended: false },
@@ -22,7 +24,15 @@ const PLANS = [
   { id: 'enterprise', name: 'Enterprise', price: 249, unit: 'RON/luna', features: ['2000+ credite/luna', 'Magazine nelimitate', 'Manager dedicat'], recommended: false },
 ]
 
-const COUNTRIES = ['Romania', 'Moldova', 'Bulgaria', 'Ungaria', 'Germania', 'Franta', 'Italia', 'Spania', 'Austria', 'Olanda', 'Marea Britanie', 'SUA', 'Alta tara']
+const COUNTRIES = [
+  { value: 'RO', label: 'Romania' }, { value: 'MD', label: 'Moldova' },
+  { value: 'BG', label: 'Bulgaria' }, { value: 'HU', label: 'Ungaria / Hungary' },
+  { value: 'DE', label: 'Germania / Germany' }, { value: 'FR', label: 'Franta / France' },
+  { value: 'IT', label: 'Italia / Italy' }, { value: 'ES', label: 'Spania / Spain' },
+  { value: 'AT', label: 'Austria' }, { value: 'NL', label: 'Olanda / Netherlands' },
+  { value: 'GB', label: 'Marea Britanie / UK' }, { value: 'US', label: 'SUA / USA' },
+  { value: 'OTHER', label: 'Alta tara / Other' },
+]
 const LANGUAGES = [{ value: 'ro', label: 'Romana' }, { value: 'en', label: 'English' }, { value: 'de', label: 'Deutsch' }, { value: 'fr', label: 'Francais' }, { value: 'hu', label: 'Magyar' }]
 
 const TUTORIAL = [
@@ -88,6 +98,8 @@ function SelectField({ label, value, onChange, options, placeholder }: {
 export default function OnboardingPage() {
   const { data: session } = useSession()
   const router = useRouter()
+  const { t } = useT()
+  const { locale } = useLocale()
   const [step, setStep] = useState(0)
   const [dir, setDir] = useState(0)
   const [connecting, setConnecting] = useState(false)
@@ -110,7 +122,7 @@ export default function OnboardingPage() {
 
   useEffect(() => { if ((session?.user as any)?.onboardingCompleted) router.push('/dashboard') }, [session, router])
 
-  const goNext = () => { setDir(1); setStep(s => Math.min(s + 1, STEPS.length - 1)); setError('') }
+  const goNext = () => { setDir(1); setStep(s => Math.min(s + 1, STEPS_RO.length - 1)); setError('') }
   const goBack = () => { setDir(-1); setStep(s => Math.max(s - 1, 0)); setError('') }
 
   const handleSaveBusiness = async () => {
@@ -177,8 +189,8 @@ export default function OnboardingPage() {
     window.location.href = '/dashboard'
   }
 
-  const progress = step / (STEPS.length - 1) * 100
-  const isMiddle = step > 0 && step < STEPS.length - 1
+  const progress = step / (STEPS_RO.length - 1) * 100
+  const isMiddle = step > 0 && step < STEPS_RO.length - 1
 
   return (
     <div className="min-h-[100dvh] bg-white flex flex-col relative">
@@ -190,7 +202,7 @@ export default function OnboardingPage() {
 
         {isMiddle && (
           <div className="hidden sm:flex items-center gap-1">
-            {STEPS.slice(1, -1).map((s, i) => {
+            {(locale === 'en' ? STEPS_EN : STEPS_RO).slice(1, -1).map((s, i) => {
               const idx = i + 1; const isDone = step > idx; const isActive = step === idx
               return (
                 <div key={s} className="flex items-center">
@@ -267,7 +279,7 @@ export default function OnboardingPage() {
                   </div>
                   <InputField label="Nisa / Industrie" value={biz.niche} onChange={v => setBiz(p => ({ ...p, niche: v }))} placeholder="Ex: Fashion, Electronice, Beauty, Food..." />
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                    <SelectField label="Tara" value={biz.country} onChange={v => setBiz(p => ({ ...p, country: v }))} options={COUNTRIES.map(c => ({ value: c, label: c }))} placeholder="Selecteaza tara" />
+                    <SelectField label="Tara" value={biz.country} onChange={v => setBiz(p => ({ ...p, country: v }))} options={COUNTRIES} placeholder="Selecteaza tara" />
                     <SelectField label="Limba principala" value={biz.language} onChange={v => setBiz(p => ({ ...p, language: v }))} options={LANGUAGES} placeholder="Selecteaza limba" />
                   </div>
                 </div>
@@ -281,7 +293,7 @@ export default function OnboardingPage() {
                   <div className="h-14 w-14 rounded-2xl bg-neutral-100 flex items-center justify-center mx-auto mb-4">
                     <ExternalLink className="h-6 w-6 text-neutral-700" />
                   </div>
-                  <h2 className="text-[24px] font-semibold text-neutral-900 tracking-tight">Conecteaza magazinul</h2>
+                  <h2 className="text-[24px] font-semibold text-neutral-900 tracking-tight">{t('onboarding.connect_store')}</h2>
                   <p className="text-neutral-400 text-[14px] mt-1 font-light">Vom importa produsele automat din WooCommerce</p>
                 </div>
 
@@ -365,7 +377,7 @@ export default function OnboardingPage() {
                       <motion.div whileTap={{ scale: 0.985 }}>
                         <button onClick={handleConnectStore} disabled={connecting}
                           className="w-full h-[46px] rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white text-[14px] font-medium flex items-center justify-center gap-2 transition-all disabled:opacity-50 cursor-pointer">
-                          {connecting ? <Loader2 className="h-4 w-4 animate-spin" /> : <><ExternalLink className="h-4 w-4" />Conecteaza magazinul</>}
+                          {connecting ? <Loader2 className="h-4 w-4 animate-spin" /> : <><ExternalLink className="h-4 w-4" />{t('onboarding.connect_store')}</>}
                         </button>
                       </motion.div>
                     </div>
@@ -381,7 +393,7 @@ export default function OnboardingPage() {
                   <div className="h-14 w-14 rounded-2xl bg-neutral-100 flex items-center justify-center mx-auto mb-4">
                     <Package className="h-6 w-6 text-neutral-700" />
                   </div>
-                  <h2 className="text-[24px] font-semibold text-neutral-900 tracking-tight">Sincronizeaza produsele</h2>
+                  <h2 className="text-[24px] font-semibold text-neutral-900 tracking-tight">{t('onboarding.sync_products')}</h2>
                   <p className="text-neutral-400 text-[14px] mt-1 font-light">Importam produsele din magazinul tau WooCommerce</p>
                 </div>
 
@@ -405,7 +417,7 @@ export default function OnboardingPage() {
                             <Package className="h-7 w-7 text-neutral-700" />
                           </div>
                         </div>
-                        <h3 className="text-[16px] font-semibold text-neutral-900 mb-1">Se sincronizeaza...</h3>
+                        <h3 className="text-[16px] font-semibold text-neutral-900 mb-1">{t('onboarding.syncing')}</h3>
                         <p className="text-neutral-400 text-[13px] mb-4">{syncTotal > 0 ? `${syncedCount} din ${syncTotal} produse` : 'Se conecteaza la magazin...'}</p>
                         {syncTotal > 0 && (
                           <div className="max-w-xs mx-auto mb-3">
