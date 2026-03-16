@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, Suspense } from 'react'
+import { useT, useLocale } from '@/lib/i18n/context'
 import { signIn } from 'next-auth/react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
@@ -34,6 +35,8 @@ function Toast({ message, type, onClose }: { message: string; type: 'success' | 
 
 function LoginContent() {
   const router = useRouter()
+  const { t } = useT()
+  const { locale, setLocale } = useLocale()
   const searchParams = useSearchParams()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -49,22 +52,25 @@ function LoginContent() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!email.trim()) { showToast('Introdu adresa de email', 'error'); return }
-    if (!password.trim()) { showToast('Introdu parola', 'error'); return }
+    if (!email.trim()) { showToast(t('auth.email') + ' lipsește', 'error'); return }
+    if (!password.trim()) { showToast(t('auth.password') + ' lipsește', 'error'); return }
     setLoading(true)
     const res = await signIn('credentials', { email: email.trim().toLowerCase(), password, redirect: false })
-    if (res?.error) { showToast('Email sau parola incorecta', 'error'); setLoading(false); return }
-    showToast('Autentificare reusita', 'success')
+    if (res?.error) { showToast(t('auth.invalid_credentials'), 'error'); setLoading(false); return }
+    showToast(t('auth.auth_success'), 'success')
     setTimeout(() => router.push(onboarding ? '/onboarding' : '/dashboard'), 800)
   }
 
-  const handleGoogle = async () => { setGLoading(true); try { await signIn('google', { callbackUrl: '/dashboard' }) } catch { showToast('Eroare Google', 'error'); setGLoading(false) } }
+  const handleGoogle = async () => { setGLoading(true); try { await signIn('google', { callbackUrl: '/dashboard' }) } catch { showToast(t('common.error') + ' Google', 'error'); setGLoading(false) } }
 
   const ic = (n: string) => `relative rounded-xl border transition-all duration-200 ${focused === n ? 'border-neutral-900 ring-1 ring-neutral-900/5' : 'border-neutral-200 hover:border-neutral-300'}`
   const ii = (n: string) => `absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 transition-colors duration-200 ${focused === n ? 'text-neutral-900' : 'text-neutral-300'}`
 
   return (
     <div className="min-h-[100dvh] flex items-center justify-center relative px-5">
+        <button onClick={() => setLocale(locale === 'ro' ? 'en' : 'ro')} className="fixed top-5 right-5 z-20 flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-neutral-200 bg-white/80 backdrop-blur-sm hover:bg-neutral-50 transition-all text-[12px] font-medium text-neutral-600">
+          {locale === 'ro' ? '🇬🇧 English' : '🇷🇴 Română'}
+        </button>
       <AnimatePresence>{toast && <Toast {...toast} onClose={() => setToast(null)} />}</AnimatePresence>
 
       <div className="relative z-10 w-full max-w-[400px] text-center animate-[fadeInUp_0.5s_ease-out]">
@@ -75,14 +81,14 @@ function LoginContent() {
         </div>
 
         <div className="mb-8">
-          <h1 className="text-[26px] font-semibold text-neutral-900 tracking-tight">Bine ai revenit</h1>
-          <p className="text-neutral-400 text-[14px] mt-2 font-light">Conecteaza-te pentru a continua</p>
+          <h1 className="text-[26px] font-semibold text-neutral-900 tracking-tight">{t("auth.welcome_back")}</h1>
+          <p className="text-neutral-400 text-[14px] mt-2 font-light">{t("auth.sign_in_desc")}</p>
         </div>
 
         {registered && (
           <div
             className="flex items-center justify-center gap-3 px-4 py-3 border border-neutral-200 rounded-xl mb-6 bg-neutral-50 text-left">
-            <CheckCircle className="h-4 w-4 text-neutral-700 shrink-0" /><span className="text-[13px] text-neutral-600">Cont creat cu succes. Conecteaza-te.</span>
+            <CheckCircle className="h-4 w-4 text-neutral-700 shrink-0" /><span className="text-[13px] text-neutral-600">{t("auth.account_created")}</span>
           </div>
         )}
 
@@ -94,28 +100,28 @@ function LoginContent() {
         </div>
 
         <div className="flex items-center gap-4 my-6">
-          <div className="h-px flex-1 bg-neutral-100" /><span className="text-[11px] text-neutral-300 uppercase tracking-[0.15em] font-medium select-none">sau</span><div className="h-px flex-1 bg-neutral-100" />
+          <div className="h-px flex-1 bg-neutral-100" /><span className="text-[11px] text-neutral-300 uppercase tracking-[0.15em] font-medium select-none">{t("auth.or")}</span><div className="h-px flex-1 bg-neutral-100" />
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-3.5 text-left">
           <div>
-            <label className="block text-[12px] font-medium text-neutral-400 mb-1.5 uppercase tracking-wide">Email</label>
+            <label className="block text-[12px] font-medium text-neutral-400 mb-1.5 uppercase tracking-wide">{t("auth.email")}</label>
             <div className={ic('email')}>
               <Mail className={ii('email')} />
               <input type="email" value={email} onChange={e => setEmail(e.target.value)} onFocus={() => setFocused('email')} onBlur={() => setFocused(null)}
-                placeholder="email@exemplu.ro" required autoComplete="email" className="w-full pl-11 pr-4 h-[46px] bg-transparent rounded-xl text-[14px] text-neutral-900 placeholder:text-neutral-300 outline-none" />
+                placeholder={t("auth.email_placeholder")} required autoComplete="email" className="w-full pl-11 pr-4 h-[46px] bg-transparent rounded-xl text-[14px] text-neutral-900 placeholder:text-neutral-300 outline-none" />
             </div>
           </div>
 
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label className="text-[12px] font-medium text-neutral-400 uppercase tracking-wide">Parola</label>
-              <Link href="/forgot-password" className="text-[12px] text-neutral-400 hover:text-neutral-900 transition-colors">Ai uitat parola?</Link>
+              <label className="text-[12px] font-medium text-neutral-400 uppercase tracking-wide">{t("auth.password")}</label>
+              <Link href="/forgot-password" className="text-[12px] text-neutral-400 hover:text-neutral-900 transition-colors">{t("auth.forgot_password")}</Link>
             </div>
             <div className={ic('password')}>
               <Lock className={ii('password')} />
               <input type={showPw ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} onFocus={() => setFocused('password')} onBlur={() => setFocused(null)}
-                placeholder="Introdu parola" required autoComplete="current-password" className="w-full pl-11 pr-12 h-[46px] bg-transparent rounded-xl text-[14px] text-neutral-900 placeholder:text-neutral-300 outline-none" />
+                placeholder={t("auth.password_placeholder")} required autoComplete="current-password" className="w-full pl-11 pr-12 h-[46px] bg-transparent rounded-xl text-[14px] text-neutral-900 placeholder:text-neutral-300 outline-none" />
               <button type="button" onClick={() => setShowPw(!showPw)} tabIndex={-1} className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-300 hover:text-neutral-600 transition-colors">
                 {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
@@ -125,14 +131,14 @@ function LoginContent() {
           <motion.div whileTap={{ scale: 0.985 }} className="pt-0.5">
             <button type="submit" disabled={loading}
               className="w-full h-[46px] rounded-xl bg-neutral-900 hover:bg-neutral-800 active:bg-neutral-950 text-white text-[14px] font-medium flex items-center justify-center gap-2 transition-all disabled:opacity-50 cursor-pointer">
-              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <><span>Conecteaza-te</span><ArrowRight className="h-4 w-4" /></>}
+              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <><span>{t("auth.sign_in")}</span><ArrowRight className="h-4 w-4" /></>}
             </button>
           </motion.div>
         </form>
 
         <p
           className="text-[14px] text-neutral-400 mt-7">
-          Nu ai cont?{' '}<Link href="/register" className="text-neutral-900 font-medium hover:underline underline-offset-4">Creeaza cont gratuit</Link>
+          {t("auth.no_account")}{" "}<Link href="/register" className="text-neutral-900 font-medium hover:underline underline-offset-4">{t("auth.create_free")}</Link>
         </p>
       </div>
     </div>

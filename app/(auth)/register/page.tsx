@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useT, useLocale } from '@/lib/i18n/context'
 import { signIn } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -34,6 +35,8 @@ function Toast({ message, type, onClose }: { message: string; type: 'success' | 
 
 export default function RegisterPage() {
   const router = useRouter()
+  const { t } = useT()
+  const { locale, setLocale } = useLocale()
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -49,24 +52,24 @@ export default function RegisterPage() {
     e.preventDefault()
     const trimName = name.trim()
     const trimEmail = email.trim().toLowerCase()
-    if (!trimName) { showToast('Introdu numele complet', 'error'); return }
-    if (trimName.length < 2 || trimName.length > 100) { showToast('Numele trebuie sa aiba intre 2 si 100 caractere', 'error'); return }
-    if (!trimEmail) { showToast('Introdu adresa de email', 'error'); return }
-    if (password.length < 6) { showToast('Parola trebuie sa aiba minim 6 caractere', 'error'); return }
-    if (password.length > 128) { showToast('Parola e prea lunga', 'error'); return }
+    if (!trimName) { showToast(t('auth.full_name') + ' lipsește', 'error'); return }
+    if (trimName.length < 2 || trimName.length > 100) { showToast('Name must be 2-100 characters', 'error'); return }
+    if (!trimEmail) { showToast(t('auth.email') + ' lipsește', 'error'); return }
+    if (password.length < 6) { showToast('Password must be at least 6 characters', 'error'); return }
+    if (password.length > 128) { showToast('Password too long', 'error'); return }
     setLoading(true)
     try {
       const res = await fetch('/api/auth/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: trimName, email: trimEmail, password }) })
       const data = await res.json()
-      if (!res.ok) { showToast(data.error || 'Eroare la crearea contului', 'error'); setLoading(false); return }
-      showToast('Cont creat cu succes', 'success')
+      if (!res.ok) { showToast(data.error || t('common.error'), 'error'); setLoading(false); return }
+      showToast(t('auth.account_created'), 'success')
       const signInRes = await signIn('credentials', { email: trimEmail, password, redirect: false })
       if (signInRes?.error) { router.push('/login?registered=true&onboarding=true'); return }
       setTimeout(() => router.push('/onboarding'), 800)
-    } catch { showToast('Eroare de conexiune', 'error') } finally { setLoading(false) }
+    } catch { showToast(t('auth.connection_error'), 'error') } finally { setLoading(false) }
   }
 
-  const handleGoogle = async () => { setGLoading(true); try { await signIn('google', { callbackUrl: '/onboarding' }) } catch { showToast('Eroare Google', 'error'); setGLoading(false) } }
+  const handleGoogle = async () => { setGLoading(true); try { await signIn('google', { callbackUrl: '/onboarding' }) } catch { showToast(t('common.error') + ' Google', 'error'); setGLoading(false) } }
 
   const ic = (n: string) => `relative rounded-xl border transition-all duration-200 ${focused === n ? 'border-neutral-900 ring-1 ring-neutral-900/5' : 'border-neutral-200 hover:border-neutral-300'}`
   const ii = (n: string) => `absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 transition-colors duration-200 ${focused === n ? 'text-neutral-900' : 'text-neutral-300'}`
@@ -77,6 +80,9 @@ export default function RegisterPage() {
 
   return (
     <div className="min-h-[100dvh] flex items-center justify-center relative px-5 py-6">
+        <button onClick={() => setLocale(locale === 'ro' ? 'en' : 'ro')} className="fixed top-5 right-5 z-20 flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-neutral-200 bg-white/80 backdrop-blur-sm hover:bg-neutral-50 transition-all text-[12px] font-medium text-neutral-600">
+          {locale === 'ro' ? '🇬🇧 English' : '🇷🇴 Română'}
+        </button>
       <AnimatePresence>{toast && <Toast {...toast} onClose={() => setToast(null)} />}</AnimatePresence>
 
       <div className="relative z-10 w-full max-w-[400px] text-center animate-[fadeInUp_0.5s_ease-out]">
@@ -87,14 +93,14 @@ export default function RegisterPage() {
         </div>
 
         <div className="mb-5">
-          <h1 className="text-[26px] font-semibold text-neutral-900 tracking-tight">Creeaza cont</h1>
-          <p className="text-neutral-400 text-[14px] mt-1.5 font-light">Incepe sa optimizezi produsele cu AI</p>
+          <h1 className="text-[26px] font-semibold text-neutral-900 tracking-tight">{t("auth.create_account")}</h1>
+          <p className="text-neutral-400 text-[14px] mt-1.5 font-light">{t("auth.create_desc")}</p>
         </div>
 
         <div className="flex items-center justify-center mb-6">
           <div className="flex items-center gap-2 px-4 py-1.5 rounded-full border border-neutral-200 bg-neutral-50">
             <Zap className="h-3.5 w-3.5 text-neutral-700" />
-            <span className="text-[12px] font-medium text-neutral-600">20 credite gratuite incluse</span>
+            <span className="text-[12px] font-medium text-neutral-600">{t("auth.free_credits")}</span>
           </div>
         </div>
 
@@ -106,32 +112,32 @@ export default function RegisterPage() {
         </div>
 
         <div className="flex items-center gap-4 my-5">
-          <div className="h-px flex-1 bg-neutral-100" /><span className="text-[11px] text-neutral-300 uppercase tracking-[0.15em] font-medium select-none">sau</span><div className="h-px flex-1 bg-neutral-100" />
+          <div className="h-px flex-1 bg-neutral-100" /><span className="text-[11px] text-neutral-300 uppercase tracking-[0.15em] font-medium select-none">{t("auth.or")}</span><div className="h-px flex-1 bg-neutral-100" />
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-3 text-left">
           <div>
-            <label className="block text-[12px] font-medium text-neutral-400 mb-1.5 uppercase tracking-wide">Nume complet</label>
+            <label className="block text-[12px] font-medium text-neutral-400 mb-1.5 uppercase tracking-wide">{t("auth.full_name")}</label>
             <div className={ic('name')}>
               <User className={ii('name')} />
               <input type="text" value={name} onChange={e => setName(e.target.value)} onFocus={() => setFocused('name')} onBlur={() => setFocused(null)}
-                placeholder="Numele tau" required autoComplete="name" maxLength={100} className="w-full pl-11 pr-4 h-[46px] bg-transparent rounded-xl text-[14px] text-neutral-900 placeholder:text-neutral-300 outline-none" />
+                placeholder={t("auth.name_placeholder")} required autoComplete="name" maxLength={100} className="w-full pl-11 pr-4 h-[46px] bg-transparent rounded-xl text-[14px] text-neutral-900 placeholder:text-neutral-300 outline-none" />
             </div>
           </div>
           <div>
-            <label className="block text-[12px] font-medium text-neutral-400 mb-1.5 uppercase tracking-wide">Email</label>
+            <label className="block text-[12px] font-medium text-neutral-400 mb-1.5 uppercase tracking-wide">{t("auth.email")}</label>
             <div className={ic('email')}>
               <Mail className={ii('email')} />
               <input type="email" value={email} onChange={e => setEmail(e.target.value)} onFocus={() => setFocused('email')} onBlur={() => setFocused(null)}
-                placeholder="email@exemplu.ro" required autoComplete="email" className="w-full pl-11 pr-4 h-[46px] bg-transparent rounded-xl text-[14px] text-neutral-900 placeholder:text-neutral-300 outline-none" />
+                placeholder={t("auth.email_placeholder")} required autoComplete="email" className="w-full pl-11 pr-4 h-[46px] bg-transparent rounded-xl text-[14px] text-neutral-900 placeholder:text-neutral-300 outline-none" />
             </div>
           </div>
           <div>
-            <label className="block text-[12px] font-medium text-neutral-400 mb-1.5 uppercase tracking-wide">Parola</label>
+            <label className="block text-[12px] font-medium text-neutral-400 mb-1.5 uppercase tracking-wide">{t("auth.password")}</label>
             <div className={ic('password')}>
               <Lock className={ii('password')} />
               <input type={showPw ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} onFocus={() => setFocused('password')} onBlur={() => setFocused(null)}
-                placeholder="Minim 6 caractere" required minLength={6} maxLength={128} autoComplete="new-password" className="w-full pl-11 pr-12 h-[46px] bg-transparent rounded-xl text-[14px] text-neutral-900 placeholder:text-neutral-300 outline-none" />
+                placeholder={t("auth.password_min")} required minLength={6} maxLength={128} autoComplete="new-password" className="w-full pl-11 pr-12 h-[46px] bg-transparent rounded-xl text-[14px] text-neutral-900 placeholder:text-neutral-300 outline-none" />
               <button type="button" onClick={() => setShowPw(!showPw)} tabIndex={-1} className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-300 hover:text-neutral-600 transition-colors">
                 {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
@@ -145,17 +151,17 @@ export default function RegisterPage() {
           <motion.div whileTap={{ scale: 0.985 }} className="pt-0.5">
             <button type="submit" disabled={loading}
               className="w-full h-[46px] rounded-xl bg-neutral-900 hover:bg-neutral-800 active:bg-neutral-950 text-white text-[14px] font-medium flex items-center justify-center gap-2 transition-all disabled:opacity-50 cursor-pointer">
-              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <><span>Creeaza cont gratuit</span><ArrowRight className="h-4 w-4" /></>}
+              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <><span>{t("auth.create_button")}</span><ArrowRight className="h-4 w-4" /></>}
             </button>
           </motion.div>
         </form>
 
         <div className="mt-6 space-y-3">
           <p className="text-[14px] text-neutral-400">
-            Ai deja cont?{' '}<Link href="/login" className="text-neutral-900 font-medium hover:underline underline-offset-4">Conecteaza-te</Link>
+            {t("auth.have_account")}{" "}<Link href="/login" className="text-neutral-900 font-medium hover:underline underline-offset-4">{t("auth.sign_in_link")}</Link>
           </p>
           <p className="text-[11px] text-neutral-300 leading-relaxed">
-            Prin crearea contului, esti de acord cu{' '}<Link href="#" className="underline hover:text-neutral-500">Termenii</Link>{' '}si{' '}<Link href="#" className="underline hover:text-neutral-500">Politica de Confidentialitate</Link>
+            {t("auth.terms_agree")}{' '}<Link href="#" className="underline hover:text-neutral-500">{t("auth.terms")}</Link>{" "}{t("auth.and")}{" "}<Link href="#" className="underline hover:text-neutral-500">{t("auth.privacy")}</Link>
           </p>
         </div>
       </div>

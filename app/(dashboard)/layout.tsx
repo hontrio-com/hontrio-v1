@@ -1,6 +1,8 @@
 'use client'
 
 import { useSession, signOut } from 'next-auth/react'
+import { useLocale, useT } from '@/lib/i18n/context'
+import type { UILocale } from '@/lib/i18n/context'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -19,46 +21,46 @@ import { useCredits } from '@/hooks/use-credits'
 
 const menuSections = [
   { label: '', items: [
-    { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-    { label: 'Produse', href: '/products', icon: Package },
+    { label: 'sidebar.dashboard', href: '/dashboard', icon: LayoutDashboard },
+    { label: 'sidebar.products', href: '/products', icon: Package },
   ]},
   { label: '', items: [
-    { label: 'AI Agent', href: '/agent', icon: Bot },
-    { label: 'Imagini AI', href: '/images', icon: ImageIcon },
-    { label: 'SEO', href: '/seo', icon: Search },
-    { label: 'Risk Shield', href: '/risk', icon: Shield },
+    { label: 'sidebar.ai_agent', href: '/agent', icon: Bot },
+    { label: 'sidebar.ai_images', href: '/images', icon: ImageIcon },
+    { label: 'sidebar.seo', href: '/seo', icon: Search },
+    { label: 'sidebar.risk_shield', href: '/risk', icon: Shield },
   ]},
   { label: '', items: [
-    { label: 'Abonament', href: '/credits', icon: CreditCard },
-    { label: 'Setari', href: '/settings', icon: Settings },
-    { label: 'Suport', href: '/support', icon: MessageSquare },
+    { label: 'sidebar.subscription', href: '/credits', icon: CreditCard },
+    { label: 'sidebar.settings', href: '/settings', icon: Settings },
+    { label: 'sidebar.support', href: '/support', icon: MessageSquare },
   ]},
 ]
 
 const agentSubMenu = [
-  { label: 'Configurare', href: '/agent', icon: Settings },
-  { label: 'Triggeri', href: '/agent/triggers', icon: Zap },
-  { label: 'Inbox', href: '/agent/inbox', icon: MessageCircle },
-  { label: 'Insights', href: '/agent/insights', icon: TrendingUp },
+  { label: 'sidebar.config', href: '/agent', icon: Settings },
+  { label: 'sidebar.triggers', href: '/agent/triggers', icon: Zap },
+  { label: 'sidebar.inbox', href: '/agent/inbox', icon: MessageCircle },
+  { label: 'sidebar.insights', href: '/agent/insights', icon: TrendingUp },
 ]
 
 const seoSubMenu = [
-  { label: 'Optimizare SEO', href: '/seo', icon: Search },
-  { label: 'Analiza Competitori', href: '/seo/competitor', icon: TrendingUp },
+  { label: 'sidebar.seo_optimize', href: '/seo', icon: Search },
+  { label: 'sidebar.seo_competitors', href: '/seo/competitor', icon: TrendingUp },
 ]
 
 const PAGES = [
-  { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, keywords: ['dashboard', 'acasa', 'home'] },
-  { label: 'Produse', href: '/products', icon: Package, keywords: ['produse', 'products', 'catalog'] },
-  { label: 'Imagini AI', href: '/images', icon: ImageIcon, keywords: ['imagini', 'images', 'generare', 'AI', 'foto'] },
-  { label: 'Optimizare SEO', href: '/seo', icon: Search, keywords: ['seo', 'optimizare', 'scor'] },
-  { label: 'AI Agent', href: '/agent', icon: Bot, keywords: ['agent', 'chat', 'asistent', 'bot'] },
-  { label: 'Risk Shield', href: '/risk', icon: Shield, keywords: ['risk', 'retur', 'frauda', 'blacklist'] },
+  { label: 'sidebar.dashboard', href: '/dashboard', icon: LayoutDashboard, keywords: ['dashboard', 'acasa', 'home'] },
+  { label: 'sidebar.products', href: '/products', icon: Package, keywords: ['produse', 'products', 'catalog'] },
+  { label: 'sidebar.ai_images', href: '/images', icon: ImageIcon, keywords: ['imagini', 'images', 'generare', 'AI', 'foto'] },
+  { label: 'sidebar.seo_optimize', href: '/seo', icon: Search, keywords: ['seo', 'optimizare', 'scor'] },
+  { label: 'sidebar.ai_agent', href: '/agent', icon: Bot, keywords: ['agent', 'chat', 'asistent', 'bot'] },
+  { label: 'sidebar.risk_shield', href: '/risk', icon: Shield, keywords: ['risk', 'retur', 'frauda', 'blacklist'] },
   { label: 'Triggeri Agent', href: '/agent/triggers', icon: Zap, keywords: ['triggeri', 'triggers', 'proactiv'] },
   { label: 'Inbox Agent', href: '/agent/inbox', icon: MessageCircle, keywords: ['inbox', 'mesaje', 'conversatii'] },
-  { label: 'Abonament', href: '/credits', icon: CreditCard, keywords: ['credite', 'abonament', 'plan', 'upgrade'] },
-  { label: 'Suport', href: '/support', icon: MessageSquare, keywords: ['suport', 'support', 'ajutor', 'tichet'] },
-  { label: 'Setari', href: '/settings', icon: Settings, keywords: ['setari', 'settings', 'profil', 'parola'] },
+  { label: 'sidebar.subscription', href: '/credits', icon: CreditCard, keywords: ['credite', 'abonament', 'plan', 'upgrade'] },
+  { label: 'sidebar.support', href: '/support', icon: MessageSquare, keywords: ['suport', 'support', 'ajutor', 'tichet'] },
+  { label: 'sidebar.settings', href: '/settings', icon: Settings, keywords: ['setari', 'settings', 'profil', 'parola'] },
   { label: 'Setari Brand', href: '/settings?tab=brand', icon: Sparkles, keywords: ['brand', 'ton', 'nisa'] },
 ]
 
@@ -111,6 +113,9 @@ function useSearchShortcut(onOpen: () => void) {
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { data: session } = useSession()
+  const { locale, setLocale } = useLocale()
+
+  const toggleLocale = () => setLocale(locale === 'ro' ? 'en' : 'ro')
   const pathname = usePathname()
   const router = useRouter()
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -155,7 +160,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     if (collapsed) return (
       <div className="mt-1 space-y-0.5">
         {items.map(sub => { const isSubActive = sub.href === '/seo/competitor' ? pathname.startsWith('/seo/competitor') : sub.href === '/seo' ? (pathname === '/seo' || (pathname.startsWith('/seo/') && !pathname.startsWith('/seo/competitor'))) : pathname === sub.href; return (
-          <Tooltip key={sub.href}><TooltipTrigger asChild><Link href={sub.href} className={`flex items-center justify-center p-2.5 rounded-xl transition-all ${isSubActive ? 'bg-neutral-100 text-neutral-900' : 'text-neutral-400 hover:text-neutral-700 hover:bg-neutral-50'}`}><sub.icon className="h-[18px] w-[18px]" /></Link></TooltipTrigger><TooltipContent side="right" sideOffset={10}>{sub.label}</TooltipContent></Tooltip>
+          <Tooltip key={sub.href}><TooltipTrigger asChild><Link href={sub.href} className={`flex items-center justify-center p-2.5 rounded-xl transition-all ${isSubActive ? 'bg-neutral-100 text-neutral-900' : 'text-neutral-400 hover:text-neutral-700 hover:bg-neutral-50'}`}><sub.icon className="h-[18px] w-[18px]" /></Link></TooltipTrigger><TooltipContent side="right" sideOffset={10}>{t(sub.label)}</TooltipContent></Tooltip>
         )})}
       </div>
     )
@@ -164,7 +169,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         {items.map(sub => { const isSubActive = sub.href === '/seo/competitor' ? pathname.startsWith('/seo/competitor') : sub.href === '/seo' ? (pathname === '/seo' || (pathname.startsWith('/seo/') && !pathname.startsWith('/seo/competitor'))) : pathname === sub.href; return (
           <Link key={sub.href} href={sub.href} onClick={() => setSidebarOpen(false)}
             className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm font-medium transition-all ${isSubActive ? 'bg-neutral-100 text-neutral-900' : 'text-neutral-400 hover:text-neutral-700 hover:bg-neutral-50'}`}>
-            <sub.icon className={`h-3.5 w-3.5 shrink-0 ${isSubActive ? 'text-neutral-700' : 'text-neutral-300'}`} /><span>{sub.label}</span>
+            <sub.icon className={`h-3.5 w-3.5 shrink-0 ${isSubActive ? 'text-neutral-700' : 'text-neutral-300'}`} /><span>{t(sub.label)}</span>
             {isSubActive && <div className="ml-auto h-1.5 w-1.5 rounded-full bg-neutral-900" />}
           </Link>
         )})}
@@ -208,7 +213,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                           <Link href={item.href} onClick={() => setSidebarOpen(false)}
                             className={`group flex items-center gap-3 rounded-xl text-[13px] font-medium transition-all duration-200 ${collapsed ? 'justify-center p-2.5' : 'px-3 py-2.5'} ${active ? 'bg-neutral-100 text-neutral-900' : 'text-neutral-500 hover:text-neutral-900 hover:bg-neutral-50'}`}>
                             <item.icon className={`h-[18px] w-[18px] shrink-0 transition-colors ${active ? 'text-neutral-900' : 'text-neutral-400 group-hover:text-neutral-600'}`} />
-                            {!collapsed && <span>{item.label}</span>}
+                            {!collapsed && <span>{t(item.label)}</span>}
                             {!collapsed && (isAgent || isSeo) && <ChevronRight className={`ml-auto h-3.5 w-3.5 transition-transform duration-200 ${(isAgentActive || isSeoActive) ? 'rotate-90 text-neutral-400' : 'text-neutral-300'}`} />}
                             {!collapsed && !isAgent && !isSeo && active && <div className="ml-auto h-1.5 w-1.5 rounded-full bg-neutral-900" />}
                           </Link>
@@ -218,7 +223,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                       )
 
                       return collapsed && !isAgent && !isSeo ? (
-                        <Tooltip key={item.href}><TooltipTrigger asChild><div>{link}</div></TooltipTrigger><TooltipContent side="right" sideOffset={10}>{item.label}</TooltipContent></Tooltip>
+                        <Tooltip key={item.href}><TooltipTrigger asChild><div>{link}</div></TooltipTrigger><TooltipContent side="right" sideOffset={10}>{t(item.label)}</TooltipContent></Tooltip>
                       ) : <div key={item.href}>{link}</div>
                     })}
                   </div>
@@ -260,7 +265,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             {/* User */}
             <div className={`border-t border-neutral-100 ${collapsed ? 'p-2' : 'p-3'}`}>
               {collapsed ? (
-                <Tooltip><TooltipTrigger asChild><button onClick={() => signOut({ callbackUrl: '/login' })} className="w-full flex items-center justify-center p-2.5 rounded-xl text-neutral-400 hover:text-red-500 hover:bg-red-50 transition-all"><LogOut className="h-[18px] w-[18px]" /></button></TooltipTrigger><TooltipContent side="right" sideOffset={10}>Deconectare</TooltipContent></Tooltip>
+                <Tooltip><TooltipTrigger asChild><button onClick={toggleLocale} className="w-full flex items-center justify-center p-2.5 rounded-xl text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100 transition-all text-[13px] font-bold">{locale === 'ro' ? '🇷🇴' : '🇬🇧'}</button></TooltipTrigger><TooltipContent side="right" sideOffset={10}>{locale === 'ro' ? 'Switch to English' : 'Schimbă în Română'}</TooltipContent></Tooltip>
+                <Tooltip><TooltipTrigger asChild><button onClick={() => signOut({ callbackUrl: '/login' })} className="w-full flex items-center justify-center p-2.5 rounded-xl text-neutral-400 hover:text-red-500 hover:bg-red-50 transition-all"><LogOut className="h-[18px] w-[18px]" /></button></TooltipTrigger><TooltipContent side="right" sideOffset={10}>{t('common.logout')}</TooltipContent></Tooltip>
               ) : (
                 <div className="flex items-center gap-3">
                   <div className="h-9 w-9 rounded-full bg-neutral-100 flex items-center justify-center shrink-0 overflow-hidden">
@@ -270,6 +276,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     <p className="text-[13px] font-medium text-neutral-900 truncate">{userName}</p>
                     <p className="text-[11px] text-neutral-400 truncate">{userEmail}</p>
                   </div>
+                  <button onClick={toggleLocale} className="p-1.5 rounded-lg text-neutral-300 hover:text-neutral-700 hover:bg-neutral-100 transition-all text-[12px] font-bold" title={locale === 'ro' ? 'Switch to English' : 'Schimbă în Română'}>{locale === 'ro' ? '🇷🇴' : '🇬🇧'}</button>
                   <button onClick={() => signOut({ callbackUrl: '/login' })} className="p-1.5 rounded-lg text-neutral-300 hover:text-red-500 hover:bg-red-50 transition-all"><LogOut className="h-4 w-4" /></button>
                 </div>
               )}
