@@ -265,8 +265,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             {/* User */}
             <div className={`border-t border-neutral-100 ${collapsed ? 'p-2' : 'p-3'}`}>
               {collapsed ? (
+                <>
                 <Tooltip><TooltipTrigger asChild><button onClick={toggleLocale} className="w-full flex items-center justify-center p-2.5 rounded-xl text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100 transition-all text-[13px] font-bold">{locale === 'ro' ? '🇷🇴' : '🇬🇧'}</button></TooltipTrigger><TooltipContent side="right" sideOffset={10}>{locale === 'ro' ? 'Switch to English' : 'Schimbă în Română'}</TooltipContent></Tooltip>
                 <Tooltip><TooltipTrigger asChild><button onClick={() => signOut({ callbackUrl: '/login' })} className="w-full flex items-center justify-center p-2.5 rounded-xl text-neutral-400 hover:text-red-500 hover:bg-red-50 transition-all"><LogOut className="h-[18px] w-[18px]" /></button></TooltipTrigger><TooltipContent side="right" sideOffset={10}>{t('common.logout')}</TooltipContent></Tooltip>
+                </>
               ) : (
                 <div className="flex items-center gap-3">
                   <div className="h-9 w-9 rounded-full bg-neutral-100 flex items-center justify-center shrink-0 overflow-hidden">
