@@ -122,7 +122,7 @@ function GooglePreview({ title, description, url, mobile }: { title: string; des
           magazinul-tau.ro › {url.substring(0, 30)}
         </div>
         <p className={`font-medium leading-tight ${title.length > maxT ? 'text-red-500' : 'text-neutral-900'}`} style={{ fontSize: mobile ? 15 : 17 }}>
-          {t.length > maxT ? t.substring(0, maxT) + '…' : t}
+          {titleText.length > maxT ? titleText.substring(0, maxT) + '…' : titleText}
         </p>
         <p className="text-[13px] text-neutral-500 leading-snug mt-0.5">
           {d.length > maxD ? d.substring(0, maxD) + '…' : d}
