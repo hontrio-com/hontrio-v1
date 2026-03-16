@@ -550,8 +550,8 @@ export default function SettingsPage() {
                 <div className="space-y-2 mb-4">
                   {[
                     { icon: Globe,     label: 'URL Magazin',          value: <a href={store.store_url} target="_blank" rel="noopener" className="text-[13px] text-neutral-600 flex items-center gap-1 hover:text-neutral-900">{store.store_url.replace(/^https?:\/\//, '')}<ExternalLink className="h-3 w-3" /></a> },
-                    { icon: Package,   label: '{t('settings.products_synced')}', value: <span className="text-[13px] font-semibold text-neutral-900">{store.products_count}</span> },
-                    { icon: RefreshCw, label: '{t('settings.last_sync')}',  value: <span className="text-[13px] text-neutral-600">{store.last_sync_at ? new Date(store.last_sync_at).toLocaleString('ro-RO') : 'Niciodată'}</span> },
+                    { icon: Package,   label: t('settings.products_synced'), value: <span className="text-[13px] font-semibold text-neutral-900">{store.products_count}</span> },
+                    { icon: RefreshCw, label: t('settings.last_sync'),  value: <span className="text-[13px] text-neutral-600">{store.last_sync_at ? new Date(store.last_sync_at).toLocaleString('ro-RO') : 'Niciodată'}</span> },
                   ].map((row, i) => (
                     <div key={i} className="flex items-center justify-between px-3 py-2.5 bg-neutral-50 rounded-xl">
                       <div className="flex items-center gap-2">
