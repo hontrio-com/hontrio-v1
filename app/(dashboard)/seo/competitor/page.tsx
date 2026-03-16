@@ -202,6 +202,7 @@ function FieldRow({ label, mine, theirs, minLen, maxLen, winner, onSteal }: {
 // ─── Steal Modal ──────────────────────────────────────────────────────────────
 
 function StealModal({ open, field, myCurrent, competitorValue, competitorUrl, onClose, onApplied }: {
+  const { t } = useT()
   open: boolean; field: string; myCurrent: string; competitorValue: string; competitorUrl: string
   onClose: () => void; onApplied: (val: string) => void
 }) {
@@ -304,6 +305,7 @@ function StealModal({ open, field, myCurrent, competitorValue, competitorUrl, on
 // ─── TAB: OVERVIEW ────────────────────────────────────────────────────────────
 
 function TabOverview({ result, onSteal }: {
+  const { t } = useT()
   result: ComparisonResult | null
   onSteal: (field: string, val: string, current: string) => void
 }) {
@@ -429,6 +431,7 @@ function TabOverview({ result, onSteal }: {
 // ─── TAB: MONITOR ─────────────────────────────────────────────────────────────
 
 function TabMonitor({ competitorUrl }: { competitorUrl: string }) {
+  const { t } = useT()
   const [monitors, setMonitors]   = useState<MonitorItem[]>([])
   const [alerts, setAlerts]       = useState<AlertItem[]>([])
   const [snapshots, setSnapshots] = useState<Record<string, Snapshot[]>>({})
@@ -615,6 +618,7 @@ function TabMonitor({ competitorUrl }: { competitorUrl: string }) {
 // ─── TAB: KEYWORDS ────────────────────────────────────────────────────────────
 
 function TabKeywords({ myUrl, competitorUrl }: { myUrl: string; competitorUrl: string }) {
+  const { t } = useT()
   const [loading, setLoading] = useState(false)
   const [result, setResult]   = useState<KeywordGap | null>(null)
   const [error, setError]     = useState('')

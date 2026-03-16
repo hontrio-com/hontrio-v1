@@ -106,6 +106,7 @@ function CharCounter({ value, min, max }: { value: string; min?: number; max: nu
 // ─── Google Preview ───────────────────────────────────────────────────────────
 
 function GooglePreview({ title, description, url, mobile }: { title: string; description: string; url: string; mobile: boolean }) {
+  const { t } = useT()
   const maxT = mobile ? 55 : 60
   const maxD = mobile ? 120 : 155
   const t = title || t('seo.field_title')
@@ -145,6 +146,7 @@ function GooglePreview({ title, description, url, mobile }: { title: string; des
 // ─── Live Score Widget ────────────────────────────────────────────────────────
 
 function LiveScoreWidget({ sections, collapsed, onToggle }: {
+  const { t } = useT()
   sections: Record<SectionKey, SectionState>; collapsed: boolean; onToggle: () => void
 }) {
   const { score, breakdown } = calcLiveScore(sections)
@@ -246,6 +248,7 @@ function KeywordDensity({ keyword, shortDesc, longDesc }: { keyword: string; sho
 // ─── Duplicate Warning ────────────────────────────────────────────────────────
 
 function DuplicateWarning({ productId, title }: { productId: string; title: string }) {
+  const { t } = useT()
   const [dup, setDup] = useState<string | null>(null)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
   useEffect(() => {
@@ -329,6 +332,7 @@ function SectionEditor({ label, fieldKey, value, originalValue, generating, save
 // ─── Schema Widget ────────────────────────────────────────────────────────────
 
 function SchemaWidget({ productId }: { productId: string }) {
+  const { t } = useT()
   const [schema, setSchema]   = useState('')
   const [loading, setLoading] = useState(false)
   const [copied, setCopied]   = useState(false)

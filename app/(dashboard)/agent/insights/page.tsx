@@ -34,6 +34,7 @@ type Correction   = { id: string; original_question: string; wrong_answer?: stri
 
 // ─── Unanswered Tab ───────────────────────────────────────────────────────────
 function UnansweredTab() {
+  const { t } = useT()
   const [questions, setQuestions] = useState<UnansweredQ[]>([])
   const [loading, setLoading]     = useState(true)
   const [filter, setFilter]       = useState<'all'|'unresolved'>('unresolved')
@@ -163,6 +164,7 @@ function HeatmapTab() {
 
 // ─── Training Tab ─────────────────────────────────────────────────────────────
 function TrainingTab() {
+  const { t } = useT()
   const [corrections, setCorrections] = useState<Correction[]>([])
   const [loading, setLoading]         = useState(true)
   const [saving, setSaving]           = useState(false)
@@ -250,6 +252,7 @@ function TrainingTab() {
 
 // ─── Reviews Tab ──────────────────────────────────────────────────────────────
 function ReviewsTab() {
+  const { t } = useT()
   const [config, setConfig]   = useState({ review_enabled:false, review_delay_days:7, review_google_url:'', review_site_enabled:true, review_email_subject:'', review_email_body:'' })
   const [requests, setRequests] = useState<any[]>([])
   const [saving, setSaving]   = useState(false)

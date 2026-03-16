@@ -150,6 +150,7 @@ function StarRating({ value, onChange }: { value: number | null; onChange: (v: n
 // ─── Product Picker ───────────────────────────────────────────────────────────
 
 function ProductPicker({ onSelect, onClose }: { onSelect: (p: Product) => void; onClose: () => void }) {
+  const { t } = useT()
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading]   = useState(true)
   const [search, setSearch]     = useState('')
@@ -203,6 +204,7 @@ function ProductPicker({ onSelect, onClose }: { onSelect: (p: Product) => void; 
 // ─── Image Source Selector ────────────────────────────────────────────────────
 
 function ImageSourceSelector({ selectedProduct, setSelectedProduct, selectedProductImage, setSelectedProductImage,
+  const { t } = useT()
   uploadedImage, setUploadedImage, setUploadedImageFile, showPicker, setShowPicker, fileInputRef }: any) {
   return (
     <div className="space-y-4">
@@ -326,6 +328,7 @@ function GeneratingScreen({ taskId, imageRecordId, onDone, onError, variantCount
 // ─── Style Selector ───────────────────────────────────────────────────────────
 
 function StyleSelector({ styles, selected, onSelect, credits, season }: {
+  const { t } = useT()
   styles: typeof PRODUCT_STYLES; selected: string | null; onSelect: (v: string) => void
   credits: number; season?: ReturnType<typeof getCurrentSeason>
 }) {
@@ -366,6 +369,7 @@ function StyleSelector({ styles, selected, onSelect, credits, season }: {
 // ─── PRODUCT IMAGE GENERATOR ──────────────────────────────────────────────────
 
 function ProductGenerator({ onImageGenerated, brandKit }: { onImageGenerated: (img: GeneratedImage) => void; brandKit: BrandKit | null }) {
+  const { t } = useT()
   const { credits }   = useCredits()
   const season        = getCurrentSeason()
   const [step, setStep]                     = useState<ProductStep>('select_image')

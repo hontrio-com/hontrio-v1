@@ -137,6 +137,7 @@ function RiskBadge({ label, score }: { label: keyof typeof LABEL_CONFIG; score?:
 // ─── Score Ring ───────────────────────────────────────────────────────────────
 
 function ScoreRing({ score, size = 80 }: { score: number; size?: number }) {
+  const { t } = useT()
   const r = (size / 2) - 8
   const circ = 2 * Math.PI * r
   const offset = circ - (score / 100) * circ
@@ -179,6 +180,7 @@ function BehaviorBar({ label, value, max, color = 'bg-neutral-900' }: { label: s
 // ─── Timeline ─────────────────────────────────────────────────────────────────
 
 function Timeline({ orders, onUpdateStatus, updatingOrder }: {
+  const { t } = useT()
   orders: Order[]; onUpdateStatus: (id: string, status: string) => void; updatingOrder: string | null
 }) {
   const sorted = [...orders].sort((a, b) => new Date(b.ordered_at).getTime() - new Date(a.ordered_at).getTime())
@@ -261,6 +263,7 @@ function Timeline({ orders, onUpdateStatus, updatingOrder }: {
 // ─── Address Map ──────────────────────────────────────────────────────────────
 
 function AddressMap({ orders }: { orders: Order[] }) {
+  const { t } = useT()
   const addressCounts = orders.reduce<Record<string, { count: number; bad: number }>>((acc, o) => {
     if (!o.shipping_address) return acc
     const key = o.shipping_address
@@ -344,6 +347,7 @@ function CustomerBadges({ customer }: { customer: Customer }) {
 // ─── Cluster Tab ──────────────────────────────────────────────────────────────
 
 function ClusterTab({ storeId, customers, onOpenProfile }: {
+  const { t } = useT()
   storeId: string
   customers: Array<{ id: string; name: string | null; phone: string | null; risk_score: number; risk_label: string }>
   onOpenProfile: (id: string) => void
@@ -445,6 +449,7 @@ function ClusterTab({ storeId, customers, onOpenProfile }: {
 // ─── Settings Tab ─────────────────────────────────────────────────────────────
 
 function SettingsTab({ settings, mlAccuracy, mlTotalPredictions, savingSettings, onSave }: {
+  const { t } = useT()
   settings: any; mlAccuracy: number | null; mlTotalPredictions: number
   savingSettings: boolean; onSave: (updates: any) => Promise<void>
 }) {
@@ -468,6 +473,7 @@ function SettingsTab({ settings, mlAccuracy, mlTotalPredictions, savingSettings,
   }
 
   function Inp({ k, type = 'text', min, max, placeholder }: { k: string; type?: string; min?: number; max?: number; placeholder?: string }) {
+  const { t } = useT()
     return (
       <input type={type} min={min} max={max} placeholder={placeholder} value={local[k] || ''}
         onChange={e => set(k, type === 'number' ? parseInt(e.target.value) : e.target.value)}

@@ -86,6 +86,7 @@ function Skeleton({ className }: { className?: string }) {
 type PendingFile = Attachment & { uploading: boolean; error?: string; localId: string }
 
 function useAttachments() {
+  const { t } = useT()
   const [pending, setPending] = useState<PendingFile[]>([])
 
   async function addFiles(files: FileList) {
@@ -154,6 +155,7 @@ function AttachGallery({ attachments }: { attachments: Attachment[] }) {
 }
 
 function DropZone({ onFiles, disabled }: { onFiles: (f: FileList) => void; disabled?: boolean }) {
+  const { t } = useT()
   const [drag, setDrag] = useState(false)
   const ref = useRef<HTMLInputElement>(null)
   return (
