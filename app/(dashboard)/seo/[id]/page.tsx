@@ -109,7 +109,7 @@ function GooglePreview({ title, description, url, mobile }: { title: string; des
   const { t } = useT()
   const maxT = mobile ? 55 : 60
   const maxD = mobile ? 120 : 155
-  const t = title || t('seo.field_title')
+  const titleText = title || 'Titlu produs'
   const d = description || 'Meta description lipsă — Google va alege automat un snippet.'
   return (
     <Card className="p-4">
