@@ -72,7 +72,7 @@ export async function POST(req: Request) {
       varMap[v.parent_id].push(v)
     }
 
-    const { data: uc } = await supabase.from('users').select('credits').eq('id', userId).single()
+    const { data: uc } = await supabase.from('users').select('credits, brand_language').eq('id', userId).single()
     let credits = uc?.credits || 0
     let generated = 0, skipped = 0, failed = 0
     const errors: string[] = []
@@ -98,9 +98,7 @@ export async function POST(req: Request) {
           content_hash: hash, status: 'processing', updated_at: new Date().toISOString(),
         }, { onConflict: 'product_id' })
 
-        // Get user language for intelligence generation
-        const { data: userLang } = await supabase.from('users').select('brand_language').eq('id', userId).single()
-        const L = getAILanguage(userLang?.brand_language)
+        const L = getAILanguage(uc?.brand_language)
 
         const ctx = `LANGUAGE: Write ALL content in ${L.nativeName}.
 ${L.intelLanguageInstruction}

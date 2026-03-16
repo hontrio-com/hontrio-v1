@@ -138,7 +138,7 @@ export async function POST(request: Request) {
         const completion = await openai.chat.completions.create({
           model: 'gpt-4o-mini',
           messages: [
-            { role: 'system', content: buildBulkSeoPrompt(uc?.brand_language || 'ro') },
+            { role: 'system', content: buildBulkSeoPrompt(user?.brand_language || 'ro') },
             { role: 'user', content: prompt },
           ],
           temperature: 0.5,
