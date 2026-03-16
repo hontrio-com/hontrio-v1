@@ -45,8 +45,8 @@ function getSeoTier(score: number, status: string): 'published' | 'good' | 'part
 }
 
 const TIER = {
-  published:   { label: t('common.published_label'),    bg: 'bg-neutral-900', text: 'text-white',        dot: 'bg-white' },
-  good:        { label: t('dashboard.optimized'),   bg: 'bg-neutral-100', text: 'text-neutral-700',  dot: 'bg-emerald-500' },
+  published:   { label: 'Publicat',    bg: 'bg-neutral-900', text: 'text-white',        dot: 'bg-white' },
+  good:        { label: 'Optimizat',   bg: 'bg-neutral-100', text: 'text-neutral-700',  dot: 'bg-emerald-500' },
   partial:     { label: 'Parțial',     bg: 'bg-neutral-100', text: 'text-amber-600',    dot: 'bg-amber-400' },
   unoptimized: { label: 'Neoptimizat', bg: 'bg-neutral-100', text: 'text-neutral-400',  dot: 'bg-neutral-300' },
 }
@@ -61,7 +61,7 @@ const SORT_OPTS: { value: SortOption; label: string }[] = [
 ]
 
 const SEO_FILTERS = [
-  { value: 'all',         label: t('common.all') },
+  { value: 'all',         label: 'Toate' },
   { value: 'unoptimized', label: 'Neoptimizate' },
   { value: 'partial',     label: 'Parțiale' },
   { value: 'good',        label: 'Optimizate' },

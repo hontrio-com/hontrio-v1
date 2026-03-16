@@ -98,6 +98,7 @@ function WidgetPreview({ config, messages, onSend, loading, onToggle, isOpen }: 
   messages: Array<{role:string;content:string;quick_replies?:string[]}>
   onSend: (msg:string) => void; loading: boolean; onToggle: () => void; isOpen: boolean
 }) {
+  const { t } = useT()
   const [input, setInput] = useState('')
   const endRef = useRef<HTMLDivElement>(null)
   const btnSize = config.widget_size === 'small' ? 44 : config.widget_size === 'large' ? 64 : 52
@@ -213,6 +214,7 @@ function WidgetPreview({ config, messages, onSend, loading, onToggle, isOpen }: 
 // ─── MAIN PAGE ────────────────────────────────────────────────────────────────
 
 export default function AgentPage() {
+  const { t } = useT()
   const [config, setConfig]       = useState<Config>(defaultConfig)
   const [stats, setStats]         = useState<Stats | null>(null)
   const [analytics, setAnalytics] = useState<Analytics | null>(null)

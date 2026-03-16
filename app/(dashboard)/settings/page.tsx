@@ -68,7 +68,7 @@ function pwStrength(p: string) {
   if (/[^A-Za-z0-9]/.test(p)) s++
   if (s <= 1) return { score: s, label: 'Slabă',    color: 'bg-red-400' }
   if (s <= 2) return { score: s, label: 'Medie',    color: 'bg-amber-400' }
-  if (s <= 3) return { score: s, label: t('settings.password_good'),     color: 'bg-neutral-400' }
+  if (s <= 3) return { score: s, label: 'Bună',     color: 'bg-neutral-400' }
   return              { score: s, label: 'Puternică', color: 'bg-emerald-500' }
 }
 

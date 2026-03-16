@@ -70,11 +70,11 @@ function charStatus(len: number, min: number, max: number) {
 
 function alertLabel(type: string): { text: string; color: string } {
   const map: Record<string, { text: string; color: string }> = {
-    title_changed:    { text: t('seo.title_changed'),    color: 'text-neutral-700' },
+    title_changed:    { text: 'Titlu schimbat',    color: 'text-neutral-700' },
     meta_changed:     { text: 'Meta schimbat',      color: 'text-neutral-700' },
     keywords_changed: { text: 'Keywords schimbate', color: 'text-neutral-700' },
-    score_drop:       { text: t('seo.score_drop'),        color: 'text-red-500'     },
-    score_rise:       { text: t('seo.score_rise'),        color: 'text-emerald-600' },
+    score_drop:       { text: 'Scor scăzut',        color: 'text-red-500'     },
+    score_rise:       { text: 'Scor crescut',        color: 'text-emerald-600' },
   }
   return map[type] || { text: type, color: 'text-neutral-500' }
 }
@@ -234,7 +234,7 @@ function StealModal({ open, field, myCurrent, competitorValue, competitorUrl, on
   }
 
   if (!open) return null
-  const fieldLabels: Record<string, string> = { title: t('seo.title_tag'), meta_description: t('seo.meta_description'), focus_keyword: t('seo.focus_keyword') }
+  const fieldLabels: Record<string, string> = { title: 'Titlu SEO', meta_description: 'Meta Description', focus_keyword: 'Focus Keyword' }
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/30 backdrop-blur-sm p-4">
