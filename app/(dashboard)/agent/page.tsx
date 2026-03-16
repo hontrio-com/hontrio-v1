@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import { useT } from '@/lib/i18n/context'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Bot, Power, MessageCircle, Phone, Palette, Settings2,
