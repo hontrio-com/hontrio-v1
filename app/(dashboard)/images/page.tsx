@@ -635,6 +635,7 @@ function ProductGenerator({ onImageGenerated, brandKit }: { onImageGenerated: (i
 // ─── PROMO GENERATOR ──────────────────────────────────────────────────────────
 
 function PromoGenerator({ onImageGenerated, brandKit }: { onImageGenerated: (img: GeneratedImage) => void; brandKit: BrandKit | null }) {
+  const { t } = useT()
   const { credits }   = useCredits()
   const season        = getCurrentSeason()
   const [step, setStep]                     = useState<PromoStep>('select_image')
@@ -868,6 +869,7 @@ function PromoGenerator({ onImageGenerated, brandKit }: { onImageGenerated: (img
 // ─── BULK TAB ─────────────────────────────────────────────────────────────────
 
 function BulkTab() {
+  const { t } = useT()
   const { credits }   = useCredits()
   const [jobs, setJobs]         = useState<BulkJob[]>([])
   const [loadingJobs, setLoadingJobs] = useState(true)
@@ -1085,6 +1087,7 @@ function BulkTab() {
 // ─── BRAND KIT TAB ────────────────────────────────────────────────────────────
 
 function BrandTab() {
+  const { t } = useT()
   const [kit, setKit]             = useState<BrandKit | null>(null)
   const [loading, setLoading]     = useState(true)
   const [saving, setSaving]       = useState(false)
@@ -1247,6 +1250,7 @@ function BrandTab() {
 // ─── GALLERY TAB ──────────────────────────────────────────────────────────────
 
 function GalleryTab({ gallery, onUpdate }: { gallery: GeneratedImage[]; onUpdate: () => void }) {
+  const { t } = useT()
   const [filter, setFilter]   = useState<'all' | 'product' | 'promo' | 'published'>('all')
   const [search, setSearch]   = useState('')
   const [preview, setPreview] = useState<GeneratedImage | null>(null)

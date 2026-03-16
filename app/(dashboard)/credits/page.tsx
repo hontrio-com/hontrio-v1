@@ -94,6 +94,7 @@ function Btn({ onClick, disabled, children, variant = 'primary', className = '' 
 // ─── Inner page ───────────────────────────────────────────────────────────────
 
 function SubscriptionPageInner() {
+  const { t } = useT()
   const { data: session } = useSession()
   const searchParams = useSearchParams()
   const [transactions, setTransactions] = useState<Transaction[]>([])

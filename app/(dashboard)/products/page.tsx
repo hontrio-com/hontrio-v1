@@ -265,6 +265,7 @@ function ListRow({ product, selected, onSelect, index }: {
 }
 
 function EmptyState({ hasSearch, onClear }: { hasSearch: boolean; onClear: () => void }) {
+  const { t } = useT()
   if (hasSearch) return (
     <div className="text-center py-20">
       <div className="h-14 w-14 rounded-xl bg-neutral-100 flex items-center justify-center mx-auto mb-4">
