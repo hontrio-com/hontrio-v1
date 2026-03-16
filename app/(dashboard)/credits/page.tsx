@@ -128,8 +128,8 @@ function SubscriptionPageInner() {
       const r = await fetch('/api/stripe/checkout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ plan: planId }) })
       const d = await r.json()
       if (d.url) window.location.href = d.url
-      else setMsg({ type: 'error', text: d.error || 'Eroare la inițializarea plății' })
-    } catch { setMsg({ type: 'error', text: 'Eroare de conexiune' }) }
+      else setMsg({ type: 'error', text: d.error || t('credits.error_payment') })
+    } catch { setMsg({ type: 'error', text: t('common.error_connection') }) }
     finally { setCheckoutId('') }
   }
 
@@ -175,7 +175,7 @@ function SubscriptionPageInner() {
       {/* Header */}
       <div>
         <h1 className="text-[22px] font-semibold text-neutral-900 tracking-tight">{t('credits.title')}</h1>
-        <p className="text-[13px] text-neutral-400 mt-0.5">Gestionează planul, creditele și facturarea</p>
+        <p className="text-[13px] text-neutral-400 mt-0.5">{t('credits.manage_plan_desc')}</p>
       </div>
 
       {/* Toast */}
@@ -231,7 +231,7 @@ function SubscriptionPageInner() {
       <div className="flex items-center gap-1 overflow-x-auto pb-0.5 scrollbar-none">
         {[
           { value: 'plans',   label: 'Planuri',          icon: Sparkles   },
-          { value: 'credits', label: 'Cumpără credite',  icon: CreditCard },
+          { value: 'credits', label: t('credits.buy_more'),  icon: CreditCard },
           { value: 'history', label: 'Istoric & Facturi', icon: Receipt   },
         ].map(t => {
           const Icon = t.icon
@@ -323,7 +323,7 @@ function SubscriptionPageInner() {
                 <Shield className="h-4 w-4 text-neutral-400" />
               </div>
               <div>
-                <p className="text-[13px] font-medium text-neutral-700 mb-0.5">Plată securizată prin Stripe</p>
+                <p className="text-[13px] font-medium text-neutral-700 mb-0.5">{t('credits.secure_stripe')}</p>
                 <p className="text-[12px] text-neutral-400 leading-relaxed">
                   Toate plățile sunt procesate securizat. Poți face upgrade sau downgrade oricând. Anularea se face simplu, fără obligații. Acceptăm Visa, Mastercard, și alte metode de plată.
                 </p>
@@ -339,7 +339,7 @@ function SubscriptionPageInner() {
           <div className="lg:col-span-2">
             <Card className="p-5">
               <p className="text-[13px] font-semibold text-neutral-900 mb-0.5">{t('credits.buy_credits')}</p>
-              <p className="text-[12px] text-neutral-400 mb-4">Creditele nu expiră și se adaugă la balanța ta</p>
+              <p className="text-[12px] text-neutral-400 mb-4">{t('credits.credits_no_expire')}</p>
               <div className="space-y-2">
                 {PACKS.map(pack => (
                   <div key={pack.id} className={`flex items-center justify-between px-4 py-3.5 rounded-xl border-2 transition-all
@@ -462,7 +462,7 @@ function SubscriptionPageInner() {
               <div className="space-y-4">
                 <div>
                   <div className="flex items-center justify-between text-[13px] mb-1.5">
-                    <span className="text-neutral-500">Credite utilizate</span>
+                    <span className="text-neutral-500">{t('credits.credits_used')}</span>
                     <span className="font-semibold text-neutral-900 tabular-nums">{totalUsed}</span>
                   </div>
                   <div className="h-1.5 bg-neutral-100 rounded-full overflow-hidden">

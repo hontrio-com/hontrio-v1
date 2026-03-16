@@ -301,7 +301,7 @@ export default function DashboardPage() {
                   <div className="bg-neutral-50 rounded-lg p-2.5 text-center"><p className="text-[15px] font-bold text-neutral-900">{data.store.products_count}</p><p className="text-[11px] text-neutral-400">{t('dashboard.products_label')}</p></div>
                   <div className="bg-neutral-50 rounded-lg p-2.5 text-center"><p className="text-[12px] font-semibold text-neutral-600 capitalize">{data.store.platform}</p><p className="text-[11px] text-neutral-400">{t('dashboard.platform')}</p></div>
                 </div>
-                {data.store.last_sync_at && <p className="text-[11px] text-neutral-400 flex items-center gap-1"><RefreshCw className="h-3 w-3" />Ultima sync: {formatTime(data.store.last_sync_at)}</p>}
+                {data.store.last_sync_at && <p className="text-[11px] text-neutral-400 flex items-center gap-1"><RefreshCw className="h-3 w-3" />{t('dashboard.last_sync_label')}: {formatTime(data.store.last_sync_at)}</p>}
                 <Link href="/settings"><button className="w-full text-[12px] text-neutral-500 hover:text-neutral-900 flex items-center justify-center gap-1 py-1 transition-colors">{t('common.settings')}<ExternalLink className="h-3 w-3" /></button></Link>
               </div>
             ) : (

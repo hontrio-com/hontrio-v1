@@ -138,7 +138,7 @@ function WidgetPreview({ config, messages, onSend, loading, onToggle, isOpen }: 
               {messages.length === 0 ? (
                 <div className="text-center py-6">
                   <Bot className="w-7 h-7 text-neutral-200 mx-auto mb-2" />
-                  <p className="text-[11px] text-neutral-400 mb-3">Trimite un mesaj ca să testezi</p>
+                  <p className="text-[11px] text-neutral-400 mb-3">{t('agent.test_message')}</p>
                   <div className="flex flex-wrap gap-1.5 justify-center">
                     {(config.quick_replies||[]).slice(0,3).map((qr:string) => (
                       <button key={qr} onClick={() => onSend(qr)}
@@ -296,9 +296,9 @@ export default function AgentPage() {
       if (selectedOnly && intelSelected.size > 0) body.product_ids = Array.from(intelSelected)
       const res = await fetch('/api/agent/generate-intelligence', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) })
       const data = await res.json()
-      if (!res.ok) { setIntelError(data.error||'Eroare'); return }
+      if (!res.ok) { setIntelError(data.error||t('common.error_generic')); return }
       setIntelResult(data); setIntelSelected(new Set()); loadIntelStats()
-    } catch { setIntelError('Eroare de rețea') } finally { setIntelGenerating(false) }
+    } catch { setIntelError(t('agent.error_network')) } finally { setIntelGenerating(false) }
   }
 
   const loadKnowledge = async () => {
@@ -314,10 +314,10 @@ export default function AgentPage() {
       else { fd.append('text', kText); fd.append('name', kName||'Text manual') }
       const r = await fetch('/api/agent/knowledge/upload', { method:'POST', body:fd })
       const data = await r.json()
-      if (!r.ok) { setKError(data.error||'Eroare upload'); return }
+      if (!r.ok) { setKError(data.error||t('common.error_upload')); return }
       setKUrl(''); setKText(''); setKName('')
       await loadKnowledge()
-    } catch { setKError('Eroare la upload') } finally { setKUploading(false) }
+    } catch { setKError(t('agent.error_upload_label')) } finally { setKUploading(false) }
   }
 
   const deleteKnowledge = async (id: string) => {
@@ -369,7 +369,7 @@ export default function AgentPage() {
       const res  = await fetch('/api/agent/chat', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ message:msg, history:newMessages.slice(-6).map(m=>({ role:m.role, content:m.content })), session_id:'preview-'+Date.now(), store_user_id:storeUserId }) })
       const data = await res.json()
       setPreviewMessages(prev => [...prev, { role:'assistant', content:data.message, quick_replies:data.quick_replies }])
-    } catch { setPreviewMessages(prev => [...prev, { role:'assistant', content:'Eroare la conectare.' }]) }
+    } catch { setPreviewMessages(prev => [...prev, { role:'assistant', content:t('agent.connection_error') }]) }
     finally { setPreviewLoading(false) }
   }
 
@@ -381,8 +381,8 @@ export default function AgentPage() {
   const MAIN_TABS = [
     { id:'overview',      label:'Statistici',  icon:TrendingUp },
     { id:'settings',      label:'Configurare', icon:Settings2  },
-    { id:'knowledge',     label:'Cunoștințe',  icon:BookOpen   },
-    { id:'intelligence',  label:'Intelligence',icon:Zap        },
+    { id:'knowledge',     label:t('agent.knowledge_label'),  icon:BookOpen   },
+    { id:'intelligence',  label:t('agent.intelligence_title'),icon:Zap        },
     { id:'notifications', label:'Notificări',  icon:Bell       },
     { id:'install',       label:'Instalare',   icon:ExternalLink},
   ] as const
@@ -466,7 +466,7 @@ export default function AgentPage() {
           {analytics?.conversationsPerDay && analytics.conversationsPerDay.length > 0 && (
             <Card className="p-5">
               <div className="flex items-center justify-between mb-4">
-                <p className="text-[13px] font-semibold text-neutral-900">Conversații pe zile</p>
+                <p className="text-[13px] font-semibold text-neutral-900">{t('agent.conversations_per_day')}</p>
                 <div className="flex gap-1">
                   {([7,30] as const).map(d => (
                     <button key={d} onClick={() => { setAnalyticsRange(d); loadAnalytics(d) }}
@@ -581,7 +581,7 @@ export default function AgentPage() {
           {!analytics?.summary?.totalSessions && !stats?.total && (
             <Card className="p-10 text-center">
               <BarChart2 className="h-10 w-10 text-neutral-200 mx-auto mb-3" />
-              <p className="text-[13px] font-medium text-neutral-500">Nicio conversație încă</p>
+              <p className="text-[13px] font-medium text-neutral-500">{t('agent.no_conversations_yet')}</p>
               <p className="text-[11px] text-neutral-400 mt-1">Datele vor apărea odată ce vizitatoarele interacționează cu agentul.</p>
             </Card>
           )}
@@ -614,7 +614,7 @@ export default function AgentPage() {
                     <div className="space-y-1.5 flex-1">
                       <Btn variant="outline" onClick={() => avatarInputRef.current?.click()} disabled={uploadingAvatar} className="w-full justify-center">
                         {uploadingAvatar ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
-                        {uploadingAvatar ? 'Se urcă...' : 'Încarcă poză'}
+                        {uploadingAvatar ? t('common.uploading') : t('common.upload_photo')}
                       </Btn>
                       {config.widget_avatar_url && <button onClick={() => setConfig(c => ({ ...c, widget_avatar_url:'' }))} className="text-[11px] text-red-400 hover:text-red-500 w-full text-center">Șterge avatarul</button>}
                     </div>
@@ -631,7 +631,7 @@ export default function AgentPage() {
                     className="w-full text-[13px] border border-neutral-200 rounded-xl px-3 py-2.5 focus:outline-none focus:border-blue-400 transition-colors" />
                 </div>
                 <div>
-                  <SectionLabel className="mb-1.5 block">Mesaj de bun venit</SectionLabel>
+                  <SectionLabel className="mb-1.5 block">{t('agent.welcome_msg_label')}</SectionLabel>
                   <textarea value={config.welcome_message} onChange={e => setConfig(c => ({ ...c, welcome_message:e.target.value }))} rows={3}
                     className="w-full text-[13px] border border-neutral-200 rounded-xl px-3 py-2.5 focus:outline-none focus:border-blue-400 transition-colors resize-none" />
                 </div>
@@ -749,7 +749,7 @@ export default function AgentPage() {
 
             <Btn onClick={handleSave} disabled={saving} variant={saved?'success':'primary'} className="w-full justify-center h-10">
               {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : saved ? <Check className="h-3.5 w-3.5" /> : <Save className="h-3.5 w-3.5" />}
-              {saving ? 'Salvez...' : saved ? 'Salvat!' : 'Salvează configurarea'}
+              {saving ? t('common.saving') : saved ? t('common.saved') : t('agent.save_config_label')}
             </Btn>
           </div>
 
@@ -1064,7 +1064,7 @@ export default function AgentPage() {
               : <div className="flex items-center gap-2 p-3 bg-emerald-50 border border-emerald-100 rounded-xl"><Check className="h-4 w-4 text-emerald-600 shrink-0" /><p className="text-[11px] text-emerald-700">Notificările vor fi trimise la <strong>{config.notify_email}</strong></p></div>}
             <Btn onClick={handleSave} disabled={saving} variant={saved?'success':'primary'} className="w-full justify-center h-10">
               {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : saved ? <Check className="h-3.5 w-3.5" /> : <Save className="h-3.5 w-3.5" />}
-              {saving ? 'Salvez...' : saved ? 'Salvat!' : 'Salvează'}
+              {saving ? t('common.saving') : saved ? t('common.saved') : t('common.save')}
             </Btn>
           </Card>
           <div className="flex gap-3 p-4 bg-blue-50 border border-blue-100 rounded-xl">

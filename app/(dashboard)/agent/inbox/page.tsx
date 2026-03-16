@@ -96,7 +96,7 @@ export default function InboxPage() {
       <div className="flex gap-2 flex-wrap">
         <div className="relative flex-1 min-w-[180px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-neutral-400" />
-          <input value={search} onChange={e => { setSearch(e.target.value); setPage(1) }} placeholder="Caută în conversații..."
+          <input value={search} onChange={e => { setSearch(e.target.value); setPage(1) }} placeholder={t('agent.search_conversations')}
             className="w-full pl-9 pr-3 py-2 text-[12px] border border-neutral-200 rounded-xl focus:outline-none focus:border-neutral-400 transition-colors" />
         </div>
         <select value={intentFilter} onChange={e => { setIntentFilter(e.target.value); setPage(1) }}
@@ -139,7 +139,7 @@ export default function InboxPage() {
                         <Badge label={meta.label} bg={meta.bg} text={meta.text} />
                         <span className="text-[10px] text-neutral-400 shrink-0">{fmt(c.started_at)}</span>
                       </div>
-                      <p className="text-[12px] text-neutral-600 truncate">{c.preview || 'Conversație fără mesaje'}</p>
+                      <p className="text-[12px] text-neutral-600 truncate">{c.preview || t('agent.conversation_no_msg')}</p>
                       <p className="text-[10px] text-neutral-400 mt-0.5">{c.messages_count} mesaje</p>
                     </div>
                     <div className="flex flex-col items-center gap-1 shrink-0">
@@ -157,7 +157,7 @@ export default function InboxPage() {
             <div className="flex items-center justify-between p-3 border-t border-neutral-50">
               <button onClick={() => setPage(p => Math.max(1,p-1))} disabled={page===1} className="text-[11px] text-neutral-500 disabled:opacity-40 hover:text-neutral-700">← Anterior</button>
               <span className="text-[11px] text-neutral-400">Pagina {page}</span>
-              <button onClick={() => setPage(p => p+1)} disabled={convs.length<20} className="text-[11px] text-neutral-500 disabled:opacity-40 hover:text-neutral-700">Următor →</button>
+              <button onClick={() => setPage(p => p+1)} disabled={convs.length<20} className="text-[11px] text-neutral-500 disabled:opacity-40 hover:text-neutral-700">{t('common.next_label')}</button>
             </div>
           )}
         </Card>

@@ -70,11 +70,11 @@ function charStatus(len: number, min: number, max: number) {
 
 function alertLabel(type: string): { text: string; color: string } {
   const map: Record<string, { text: string; color: string }> = {
-    title_changed:    { text: 'Titlu schimbat',    color: 'text-neutral-700' },
+    title_changed:    { text: t('seo.title_changed'),    color: 'text-neutral-700' },
     meta_changed:     { text: 'Meta schimbat',      color: 'text-neutral-700' },
     keywords_changed: { text: 'Keywords schimbate', color: 'text-neutral-700' },
-    score_drop:       { text: 'Scor scăzut',        color: 'text-red-500'     },
-    score_rise:       { text: 'Scor crescut',        color: 'text-emerald-600' },
+    score_drop:       { text: t('seo.score_drop'),        color: 'text-red-500'     },
+    score_rise:       { text: t('seo.score_rise'),        color: 'text-emerald-600' },
   }
   return map[type] || { text: type, color: 'text-neutral-500' }
 }
@@ -233,7 +233,7 @@ function StealModal({ open, field, myCurrent, competitorValue, competitorUrl, on
   }
 
   if (!open) return null
-  const fieldLabels: Record<string, string> = { title: 'Titlu SEO', meta_description: 'Meta Description', focus_keyword: 'Focus Keyword' }
+  const fieldLabels: Record<string, string> = { title: t('seo.title_tag'), meta_description: t('seo.meta_description'), focus_keyword: t('seo.focus_keyword') }
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/30 backdrop-blur-sm p-4">
@@ -286,7 +286,7 @@ function StealModal({ open, field, myCurrent, competitorValue, competitorUrl, on
             <RefreshCw className="h-3 w-3" />Regenerează
           </Btn>
           <div className="flex gap-2">
-            <Btn variant="outline" size="sm" onClick={onClose}>Anulează</Btn>
+            <Btn variant="outline" size="sm" onClick={onClose}>{t('common.cancel_label')}</Btn>
             {result && !applied && (
               <Btn size="sm" onClick={apply} disabled={applying}>
                 {applying ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle className="h-3.5 w-3.5" />}
@@ -310,7 +310,7 @@ function TabOverview({ result, onSteal }: {
   if (!result) return (
     <Card className="p-12 text-center">
       <BarChart3 className="h-10 w-10 text-neutral-200 mx-auto mb-4" />
-      <p className="text-[14px] font-semibold text-neutral-700 mb-1">Nicio analiză efectuată</p>
+      <p className="text-[14px] font-semibold text-neutral-700 mb-1">{t('seo.no_analysis')}</p>
       <p className="text-[12px] text-neutral-400 max-w-xs mx-auto">Introdu URL-ul competitorului și apasă Analizează pentru a vedea comparația completă.</p>
     </Card>
   )
@@ -364,7 +364,7 @@ function TabOverview({ result, onSteal }: {
           </div>
         </div>
         <div className="px-4 py-1">
-          <MetricBar label="Titlu"    you={r.my_store.title?.length || 0}             them={r.competitor.title?.length || 0} />
+          <MetricBar label={t('seo.field_title')}    you={r.my_store.title?.length || 0}             them={r.competitor.title?.length || 0} />
           <MetricBar label="Meta"     you={r.my_store.meta_description?.length || 0}  them={r.competitor.meta_description?.length || 0} />
           <MetricBar label="Keywords" you={r.my_store.focus_keywords?.length || 0}    them={r.competitor.focus_keywords?.length || 0} />
           <MetricBar label="Headings" you={r.my_store.headings?.length || 0}          them={r.competitor.headings?.length || 0} />
@@ -401,7 +401,7 @@ function TabOverview({ result, onSteal }: {
             </div>
             {kws?.length > 0
               ? <div className="flex flex-wrap gap-1.5">{kws.map((kw, i) => <span key={i} className={`text-[11px] px-2.5 py-1 rounded-lg font-medium ${bg} ${text}`}>{kw}</span>)}</div>
-              : <p className="text-[12px] text-neutral-300">Niciun keyword detectat</p>}
+              : <p className="text-[12px] text-neutral-300">{t('seo.no_keyword_detected')}</p>}
           </Card>
         ))}
       </div>
@@ -410,7 +410,7 @@ function TabOverview({ result, onSteal }: {
       {r.verdict.top_actions?.length > 0 && (
         <Card className="overflow-hidden">
           <div className="px-4 py-3 border-b border-neutral-100">
-            <p className="text-[13px] font-semibold text-neutral-900">Plan de acțiune</p>
+            <p className="text-[13px] font-semibold text-neutral-900">{t('seo.action_plan')}</p>
           </div>
           <div className="p-4 space-y-2">
             {r.verdict.top_actions.map((action, i) => (
@@ -489,7 +489,7 @@ function TabMonitor({ competitorUrl }: { competitorUrl: string }) {
 
       {/* Add monitor */}
       <Card className="p-5">
-        <p className="text-[13px] font-semibold text-neutral-900 mb-3">Adaugă competitor la monitorizare</p>
+        <p className="text-[13px] font-semibold text-neutral-900 mb-3">{t('seo.add_to_monitor')}</p>
         <div className="flex items-center gap-3 flex-wrap">
           <div className="flex items-center gap-2 flex-1 min-w-[200px] border border-neutral-200 rounded-xl px-3.5 py-2.5">
             <Globe className="h-3.5 w-3.5 text-neutral-300 shrink-0" />
@@ -520,7 +520,7 @@ function TabMonitor({ competitorUrl }: { competitorUrl: string }) {
                     <div className="flex items-center gap-2 mb-0.5">
                       <p className="text-[13px] font-semibold text-neutral-800">{m.competitor_label}</p>
                       <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${m.is_active ? 'bg-emerald-50 text-emerald-600' : 'bg-neutral-100 text-neutral-400'}`}>
-                        {m.is_active ? 'Activ' : 'Oprit'}
+                        {m.is_active ? t('common.active_label') : t('common.stopped_label')}
                       </span>
                     </div>
                     <div className="flex items-center gap-3 text-[11px] text-neutral-400 flex-wrap">
@@ -543,7 +543,7 @@ function TabMonitor({ competitorUrl }: { competitorUrl: string }) {
                     <div className="bg-neutral-50 rounded-xl p-3">
                       <SectionLabel className="mb-3 block">Evoluție scor SEO</SectionLabel>
                       {snapshots[m.id].length === 0
-                        ? <p className="text-[11px] text-neutral-400">Niciun snapshot. Prima verificare va fi mâine la 06:00.</p>
+                        ? <p className="text-[11px] text-neutral-400">{t('seo.no_snapshot')}</p>
                         : (
                           <div className="flex items-end gap-0.5 h-12">
                             {snapshots[m.id].map((s, i) => {
@@ -570,7 +570,7 @@ function TabMonitor({ competitorUrl }: { competitorUrl: string }) {
       <Card className="overflow-hidden">
         <div className="px-4 py-3 border-b border-neutral-100 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <p className="text-[13px] font-semibold text-neutral-900">Alerte schimbări</p>
+            <p className="text-[13px] font-semibold text-neutral-900">{t('seo.change_alerts')}</p>
             {unread > 0 && <span className="text-[10px] font-bold text-white bg-red-500 px-1.5 py-0.5 rounded-full">{unread}</span>}
           </div>
           {unread > 0 && (
@@ -580,7 +580,7 @@ function TabMonitor({ competitorUrl }: { competitorUrl: string }) {
           )}
         </div>
         {alerts.length === 0
-          ? <div className="p-8 text-center"><Bell className="h-8 w-8 text-neutral-200 mx-auto mb-2" /><p className="text-[13px] text-neutral-400">Nicio alertă. Monitorizările active vor trimite alerte la schimbări.</p></div>
+          ? <div className="p-8 text-center"><Bell className="h-8 w-8 text-neutral-200 mx-auto mb-2" /><p className="text-[13px] text-neutral-400">{t('seo.no_change_alerts')} Monitorizările active vor trimite alerte la schimbări.</p></div>
           : (
             <div className="divide-y divide-neutral-50">
               {alerts.slice(0, 20).map(a => {
@@ -624,7 +624,7 @@ function TabKeywords({ myUrl, competitorUrl }: { myUrl: string; competitorUrl: s
     setLoading(true); setError(''); setResult(null)
     const res  = await fetch('/api/competitor/keywords', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ my_url: myUrl, competitor_url: competitorUrl }) })
     const data = await res.json()
-    if (!res.ok) { setError(data.error || 'Eroare'); setLoading(false); return }
+    if (!res.ok) { setError(data.error || t('common.error_generic')); setLoading(false); return }
     setResult(data.result); setLoading(false)
   }
 
@@ -635,7 +635,7 @@ function TabKeywords({ myUrl, competitorUrl }: { myUrl: string; competitorUrl: s
           <div>
             <p className="text-[13px] font-semibold text-neutral-900">Keyword Gap Analysis</p>
             <p className="text-[11px] text-neutral-400 mt-0.5">Keywords pe care le are competitorul și tu nu. Direct acționabile.</p>
-            <p className="text-[10px] text-neutral-300 mt-1">2 credite</p>
+            <p className="text-[10px] text-neutral-300 mt-1">{t('seo.two_credits')}</p>
           </div>
           <Btn onClick={analyze} disabled={loading || !myUrl || !competitorUrl}>
             {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Hash className="h-3.5 w-3.5" />}
@@ -651,7 +651,7 @@ function TabKeywords({ myUrl, competitorUrl }: { myUrl: string; competitorUrl: s
         <div className="space-y-4">
           {result.top_priority && (
             <Card className="p-5 border-2 border-neutral-900">
-              <SectionLabel>Prioritate maximă</SectionLabel>
+              <SectionLabel>{t('seo.max_priority')}</SectionLabel>
               <p className="text-[17px] font-bold text-neutral-900 mt-1">{result.top_priority}</p>
               <p className="text-[11px] text-neutral-400 mt-1">Adaugă acest keyword în titlul și meta description-ul celor mai importante produse.</p>
             </Card>

@@ -56,12 +56,12 @@ const PAGES = [
   { label: 'sidebar.seo_optimize', href: '/seo', icon: Search, keywords: ['seo', 'optimizare', 'scor'] },
   { label: 'sidebar.ai_agent', href: '/agent', icon: Bot, keywords: ['agent', 'chat', 'asistent', 'bot'] },
   { label: 'sidebar.risk_shield', href: '/risk', icon: Shield, keywords: ['risk', 'retur', 'frauda', 'blacklist'] },
-  { label: 'Triggeri Agent', href: '/agent/triggers', icon: Zap, keywords: ['triggeri', 'triggers', 'proactiv'] },
-  { label: 'Inbox Agent', href: '/agent/inbox', icon: MessageCircle, keywords: ['inbox', 'mesaje', 'conversatii'] },
+  { label: 'sidebar.agent_triggers', href: '/agent/triggers', icon: Zap, keywords: ['triggeri', 'triggers', 'proactiv'] },
+  { label: 'sidebar.agent_inbox', href: '/agent/inbox', icon: MessageCircle, keywords: ['inbox', 'mesaje', 'conversatii'] },
   { label: 'sidebar.subscription', href: '/credits', icon: CreditCard, keywords: ['credite', 'abonament', 'plan', 'upgrade'] },
   { label: 'sidebar.support', href: '/support', icon: MessageSquare, keywords: ['suport', 'support', 'ajutor', 'tichet'] },
   { label: 'sidebar.settings', href: '/settings', icon: Settings, keywords: ['setari', 'settings', 'profil', 'parola'] },
-  { label: 'Setari Brand', href: '/settings?tab=brand', icon: Sparkles, keywords: ['brand', 'ton', 'nisa'] },
+  { label: 'sidebar.brand_settings', href: '/settings?tab=brand', icon: Sparkles, keywords: ['brand', 'ton', 'nisa'] },
 ]
 
 // ─── Search Dropdown ────────────────────────────────────────────────────────
@@ -76,7 +76,7 @@ function SearchDropdown({ results, loading, query, onNavigate }: { results: { pr
   return (
     <div className="py-1">
       {results.products.length > 0 && (<div>
-        <div className="flex items-center gap-2 px-4 py-2 bg-neutral-50"><Package className="h-3.5 w-3.5 text-neutral-400" /><span className="text-[10px] font-semibold text-neutral-400 uppercase tracking-wider">Produse</span>{loading && <Loader2 className="h-3 w-3 animate-spin text-neutral-300 ml-auto" />}</div>
+        <div className="flex items-center gap-2 px-4 py-2 bg-neutral-50"><Package className="h-3.5 w-3.5 text-neutral-400" /><span className="text-[10px] font-semibold text-neutral-400 uppercase tracking-wider">{t('sidebar.products')}</span>{loading && <Loader2 className="h-3 w-3 animate-spin text-neutral-300 ml-auto" />}</div>
         {results.products.map((p: any) => (
           <button key={p.id} onClick={() => onNavigate('/seo/' + p.id)} className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-neutral-50 transition-colors text-left group">
             {p.thumbnail_url ? <img src={p.thumbnail_url} alt="" className="h-9 w-9 rounded-lg object-cover shrink-0 border border-neutral-100" /> : <div className="h-9 w-9 rounded-lg bg-neutral-100 flex items-center justify-center shrink-0"><Package className="h-4 w-4 text-neutral-300" /></div>}

@@ -172,7 +172,7 @@ function ProductPicker({ onSelect, onClose }: { onSelect: (p: Product) => void; 
       <div className="p-2 border-b border-neutral-100">
         <div className="relative">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-neutral-400" />
-          <input value={search} onChange={e => setSearch(e.target.value)} autoFocus placeholder="Caută produs..."
+          <input value={search} onChange={e => setSearch(e.target.value)} autoFocus placeholder={t('images.search_product')}
             className="w-full pl-8 pr-3 py-1.5 text-[12px] rounded-lg border border-neutral-200 focus:outline-none focus:border-neutral-400" />
         </div>
       </div>
@@ -180,7 +180,7 @@ function ProductPicker({ onSelect, onClose }: { onSelect: (p: Product) => void; 
         {loading
           ? <div className="flex items-center justify-center py-6"><Loader2 className="h-4 w-4 animate-spin text-neutral-400" /></div>
           : products.length === 0
-          ? <p className="text-[12px] text-neutral-400 text-center py-6">Niciun produs găsit</p>
+          ? <p className="text-[12px] text-neutral-400 text-center py-6">{t('images.no_product_found')}</p>
           : products.map(p => {
               const img = p.thumbnail_url || p.original_images?.[0]
               return (
@@ -194,7 +194,7 @@ function ProductPicker({ onSelect, onClose }: { onSelect: (p: Product) => void; 
             })}
       </div>
       <div className="p-2 border-t border-neutral-100">
-        <button onClick={onClose} className="w-full text-[11px] text-neutral-400 hover:text-neutral-600 py-1">Închide</button>
+        <button onClick={onClose} className="w-full text-[11px] text-neutral-400 hover:text-neutral-600 py-1">{t('common.close_label')}</button>
       </div>
     </Card>
   )
@@ -215,7 +215,7 @@ function ImageSourceSelector({ selectedProduct, setSelectedProduct, selectedProd
             <div className="h-9 w-9 rounded-xl bg-neutral-100 flex items-center justify-center shrink-0"><Package className="h-4 w-4 text-neutral-600" /></div>
             <div>
               <p className="text-[13px] font-semibold text-neutral-900">Din magazinul tău</p>
-              <p className="text-[11px] text-neutral-400 mt-0.5">Selectează un produs sincronizat</p>
+              <p className="text-[11px] text-neutral-400 mt-0.5">{t('images.select_product_first')}</p>
             </div>
           </div>
           {selectedProduct && (
@@ -239,7 +239,7 @@ function ImageSourceSelector({ selectedProduct, setSelectedProduct, selectedProd
           <div className="flex items-start gap-3">
             <div className="h-9 w-9 rounded-xl bg-neutral-100 flex items-center justify-center shrink-0"><Upload className="h-4 w-4 text-neutral-600" /></div>
             <div>
-              <p className="text-[13px] font-semibold text-neutral-900">Încarcă o imagine</p>
+              <p className="text-[13px] font-semibold text-neutral-900">{t('images.upload_image')}</p>
               <p className="text-[11px] text-neutral-400 mt-0.5">JPG sau PNG de pe calculator</p>
             </div>
           </div>
@@ -340,7 +340,7 @@ function StyleSelector({ styles, selected, onSelect, credits, season }: {
             <p className="text-[10px] text-amber-600">{season.reason}</p>
           </div>
           <Badge className={`${selected === season.style ? 'bg-amber-500 text-white' : 'bg-amber-200 text-amber-700'}`}>
-            {selected === season.style ? 'Selectat' : 'Selectează'}
+            {selected === season.style ? t('common.selected_label') : t('common.select')}
           </Badge>
         </div>
       )}
@@ -414,7 +414,7 @@ function ProductGenerator({ onImageGenerated, brandKit }: { onImageGenerated: (i
       if (data.mode === 'async' && data.task_id) { setTaskId(data.task_id); setImageRecordId(data.image_record_id) }
       else { handleDone([data.image?.generated_image_url], data.image_record_id) }
       triggerCreditsRefresh()
-    } catch { setError('Eroare de conexiune.'); setStep('select_style') }
+    } catch { setError(t('images.connection_error')); setStep('select_style') }
   }
 
   const handleDone = async (urls: string[], recId?: string) => {
@@ -538,7 +538,7 @@ function ProductGenerator({ onImageGenerated, brandKit }: { onImageGenerated: (i
               )}
 
               <div className="flex items-center justify-between pt-1">
-                <Btn variant="ghost" onClick={() => { setStep('select_image'); setError(null) }}>← Înapoi</Btn>
+                <Btn variant="ghost" onClick={() => { setStep('select_image'); setError(null) }}>{t('common.back_label')}</Btn>
                 <Btn onClick={handleGenerate} disabled={!selectedStyle || credits < (styleDef?.cost || 0) * variantCount || (selectedStyle === 'manual' && !manualDesc.trim())}>
                   <Wand2 className="h-3.5 w-3.5" />Generează {styleDef && <Badge className="ml-1 bg-white/20 text-white">{styleDef.cost * variantCount} cr</Badge>}
                 </Btn>
@@ -603,7 +603,7 @@ function ProductGenerator({ onImageGenerated, brandKit }: { onImageGenerated: (i
                   <button onClick={handlePublish} disabled={publishing || published}
                     className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-[12px] font-medium transition-colors border ${published ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-neutral-200 hover:bg-neutral-50 text-neutral-700'}`}>
                     {publishing ? <Loader2 className="h-4 w-4 animate-spin" /> : published ? <CheckCircle className="h-4 w-4" /> : <Globe className="h-4 w-4" />}
-                    {published ? 'Publicat!' : 'Publică în WooCommerce'}
+                    {published ? t('images.published_ok') : t('images.publish_woo')}
                   </button>
                 )}
               </div>
@@ -766,7 +766,7 @@ function PromoGenerator({ onImageGenerated, brandKit }: { onImageGenerated: (img
 
           {step === 'edit_text' && promoText && (
             <motion.div key="p3" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-4">
-              <p className="text-[13px] font-semibold text-neutral-900">Editează textele posterului</p>
+              <p className="text-[13px] font-semibold text-neutral-900">{t('images.edit_poster_texts')}</p>
               {error && <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-100 rounded-xl text-[12px] text-red-600"><AlertCircle className="h-4 w-4 shrink-0" />{error}</div>}
               <div className="space-y-3">
                 {[{ key: 'headline', label: 'Titlu principal', max: 30, placeholder: 'Cel Mai Bun Preț' }, { key: 'subtitle', label: 'Subtitlu', max: 55, placeholder: 'Calitate premium la preț imbatabil' }].map(({ key, label, max, placeholder }) => {

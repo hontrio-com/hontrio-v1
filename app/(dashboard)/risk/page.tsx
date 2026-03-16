@@ -141,7 +141,7 @@ function ScoreRing({ score, size = 80 }: { score: number; size?: number }) {
   const circ = 2 * Math.PI * r
   const offset = circ - (score / 100) * circ
   const color = score >= 81 ? '#dc2626' : score >= 61 ? '#ea580c' : score >= 41 ? '#d97706' : '#10b981'
-  const label = score >= 81 ? 'Blocat' : score >= 61 ? 'Problematic' : score >= 41 ? 'Watch' : 'Trusted'
+  const label = score >= 81 ? t('risk.label_blocked') : score >= 61 ? t('risk.label_problematic') : score >= 41 ? t('risk.label_watch') : t('risk.label_trusted')
   return (
     <div className="relative flex items-center justify-center" style={{ width: size, height: size }}>
       <svg width={size} height={size} className="-rotate-90 absolute">
@@ -238,9 +238,9 @@ function Timeline({ orders, onUpdateStatus, updatingOrder }: {
                   <div className="flex gap-1.5 mt-2 flex-wrap">
                     {[
                       { status: 'collected', label: '✓ Ridicat',  cls: 'bg-emerald-600 hover:bg-emerald-700 text-white' },
-                      { status: 'refused',   label: '✗ Refuzat',  cls: 'bg-red-600 hover:bg-red-700 text-white' },
+                      { status: 'refused',   label: t('risk.refused_btn'),  cls: 'bg-red-600 hover:bg-red-700 text-white' },
                       { status: 'not_home',  label: '○ Absent',   cls: 'bg-amber-100 hover:bg-amber-200 text-amber-800' },
-                      { status: 'cancelled', label: '— Anulat',   cls: 'bg-neutral-200 hover:bg-neutral-300 text-neutral-700' },
+                      { status: 'cancelled', label: t('risk.cancelled_btn'),   cls: 'bg-neutral-200 hover:bg-neutral-300 text-neutral-700' },
                     ].map(btn => (
                       <button key={btn.status} onClick={() => onUpdateStatus(order.id, btn.status)} disabled={updatingOrder === order.id}
                         className={`px-2.5 py-1 rounded-lg text-[10px] font-medium transition-all disabled:opacity-40 ${btn.cls}`}>
@@ -271,7 +271,7 @@ function AddressMap({ orders }: { orders: Order[] }) {
   }, {})
   const addresses = Object.entries(addressCounts).sort((a, b) => b[1].count - a[1].count).slice(0, 6)
   if (addresses.length === 0) return (
-    <div className="text-center py-8"><MapPin className="h-6 w-6 text-neutral-200 mx-auto mb-2" /><p className="text-[12px] text-neutral-400">Nicio adresă înregistrată</p></div>
+    <div className="text-center py-8"><MapPin className="h-6 w-6 text-neutral-200 mx-auto mb-2" /><p className="text-[12px] text-neutral-400">{t('risk.no_address')} înregistrată</p></div>
   )
   return (
     <div className="space-y-2">
@@ -397,7 +397,7 @@ function ClusterTab({ storeId, customers, onOpenProfile }: {
       {ran && !loading && clusters.length === 0 && (
         <div className="text-center py-12">
           <CheckCircle2 className="h-8 w-8 text-neutral-200 mx-auto mb-3" />
-          <p className="text-[13px] font-medium text-neutral-600">Niciun cluster detectat</p>
+          <p className="text-[13px] font-medium text-neutral-600">{t('risk.no_cluster')}</p>
           <p className="text-[12px] text-neutral-400 mt-1">Nu au fost identificate identități multiple suspecte</p>
         </div>
       )}
@@ -414,7 +414,7 @@ function ClusterTab({ storeId, customers, onOpenProfile }: {
                 </div>
                 <div className="flex items-center gap-2 text-[11px] text-neutral-400">
                   <span className="text-red-600 font-semibold">{cluster.combinedRefusals} refuzuri</span>
-                  <span>·</span><span>Scor max: {cluster.maxRiskScore}</span>
+                  <span>·</span><span>{t('risk.score_max')}: {cluster.maxRiskScore}</span>
                 </div>
               </div>
               <div className="space-y-1.5">
@@ -480,14 +480,14 @@ function SettingsTab({ settings, mlAccuracy, mlTotalPredictions, savingSettings,
 
       {/* Notificări */}
       <Card className="p-5">
-        <SectionLabel>Notificări Email</SectionLabel>
+        <SectionLabel>{t('risk.email_notifications')}</SectionLabel>
         <div className="space-y-3">
           <div>
-            <label className="text-[12px] text-neutral-500 mb-1 block">Email pentru alerte</label>
+            <label className="text-[12px] text-neutral-500 mb-1 block">{t('risk.email_alerts_label')}</label>
             <Inp k="alert_email" type="email" placeholder="email@magazin.ro" />
           </div>
           {[
-            { key: 'email_alerts_enabled',   label: 'Alerte instant per comandă riscantă' },
+            { key: 'email_alerts_enabled',   label: t('risk.alert_per_order') },
             { key: 'alert_on_blocked',        label: 'Alertă pentru clienți Blocați' },
             { key: 'alert_on_problematic',    label: 'Alertă pentru clienți Problematici' },
             { key: 'alert_on_watch',          label: 'Alertă pentru clienți Watch' },
@@ -503,12 +503,12 @@ function SettingsTab({ settings, mlAccuracy, mlTotalPredictions, savingSettings,
 
       {/* Praguri scor */}
       <Card className="p-5">
-        <SectionLabel>Praguri Scor Risc</SectionLabel>
+        <SectionLabel>{t('risk.risk_thresholds')}</SectionLabel>
         <div className="space-y-4 mt-3">
           {[
             { key: 'score_watch_threshold',        label: 'Prag Watch',        color: 'text-amber-600' },
-            { key: 'score_problematic_threshold',  label: 'Prag Problematic',  color: 'text-orange-600' },
-            { key: 'score_blocked_threshold',      label: 'Prag Blocat',       color: 'text-red-600' },
+            { key: 'score_problematic_threshold',  label: t('risk.threshold_problematic'),  color: 'text-orange-600' },
+            { key: 'score_blocked_threshold',      label: t('risk.threshold_blocked'),       color: 'text-red-600' },
           ].map(item => (
             <div key={item.key} className="space-y-1.5">
               <div className="flex items-center justify-between">
@@ -588,7 +588,7 @@ function SettingsTab({ settings, mlAccuracy, mlTotalPredictions, savingSettings,
       </Card>
 
       <Btn onClick={() => onSave(local)} disabled={savingSettings} className="w-full justify-center py-3 h-auto text-[13px]">
-        {savingSettings ? 'Salvare...' : 'Salvează toate setările'}
+        {savingSettings ? t('common.saving') : t('common.save_settings')}
       </Btn>
     </div>
   )
@@ -722,7 +722,7 @@ export default function RiskShieldPage() {
         } catch {}
       }
       evtSource.onerror = () => { evtSource.close(); setSyncingAll(false); setSyncProgress({ stage: 'error', message: 'Conexiunea s-a întrerupt.' }) }
-    } catch { setSyncingAll(false); setSyncProgress({ stage: 'error', message: 'Eroare la pornire.' }) }
+    } catch { setSyncingAll(false); setSyncProgress({ stage: 'error', message: t('risk.error_start') }) }
   }
 
   async function saveNote() {
@@ -851,7 +851,7 @@ export default function RiskShieldPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h1 className="text-[22px] font-semibold text-neutral-900 tracking-tight">{t('risk.title')}</h1>
-          <p className="text-[13px] text-neutral-400 mt-0.5">Protecție retururi COD · Detectare fraudă · Intelligence global</p>
+          <p className="text-[13px] text-neutral-400 mt-0.5">{t('risk.protection_desc')}</p>
         </div>
         <div className="flex flex-wrap gap-2 items-center">
           {stores.length > 1 && (
@@ -868,7 +868,7 @@ export default function RiskShieldPage() {
           </Btn>
           <Btn onClick={syncAll} disabled={syncingAll}>
             <RefreshCw className={`h-3.5 w-3.5 ${syncingAll ? 'animate-spin' : ''}`} />
-            {syncingAll ? 'Sincronizare...' : 'Sincronizează WooCommerce'}
+            {syncingAll ? t('common.syncing') : t('risk.sync_woo')}
           </Btn>
         </div>
       </div>
@@ -930,7 +930,7 @@ export default function RiskShieldPage() {
       <div className="flex items-center gap-1 overflow-x-auto pb-1 scrollbar-none -mx-1 px-1">
         {[
           { key: 'customers',  label: 'Clienți',   icon: Users      },
-          { key: 'alerts',     label: 'Alerte',    icon: Bell,  badge: unreadAlerts },
+          { key: 'alerts',     label: t('risk.alerts'),    icon: Bell,  badge: unreadAlerts },
           { key: 'financial',  label: 'Financiar', icon: DollarSign },
           { key: 'heatmap',    label: 'Heatmap',   icon: MapPin     },
           { key: 'clusters',   label: 'Clustere',  icon: Network    },

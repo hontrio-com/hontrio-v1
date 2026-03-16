@@ -45,8 +45,8 @@ function getSeoTier(score: number, status: string): 'published' | 'good' | 'part
 }
 
 const TIER = {
-  published:   { label: 'Publicat',    bg: 'bg-neutral-900', text: 'text-white',        dot: 'bg-white' },
-  good:        { label: 'Optimizat',   bg: 'bg-neutral-100', text: 'text-neutral-700',  dot: 'bg-emerald-500' },
+  published:   { label: t('common.published_label'),    bg: 'bg-neutral-900', text: 'text-white',        dot: 'bg-white' },
+  good:        { label: t('dashboard.optimized'),   bg: 'bg-neutral-100', text: 'text-neutral-700',  dot: 'bg-emerald-500' },
   partial:     { label: 'Parțial',     bg: 'bg-neutral-100', text: 'text-amber-600',    dot: 'bg-amber-400' },
   unoptimized: { label: 'Neoptimizat', bg: 'bg-neutral-100', text: 'text-neutral-400',  dot: 'bg-neutral-300' },
 }
@@ -61,7 +61,7 @@ const SORT_OPTS: { value: SortOption; label: string }[] = [
 ]
 
 const SEO_FILTERS = [
-  { value: 'all',         label: 'Toate' },
+  { value: 'all',         label: t('common.all') },
   { value: 'unoptimized', label: 'Neoptimizate' },
   { value: 'partial',     label: 'Parțiale' },
   { value: 'good',        label: 'Optimizate' },
@@ -377,7 +377,7 @@ export default function ProductsPage() {
         <div>
           <h1 className="text-[22px] font-semibold text-neutral-900 tracking-tight">{t('products.title')}</h1>
           <p className="text-[13px] text-neutral-400 mt-0.5">
-            {total > 0 ? `${total} produse în catalog` : 'Gestionează și optimizează produsele'}
+            {total > 0 ? `${total} ${t('common.products_in_catalog')}` : t('common.manage_optimize')}
           </p>
         </div>
         <button
@@ -439,7 +439,7 @@ export default function ProductsPage() {
 
             {categories.length > 0 && (
               <Dropdown label="Categorie"
-                options={[{ value: 'all', label: 'Toate categoriile' }, ...categories.map(c => ({ value: c, label: c }))]}
+                options={[{ value: 'all', label: t('common.all_categories') }, ...categories.map(c => ({ value: c, label: c }))]}
                 value={filters.category} onChange={v => { setFilters(f => ({ ...f, category: v })); setPage(1) }} />
             )}
 
@@ -481,7 +481,7 @@ export default function ProductsPage() {
               <span className="text-[12px] font-medium text-neutral-700">{selected.size} selectate</span>
               <div className="h-3 w-px bg-neutral-200" />
               <button onClick={toggleSelectAll} className="text-[12px] text-neutral-500 hover:text-neutral-900 transition-colors">
-                {selected.size === products.length ? 'Deselectează tot' : 'Selectează tot'}
+                {selected.size === products.length ? t('common.deselect_all_label') : t('common.select_all_label')}
               </button>
               <div className="ml-auto flex items-center gap-2">
                 <button className="flex items-center gap-1.5 h-7 px-3 rounded-lg bg-neutral-900 hover:bg-neutral-800 text-white text-[12px] font-medium transition-all">

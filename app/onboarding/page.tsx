@@ -139,9 +139,9 @@ export default function OnboardingPage() {
     try {
       const res = await fetch('/api/stores/connect', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(store) })
       const data = await res.json()
-      if (!res.ok) { setError(data.error || 'Eroare la conectare'); return }
+      if (!res.ok) { setError(data.error || t('onboarding.error_connect')); return }
       setStoreConnected(true); setTimeout(goNext, 800)
-    } catch { setError('Eroare de conexiune') } finally { setConnecting(false) }
+    } catch { setError(t('common.error_connection')) } finally { setConnecting(false) }
   }
 
   const handleSyncProducts = async () => {
@@ -149,7 +149,7 @@ export default function OnboardingPage() {
     let done = false
     try {
       const storesRes = await fetch('/api/stores'); const storesData = await storesRes.json()
-      if (!storesData.store) { setError('Niciun magazin conectat'); setSyncing(false); return }
+      if (!storesData.store) { setError(t('onboarding.no_store_connected')); setSyncing(false); return }
       const storeId = storesData.store.id
       fetch(`/api/stores/${storeId}/sync`, { method: 'POST' }).then(async (res) => {
         if (res.ok && !done) { done = true; const data = await res.json(); setSyncedCount(data.synced || 0); setSyncTotal(data.total || 0); setProductsSynced(true); setSyncing(false); setTimeout(goNext, 1200) }
@@ -176,7 +176,7 @@ export default function OnboardingPage() {
           }
         } catch {}
       }, 3000)
-    } catch { setError('Eroare la sincronizare'); setSyncing(false) }
+    } catch { setError(t('onboarding.error_sync')); setSyncing(false) }
   }
 
   const handleComplete = async () => {
@@ -248,7 +248,7 @@ export default function OnboardingPage() {
                 <h1 className="text-[32px] font-semibold text-neutral-900 tracking-tight leading-tight">
                   Bine ai venit, {userName}.
                 </h1>
-                <p className="text-neutral-400 text-[15px] mt-3 mb-2 font-light">Hai sa iti configuram platforma in cateva minute.</p>
+                <p className="text-neutral-400 text-[15px] mt-3 mb-2 font-light">{t('onboarding.setup_minutes')}</p>
                 <p className="text-neutral-300 text-[13px] max-w-sm mx-auto mb-10">
                   4 pasi simpli: brandul tau, conectarea magazinului, sincronizarea produselor si alegerea planului.
                 </p>
@@ -279,8 +279,8 @@ export default function OnboardingPage() {
                   </div>
                   <InputField label="Nisa / Industrie" value={biz.niche} onChange={v => setBiz(p => ({ ...p, niche: v }))} placeholder="Ex: Fashion, Electronice, Beauty, Food..." />
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                    <SelectField label="Tara" value={biz.country} onChange={v => setBiz(p => ({ ...p, country: v }))} options={COUNTRIES} placeholder="Selecteaza tara" />
-                    <SelectField label="Limba principala" value={biz.language} onChange={v => setBiz(p => ({ ...p, language: v }))} options={LANGUAGES} placeholder="Selecteaza limba" />
+                    <SelectField label="Tara" value={biz.country} onChange={v => setBiz(p => ({ ...p, country: v }))} options={COUNTRIES} placeholder={t('onboarding.select_country')} />
+                    <SelectField label={t('onboarding.main_language')} value={biz.language} onChange={v => setBiz(p => ({ ...p, language: v }))} options={LANGUAGES} placeholder={t('onboarding.select_language')} />
                   </div>
                 </div>
               </motion.div>
@@ -302,7 +302,7 @@ export default function OnboardingPage() {
                     <div className="h-14 w-14 rounded-2xl bg-neutral-100 flex items-center justify-center mx-auto mb-4">
                       <CheckCircle className="h-7 w-7 text-neutral-700" />
                     </div>
-                    <h3 className="text-[16px] font-semibold text-neutral-900 mb-1">Magazin conectat</h3>
+                    <h3 className="text-[16px] font-semibold text-neutral-900 mb-1">{t('onboarding.store_connected_label')}</h3>
                     <p className="text-neutral-400 text-[13px]">Trecem la sincronizarea produselor...</p>
                   </motion.div>
                 ) : (
@@ -516,11 +516,11 @@ export default function OnboardingPage() {
 
                 <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.45 }}
                   className="border border-neutral-200 rounded-xl p-5 max-w-sm mx-auto mb-8 text-left">
-                  <p className="text-[11px] font-medium text-neutral-400 uppercase tracking-wider mb-3">Rezumat configurare</p>
+                  <p className="text-[11px] font-medium text-neutral-400 uppercase tracking-wider mb-3">{t('onboarding.setup_summary')}</p>
                   <div className="space-y-3">
                     {[
-                      { label: 'Cont creat', done: true, badge: 'Activ' },
-                      { label: 'Magazin conectat', done: storeConnected, badge: storeConnected ? 'Conectat' : 'Omis' },
+                      { label: t('onboarding.account_created'), done: true, badge: 'Activ' },
+                      { label: t('onboarding.store_connected_label'), done: storeConnected, badge: storeConnected ? 'Conectat' : 'Omis' },
                       { label: 'Produse sincronizate', done: productsSynced, badge: productsSynced ? `${syncedCount} produse` : 'Omis' },
                       { label: 'Plan selectat', done: true, badge: PLANS.find(p => p.id === selectedPlan)?.name || 'Free' },
                     ].map((item, i) => (

@@ -7,7 +7,7 @@ const outfit = Outfit({ subsets: ['latin'], variable: '--font-outfit' })
 
 export const metadata: Metadata = {
   title: 'HONTRIO — AI Growth Engine for eCommerce',
-  description: 'Platformă AI pentru optimizarea produselor din magazinul tău online',
+  description: 'AI platform for optimizing your online store products',
 }
 
 export default function RootLayout({

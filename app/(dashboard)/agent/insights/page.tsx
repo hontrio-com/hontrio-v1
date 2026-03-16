@@ -58,7 +58,7 @@ function UnansweredTab() {
           {(['unresolved','all'] as const).map(f => (
             <button key={f} onClick={() => setFilter(f)}
               className={`text-[11px] px-3 py-1 rounded-md font-medium transition-all ${filter===f ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-500'}`}>
-              {f==='unresolved' ? 'Nerezolvate' : 'Toate'}
+              {f==='unresolved' ? t('agent.unresolved') : t('common.all')}
             </button>
           ))}
         </div>
@@ -102,7 +102,7 @@ function UnansweredTab() {
 
       <div className="flex gap-2 p-4 bg-blue-50 border border-blue-100 rounded-xl">
         <BookOpen className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" />
-        <p className="text-[11px] text-blue-700">Adaugă răspunsul corect în <strong>Cunoștințe</strong> și marchează întrebarea ca rezolvată. Agentul va răspunde corect data viitoare.</p>
+        <p className="text-[11px] text-blue-700">{t('agent.add_correction')} în <strong>Cunoștințe</strong> și marchează întrebarea ca rezolvată. Agentul va răspunde corect data viitoare.</p>
       </div>
     </div>
   )
@@ -179,10 +179,10 @@ function TrainingTab() {
     try {
       const r    = await fetch('/api/agent/training', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ original_question:form.question, wrong_answer:form.wrong||undefined, correct_answer:form.correct }) })
       const data = await r.json()
-      if (!r.ok) { setError(data.error||'Eroare'); return }
+      if (!r.ok) { setError(data.error||t('common.error_generic')); return }
       setCorrections(prev => [data.correction,...prev])
       setForm({ question:'', wrong:'', correct:'' })
-    } catch { setError('Eroare la salvare') } finally { setSaving(false) }
+    } catch { setError(t('common.error_generic')) } finally { setSaving(false) }
   }
 
   const toggle = async (c: Correction) => {
@@ -199,7 +199,7 @@ function TrainingTab() {
   return (
     <div className="space-y-5">
       <Card className="p-5 space-y-3">
-        <p className="text-[13px] font-semibold text-neutral-900">Adaugă corecție nouă</p>
+        <p className="text-[13px] font-semibold text-neutral-900">{t('agent.add_new_correction')}</p>
         <p className="text-[11px] text-neutral-500">Când agentul răspunde greșit, adaugă răspunsul corect. Agentul îl va folosi prioritar.</p>
         <div className="space-y-2">
           <input value={form.question} onChange={e => setForm(f=>({...f,question:e.target.value}))} placeholder="Întrebarea clientului (ex: Cât durează livrarea?)"
@@ -212,7 +212,7 @@ function TrainingTab() {
         </div>
         {error && <p className="text-[11px] text-red-500 flex items-center gap-1"><AlertCircle className="h-3 w-3" />{error}</p>}
         <Btn onClick={add} disabled={saving} variant="primary" className="w-full justify-center">
-          {saving ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />Se procesează...</> : <><Plus className="h-3.5 w-3.5" />Adaugă corecție</>}
+          {saving ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />{t('common.processing')}</> : <><Plus className="h-3.5 w-3.5" />{t('agent.add_correction')}</>}
         </Btn>
       </Card>
 
@@ -278,7 +278,7 @@ function ReviewsTab() {
         <div className="flex items-center justify-between">
           <div>
             <p className="text-[13px] font-semibold text-neutral-900">Colectare automată review-uri</p>
-            <p className="text-[11px] text-neutral-400 mt-0.5">Email trimis automat după finalizarea comenzii</p>
+            <p className="text-[11px] text-neutral-400 mt-0.5">{t('agent.email_sent_auto')}</p>
           </div>
           <button onClick={() => setConfig(c=>({...c,review_enabled:!c.review_enabled}))}>
             {config.review_enabled
@@ -301,12 +301,12 @@ function ReviewsTab() {
         </div>
 
         <div>
-          <p className="text-[10px] font-medium text-neutral-500 uppercase tracking-wide mb-1.5">Subiect email (opțional)</p>
+          <p className="text-[10px] font-medium text-neutral-500 uppercase tracking-wide mb-1.5">{t('agent.email_subject_opt')}</p>
           <input value={config.review_email_subject} onChange={e => setConfig(c=>({...c,review_email_subject:e.target.value}))} placeholder="Cum a fost experiența ta? ⭐"
             className="w-full text-[12px] border border-neutral-200 rounded-xl px-3 py-2 focus:outline-none focus:border-neutral-400 transition-colors" />
         </div>
         <div>
-          <p className="text-[10px] font-medium text-neutral-500 uppercase tracking-wide mb-1.5">Mesaj personalizat (opțional)</p>
+          <p className="text-[10px] font-medium text-neutral-500 uppercase tracking-wide mb-1.5">{t('agent.custom_message_opt')}</p>
           <textarea value={config.review_email_body} onChange={e => setConfig(c=>({...c,review_email_body:e.target.value}))}
             placeholder="Lăsă un review și ajuți alți clienți..." rows={3}
             className="w-full text-[12px] border border-neutral-200 rounded-xl px-3 py-2 focus:outline-none focus:border-neutral-400 transition-colors resize-none" />
@@ -314,7 +314,7 @@ function ReviewsTab() {
 
         <Btn onClick={save} disabled={saving} variant={saved?'success':'primary'} className="w-full justify-center">
           {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : saved ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Save className="h-3.5 w-3.5" />}
-          {saving ? 'Salvez...' : saved ? 'Salvat!' : 'Salvează configurarea'}
+          {saving ? t('common.saving') : saved ? t('common.saved') : t('agent.save_config_label')}
         </Btn>
 
         <div className="p-3 bg-amber-50 border border-amber-100 rounded-xl">
@@ -323,7 +323,7 @@ function ReviewsTab() {
           <code className="text-[10px] bg-amber-100 px-2 py-1 rounded block break-all text-amber-800">
             {typeof window !== 'undefined' ? window.location.origin : 'https://app.hontrio.com'}/api/agent/reviews?userId=YOUR_USER_ID
           </code>
-          <p className="text-[10px] text-amber-600 mt-1">Topic: Order updated · Status: Activ</p>
+          <p className="text-[10px] text-amber-600 mt-1">{t('agent.webhook_topic')}</p>
         </div>
       </Card>
 

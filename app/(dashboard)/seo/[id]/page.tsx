@@ -108,7 +108,7 @@ function CharCounter({ value, min, max }: { value: string; min?: number; max: nu
 function GooglePreview({ title, description, url, mobile }: { title: string; description: string; url: string; mobile: boolean }) {
   const maxT = mobile ? 55 : 60
   const maxD = mobile ? 120 : 155
-  const t = title || 'Titlu produs'
+  const t = title || t('seo.field_title')
   const d = description || 'Meta description lipsă — Google va alege automat un snippet.'
   return (
     <Card className="p-4">
@@ -165,7 +165,7 @@ function LiveScoreWidget({ sections, collapsed, onToggle }: {
           </div>
         </div>
         <div className="flex-1 text-left">
-          <p className="text-[13px] font-semibold text-neutral-900">Scor SEO live</p>
+          <p className="text-[13px] font-semibold text-neutral-900">{t('seo.live_seo_score')}</p>
           <p className="text-[12px] text-neutral-400">Se actualizează în timp real</p>
         </div>
         <ChevronDown className={`h-4 w-4 text-neutral-400 transition-transform shrink-0 ${collapsed ? '' : 'rotate-180'}`} />
@@ -267,7 +267,7 @@ function DuplicateWarning({ productId, title }: { productId: string; title: stri
     <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}
       className="flex items-start gap-2 p-3 bg-amber-50 rounded-xl border border-amber-100 text-[12px] text-amber-700 mb-2">
       <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-      <span><strong>Titlu duplicat:</strong> „{dup}" — Google poate penaliza duplicate content.</span>
+      <span><strong>{t('seo.duplicate_title')}:</strong> „{dup}" — Google poate penaliza duplicate content.</span>
     </motion.div>
   )
 }
@@ -354,12 +354,12 @@ function SchemaWidget({ productId }: { productId: string }) {
           <div className="flex items-center gap-2">
             {schema && (
               <Btn variant="ghost" size="sm" onClick={copy}>
-                {copied ? <><Check className="h-3 w-3 text-emerald-500" />Copiat!</> : <><Copy className="h-3 w-3" />Copiază</>}
+                {copied ? <><Check className="h-3 w-3 text-emerald-500" />{t('common.copied_label')}</> : <><Copy className="h-3 w-3" />{t('common.copy_label')}</>}
               </Btn>
             )}
             <Btn variant="outline" size="sm" onClick={generate} disabled={loading}>
               {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
-              {schema ? 'Regenerează' : 'Generează'}
+              {schema ? t('common.regenerate_label') : t('common.generate_label')}
             </Btn>
           </div>
         </div>
@@ -587,7 +587,7 @@ export default function ProductSEOPage() {
     try {
       const res  = await fetch('/api/seo/optimize', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ product_id: productId, section }) })
       const data = await res.json()
-      if (!res.ok) { alert(data.error || 'Eroare'); return }
+      if (!res.ok) { alert(data.error || t('common.error_generic')); return }
       const r = data.result
       const map: Record<SectionKey, string> = { title: r.optimized_title || '', meta_description: r.meta_description || '', short_description: r.optimized_short_description || '', long_description: r.optimized_long_description || '', focus_keyword: r.focus_keyword || '' }
       upd(section, { current: map[section], modified: map[section], saved: false })
@@ -653,7 +653,7 @@ export default function ProductSEOPage() {
       const data = await res.json()
       if (!res.ok) { setPublishResult({ error: data.error }); return }
       setPublishResult({ success: true })
-    } catch { setPublishResult({ error: 'Eroare la publicare' }) } finally { setPublishing(false) }
+    } catch { setPublishResult({ error: t('seo.error_publish') }) } finally { setPublishing(false) }
   }
 
   function handleRestoreVersion(v: HistoryVersion) {
@@ -704,7 +704,7 @@ export default function ProductSEOPage() {
             )}
             <Btn variant="outline" size="sm" onClick={handleGenerateAll} disabled={generatingAll}>
               {generatingAll ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-              {generatingAll ? 'Generez...' : 'Generează tot'}
+              {generatingAll ? t('common.generating') : t('seo.generate_all')}
               <span className="text-neutral-300 text-[9px]">5cr</span>
             </Btn>
             <Btn size="sm" onClick={handlePublish} disabled={publishing}>
@@ -719,7 +719,7 @@ export default function ProductSEOPage() {
             <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
               className={`mt-3 flex items-center gap-2 px-4 py-3 rounded-xl text-[13px] font-medium ${publishResult.success ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-red-50 text-red-700 border border-red-100'}`}>
               {publishResult.success ? <CheckCircle className="h-4 w-4 shrink-0" /> : <XCircle className="h-4 w-4 shrink-0" />}
-              {publishResult.success ? 'Publicat cu succes în WooCommerce!' : publishResult.error}
+              {publishResult.success ? t('seo.publish_woo_success') : publishResult.error}
             </motion.div>
           )}
         </AnimatePresence>
@@ -766,11 +766,11 @@ export default function ProductSEOPage() {
 
           {/* Sections */}
           {([
-            { key: 'title',             label: 'Titlu SEO (Title Tag)',     maxChars: 70,  minChars: 50,  placeholder: 'Titlu optimizat — 50-70 caractere',                hint: 'Apare în Google și tab browser. Include keyword-ul principal în primele cuvinte.', creditCost: 1 },
+            { key: 'title',             label: t('seo.title_tag'),     maxChars: 70,  minChars: 50,  placeholder: 'Titlu optimizat — 50-70 caractere',                hint: 'Apare în Google și tab browser. Include keyword-ul principal în primele cuvinte.', creditCost: 1 },
             { key: 'meta_description',  label: 'Meta Description',          maxChars: 155, minChars: 120, placeholder: 'Meta description — max 155 car., include CTA',      hint: 'Apare sub titlu în Google. Crește CTR cu un beneficiu clar și CTA.',           creditCost: 1 },
             { key: 'focus_keyword',     label: 'Focus Keyword',             maxChars: 60,                 placeholder: 'ex: mop spin inox, tricou bumbac organic',          hint: 'Query-ul principal al cumpărătorilor. 2-4 cuvinte, natural și specific.',       creditCost: 1 },
-            { key: 'short_description', label: 'Descriere Scurtă',          maxChars: 350, minChars: 80,  placeholder: 'Descriere scurtă — apare înainte de Adaugă în coș', hint: '2-4 propoziții care conving clientul.',                                          creditCost: 2, isHtml: /<[a-z][\s\S]*>/i.test(sections.short_description.current) },
-            { key: 'long_description',  label: 'Descriere Lungă (HTML)',                                  placeholder: '<h3>Titlu</h3><p>Conținut...</p>',                  hint: 'Editor HTML. Structura existentă e PĂSTRATĂ — AI optimizează textul, nu tagurile.', creditCost: 2, isHtml: true },
+            { key: 'short_description', label: t('seo.short_desc_label'),          maxChars: 350, minChars: 80,  placeholder: 'Descriere scurtă — apare înainte de Adaugă în coș', hint: '2-4 propoziții care conving clientul.',                                          creditCost: 2, isHtml: /<[a-z][\s\S]*>/i.test(sections.short_description.current) },
+            { key: 'long_description',  label: t('seo.long_desc_html'),                                  placeholder: '<h3>Titlu</h3><p>Conținut...</p>',                  hint: 'Editor HTML. Structura existentă e PĂSTRATĂ — AI optimizează textul, nu tagurile.', creditCost: 2, isHtml: true },
           ] as any[]).map((cfg, i) => (
             <motion.div key={cfg.key} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 + i * 0.04 }}>
               {cfg.key === 'title' && <DuplicateWarning productId={productId} title={sections.title.current} />}
@@ -824,7 +824,7 @@ export default function ProductSEOPage() {
           {anyUnsaved
             ? <span className="text-neutral-600 font-medium">Modificări nesalvate</span>
             : <span className="text-emerald-600 font-medium flex items-center gap-1.5"><CheckCircle className="h-3.5 w-3.5 shrink-0" />Totul salvat</span>}
-          {credits !== null && <span className="text-neutral-400 ml-2 tabular-nums">Credite: {credits}</span>}
+          {credits !== null && <span className="text-neutral-400 ml-2 tabular-nums">{t('seo.credits_remaining')}: {credits}</span>}
         </div>
         <div className="flex gap-2 shrink-0">
           {anyUnsaved && (

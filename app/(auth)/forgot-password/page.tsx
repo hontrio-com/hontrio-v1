@@ -51,7 +51,7 @@ export default function ForgotPasswordPage() {
     try {
       const res = await fetch('/api/auth/forgot-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: email.trim().toLowerCase() }) })
       const data = await res.json()
-      if (!res.ok) { showToast(data.error || 'Eroare la trimiterea emailului', 'error'); setLoading(false); return }
+      if (!res.ok) { showToast(data.error || t('common.error_generic'), 'error'); setLoading(false); return }
       setSent(true)
     } catch { showToast('Eroare de conexiune', 'error') } finally { setLoading(false) }
   }
@@ -73,7 +73,7 @@ export default function ForgotPasswordPage() {
             <div className="h-16 w-16 rounded-2xl bg-neutral-100 flex items-center justify-center mx-auto mb-6">
               <CheckCircle className="h-7 w-7 text-neutral-700" />
             </div>
-            <h1 className="text-[26px] font-semibold text-neutral-900 tracking-tight mb-3">Email trimis</h1>
+            <h1 className="text-[26px] font-semibold text-neutral-900 tracking-tight mb-3">{t('auth.reset_success')}</h1>
             <p className="text-neutral-400 text-[14px] leading-relaxed mb-8 font-light">
               Am trimis instructiunile de resetare la <span className="text-neutral-700 font-medium">{email}</span>. Verifica-ti inbox-ul si folderul spam.
             </p>
@@ -96,7 +96,7 @@ export default function ForgotPasswordPage() {
 
             <motion.form initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }} onSubmit={handleSubmit} className="space-y-4 text-left">
               <div>
-                <label className="block text-[12px] font-medium text-neutral-400 mb-1.5 uppercase tracking-wide">Email</label>
+                <label className="block text-[12px] font-medium text-neutral-400 mb-1.5 uppercase tracking-wide">{t('auth.email')}</label>
                 <div className={`relative rounded-xl border transition-all duration-200 ${focused ? 'border-neutral-900 ring-1 ring-neutral-900/5' : 'border-neutral-200 hover:border-neutral-300'}`}>
                   <Mail className={`absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 transition-colors duration-200 ${focused ? 'text-neutral-900' : 'text-neutral-300'}`} />
                   <input type="email" value={email} onChange={e => setEmail(e.target.value)} onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}

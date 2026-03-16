@@ -101,7 +101,7 @@ function useAttachments() {
         const data = await res.json()
         setPending(p => p.map(f => f.localId === localId ? { ...f, url: res.ok ? data.url : f.url, uploading: false, error: res.ok ? undefined : data.error } : f))
       } catch {
-        setPending(p => p.map(f => f.localId === localId ? { ...f, uploading: false, error: 'Eroare upload' } : f))
+        setPending(p => p.map(f => f.localId === localId ? { ...f, uploading: false, error: t('common.error_upload') } : f))
       }
     }
   }
@@ -167,7 +167,7 @@ function DropZone({ onFiles, disabled }: { onFiles: (f: FileList) => void; disab
         ${disabled ? 'opacity-40 pointer-events-none' : ''}`}>
       <Upload className="h-3.5 w-3.5 text-neutral-400 shrink-0" />
       <div>
-        <p className="text-[12px] font-medium text-neutral-600">Adaugă fișiere <span className="text-neutral-900 underline underline-offset-2">sau trage aici</span></p>
+        <p className="text-[12px] font-medium text-neutral-600">{t('common.add_files')} <span className="text-neutral-900 underline underline-offset-2">{t('common.or_drag')}</span></p>
         <p className="text-[10px] text-neutral-400 mt-0.5">JPG, PNG, PDF · max 10MB · max {MAX_FILES} fișiere</p>
       </div>
       <input ref={ref} type="file" multiple accept={ACCEPTED} className="hidden" onChange={e => e.target.files && onFiles(e.target.files)} />
@@ -258,8 +258,8 @@ export default function SupportPage() {
         setCreateSuccess(true)
         await fetchTickets()
         setTimeout(() => { setCreateSuccess(false); setView('list') }, 2000)
-      } else { setCreateErr(data.error || 'Eroare la trimitere') }
-    } catch { setCreateErr('Eroare de rețea') }
+      } else { setCreateErr(data.error || t('common.error_generic')) }
+    } catch { setCreateErr(t('common.error_connection')) }
     finally { setCreating(false) }
   }
 
@@ -307,7 +307,7 @@ export default function SupportPage() {
       </button>
 
       <div>
-        <h1 className="text-[22px] font-semibold text-neutral-900 tracking-tight">Tichet nou</h1>
+        <h1 className="text-[22px] font-semibold text-neutral-900 tracking-tight">{t('support.new_ticket')}</h1>
         <p className="text-[13px] text-neutral-400 mt-0.5">Îți răspundem în maxim 24h în zilele lucrătoare</p>
       </div>
 
@@ -333,7 +333,7 @@ export default function SupportPage() {
         </div>
 
         <div>
-          <label className="block text-[12px] font-medium text-neutral-400 uppercase tracking-wide mb-1.5">Categorie</label>
+          <label className="block text-[12px] font-medium text-neutral-400 uppercase tracking-wide mb-1.5">{t('products.category')}</label>
           <div className="flex flex-wrap gap-2">
             {Object.entries(CATEGORY).map(([k, v]) => {
               const Icon = v.icon
@@ -386,9 +386,9 @@ export default function SupportPage() {
           <button type="submit" disabled={creating || createSuccess || createAtts.uploading}
             className="flex items-center gap-2 h-10 px-5 rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white text-[13px] font-medium transition-all disabled:opacity-50">
             {creating || createAtts.uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
-            {creating ? 'Se trimite...' : createAtts.uploading ? 'Se urcă fișierele...' : 'Trimite tichetul'}
+            {creating ? t('common.sending') : createAtts.uploading ? t('support.uploading_files') : t('support.send_ticket_btn')}
           </button>
-          <button type="button" onClick={() => setView('list')} className="text-[13px] text-neutral-400 hover:text-neutral-600 transition-colors">Anulează</button>
+          <button type="button" onClick={() => setView('list')} className="text-[13px] text-neutral-400 hover:text-neutral-600 transition-colors">{t('common.cancel')}</button>
         </div>
       </form>
     </div>
@@ -424,7 +424,7 @@ export default function SupportPage() {
         <div className="space-y-3">
           {/* Original message */}
           <div className="flex gap-3">
-            <div className="h-8 w-8 rounded-full bg-neutral-200 flex items-center justify-center text-[11px] font-semibold text-neutral-600 shrink-0">Tu</div>
+            <div className="h-8 w-8 rounded-full bg-neutral-200 flex items-center justify-center text-[11px] font-semibold text-neutral-600 shrink-0">{t('support.you')}</div>
             <div className="flex-1 bg-white border border-neutral-200 rounded-xl p-4 min-w-0">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-[12px] font-semibold text-neutral-700">Tu</span>
@@ -474,7 +474,7 @@ export default function SupportPage() {
             )}
 
             <div className="flex items-center justify-between">
-              <span className="text-[11px] text-neutral-400">Ctrl+Enter pentru a trimite</span>
+              <span className="text-[11px] text-neutral-400">{t('support.ctrl_enter')}</span>
               <div className="flex items-center gap-2">
                 {sendErr && <span className="text-[12px] text-red-500">{sendErr}</span>}
                 <button onClick={sendReply}
@@ -534,7 +534,7 @@ export default function SupportPage() {
       {tickets.length > 0 && (
         <div className="flex items-center gap-1">
           {[
-            { value: 'all',         label: 'Toate',     count: tickets.length },
+            { value: 'all', label: t('common.all'),     count: tickets.length },
             { value: 'open',        label: 'Deschise',  count: tickets.filter(t => t.status === 'open').length },
             { value: 'in_progress', label: 'În lucru',  count: tickets.filter(t => t.status === 'in_progress').length },
             { value: 'resolved',    label: 'Rezolvate', count: tickets.filter(t => t.status === 'resolved').length },
@@ -561,7 +561,7 @@ export default function SupportPage() {
             <div className="h-14 w-14 rounded-xl bg-neutral-100 flex items-center justify-center mx-auto mb-4">
               <MessageCircle className="h-6 w-6 text-neutral-300" />
             </div>
-            <p className="text-[15px] font-semibold text-neutral-700 mb-1">Niciun tichet deschis</p>
+            <p className="text-[15px] font-semibold text-neutral-700 mb-1">{t('support.no_tickets')}</p>
             <p className="text-[13px] text-neutral-400 mb-5">Dacă ai o problemă, suntem aici să te ajutăm.</p>
             <button onClick={() => setView('create')}
               className="h-9 px-5 rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white text-[13px] font-medium transition-all">
@@ -570,7 +570,7 @@ export default function SupportPage() {
           </div>
 
           <div>
-            <p className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider mb-3">Întrebări frecvente</p>
+            <p className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider mb-3">{t('support.faq')}</p>
             <div className="space-y-2">{FAQ.map((item, i) => <FaqItem key={i} q={item.q} a={item.a} />)}</div>
           </div>
         </div>
@@ -580,7 +580,7 @@ export default function SupportPage() {
             {filtered.length === 0 ? (
               <div className="text-center py-12">
                 <MessageSquare className="h-8 w-8 text-neutral-200 mx-auto mb-3" />
-                <p className="text-[13px] text-neutral-400">Niciun tichet cu statusul selectat</p>
+                <p className="text-[13px] text-neutral-400">{t('support.no_tickets')}</p>
               </div>
             ) : (
               <div className="divide-y divide-neutral-50">

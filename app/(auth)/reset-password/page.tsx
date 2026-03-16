@@ -64,7 +64,7 @@ function ResetContent() {
         body: JSON.stringify({ token, email, password }),
       })
       const data = await res.json()
-      if (!res.ok) { showToast(data.error || 'Eroare', 'error'); setLoading(false); return }
+      if (!res.ok) { showToast(data.error || t('common.error_generic'), 'error'); setLoading(false); return }
       setDone(true)
     } catch { showToast('Eroare de conexiune', 'error') } finally { setLoading(false) }
   }
@@ -107,8 +107,8 @@ function ResetContent() {
             <div className="h-16 w-16 rounded-2xl bg-neutral-100 flex items-center justify-center mx-auto mb-6">
               <CheckCircle className="h-7 w-7 text-neutral-700" />
             </div>
-            <h1 className="text-[26px] font-semibold text-neutral-900 tracking-tight mb-3">Parola resetata</h1>
-            <p className="text-neutral-400 text-[14px] leading-relaxed mb-8 font-light">Parola ta a fost actualizata cu succes. Te poti conecta acum.</p>
+            <h1 className="text-[26px] font-semibold text-neutral-900 tracking-tight mb-3">{t('auth.reset_success')}</h1>
+            <p className="text-neutral-400 text-[14px] leading-relaxed mb-8 font-light">{t('auth.reset_success')}</p>
             <Link href="/login">
               <motion.button whileTap={{ scale: 0.985 }}
                 className="w-full h-[46px] rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white text-[14px] font-medium flex items-center justify-center gap-2 transition-all cursor-pointer">

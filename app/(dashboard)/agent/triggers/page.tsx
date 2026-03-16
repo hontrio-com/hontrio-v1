@@ -155,7 +155,7 @@ export default function TriggersPage() {
             </div>
             <p className="text-[11px] text-neutral-500 mb-5 bg-neutral-50 rounded-xl p-3">{TRIGGER_META[newType].desc}</p>
             <div className="flex gap-2">
-              <button onClick={() => setShowAdd(false)} className="flex-1 h-9 text-[12px] font-medium border border-neutral-200 text-neutral-600 hover:bg-neutral-50 rounded-xl transition-colors">Anulează</button>
+              <button onClick={() => setShowAdd(false)} className="flex-1 h-9 text-[12px] font-medium border border-neutral-200 text-neutral-600 hover:bg-neutral-50 rounded-xl transition-colors">{t('common.cancel_label')}</button>
               <button onClick={addTrigger} className="flex-1 h-9 text-[12px] font-medium bg-neutral-900 text-white hover:bg-neutral-800 rounded-xl transition-colors">Adaugă</button>
             </div>
           </div>
@@ -167,7 +167,7 @@ export default function TriggersPage() {
         <div className="text-center py-16">
           <Zap className="h-12 w-12 mx-auto mb-3 text-neutral-200" />
           <p className="text-[13px] text-neutral-500">Nu ai triggeri configurați</p>
-          <p className="text-[11px] text-neutral-400 mt-1">Adaugă primul trigger ca agentul să vorbească primul</p>
+          <p className="text-[11px] text-neutral-400 mt-1">{t('agent.first_trigger_hint')}</p>
         </div>
       ) : (
         <div className="space-y-2">
@@ -191,7 +191,7 @@ export default function TriggersPage() {
                     <p className="text-[11px] text-neutral-400 mt-0.5 truncate">{trigger.message}</p>
                   </div>
                   <div className="text-center hidden sm:block shrink-0">
-                    <p className="text-[10px] text-neutral-400">Prioritate</p>
+                    <p className="text-[10px] text-neutral-400">{t('common.priority')}</p>
                     <p className="text-[14px] font-bold text-neutral-700 tabular-nums">{trigger.priority}</p>
                   </div>
                   <button onClick={() => toggleActive(trigger)} className="shrink-0">
@@ -208,12 +208,12 @@ export default function TriggersPage() {
                 {isExp && (
                   <div className="border-t border-neutral-100 p-4 space-y-4 bg-neutral-50">
                     <div>
-                      <p className="text-[10px] font-medium text-neutral-500 uppercase tracking-wide mb-1.5">Nume trigger</p>
+                      <p className="text-[10px] font-medium text-neutral-500 uppercase tracking-wide mb-1.5">{t('agent.trigger_name')}</p>
                       <input value={trigger.name} onChange={e => updateLocal(trigger.id,{name:e.target.value})}
                         className="w-full text-[12px] border border-neutral-200 rounded-xl px-3 py-2 bg-white focus:outline-none focus:border-neutral-400 transition-colors" />
                     </div>
                     <div>
-                      <p className="text-[10px] font-medium text-neutral-500 uppercase tracking-wide mb-1.5">Mesaj afișat vizitatorului</p>
+                      <p className="text-[10px] font-medium text-neutral-500 uppercase tracking-wide mb-1.5">{t('agent.trigger_msg_label')}</p>
                       <textarea value={trigger.message} onChange={e => updateLocal(trigger.id,{message:e.target.value})}
                         className="w-full border border-neutral-200 rounded-xl p-3 text-[12px] resize-none bg-white focus:outline-none focus:border-neutral-400 transition-colors" rows={2} />
                     </div>
@@ -253,7 +253,7 @@ export default function TriggersPage() {
                           className="w-full text-[12px] border border-neutral-200 rounded-xl px-3 py-2 bg-white focus:outline-none focus:border-neutral-400 transition-colors" />
                       </div>
                       <div>
-                        <p className="text-[10px] font-medium text-neutral-500 uppercase tracking-wide mb-1.5">Prioritate</p>
+                        <p className="text-[10px] font-medium text-neutral-500 uppercase tracking-wide mb-1.5">{t('common.priority')}</p>
                         <input type="number" min={0} max={100} value={trigger.priority} onChange={e => updateLocal(trigger.id,{priority:Number(e.target.value)})}
                           className="w-full text-[12px] border border-neutral-200 rounded-xl px-3 py-2 bg-white focus:outline-none focus:border-neutral-400 transition-colors" />
                       </div>
@@ -295,7 +295,7 @@ export default function TriggersPage() {
                       <button onClick={() => saveTrigger(trigger)} disabled={saving===trigger.id}
                         className="inline-flex items-center gap-1.5 h-8 px-4 text-[12px] font-medium bg-neutral-900 hover:bg-neutral-800 text-white rounded-xl transition-colors disabled:opacity-40">
                         <Save className="h-3.5 w-3.5" />
-                        {saving===trigger.id ? 'Se salvează...' : 'Salvează'}
+                        {saving===trigger.id ? t('common.saving') : t('common.save')}
                       </button>
                     </div>
                   </div>

@@ -68,7 +68,7 @@ function pwStrength(p: string) {
   if (/[^A-Za-z0-9]/.test(p)) s++
   if (s <= 1) return { score: s, label: 'Slabă',    color: 'bg-red-400' }
   if (s <= 2) return { score: s, label: 'Medie',    color: 'bg-amber-400' }
-  if (s <= 3) return { score: s, label: 'Bună',     color: 'bg-neutral-400' }
+  if (s <= 3) return { score: s, label: t('settings.password_good'),     color: 'bg-neutral-400' }
   return              { score: s, label: 'Puternică', color: 'bg-emerald-500' }
 }
 
@@ -280,7 +280,7 @@ export default function SettingsPage() {
   }
 
   async function handleDisconnect() {
-    if (!store || !confirm('Deconectezi magazinul? Produsele rămân în platformă.')) return
+    if (!store || !confirm(t('settings.disconnect_confirm'))) return
     setDisconnecting(true)
     try { await fetch(`/api/stores/${store.id}`, { method: 'DELETE' }); setStore(null); toast('success', 'Magazin deconectat.') }
     catch { toast('error', 'Eroare la deconectare') } finally { setDisconnecting(false) }
@@ -385,17 +385,17 @@ export default function SettingsPage() {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-                <Field label="Nume complet">
+                <Field label={t('settings.full_name')}>
                   <Inp value={profileForm.name} onChange={e => setProfileForm(p => ({ ...p, name: e.target.value }))} />
                 </Field>
-                <Field label="Email">
+                <Field label={t('settings.email')}>
                   <Inp value={userEmail} disabled />
                 </Field>
               </div>
 
               <Btn onClick={handleSaveProfile} disabled={saving}>
                 {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-                {saving ? 'Se salvează...' : 'Salvează'}
+                {saving ? t('common.saving') : t('common.save')}
               </Btn>
             </Card>
           </div>
@@ -405,7 +405,7 @@ export default function SettingsPage() {
               <p className="text-[11px] font-medium text-neutral-400 uppercase tracking-wide mb-3">Detalii cont</p>
               <div className="space-y-2.5">
                 <div className="flex items-center justify-between">
-                  <span className="text-[13px] text-neutral-500">Plan</span>
+                  <span className="text-[13px] text-neutral-500">{t('common.plan')}</span>
                   <span className="text-[12px] font-medium bg-neutral-100 text-neutral-700 px-2 py-0.5 rounded-md capitalize">{userPlan}</span>
                 </div>
                 <div className="flex items-center justify-between">
@@ -449,7 +449,7 @@ export default function SettingsPage() {
 
               <div className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <Field label="Nume business">
+                  <Field label={t('settings.business_name')}>
                     <Inp value={brandForm.businessName} onChange={e => setBrandForm(p => ({ ...p, businessName: e.target.value }))} placeholder="Numele magazinului tău" />
                   </Field>
                   <Field label="Website">
@@ -496,7 +496,7 @@ export default function SettingsPage() {
 
                 <Btn onClick={handleSaveBrand} disabled={savingBrand}>
                   {savingBrand ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-                  {savingBrand ? 'Se salvează...' : 'Salvează brand'}
+                  {savingBrand ? t('common.saving') : t('common.save_brand')}
                 </Btn>
               </div>
             </Card>
@@ -549,7 +549,7 @@ export default function SettingsPage() {
 
                 <div className="space-y-2 mb-4">
                   {[
-                    { icon: Globe,     label: 'URL Magazin',          value: <a href={store.store_url} target="_blank" rel="noopener" className="text-[13px] text-neutral-600 flex items-center gap-1 hover:text-neutral-900">{store.store_url.replace(/^https?:\/\//, '')}<ExternalLink className="h-3 w-3" /></a> },
+                    { icon: Globe,     label: t('settings.store_url_label'),          value: <a href={store.store_url} target="_blank" rel="noopener" className="text-[13px] text-neutral-600 flex items-center gap-1 hover:text-neutral-900">{store.store_url.replace(/^https?:\/\//, '')}<ExternalLink className="h-3 w-3" /></a> },
                     { icon: Package,   label: t('settings.products_synced'), value: <span className="text-[13px] font-semibold text-neutral-900">{store.products_count}</span> },
                     { icon: RefreshCw, label: t('settings.last_sync'),  value: <span className="text-[13px] text-neutral-600">{store.last_sync_at ? new Date(store.last_sync_at).toLocaleString('ro-RO') : 'Niciodată'}</span> },
                   ].map((row, i) => (
@@ -566,7 +566,7 @@ export default function SettingsPage() {
                 <div className="flex gap-2">
                   <Btn onClick={handleSync} disabled={syncing}>
                     {syncing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-                    {syncing ? 'Sincronizare...' : 'Sincronizează'}
+                    {syncing ? t('common.syncing') : t('products.sync')}
                   </Btn>
                   <Btn variant="danger" onClick={handleDisconnect} disabled={disconnecting}>
                     {disconnecting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Unplug className="h-3.5 w-3.5" />}
@@ -581,13 +581,13 @@ export default function SettingsPage() {
                     <Plug className="h-4 w-4 text-neutral-500" />
                   </div>
                   <div>
-                    <p className="text-[13px] font-semibold text-neutral-900">Conectează magazinul</p>
+                    <p className="text-[13px] font-semibold text-neutral-900">{t('settings.connect_store_label')}</p>
                     <p className="text-[11px] text-neutral-400">Introdu datele WooCommerce</p>
                   </div>
                 </div>
 
                 <div className="space-y-4">
-                  <Field label="URL Magazin">
+                  <Field label={t('settings.store_url_label')}>
                     <Inp value={storeForm.store_url} onChange={e => { setStoreForm(p => ({ ...p, store_url: e.target.value })); setConnTest(null) }} placeholder="https://magazin.ro" />
                   </Field>
 
@@ -625,7 +625,7 @@ export default function SettingsPage() {
                     </Btn>
                     <Btn onClick={handleConnect} disabled={connecting} className="flex-1 justify-center">
                       {connecting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plug className="h-3.5 w-3.5" />}
-                      {connecting ? 'Se conectează...' : 'Conectează'}
+                      {connecting ? t('common.connecting') : t('onboarding.connect_store')}
                     </Btn>
                   </div>
                 </div>
