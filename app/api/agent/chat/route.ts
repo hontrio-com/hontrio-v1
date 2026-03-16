@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { openai } from '@/lib/openai/client'
 import { sendEmail, buildEscalationEmail } from '@/lib/email'
 import { rateLimitAgentChat, rateLimitAgentVisitor, getClientIp } from '@/lib/security/rate-limit'
+import { getAILanguage } from '@/lib/i18n/ai-languages'
 
 type Intent = 'buying_ready'|'browsing'|'comparing'|'compatibility'|'info_product'|'info_shipping'|'problem'|'off_topic'|'escalate'|'greeting'
 
