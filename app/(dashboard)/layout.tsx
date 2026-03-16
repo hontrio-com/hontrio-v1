@@ -70,8 +70,8 @@ const STYLE_LABELS: Record<string, string> = { white_background: 'Fundal Alb', l
 
 function SearchDropdown({ results, loading, query, onNavigate }: { results: { products: any[]; images: any[]; pages: any[] }; loading: boolean; query: string; onNavigate: (h: string) => void }) {
   const hasAny = results.products.length > 0 || results.images.length > 0 || results.pages.length > 0
-  if (loading && !hasAny) return <div className="flex items-center gap-2 px-4 py-4 text-sm text-neutral-400"><Loader2 className="h-4 w-4 animate-spin" />Cauta...</div>
-  if (!hasAny) return <div className="px-4 py-5 text-center"><Search className="h-7 w-7 text-neutral-200 mx-auto mb-2" /><p className="text-sm text-neutral-400">Niciun rezultat pentru "{query}"</p></div>
+  if (loading && !hasAny) return <div className="flex items-center gap-2 px-4 py-4 text-sm text-neutral-400"><Loader2 className="h-4 w-4 animate-spin" />{t('common.loading')}</div>
+  if (!hasAny) return <div className="px-4 py-5 text-center"><Search className="h-7 w-7 text-neutral-200 mx-auto mb-2" /><p className="text-sm text-neutral-400">{t('common.no_results')} "{query}"</p></div>
   return (
     <div className="py-1">
       {results.products.length > 0 && (<div>
@@ -84,7 +84,7 @@ function SearchDropdown({ results, loading, query, onNavigate }: { results: { pr
             </div><ArrowUpRight className="h-3.5 w-3.5 text-neutral-300 group-hover:text-neutral-500 shrink-0" />
           </button>
         ))}
-        <button onClick={() => onNavigate('/products?search=' + encodeURIComponent(query))} className="w-full flex items-center gap-2 px-4 py-2 text-xs text-neutral-500 hover:bg-neutral-50 transition-colors border-t border-neutral-50"><Search className="h-3 w-3" />Vezi toate cu "{query}"<ArrowUpRight className="h-3 w-3 ml-auto" /></button>
+        <button onClick={() => onNavigate('/products?search=' + encodeURIComponent(query))} className="w-full flex items-center gap-2 px-4 py-2 text-xs text-neutral-500 hover:bg-neutral-50 transition-colors border-t border-neutral-50"><Search className="h-3 w-3" />{t('dashboard.view_all')} "{query}"<ArrowUpRight className="h-3 w-3 ml-auto" /></button>
       </div>)}
       {results.images.length > 0 && (<div>
         <div className="flex items-center gap-2 px-4 py-2 bg-neutral-50 border-t border-neutral-100"><ImageIcon className="h-3.5 w-3.5 text-neutral-400" /><span className="text-[10px] font-semibold text-neutral-400 uppercase tracking-wider">Imagini AI</span></div>
@@ -247,7 +247,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <div className="mx-3 mb-3">
                 <div className="rounded-xl p-4 bg-neutral-900 text-white">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-[11px] font-medium text-neutral-400">Credite</span>
+                    <span className="text-[11px] font-medium text-neutral-400">{t('common.credits_label')}</span>
                     <span className="text-[10px] font-medium text-neutral-500 uppercase tracking-wide">{userPlan}</span>
                   </div>
                   <p className="text-2xl font-bold">{userCredits}</p>
@@ -256,7 +256,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   </div>
                   <Link href="/credits">
                     <button className="w-full mt-3 h-8 rounded-lg bg-white/10 text-white text-[12px] font-medium hover:bg-white/15 transition-colors flex items-center justify-center gap-1.5 border border-white/10">
-                      {userCredits <= 5 ? <><Zap className="h-3 w-3" />Cumpara credite</> : <><Crown className="h-3 w-3" />Upgrade plan</>}
+                      {userCredits <= 5 ? <><Zap className="h-3 w-3" />{t('credits.buy_credits')}</> : <><Crown className="h-3 w-3" />{t('common.upgrade_plan')}</>}
                     </button>
                   </Link>
                 </div>
@@ -299,7 +299,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <div className="relative">
                 <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-300 pointer-events-none" />
                 <input ref={searchInputRef} type="text" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} onFocus={() => setSearchFocused(true)}
-                  placeholder="Cauta produse, setari..." className="w-full h-10 pl-10 pr-12 rounded-xl bg-neutral-50 border border-neutral-100 text-sm text-neutral-700 placeholder:text-neutral-400 focus:outline-none focus:border-neutral-300 focus:bg-white transition-all" />
+                  placeholder={t('common.search_placeholder')} className="w-full h-10 pl-10 pr-12 rounded-xl bg-neutral-50 border border-neutral-100 text-sm text-neutral-700 placeholder:text-neutral-400 focus:outline-none focus:border-neutral-300 focus:bg-white transition-all" />
                 <kbd className="hidden md:flex absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-neutral-400 bg-neutral-100 px-1.5 py-0.5 rounded font-mono">⌘K</kbd>
               </div>
               <AnimatePresence>{searchFocused && searchQuery.length >= 2 && (
@@ -316,8 +316,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
             {/* Right actions */}
             <div className="flex items-center gap-1.5 shrink-0">
-              <Link href="/credits"><button className="hidden sm:flex items-center gap-1.5 h-9 px-3 rounded-xl text-[12px] font-medium text-neutral-600 hover:bg-neutral-100 border border-neutral-100 transition-all"><Zap className="h-3.5 w-3.5 text-amber-500 shrink-0" /><span className="hidden md:inline">Credite</span></button></Link>
-              <Link href="/credits"><button className="flex items-center gap-1.5 h-9 px-3 rounded-xl text-[12px] font-semibold text-white bg-neutral-900 hover:bg-neutral-800 transition-all"><Crown className="h-3.5 w-3.5 shrink-0" /><span className="hidden md:inline">Upgrade</span></button></Link>
+              <Link href="/credits"><button className="hidden sm:flex items-center gap-1.5 h-9 px-3 rounded-xl text-[12px] font-medium text-neutral-600 hover:bg-neutral-100 border border-neutral-100 transition-all"><Zap className="h-3.5 w-3.5 text-amber-500 shrink-0" /><span className="hidden md:inline">{t('common.credits_label')}</span></button></Link>
+              <Link href="/credits"><button className="flex items-center gap-1.5 h-9 px-3 rounded-xl text-[12px] font-semibold text-white bg-neutral-900 hover:bg-neutral-800 transition-all"><Crown className="h-3.5 w-3.5 shrink-0" /><span className="hidden md:inline">{t("common.upgrade")}</span></button></Link>
               <NotificationBell />
             </div>
           </header>
@@ -328,7 +328,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <motion.div initial={{ y: -20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -20, opacity: 0 }} className="bg-white p-4 shadow-lg" onClick={e => e.stopPropagation()}>
                 <div className="relative">
                   <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-300 pointer-events-none" />
-                  <input type="text" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Cauta..." className="w-full h-11 pl-10 pr-10 rounded-xl bg-neutral-50 border border-neutral-200 text-sm text-neutral-700 placeholder:text-neutral-400 focus:outline-none focus:border-neutral-300" autoFocus />
+                  <input type="text" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder={t('common.search_placeholder')} className="w-full h-11 pl-10 pr-10 rounded-xl bg-neutral-50 border border-neutral-200 text-sm text-neutral-700 placeholder:text-neutral-400 focus:outline-none focus:border-neutral-300" autoFocus />
                   <button className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400" onClick={() => { setMobileSearchOpen(false); setSearchQuery('') }}><X className="h-4 w-4" /></button>
                 </div>
                 {searchQuery.length >= 2 && (<div className="mt-2 rounded-xl border border-neutral-100 overflow-hidden max-h-[60vh] overflow-y-auto"><SearchDropdown results={searchResults} loading={searchLoading} query={searchQuery} onNavigate={(h) => { navigateAndClose(h); setMobileSearchOpen(false) }} /></div>)}

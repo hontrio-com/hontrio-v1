@@ -29,6 +29,20 @@ async function loadMessages(locale: UILocale): Promise<Messages> {
   }
 }
 
+// ─── Auto-detect locale from browser ─────────────────────────────────────────
+function detectLocale(): UILocale {
+  try {
+    const browserLang = navigator.language || (navigator as any).userLanguage || ''
+    const langCode = browserLang.toLowerCase().split('-')[0]
+    if (langCode === 'ro') return 'ro'
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || ''
+    if (tz === 'Europe/Bucharest') return 'ro'
+    return 'en'
+  } catch {
+    return 'en'
+  }
+}
+
 // ─── Deep get from nested object with dot notation ───────────────────────────
 function deepGet(obj: any, path: string): string | undefined {
   const parts = path.split('.')
@@ -51,7 +65,6 @@ export function useLocale() {
   return useContext(LanguageContext)
 }
 
-// Shorthand hook — most components only need t()
 export function useT() {
   const { t, locale } = useContext(LanguageContext)
   return { t, locale }
@@ -63,11 +76,11 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   const [messages, setMessages] = useState<Messages>({})
   const [ready, setReady] = useState(false)
 
-  // Load saved locale on mount
   useEffect(() => {
     const saved = localStorage.getItem('hontrio_locale') as UILocale | null
-    const initial = saved && ['ro', 'en'].includes(saved) ? saved : 'ro'
+    const initial = saved && ['ro', 'en'].includes(saved) ? saved : detectLocale()
     setLocaleState(initial)
+    if (!saved) localStorage.setItem('hontrio_locale', initial)
     loadMessages(initial).then(msgs => {
       setMessages(msgs)
       setReady(true)
@@ -82,8 +95,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
 
   const t = useCallback((key: string, params?: Record<string, string | number>): string => {
     let value = deepGet(messages, key)
-    if (!value) return key.split('.').pop() || key // Fallback: show last segment
-    // Replace {{param}} placeholders
+    if (!value) return key.split('.').pop() || key
     if (params) {
       for (const [k, v] of Object.entries(params)) {
         value = value.replace(new RegExp(`\\{\\{${k}\\}\\}`, 'g'), String(v))

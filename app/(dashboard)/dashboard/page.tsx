@@ -60,7 +60,7 @@ export default function DashboardPage() {
 
   useEffect(() => { fetch('/api/dashboard').then(r => r.json()).then(setData).catch(() => {}).finally(() => setLoading(false)) }, [])
 
-  const getGreeting = () => { const h = new Date().getHours(); return h < 12 ? 'Buna dimineata' : h < 18 ? 'Buna ziua' : 'Buna seara' }
+  const getGreeting = () => { const h = new Date().getHours(); return h < 12 ? t('dashboard.good_morning') : h < 18 ? t('dashboard.good_afternoon') : t('dashboard.good_evening') }
   const formatTime = (iso: string) => new Date(iso).toLocaleDateString('ro-RO', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
   const optRate = data && data.totalProducts > 0 ? Math.round((data.optimizedProducts + data.publishedProducts) / data.totalProducts * 100) : 0
 
@@ -89,7 +89,7 @@ export default function DashboardPage() {
           </div>
           <Link href="/products">
             <motion.button whileTap={{ scale: 0.985 }} className="h-10 px-5 rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white text-[13px] font-medium inline-flex items-center gap-2 transition-all cursor-pointer">
-              <Sparkles className="h-4 w-4" />Optimizeaza produse
+              <Sparkles className="h-4 w-4" />{t('dashboard.optimize_products')}
             </motion.button>
           </Link>
         </div>
@@ -137,7 +137,7 @@ export default function DashboardPage() {
               <div className="h-10 w-10 rounded-xl bg-neutral-900 flex items-center justify-center shrink-0"><Sparkles className="h-4 w-4 text-white" /></div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-0.5">
-                  <span className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500">AI Insight</span>
+                  <span className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500">{t('dashboard.ai_insight')}</span>
                   <span className="text-[11px] text-neutral-400 bg-neutral-100 px-2 py-0.5 rounded-full">{data.aiInsight.stat}</span>
                 </div>
                 <p className="text-[13px] text-neutral-600 leading-relaxed">{data.aiInsight.message}</p>
@@ -156,7 +156,7 @@ export default function DashboardPage() {
       <motion.div variants={stagger.item}>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           {[
-            { label: 'Total produse', value: data?.totalProducts || 0, icon: Package, href: '/products' },
+            { label: t('dashboard.total_products'), value: data?.totalProducts || 0, icon: Package, href: '/products' },
             { label: t('dashboard.ai_images'), value: data?.totalImages || 0, icon: ImageIcon, href: '/images' },
             { label: t('dashboard.seo_score'), value: data?.avgSeoScore || 0, suffix: '/100', icon: Search, href: '/seo' },
             { label: t('dashboard.credits_remaining'), value: data?.creditsRemaining || 0, icon: CreditCard, href: '/credits', bar: true },
@@ -202,7 +202,7 @@ export default function DashboardPage() {
               </div>
             ) : (<>
               <div className="grid grid-cols-3 gap-3 mb-5">
-                {[{ label: 'Draft', value: data?.draftProducts }, { label: 'Optimizat', value: data?.optimizedProducts }, { label: 'Publicat', value: data?.publishedProducts }].map(s => (
+                {[{ label: t('dashboard.draft'), value: data?.draftProducts }, { label: t('dashboard.optimized'), value: data?.optimizedProducts }, { label: t('dashboard.published'), value: data?.publishedProducts }].map(s => (
                   <div key={s.label} className="text-center p-3 rounded-lg bg-neutral-50">
                     <p className="text-[20px] font-bold text-neutral-900">{s.value}</p>
                     <p className="text-[12px] text-neutral-400 mt-0.5">{s.label}</p>
@@ -210,7 +210,7 @@ export default function DashboardPage() {
                 ))}
               </div>
               <div className="space-y-3 mb-5">
-                {[{ label: 'Produse optimizate', pct: optRate, delay: 0.4 }, { label: 'Publicate in magazin', pct: data && data.totalProducts > 0 ? Math.round(data.publishedProducts / data.totalProducts * 100) : 0, delay: 0.5 }].map(b => (
+                {[{ label: t('dashboard.optimized_products'), pct: optRate, delay: 0.4 }, { label: t('dashboard.published_in_store'), pct: data && data.totalProducts > 0 ? Math.round(data.publishedProducts / data.totalProducts * 100) : 0, delay: 0.5 }].map(b => (
                   <div key={b.label}>
                     <div className="flex justify-between text-[13px] mb-1.5"><span className="text-neutral-500">{b.label}</span><span className="font-medium text-neutral-800">{b.pct}%</span></div>
                     <div className="h-[6px] bg-neutral-100 rounded-full overflow-hidden">
@@ -231,7 +231,7 @@ export default function DashboardPage() {
                         <p className="text-[13px] font-medium text-neutral-900 truncate">{p.optimized_title || p.original_title}</p>
                         <div className="flex items-center gap-2 mt-0.5">
                           <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-md ${p.status === 'published' ? 'bg-emerald-50 text-emerald-700' : p.status === 'optimized' ? 'bg-amber-50 text-amber-700' : 'bg-neutral-100 text-neutral-500'}`}>
-                            {p.status === 'published' ? 'Publicat' : p.status === 'optimized' ? 'Optimizat' : 'Draft'}
+                            {p.status === 'published' ? t('dashboard.published') : p.status === 'optimized' ? t('dashboard.optimized') : t('dashboard.draft')}
                           </span>
                           {p.seo_score > 0 && <span className={`text-[10px] font-medium ${p.seo_score >= 80 ? 'text-emerald-600' : p.seo_score >= 50 ? 'text-amber-600' : 'text-red-500'}`}>SEO {p.seo_score}</span>}
                         </div>
@@ -251,9 +251,9 @@ export default function DashboardPage() {
               <div className="p-4 flex items-center gap-3">
                 <div className="h-10 w-10 rounded-lg bg-amber-50 flex items-center justify-center shrink-0"><AlertTriangle className="h-5 w-5 text-amber-500" /></div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-400 mb-0.5">Quick Win</p>
-                  <p className="text-[13px] font-medium text-neutral-900 truncate">{data.worstProduct.title || 'Produs fara titlu'}</p>
-                  <p className="text-[12px] text-neutral-400">Scor SEO: <span className="font-semibold text-neutral-900">{data.worstProduct.seo_score}/100</span></p>
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-400 mb-0.5">{t('dashboard.quick_win')}</p>
+                  <p className="text-[13px] font-medium text-neutral-900 truncate">{data.worstProduct.title || t('dashboard.no_product_title')}</p>
+                  <p className="text-[12px] text-neutral-400">{t('dashboard.seo_score_label')}: <span className="font-semibold text-neutral-900">{data.worstProduct.seo_score}/100</span></p>
                 </div>
                 <Link href={`/seo/${data.worstProduct.id}`}><button className="h-8 px-3 rounded-lg bg-neutral-900 hover:bg-neutral-800 text-white text-[12px] font-medium transition-all shrink-0">{t('seo.optimize_all')}</button></Link>
               </div>
@@ -298,8 +298,8 @@ export default function DashboardPage() {
                   <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${data.store.sync_status === 'active' ? 'bg-emerald-50 text-emerald-700' : 'bg-neutral-100 text-neutral-600'}`}>{data.store.sync_status === 'active' ? 'Activ' : data.store.sync_status}</span>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
-                  <div className="bg-neutral-50 rounded-lg p-2.5 text-center"><p className="text-[15px] font-bold text-neutral-900">{data.store.products_count}</p><p className="text-[11px] text-neutral-400">Produse</p></div>
-                  <div className="bg-neutral-50 rounded-lg p-2.5 text-center"><p className="text-[12px] font-semibold text-neutral-600 capitalize">{data.store.platform}</p><p className="text-[11px] text-neutral-400">Platforma</p></div>
+                  <div className="bg-neutral-50 rounded-lg p-2.5 text-center"><p className="text-[15px] font-bold text-neutral-900">{data.store.products_count}</p><p className="text-[11px] text-neutral-400">{t('dashboard.products_label')}</p></div>
+                  <div className="bg-neutral-50 rounded-lg p-2.5 text-center"><p className="text-[12px] font-semibold text-neutral-600 capitalize">{data.store.platform}</p><p className="text-[11px] text-neutral-400">{t('dashboard.platform')}</p></div>
                 </div>
                 {data.store.last_sync_at && <p className="text-[11px] text-neutral-400 flex items-center gap-1"><RefreshCw className="h-3 w-3" />Ultima sync: {formatTime(data.store.last_sync_at)}</p>}
                 <Link href="/settings"><button className="w-full text-[12px] text-neutral-500 hover:text-neutral-900 flex items-center justify-center gap-1 py-1 transition-colors">{t('common.settings')}<ExternalLink className="h-3 w-3" /></button></Link>
