@@ -103,7 +103,7 @@ export default function DashboardPage() {
             <div className="flex items-center justify-between mb-4">
               <div>
                 <p className="font-semibold text-[15px]">{t('onboarding.title')}</p>
-                <p className="text-neutral-400 text-[13px]">{data.onboardingProgress} din {data.onboardingChecklist.length} pasi completati</p>
+                <p className="text-neutral-400 text-[13px]">{data.onboardingProgress} / {data.onboardingChecklist.length}</p>
               </div>
               <div className="relative h-12 w-12">
                 <svg className="rotate-[-90deg]" viewBox="0 0 36 36" width="48" height="48">
@@ -275,7 +275,7 @@ export default function DashboardPage() {
                 <div className="absolute inset-0 flex items-center justify-center"><span className="text-[14px] font-bold text-neutral-900">{data?.avgSeoScore || 0}</span></div>
               </div>
               <div className="flex-1 space-y-2.5">
-                {[{ dot: 'bg-emerald-500', label: 'Bun (80+)', val: data?.seoBreakdown.green || 0 }, { dot: 'bg-amber-400', label: 'Mediu (50-79)', val: data?.seoBreakdown.yellow || 0 }, { dot: 'bg-red-400', label: 'Slab (<50)', val: data?.seoBreakdown.red || 0 }].map(s => (
+                {[{ dot: 'bg-emerald-500', label: t('dashboard.good_80'), val: data?.seoBreakdown.green || 0 }, { dot: 'bg-amber-400', label: t('dashboard.medium_50'), val: data?.seoBreakdown.yellow || 0 }, { dot: 'bg-red-400', label: t('dashboard.weak_50'), val: data?.seoBreakdown.red || 0 }].map(s => (
                   <div key={s.label} className="flex items-center justify-between">
                     <div className="flex items-center gap-1.5"><div className={`h-2 w-2 rounded-full ${s.dot}`} /><span className="text-[12px] text-neutral-500">{s.label}</span></div>
                     <span className="text-[12px] font-semibold text-neutral-900">{s.val}</span>
@@ -295,7 +295,7 @@ export default function DashboardPage() {
                     <div className={`h-2 w-2 rounded-full ${data.store.sync_status === 'active' ? 'bg-emerald-500' : 'bg-neutral-300'}`} />
                     <span className="text-[13px] font-medium text-neutral-800 truncate max-w-[140px]">{data.store.store_name || data.store.store_url}</span>
                   </div>
-                  <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${data.store.sync_status === 'active' ? 'bg-emerald-50 text-emerald-700' : 'bg-neutral-100 text-neutral-600'}`}>{data.store.sync_status === 'active' ? 'Activ' : data.store.sync_status}</span>
+                  <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${data.store.sync_status === 'active' ? 'bg-emerald-50 text-emerald-700' : 'bg-neutral-100 text-neutral-600'}`}>{data.store.sync_status === 'active' ? t('common.active_label') : data.store.sync_status}</span>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div className="bg-neutral-50 rounded-lg p-2.5 text-center"><p className="text-[15px] font-bold text-neutral-900">{data.store.products_count}</p><p className="text-[11px] text-neutral-400">{t('dashboard.products_label')}</p></div>
@@ -323,11 +323,11 @@ export default function DashboardPage() {
                     <div className={`h-2 w-2 rounded-full ${data.agent.is_active ? 'bg-emerald-500' : 'bg-neutral-300'}`} />
                     <span className="text-[13px] font-medium text-neutral-800">{data.agent.agent_name || 'Agent AI'}</span>
                   </div>
-                  <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${data.agent.is_active ? 'bg-emerald-50 text-emerald-700' : 'bg-neutral-100 text-neutral-500'}`}>{data.agent.is_active ? 'Activ' : 'Inactiv'}</span>
+                  <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${data.agent.is_active ? 'bg-emerald-50 text-emerald-700' : 'bg-neutral-100 text-neutral-500'}`}>{data.agent.is_active ? t('common.active_label') : t('common.inactive_label')}</span>
                 </div>
                 <div className="bg-neutral-50 rounded-lg p-3 flex items-center gap-3">
                   <div className="h-9 w-9 rounded-lg bg-neutral-200 flex items-center justify-center shrink-0"><Zap className="h-4 w-4 text-neutral-600" /></div>
-                  <div><p className="text-[20px] font-bold text-neutral-900 tabular-nums">{data.agent.conversations_today}</p><p className="text-[12px] text-neutral-400">{t('agent.conversations')}</p></div>
+                  <div><p className="text-[20px] font-bold text-neutral-900 tabular-nums">{data.agent.conversations_today}</p><p className="text-[12px] text-neutral-400">{t('dashboard.conversations_today')}</p></div>
                 </div>
                 <Link href="/agent"><button className="w-full text-[12px] text-neutral-500 hover:text-neutral-900 flex items-center justify-center gap-1 py-1 transition-colors">{t('dashboard.view_agent')}<ExternalLink className="h-3 w-3" /></button></Link>
               </div>
@@ -345,13 +345,13 @@ export default function DashboardPage() {
             <p className="text-[15px] font-semibold text-neutral-900 flex items-center gap-2 mb-3"><Clock className="h-4 w-4 text-neutral-400" />{t('dashboard.recent_activity')}</p>
             {data?.recentTransactions?.length ? (
               <div className="space-y-2.5">
-                {data.recentTransactions.map((t, i) => (
+                {data.recentTransactions.map((tx, i) => (
                   <div key={i} className="flex items-start gap-2.5">
                     <div className="h-7 w-7 rounded-md bg-neutral-100 flex items-center justify-center shrink-0 mt-0.5">
-                      {t.reference_type === 'image_generation' ? <ImageIcon className="h-3 w-3 text-neutral-500" /> : t.type === 'purchase' ? <CreditCard className="h-3 w-3 text-neutral-500" /> : <Sparkles className="h-3 w-3 text-neutral-500" />}
+                      {tx.reference_type === 'image_generation' ? <ImageIcon className="h-3 w-3 text-neutral-500" /> : tx.type === 'purchase' ? <CreditCard className="h-3 w-3 text-neutral-500" /> : <Sparkles className="h-3 w-3 text-neutral-500" />}
                     </div>
-                    <div className="flex-1 min-w-0"><p className="text-[12px] text-neutral-700 truncate">{t.description}</p><p className="text-[11px] text-neutral-400">{formatTime(t.created_at)}</p></div>
-                    <span className={`text-[12px] font-medium shrink-0 ${t.amount > 0 ? 'text-emerald-600' : 'text-red-500'}`}>{t.amount > 0 ? '+' : ''}{t.amount} cr</span>
+                    <div className="flex-1 min-w-0"><p className="text-[12px] text-neutral-700 truncate">{tx.description}</p><p className="text-[11px] text-neutral-400">{formatTime(tx.created_at)}</p></div>
+                    <span className={`text-[12px] font-medium shrink-0 ${tx.amount > 0 ? 'text-emerald-600' : 'text-red-500'}`}>{tx.amount > 0 ? '+' : ''}{tx.amount} cr</span>
                   </div>
                 ))}
               </div>

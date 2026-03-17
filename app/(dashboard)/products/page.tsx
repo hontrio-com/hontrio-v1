@@ -45,27 +45,27 @@ function getSeoTier(score: number, status: string): 'published' | 'good' | 'part
 }
 
 const TIER = {
-  published:   { label: 'Publicat',    bg: 'bg-neutral-900', text: 'text-white',        dot: 'bg-white' },
-  good:        { label: 'Optimizat',   bg: 'bg-neutral-100', text: 'text-neutral-700',  dot: 'bg-emerald-500' },
-  partial:     { label: 'Parțial',     bg: 'bg-neutral-100', text: 'text-amber-600',    dot: 'bg-amber-400' },
-  unoptimized: { label: 'Neoptimizat', bg: 'bg-neutral-100', text: 'text-neutral-400',  dot: 'bg-neutral-300' },
+  published:   { label: 'products.published_status',    bg: 'bg-neutral-900', text: 'text-white',        dot: 'bg-white' },
+  good:        { label: 'products.optimized_status',   bg: 'bg-neutral-100', text: 'text-neutral-700',  dot: 'bg-emerald-500' },
+  partial:     { label: 'products.partial_status',     bg: 'bg-neutral-100', text: 'text-amber-600',    dot: 'bg-amber-400' },
+  unoptimized: { label: 'products.unoptimized_status', bg: 'bg-neutral-100', text: 'text-neutral-400',  dot: 'bg-neutral-300' },
 }
 
 const SORT_OPTS: { value: SortOption; label: string }[] = [
-  { value: 'newest',     label: 'Cele mai noi' },
-  { value: 'oldest',    label: 'Cele mai vechi' },
-  { value: 'seo_desc',  label: 'SEO: Cel mai bun' },
-  { value: 'seo_asc',   label: 'SEO: Cel mai slab' },
-  { value: 'price_desc', label: 'Preț descrescător' },
-  { value: 'price_asc',  label: 'Preț crescător' },
+  { value: 'newest',     label: 'products.sort_newest' },
+  { value: 'oldest',    label: 'products.sort_oldest' },
+  { value: 'seo_desc',  label: 'products.sort_seo_best' },
+  { value: 'seo_asc',   label: 'products.sort_seo_worst' },
+  { value: 'price_desc', label: 'products.sort_price_high' },
+  { value: 'price_asc',  label: 'products.sort_price_low' },
 ]
 
 const SEO_FILTERS = [
-  { value: 'all',         label: 'Toate' },
-  { value: 'unoptimized', label: 'Neoptimizate' },
-  { value: 'partial',     label: 'Parțiale' },
-  { value: 'good',        label: 'Optimizate' },
-  { value: 'published',   label: 'Publicate' },
+  { value: 'all',         label: 'products.filter_all' },
+  { value: 'unoptimized', label: 'products.filter_unoptimized' },
+  { value: 'partial',     label: 'products.filter_partial' },
+  { value: 'good',        label: 'products.filter_optimized' },
+  { value: 'published',   label: 'products.filter_published' },
 ]
 
 function ScoreBadge({ score }: { score: number }) {
@@ -75,12 +75,13 @@ function ScoreBadge({ score }: { score: number }) {
 }
 
 function TierBadge({ score, status }: { score: number; status: string }) {
+  const { t: translate } = useT()
   const tier = getSeoTier(score, status)
-  const t = TIER[tier]
+  const cfg = TIER[tier]
   return (
-    <span className={`inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-md ${t.bg} ${t.text}`}>
-      <span className={`h-1.5 w-1.5 rounded-full ${t.dot} shrink-0`} />
-      {t.label}
+    <span className={`inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-md ${cfg.bg} ${cfg.text}`}>
+      <span className={`h-1.5 w-1.5 rounded-full ${cfg.dot} shrink-0`} />
+      {translate(cfg.label)}
     </span>
   )
 }
@@ -104,6 +105,7 @@ function Dropdown({ label, options, value, onChange }: {
   value: string
   onChange: (v: string) => void
 }) {
+  const { t: tr } = useT()
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   const current = options.find(o => o.value === value)
@@ -118,7 +120,7 @@ function Dropdown({ label, options, value, onChange }: {
     <div ref={ref} className="relative">
       <button onClick={() => setOpen(!open)}
         className="flex items-center gap-1 h-9 px-2.5 rounded-xl border border-neutral-200 bg-white text-[12px] font-medium text-neutral-600 hover:border-neutral-300 hover:text-neutral-900 transition-all max-w-[140px]">
-        <span className="truncate">{current?.label || label}</span>
+        <span className="truncate">{current ? tr(current.label) : label}</span>
         <ChevronDown className={`h-3.5 w-3.5 text-neutral-400 transition-transform shrink-0 ${open ? 'rotate-180' : ''}`} />
       </button>
       <AnimatePresence>
@@ -128,7 +130,7 @@ function Dropdown({ label, options, value, onChange }: {
             {options.map(o => (
               <button key={o.value} onClick={() => { onChange(o.value); setOpen(false) }}
                 className={`w-full text-left px-3 py-2 text-[12px] transition-colors hover:bg-neutral-50 ${o.value === value ? 'text-neutral-900 font-semibold' : 'text-neutral-500'}`}>
-                {o.label}
+                {tr(o.label)}
               </button>
             ))}
           </motion.div>
@@ -274,7 +276,7 @@ function EmptyState({ hasSearch, onClear }: { hasSearch: boolean; onClear: () =>
       <p className="text-[14px] font-medium text-neutral-500 mb-1">{t('products.no_products_found')}</p>
       <p className="text-[13px] text-neutral-400 mb-4">{t('products.try_other_search')}</p>
       <button onClick={onClear} className="h-8 px-4 rounded-xl border border-neutral-200 text-[12px] font-medium text-neutral-600 hover:bg-neutral-50 transition-all">
-        Resetează căutarea
+        {t('products.reset_search')}
       </button>
     </div>
   )
@@ -288,7 +290,7 @@ function EmptyState({ hasSearch, onClear }: { hasSearch: boolean; onClear: () =>
       <p className="text-[13px] text-neutral-400 mb-5">{t('products.connect_store_desc')}</p>
       <Link href="/settings">
         <button className="h-9 px-5 rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white text-[13px] font-medium transition-all">
-          Conectează magazinul
+          {t('products.connect_store_btn')}
         </button>
       </Link>
     </div>
@@ -397,10 +399,10 @@ export default function ProductsPage() {
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { label: 'Total produse',  value: total,            filter: 'all',         accent: '' },
-          { label: 'Neoptimizate',   value: stats.unoptimized, filter: 'unoptimized', accent: '' },
-          { label: 'Optimizate',     value: stats.good,        filter: 'good',        accent: 'text-emerald-600' },
-          { label: 'Publicate',      value: stats.published,   filter: 'published',   accent: '' },
+          { label: t('dashboard.total_products'),  value: total,            filter: 'all',         accent: '' },
+          { label: t('products.filter_unoptimized'),   value: stats.unoptimized, filter: 'unoptimized', accent: '' },
+          { label: t('products.filter_optimized'),     value: stats.good,        filter: 'good',        accent: 'text-emerald-600' },
+          { label: t('products.filter_published'),      value: stats.published,   filter: 'published',   accent: '' },
         ].map(s => {
           const active = filters.seo === s.filter
           return (
@@ -434,11 +436,11 @@ export default function ProductsPage() {
 
           {/* Row 2: filters + view toggle */}
           <div className="flex items-center gap-2">
-            <Dropdown label="Sortare" options={SORT_OPTS} value={filters.sort}
+            <Dropdown label={t("products.sort_label")} options={SORT_OPTS} value={filters.sort}
               onChange={v => setFilters(f => ({ ...f, sort: v as SortOption }))} />
 
             {categories.length > 0 && (
-              <Dropdown label="Categorie"
+              <Dropdown label={t("common.category")}
                 options={[{ value: 'all', label: t('common.all_categories') }, ...categories.map(c => ({ value: c, label: c }))]}
                 value={filters.category} onChange={v => { setFilters(f => ({ ...f, category: v })); setPage(1) }} />
             )}
@@ -468,7 +470,7 @@ export default function ProductsPage() {
               onClick={() => { setFilters(prev => ({ ...prev, seo: f.value as any })); setPage(1) }}
               className={`shrink-0 h-7 px-3 rounded-lg text-[12px] font-medium transition-all
                 ${filters.seo === f.value ? 'bg-neutral-900 text-white' : 'text-neutral-500 hover:bg-neutral-100 hover:text-neutral-700'}`}>
-              {f.label}
+              {t(f.label)}
             </button>
           ))}
         </div>
@@ -478,7 +480,7 @@ export default function ProductsPage() {
           {selected.size > 0 && (
             <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
               className="border-b border-neutral-100 bg-neutral-50 px-4 py-2.5 flex items-center gap-3 overflow-hidden">
-              <span className="text-[12px] font-medium text-neutral-700">{selected.size} selectate</span>
+              <span className="text-[12px] font-medium text-neutral-700">{selected.size} {t('products.selected_count')}</span>
               <div className="h-3 w-px bg-neutral-200" />
               <button onClick={toggleSelectAll} className="text-[12px] text-neutral-500 hover:text-neutral-900 transition-colors">
                 {selected.size === products.length ? t('common.deselect_all_label') : t('common.select_all_label')}
@@ -486,11 +488,11 @@ export default function ProductsPage() {
               <div className="ml-auto flex items-center gap-2">
                 <button className="flex items-center gap-1.5 h-7 px-3 rounded-lg bg-neutral-900 hover:bg-neutral-800 text-white text-[12px] font-medium transition-all">
                   <Sparkles className="h-3 w-3" />
-                  Optimizează SEO ({selected.size})
+                  {t('products.optimize_seo')} ({selected.size})
                 </button>
                 <button className="flex items-center gap-1.5 h-7 px-3 rounded-lg border border-neutral-200 bg-white text-[12px] font-medium text-neutral-600 hover:border-neutral-300 transition-all">
                   <ImageIcon className="h-3 w-3" />
-                  Generează imagini
+                  {t('products.generate_images_btn')}
                 </button>
                 <button onClick={() => setSelected(new Set())}
                   className="h-7 w-7 flex items-center justify-center rounded-lg text-neutral-300 hover:text-neutral-600 hover:bg-neutral-100 transition-all">
@@ -560,7 +562,7 @@ export default function ProductsPage() {
         {totalPages > 1 && (
           <div className="flex items-center justify-between px-4 py-3 border-t border-neutral-100">
             <p className="text-[12px] text-neutral-400">
-              {(page - 1) * perPage + 1}–{Math.min(page * perPage, total)} din {total} produse
+              {(page - 1) * perPage + 1}–{Math.min(page * perPage, total)} {t('products.of_products')} {total} {t('products.products_label')}
             </p>
             <div className="flex items-center gap-1">
               <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}

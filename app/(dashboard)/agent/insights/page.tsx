@@ -221,7 +221,7 @@ function TrainingTab() {
       {loading
         ? <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-neutral-300" /></div>
         : corrections.length === 0
-          ? <div className="text-center py-10"><Star className="h-10 w-10 text-neutral-200 mx-auto mb-3" /><p className="text-[13px] text-neutral-400">Nicio corecție adăugată</p></div>
+          ? <div className="text-center py-10"><Star className="h-10 w-10 text-neutral-200 mx-auto mb-3" /><p className="text-[13px] text-neutral-400">{t('agent.no_corrections')} adăugată</p></div>
           : <div className="space-y-2">
               {corrections.map(c => (
                 <div key={c.id} className={`p-4 rounded-xl border transition-colors ${c.is_active ? 'bg-white border-neutral-200' : 'bg-neutral-50 border-neutral-100 opacity-60'}`}>

@@ -71,7 +71,7 @@ function FieldDot({ has, label }: { has: boolean; label: string }) {
 function ImpactBadge({ impact }: { impact: string }) {
   if (impact === 'passed')   return <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100"><CheckCircle className="h-3 w-3" />OK</span>
   if (impact === 'critical') return <span className="inline-flex items-center gap-1 text-[11px] font-medium text-red-600 bg-red-50 px-2 py-0.5 rounded-full border border-red-100"><XCircle className="h-3 w-3" />Critic</span>
-  return <span className="inline-flex items-center gap-1 text-[11px] font-medium text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-100"><AlertTriangle className="h-3 w-3" />Atenție</span>
+  return <span className="inline-flex items-center gap-1 text-[11px] font-medium text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-100"><AlertTriangle className="h-3 w-3" />{t('seo.attention')}</span>
 }
 
 function ScoreRing({ score, label }: { score: number; label: string }) {
@@ -215,7 +215,7 @@ export default function SEOPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-[22px] font-semibold text-neutral-900 tracking-tight">{t('seo.title')}</h1>
-          <p className="text-[13px] text-neutral-400 mt-0.5">Audit magazin · Optimizare produse · Bulk · Competitor</p>
+          <p className="text-[13px] text-neutral-400 mt-0.5">{t('seo.subtitle')}</p>
         </div>
         <span className="hidden sm:inline-flex items-center gap-1.5 text-[11px] font-medium text-neutral-500 bg-neutral-100 px-2.5 py-1 rounded-full">
           <Shield className="h-3 w-3" />Google E-E-A-T
@@ -252,9 +252,9 @@ export default function SEOPage() {
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {[
               { key: 'all',          label: 'Total',        value: products.length, color: 'text-neutral-700' },
-              { key: 'good',         label: 'Optimizate',   value: optimized,       color: 'text-emerald-600' },
-              { key: 'partial',      label: 'Parțial',      value: partial,         color: 'text-amber-600'   },
-              { key: 'unoptimized',  label: 'Neoptimizate', value: unoptimized,     color: 'text-red-500'     },
+              { key: 'good',         label: 'seo.optimized_filter',   value: optimized,       color: 'text-emerald-600' },
+              { key: 'partial',      label: 'seo.partial_filter',      value: partial,         color: 'text-amber-600'   },
+              { key: 'unoptimized',  label: 'seo.unoptimized_filter', value: unoptimized,     color: 'text-red-500'     },
             ].map(s => (
               <button key={s.key} onClick={() => setFilterStatus(filterStatus === s.key as any ? 'all' : s.key as any)}
                 className={`p-4 rounded-xl border-2 text-center transition-all bg-white
@@ -417,8 +417,8 @@ export default function SEOPage() {
                 <Zap className="h-4 w-4 text-amber-400" />
               </div>
               <div>
-                <p className="text-[13px] font-semibold text-white">Audit Google PageSpeed Insights</p>
-                <p className="text-[11px] text-neutral-500">Performanță, SEO tehnic, Core Web Vitals</p>
+                <p className="text-[13px] font-semibold text-white">{t('seo.audit_pagespeed')}</p>
+                <p className="text-[11px] text-neutral-500">{t('seo.audit_desc')}</p>
               </div>
             </div>
             <div className="flex flex-col sm:flex-row gap-2 mb-3">
@@ -442,14 +442,14 @@ export default function SEOPage() {
                   </button>
                 )
               })}
-              <span className="text-neutral-600 text-[11px] ml-1">Google recomandă mobile-first</span>
+              <span className="text-neutral-600 text-[11px] ml-1">{t('seo.mobile_first')}</span>
             </div>
 
             {auditing && (
               <div className="mt-4 pt-4 border-t border-white/10 text-center">
                 <Loader2 className="h-6 w-6 animate-spin text-white/40 mx-auto mb-2" />
                 <p className="text-[12px] text-neutral-400">Analizez cu Google PageSpeed Insights...</p>
-                <p className="text-[11px] text-neutral-600 mt-0.5">Poate dura 15–30 secunde</p>
+                <p className="text-[11px] text-neutral-600 mt-0.5">{t('seo.audit_wait')}</p>
               </div>
             )}
             {auditError && !auditing && (
@@ -544,7 +544,7 @@ export default function SEOPage() {
                                     <p className="text-[12px] text-neutral-500 leading-relaxed">{issue.description}</p>
                                   </div>
                                   <div className="bg-neutral-50 rounded-xl p-3 border border-neutral-200">
-                                    <p className="text-[11px] font-semibold text-neutral-700 mb-1">✦ Cum rezolvi:</p>
+                                    <p className="text-[11px] font-semibold text-neutral-700 mb-1">{t('seo.how_to_fix')}</p>
                                     <p className="text-[12px] text-neutral-600 leading-relaxed">{issue.fix}</p>
                                   </div>
                                 </div>
@@ -601,9 +601,9 @@ export default function SEOPage() {
           {!auditResult && !auditing && !auditError && (
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               {[
-                { icon: Zap,      label: 'Core Web Vitals', desc: 'LCP ≤ 2.5s, INP ≤ 200ms, CLS ≤ 0.1 — praguri Google mobile-first' },
+                { icon: Zap,      label: 'Core Web Vitals', desc: 'seo.cwv_desc' },
                 { icon: Search,   label: 'Audit SEO tehnic', desc: 'Title, meta, canonical, robots.txt, structured data, alt text' },
-                { icon: BarChart3, label: 'Fix instructions', desc: 'Fiecare problemă vine cu instrucțiuni conform Google Guidelines' },
+                { icon: BarChart3, label: 'Fix instructions', desc: 'seo.technical_audit_desc' },
               ].map(item => {
                 const Icon = item.icon
                 return (

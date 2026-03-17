@@ -248,7 +248,7 @@ export default function TriggersPage() {
                         </div>
                       )}
                       <div>
-                        <p className="text-[10px] font-medium text-neutral-500 uppercase tracking-wide mb-1.5">Cooldown (ore)</p>
+                        <p className="text-[10px] font-medium text-neutral-500 uppercase tracking-wide mb-1.5">{t('agent.cooldown_hours')}</p>
                         <input type="number" min={1} max={168} value={trigger.cooldown_hours} onChange={e => updateLocal(trigger.id,{cooldown_hours:Number(e.target.value)})}
                           className="w-full text-[12px] border border-neutral-200 rounded-xl px-3 py-2 bg-white focus:outline-none focus:border-neutral-400 transition-colors" />
                       </div>

@@ -286,7 +286,7 @@ function AddressMap({ orders }: { orders: Order[] }) {
           <div className="flex-1 min-w-0">
             <p className="text-[12px] text-neutral-700 font-medium">{addr}</p>
             <p className="text-[11px] text-neutral-400 mt-0.5">
-              {data.count} comenzi · {data.bad > 0 ? <span className="text-red-500">{data.bad} problematice</span> : <span className="text-emerald-600">fără probleme</span>}
+              {data.count} comenzi · {data.bad > 0 ? <span className="text-red-500">{data.bad} problematice</span> : <span className="text-emerald-600">{t('risk.no_issues')}</span>}
             </p>
           </div>
           <div className={`text-[10px] font-mono px-1.5 py-0.5 rounded-full ${data.bad > 0 ? 'bg-red-100 text-red-600' : 'bg-emerald-100 text-emerald-600'}`}>×{data.count}</div>
@@ -371,8 +371,8 @@ function ClusterTab({ storeId, customers, onOpenProfile }: {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-[13px] font-semibold text-neutral-900">Detectare Identități Multiple</p>
-          <p className="text-[12px] text-neutral-400 mt-0.5">Clienți care comandă cu telefoane sau emailuri diferite</p>
+          <p className="text-[13px] font-semibold text-neutral-900">{t('risk.multi_identity')}</p>
+          <p className="text-[12px] text-neutral-400 mt-0.5">{t('risk.multi_identity_desc')}</p>
         </div>
         <Btn onClick={run} disabled={loading}>
           <Layers className={`h-3.5 w-3.5 ${loading ? 'animate-pulse' : ''}`} />
@@ -383,11 +383,11 @@ function ClusterTab({ storeId, customers, onOpenProfile }: {
       {!ran && !loading && (
         <div className="border-2 border-dashed border-neutral-200 rounded-xl p-8 text-center">
           <Network className="h-8 w-8 text-neutral-200 mx-auto mb-3" />
-          <p className="text-[13px] font-medium text-neutral-600 mb-1">Analiză Clustering Identitate</p>
+          <p className="text-[13px] font-medium text-neutral-600 mb-1">{t('risk.clustering_analysis')}</p>
           <p className="text-[12px] text-neutral-400 mb-4 max-w-xs mx-auto">
             Algoritmul detectează clienți care par a fi aceeași persoană, bazat pe similaritate nume + adresă.
           </p>
-          <Btn onClick={run}>Pornește analiza</Btn>
+          <Btn onClick={run}>{t('risk.start_analysis')}</Btn>
         </div>
       )}
 
@@ -402,7 +402,7 @@ function ClusterTab({ storeId, customers, onOpenProfile }: {
         <div className="text-center py-12">
           <CheckCircle2 className="h-8 w-8 text-neutral-200 mx-auto mb-3" />
           <p className="text-[13px] font-medium text-neutral-600">{t('risk.no_cluster')}</p>
-          <p className="text-[12px] text-neutral-400 mt-1">Nu au fost identificate identități multiple suspecte</p>
+          <p className="text-[12px] text-neutral-400 mt-1">{t('risk.no_multi_identity')}</p>
         </div>
       )}
 
@@ -530,7 +530,7 @@ function SettingsTab({ settings, mlAccuracy, mlTotalPredictions, savingSettings,
 
       {/* Reguli detecție */}
       <Card className="p-5">
-        <SectionLabel>Reguli Detecție</SectionLabel>
+        <SectionLabel>{t('risk.detection_rules')}</SectionLabel>
         <div className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
             {[
@@ -566,10 +566,10 @@ function SettingsTab({ settings, mlAccuracy, mlTotalPredictions, savingSettings,
             <span className="text-white text-lg font-black tabular-nums">{mlAccuracy !== null ? `${mlAccuracy}%` : '—'}</span>
           </div>
           <div>
-            <p className="text-[13px] font-semibold text-neutral-900">Acuratețe model</p>
+            <p className="text-[13px] font-semibold text-neutral-900">{t('risk.model_accuracy')}</p>
             <p className="text-[12px] text-neutral-400 mt-0.5">{mlTotalPredictions} predicții procesate</p>
             {mlTotalPredictions < 20 && (
-              <p className="text-[11px] text-amber-500 mt-1">⚡ Modelul se calibrează — minim 20 comenzi finalizate</p>
+              <p className="text-[11px] text-amber-500 mt-1">{t('risk.model_calibrating')}</p>
             )}
           </div>
         </div>
@@ -973,8 +973,8 @@ export default function RiskShieldPage() {
             ) : customers.length === 0 ? (
               <div className="py-16 text-center">
                 <Shield className="h-8 w-8 text-neutral-200 mx-auto mb-3" />
-                <p className="text-[13px] text-neutral-400">Niciun client găsit</p>
-                <p className="text-[12px] text-neutral-300 mt-1">Clienții apar automat după prima comandă analizată</p>
+                <p className="text-[13px] text-neutral-400">{t('risk.no_customer_found')}</p>
+                <p className="text-[12px] text-neutral-300 mt-1">{t('risk.customers_appear')}</p>
               </div>
             ) : (
               <div className="divide-y divide-neutral-50">
@@ -1068,7 +1068,7 @@ export default function RiskShieldPage() {
             {alerts.length === 0 ? (
               <div className="py-16 text-center">
                 <BellOff className="h-7 w-7 text-neutral-200 mx-auto mb-2" />
-                <p className="text-[13px] text-neutral-400">Nicio alertă activă</p>
+                <p className="text-[13px] text-neutral-400">{t('risk.no_active_alerts')}</p>
               </div>
             ) : (
               <div className="divide-y divide-neutral-50">
@@ -1151,16 +1151,16 @@ export default function RiskShieldPage() {
               </Card>
 
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                <Card className="p-4"><p className="text-2xl font-black text-emerald-600 tabular-nums">{financialData.collectionRate}%</p><p className="text-[11px] text-neutral-400 mt-1">Rată ridicare</p></Card>
-                <Card className="p-4"><p className={`text-2xl font-black tabular-nums ${financialData.refusalRate > 20 ? 'text-red-600' : 'text-neutral-900'}`}>{financialData.refusalRate}%</p><p className="text-[11px] text-neutral-400 mt-1">Rată refuz</p></Card>
-                <Card className="p-4 bg-emerald-50 border-emerald-100 col-span-2 sm:col-span-1"><p className="text-2xl font-black text-emerald-700 tabular-nums">{financialData.blockedValue.toLocaleString()} RON</p><p className="text-[11px] text-emerald-600 mt-1">💰 Pierderi evitate</p></Card>
+                <Card className="p-4"><p className="text-2xl font-black text-emerald-600 tabular-nums">{financialData.collectionRate}%</p><p className="text-[11px] text-neutral-400 mt-1">{t('risk.pickup_rate')}</p></Card>
+                <Card className="p-4"><p className={`text-2xl font-black tabular-nums ${financialData.refusalRate > 20 ? 'text-red-600' : 'text-neutral-900'}`}>{financialData.refusalRate}%</p><p className="text-[11px] text-neutral-400 mt-1">{t('risk.refusal_rate')}</p></Card>
+                <Card className="p-4 bg-emerald-50 border-emerald-100 col-span-2 sm:col-span-1"><p className="text-2xl font-black text-emerald-700 tabular-nums">{financialData.blockedValue.toLocaleString()} RON</p><p className="text-[11px] text-emerald-600 mt-1">{t('risk.losses_avoided')}</p></Card>
               </div>
 
               <Card className="p-4 bg-amber-50 border-amber-200 flex items-center gap-3">
                 <AlertOctagon className="h-7 w-7 text-amber-500 shrink-0" />
                 <div>
                   <p className="text-[13px] font-semibold text-amber-900">Proiecție lunară: {financialData.projectedMonthlyLoss.toLocaleString()} RON pierderi</p>
-                  <p className="text-[11px] text-amber-600 mt-0.5">Calculat din ritmul ultimelor 7 zile · Fără intervenție Risk Shield</p>
+                  <p className="text-[11px] text-amber-600 mt-0.5">{t('risk.calculated_from')}</p>
                 </div>
               </Card>
 
@@ -1186,7 +1186,7 @@ export default function RiskShieldPage() {
 
               {financialData.topLossCustomers.length > 0 && (
                 <Card className="p-5">
-                  <p className="text-[11px] font-medium text-neutral-400 uppercase tracking-wide mb-3">Top clienți după pierderi cauzate</p>
+                  <p className="text-[11px] font-medium text-neutral-400 uppercase tracking-wide mb-3">{t('risk.top_loss_customers')}</p>
                   <div className="space-y-2">
                     {financialData.topLossCustomers.map((c, i) => (
                       <div key={c.id} onClick={() => { const cust = customers.find(x => x.id === c.id); if (cust) openProfile(cust) }}
@@ -1209,7 +1209,7 @@ export default function RiskShieldPage() {
           ) : (
             <div className="text-center py-16">
               <DollarSign className="h-8 w-8 text-neutral-200 mx-auto mb-3" />
-              <Btn onClick={() => fetchFinancial()}>Încarcă datele financiare</Btn>
+              <Btn onClick={() => fetchFinancial()}>{t('risk.load_financial')}</Btn>
             </div>
           )}
         </div>
@@ -1221,7 +1221,7 @@ export default function RiskShieldPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-[13px] font-semibold text-neutral-900">Heatmap Geografic Risc</p>
-              <p className="text-[12px] text-neutral-400 mt-0.5">Rată refuz pe județe · ultimele 90 zile</p>
+              <p className="text-[12px] text-neutral-400 mt-0.5">{t('risk.refusal_by_county')}</p>
             </div>
             <Btn variant="outline" size="sm" onClick={fetchHeatmap} disabled={loadingHeatmap}>
               <RefreshCw className={`h-3 w-3 ${loadingHeatmap ? 'animate-spin' : ''}`} />Actualizează
@@ -1243,7 +1243,7 @@ export default function RiskShieldPage() {
 
               <Card className="overflow-hidden">
                 <div className="grid grid-cols-[1fr_auto_auto_auto] text-[10px] font-medium text-neutral-400 uppercase tracking-wide px-4 py-2 bg-neutral-50 border-b border-neutral-100">
-                  <span>Județ</span><span className="text-right pr-4">Comenzi</span><span className="text-right pr-4">Refuzuri</span><span className="text-right">Rată</span>
+                  <span>{t('risk.county')}</span><span className="text-right pr-4">Comenzi</span><span className="text-right pr-4">Refuzuri</span><span className="text-right">{t('risk.rate')}</span>
                 </div>
                 <div className="divide-y divide-neutral-50 max-h-96 overflow-y-auto">
                   {heatmapData.map(point => (
@@ -1280,8 +1280,8 @@ export default function RiskShieldPage() {
           ) : (
             <div className="text-center py-16">
               <MapPin className="h-8 w-8 text-neutral-200 mx-auto mb-3" />
-              <p className="text-[13px] text-neutral-400 mb-1">Nu există date suficiente pentru heatmap</p>
-              <p className="text-[12px] text-neutral-300">Adresele trebuie să conțină numele orașului</p>
+              <p className="text-[13px] text-neutral-400 mb-1">{t('risk.not_enough_data')}</p>
+              <p className="text-[12px] text-neutral-300">{t('risk.address_hint')}</p>
             </div>
           )}
         </div>
@@ -1312,7 +1312,7 @@ export default function RiskShieldPage() {
           </div>
 
           <Card className="p-5">
-            <p className="text-[11px] font-medium text-neutral-400 uppercase tracking-wide mb-4">Distribuție Risc Clienți</p>
+            <p className="text-[11px] font-medium text-neutral-400 uppercase tracking-wide mb-4">{t('risk.risk_distribution')}</p>
             <div className="space-y-3">
               {[
                 { key: 'blocked',     label: 'Blocat',      color: 'bg-red-500',     text: 'text-red-600' },
@@ -1341,7 +1341,7 @@ export default function RiskShieldPage() {
           </Card>
 
           <Card className="p-5">
-            <p className="text-[11px] font-medium text-neutral-400 uppercase tracking-wide mb-4">Top 5 Clienți cu Risc Maxim</p>
+            <p className="text-[11px] font-medium text-neutral-400 uppercase tracking-wide mb-4">{t('risk.top5_risk')}</p>
             {customers.filter(c => c.risk_label === 'blocked' || c.risk_label === 'problematic').length === 0 ? (
               <div className="text-center py-6">
                 <CheckCircle2 className="h-7 w-7 text-neutral-200 mx-auto mb-2" />
@@ -1563,7 +1563,7 @@ export default function RiskShieldPage() {
                     {customerOrders.length === 0 ? (
                       <div className="py-12 text-center">
                         <Package className="h-7 w-7 text-neutral-200 mx-auto mb-2" />
-                        <p className="text-[13px] text-neutral-400 mb-3">Nicio comandă înregistrată</p>
+                        <p className="text-[13px] text-neutral-400 mb-3">{t('risk.no_orders_recorded')}</p>
                         <Btn onClick={importHistory} disabled={importingHistory}>
                           <RefreshCw className={`h-3.5 w-3.5 ${importingHistory ? 'animate-spin' : ''}`} />
                           {importingHistory ? 'Se importă...' : 'Importă din WooCommerce'}

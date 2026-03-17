@@ -92,7 +92,7 @@ function useAttachments() {
   async function addFiles(files: FileList) {
     const toAdd = Array.from(files).slice(0, MAX_FILES - pending.length)
     for (const file of toAdd) {
-      if (file.size > MAX_SIZE) { alert(`"${file.name}" depășește 10MB`); continue }
+      if (file.size > MAX_SIZE) { alert(`"${file.name}" t('support.max_size')`); continue }
       const localId = Math.random().toString(36).slice(2)
       const preview = isImage(file.type) ? URL.createObjectURL(file) : ''
       setPending(p => [...p, { localId, name: file.name, size: file.size, type: file.type, url: preview, uploading: true }])

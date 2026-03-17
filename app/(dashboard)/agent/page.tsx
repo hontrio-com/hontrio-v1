@@ -383,11 +383,11 @@ export default function AgentPage() {
 
   const MAIN_TABS = [
     { id:'overview',      label:'Statistici',  icon:TrendingUp },
-    { id:'settings',      label:'Configurare', icon:Settings2  },
+    { id:'settings',      label:t('agent.config_tab'), icon:Settings2  },
     { id:'knowledge',     label:t('agent.knowledge_label'),  icon:BookOpen   },
     { id:'intelligence',  label:t('agent.intelligence_title'),icon:Zap        },
-    { id:'notifications', label:'Notificări',  icon:Bell       },
-    { id:'install',       label:'Instalare',   icon:ExternalLink},
+    { id:'notifications', label:t('agent.notifications_label'),  icon:Bell       },
+    { id:'install',       label:t('agent.install_tab'),   icon:ExternalLink},
   ] as const
 
   if (loading) return (
@@ -402,13 +402,13 @@ export default function AgentPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-[22px] font-semibold text-neutral-900 tracking-tight">AI Agent</h1>
-          <p className="text-[13px] text-neutral-400 mt-0.5">Asistent conversațional pentru magazinul tău</p>
+          <h1 className="text-[22px] font-semibold text-neutral-900 tracking-tight">{t('agent.title')}</h1>
+          <p className="text-[13px] text-neutral-400 mt-0.5">{t('agent.subtitle')}</p>
         </div>
         <button onClick={handleToggle} className="flex items-center gap-2 text-[12px] font-medium">
           {config.is_active
-            ? <><span className="h-8 w-8 flex items-center justify-center rounded-full bg-emerald-100"><span className="w-3 h-3 rounded-full bg-emerald-500 animate-pulse block" /></span><span className="text-emerald-600">Activ</span></>
-            : <><span className="h-8 w-8 flex items-center justify-center rounded-full bg-neutral-100"><span className="w-3 h-3 rounded-full bg-neutral-300 block" /></span><span className="text-neutral-400">Inactiv</span></>}
+            ? <><span className="h-8 w-8 flex items-center justify-center rounded-full bg-emerald-100"><span className="w-3 h-3 rounded-full bg-emerald-500 animate-pulse block" /></span><span className="text-emerald-600">{t('common.active_label')}</span></>
+            : <><span className="h-8 w-8 flex items-center justify-center rounded-full bg-neutral-100"><span className="w-3 h-3 rounded-full bg-neutral-300 block" /></span><span className="text-neutral-400">{t('common.inactive_label')}</span></>}
         </button>
       </div>
 
@@ -449,10 +449,10 @@ export default function AgentPage() {
           {/* KPI cards */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {[
-              { label:'Conversații (30z)', value:analytics?.summary.totalSessions??stats?.total??0,  icon:MessageCircle, color:'text-blue-600',   bg:'bg-blue-50',   sub:analytics?.summary.weekTrend ? `${analytics.summary.weekTrend>0?'+':''}${analytics.summary.weekTrend}% vs săpt. trecută` : undefined },
+              { label:t('agent.conversations_30d'), value:analytics?.summary.totalSessions??stats?.total??0,  icon:MessageCircle, color:'text-blue-600',   bg:'bg-blue-50',   sub:analytics?.summary.weekTrend ? `${analytics.summary.weekTrend>0?'+':''}${analytics.summary.weekTrend}% vs săpt. trecută` : undefined },
               { label:'Vizitatori unici',  value:analytics?.summary.uniqueVisitors??0,               icon:Users,         color:'text-violet-600', bg:'bg-violet-50', sub:analytics?`${analytics.summary.returningVisitors} reveniri`:undefined },
-              { label:'Mesaje / conv.',    value:analytics?.summary.avgMessages??stats?.avgMessages??0, icon:Zap,          color:'text-amber-600',  bg:'bg-amber-50',  sub:undefined },
-              { label:'Escaladări',        value:analytics?.summary.escalated??stats?.escalated??0,  icon:Phone,         color:'text-red-500',    bg:'bg-red-50',    sub:analytics?.summary.totalSessions ? `${Math.round((analytics.summary.escalated/analytics.summary.totalSessions)*100)}% din total` : undefined },
+              { label:t('agent.messages_per_conv'),    value:analytics?.summary.avgMessages??stats?.avgMessages??0, icon:Zap,          color:'text-amber-600',  bg:'bg-amber-50',  sub:undefined },
+              { label:t('agent.escalations'),        value:analytics?.summary.escalated??stats?.escalated??0,  icon:Phone,         color:'text-red-500',    bg:'bg-red-50',    sub:analytics?.summary.totalSessions ? `${Math.round((analytics.summary.escalated/analytics.summary.totalSessions)*100)}% din total` : undefined },
             ].map(stat => (
               <Card key={stat.label} className="p-4">
                 <div className={`h-8 w-8 rounded-xl ${stat.bg} flex items-center justify-center mb-3`}>
@@ -506,7 +506,7 @@ export default function AgentPage() {
               <Card className="p-5">
                 <div className="flex items-center gap-2 mb-4">
                   <BarChart2 className="h-4 w-4 text-blue-600" />
-                  <p className="text-[13px] font-semibold text-neutral-900">Intențiile vizitatorilor</p>
+                  <p className="text-[13px] font-semibold text-neutral-900">{t('agent.visitor_intents')}</p>
                 </div>
                 <div className="space-y-2.5">
                   {(() => {
@@ -531,7 +531,7 @@ export default function AgentPage() {
               <Card className="p-5">
                 <div className="flex items-center gap-2 mb-4">
                   <Clock className="h-4 w-4 text-amber-500" />
-                  <p className="text-[13px] font-semibold text-neutral-900">Ore de vârf</p>
+                  <p className="text-[13px] font-semibold text-neutral-900">{t('agent.peak_hours')}</p>
                 </div>
                 <div className="grid grid-cols-12 gap-1">
                   {analytics.hourCounts.map((count, h) => {
@@ -553,7 +553,7 @@ export default function AgentPage() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {analytics?.topProducts && analytics.topProducts.length > 0 && (
               <Card className="p-5">
-                <div className="flex items-center gap-2 mb-4"><Star className="h-4 w-4 text-amber-400 fill-amber-400" /><p className="text-[13px] font-semibold text-neutral-900">Top produse cerute</p></div>
+                <div className="flex items-center gap-2 mb-4"><Star className="h-4 w-4 text-amber-400 fill-amber-400" /><p className="text-[13px] font-semibold text-neutral-900">{t('agent.top_products')}</p></div>
                 <div className="space-y-2">
                   {analytics.topProducts.slice(0,7).map((p,i) => (
                     <div key={p.id} className="flex items-center gap-3">
@@ -567,7 +567,7 @@ export default function AgentPage() {
             )}
             {analytics?.topSearches && analytics.topSearches.length > 0 && (
               <Card className="p-5">
-                <div className="flex items-center gap-2 mb-4"><Search className="h-4 w-4 text-violet-500" /><p className="text-[13px] font-semibold text-neutral-900">Top căutări</p></div>
+                <div className="flex items-center gap-2 mb-4"><Search className="h-4 w-4 text-violet-500" /><p className="text-[13px] font-semibold text-neutral-900">{t('agent.top_searches')}</p></div>
                 <div className="space-y-2">
                   {analytics.topSearches.slice(0,7).map((s,i) => (
                     <div key={s.query} className="flex items-center gap-3">
@@ -585,7 +585,7 @@ export default function AgentPage() {
             <Card className="p-10 text-center">
               <BarChart2 className="h-10 w-10 text-neutral-200 mx-auto mb-3" />
               <p className="text-[13px] font-medium text-neutral-500">{t('agent.no_conversations_yet')}</p>
-              <p className="text-[11px] text-neutral-400 mt-1">Datele vor apărea odată ce vizitatoarele interacționează cu agentul.</p>
+              <p className="text-[11px] text-neutral-400 mt-1">{t('agent.data_will_appear')}</p>
             </Card>
           )}
         </div>
@@ -619,17 +619,17 @@ export default function AgentPage() {
                         {uploadingAvatar ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
                         {uploadingAvatar ? t('common.uploading') : t('common.upload_photo')}
                       </Btn>
-                      {config.widget_avatar_url && <button onClick={() => setConfig(c => ({ ...c, widget_avatar_url:'' }))} className="text-[11px] text-red-400 hover:text-red-500 w-full text-center">Șterge avatarul</button>}
+                      {config.widget_avatar_url && <button onClick={() => setConfig(c => ({ ...c, widget_avatar_url:'' }))} className="text-[11px] text-red-400 hover:text-red-500 w-full text-center">{t('agent.delete_avatar')}</button>}
                     </div>
                     <input ref={avatarInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
                   </div>
-                  <p className="text-[10px] text-neutral-400 mt-2">Sau URL direct:</p>
+                  <p className="text-[10px] text-neutral-400 mt-2">{t('agent.or_url_direct')}</p>
                   <input value={config.widget_avatar_url} onChange={e => setConfig(c => ({ ...c, widget_avatar_url:e.target.value }))} placeholder="https://exemplu.ro/avatar.jpg"
                     className="mt-1.5 w-full text-[12px] border border-neutral-200 rounded-xl px-3 py-2 focus:outline-none focus:border-blue-400 transition-colors" />
                 </div>
                 <div className="h-px bg-neutral-100" />
                 <div>
-                  <SectionLabel className="mb-1.5 block">Numele agentului</SectionLabel>
+                  <SectionLabel className="mb-1.5 block">{t('agent.agent_name_label')}</SectionLabel>
                   <input value={config.agent_name} onChange={e => setConfig(c => ({ ...c, agent_name:e.target.value }))} placeholder="ex: Maria"
                     className="w-full text-[13px] border border-neutral-200 rounded-xl px-3 py-2.5 focus:outline-none focus:border-blue-400 transition-colors" />
                 </div>
@@ -639,7 +639,7 @@ export default function AgentPage() {
                     className="w-full text-[13px] border border-neutral-200 rounded-xl px-3 py-2.5 focus:outline-none focus:border-blue-400 transition-colors resize-none" />
                 </div>
                 <div>
-                  <SectionLabel className="mb-2 block">Răspunsuri rapide</SectionLabel>
+                  <SectionLabel className="mb-2 block">{t('agent.quick_replies_label')}</SectionLabel>
                   {(config.quick_replies||[]).map((qr,i) => (
                     <div key={i} className="flex items-center gap-2 mb-2">
                       <input value={qr} onChange={e => { const u=[...(config.quick_replies||[])]; u[i]=e.target.value; setConfig(c=>({...c,quick_replies:u})) }}
@@ -650,12 +650,12 @@ export default function AgentPage() {
                     </div>
                   ))}
                   {(config.quick_replies||[]).length < 5 && (
-                    <button onClick={() => setConfig(c => ({ ...c, quick_replies:[...(c.quick_replies||[]),''] }))} className="text-[12px] text-blue-500 hover:text-blue-600 font-medium">+ Adaugă răspuns rapid</button>
+                    <button onClick={() => setConfig(c => ({ ...c, quick_replies:[...(c.quick_replies||[]),''] }))} className="text-[12px] text-blue-500 hover:text-blue-600 font-medium">{t('agent.add_quick_reply')}</button>
                   )}
                 </div>
                 <div className="h-px bg-neutral-100" />
                 <div>
-                  <SectionLabel className="mb-1.5 flex items-center gap-1.5"><Phone className="w-3.5 h-3.5 text-emerald-500" />WhatsApp escaladare</SectionLabel>
+                  <SectionLabel className="mb-1.5 flex items-center gap-1.5"><Phone className="w-3.5 h-3.5 text-emerald-500" />{t('agent.whatsapp_escalation')}</SectionLabel>
                   <input value={config.whatsapp_number} onChange={e => setConfig(c => ({ ...c, whatsapp_number:e.target.value }))} placeholder="40712345678"
                     className="w-full text-[13px] border border-neutral-200 rounded-xl px-3 py-2.5 focus:outline-none focus:border-blue-400 transition-colors mt-1.5" />
                 </div>
@@ -666,7 +666,7 @@ export default function AgentPage() {
               <Card className="p-5 space-y-5">
                 {/* Culoare */}
                 <div>
-                  <SectionLabel className="mb-2 block">Culoare principală</SectionLabel>
+                  <SectionLabel className="mb-2 block">{t('agent.primary_color')}</SectionLabel>
                   <div className="flex gap-2 flex-wrap items-center">
                     {COLORS.map(color => (
                       <button key={color} onClick={() => setConfig(c => ({ ...c, widget_color:color }))}
@@ -679,7 +679,7 @@ export default function AgentPage() {
                 </div>
                 {/* Formă buton */}
                 <div>
-                  <SectionLabel className="mb-2 block">Formă buton</SectionLabel>
+                  <SectionLabel className="mb-2 block">{t('agent.button_shape')}</SectionLabel>
                   <div className="grid grid-cols-3 gap-2">
                     {[{ id:'circle',label:'Cerc',icon:Circle },{ id:'rounded',label:'Rotunjit',icon:Square },{ id:'rectangle',label:'Text + icon',icon:RectangleHorizontal }].map(s => (
                       <button key={s.id} onClick={() => setConfig(c => ({ ...c, widget_button_shape:s.id }))}
@@ -695,7 +695,7 @@ export default function AgentPage() {
                 </div>
                 {/* Dimensiune */}
                 <div>
-                  <SectionLabel className="mb-2 block">Dimensiune</SectionLabel>
+                  <SectionLabel className="mb-2 block">{t('agent.widget_size')}</SectionLabel>
                   <div className="flex gap-2">
                     {[{ id:'small',label:'Mic' },{ id:'medium',label:'Mediu' },{ id:'large',label:'Mare' }].map(s => (
                       <button key={s.id} onClick={() => setConfig(c => ({ ...c, widget_size:s.id }))}
@@ -705,7 +705,7 @@ export default function AgentPage() {
                 </div>
                 {/* Poziție */}
                 <div>
-                  <SectionLabel className="mb-2 block">Poziție</SectionLabel>
+                  <SectionLabel className="mb-2 block">{t('agent.widget_position')}</SectionLabel>
                   <div className="flex gap-2">
                     {[{ id:'bottom-right',label:'Dreapta jos' },{ id:'bottom-left',label:'Stânga jos' }].map(pos => (
                       <button key={pos.id} onClick={() => setConfig(c => ({ ...c, widget_position:pos.id }))}
@@ -721,8 +721,8 @@ export default function AgentPage() {
                 {/* Animație */}
                 <div className="flex items-center justify-between py-2 border-t border-neutral-100">
                   <div>
-                    <p className="text-[12px] font-semibold text-neutral-700">Animație de introducere</p>
-                    <p className="text-[10px] text-neutral-400 mt-0.5">Bubble cu mesajul de bun venit la load</p>
+                    <p className="text-[12px] font-semibold text-neutral-700">{t('agent.intro_animation')}</p>
+                    <p className="text-[10px] text-neutral-400 mt-0.5">{t('agent.bubble_welcome')}</p>
                   </div>
                   <Toggle on={config.widget_intro_animation} onToggle={() => setConfig(c => ({ ...c, widget_intro_animation:!c.widget_intro_animation }))} />
                 </div>
@@ -733,14 +733,14 @@ export default function AgentPage() {
               <Card className="p-5 space-y-4">
                 <div>
                   <SectionLabel className="flex items-center gap-1.5 mb-1"><Code2 className="w-3.5 h-3.5 text-violet-500" />CSS Custom</SectionLabel>
-                  <p className="text-[10px] text-neutral-400 mb-2">Suprascrie stilurile implicite ale widget-ului.</p>
+                  <p className="text-[10px] text-neutral-400 mb-2">{t('agent.css_desc')}</p>
                   <textarea value={config.widget_custom_css} onChange={e => setConfig(c => ({ ...c, widget_custom_css:e.target.value }))}
                     placeholder={`/* Exemplu */\n#_h * { font-family: 'Georgia', serif !important; }`}
                     rows={12} spellCheck={false}
                     className="w-full text-[11px] font-mono border border-neutral-200 rounded-xl px-3 py-2.5 focus:outline-none focus:border-violet-400 transition-colors resize-none bg-neutral-50" />
                 </div>
                 <div className="bg-amber-50 border border-amber-100 rounded-xl p-3">
-                  <p className="text-[11px] font-semibold text-amber-800 mb-1.5">🎨 Selectori principali</p>
+                  <p className="text-[11px] font-semibold text-amber-800 mb-1.5">{t('agent.css_selectors')}</p>
                   <div className="space-y-0.5 text-[10px] font-mono text-amber-700">
                     {[['#_h_b','Butonul'],['#_h_w','Fereastra chat'],['#_h_hd','Header'],['._h_r.u ._h_bb','Mesaje utilizator'],['._h_r.b ._h_bb','Mesaje agent'],['#_h_bl','Bubble intro']].map(([s,d]) => (
                       <div key={s} className="flex gap-2"><span className="shrink-0">{s}</span><span className="text-amber-500">— {d}</span></div>
@@ -760,13 +760,13 @@ export default function AgentPage() {
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-[13px] font-semibold text-neutral-900">Preview live</p>
-                <p className="text-[11px] text-neutral-400">Modificările se văd instant</p>
+                <p className="text-[13px] font-semibold text-neutral-900">{t('agent.live_preview')}</p>
+                <p className="text-[11px] text-neutral-400">{t('agent.changes_instant')}</p>
               </div>
-              {previewMessages.length > 0 && <Btn variant="ghost" size="sm" onClick={() => { setPreviewMessages([]); setPreviewOpen(false) }}>Resetează</Btn>}
+              {previewMessages.length > 0 && <Btn variant="ghost" size="sm" onClick={() => { setPreviewMessages([]); setPreviewOpen(false) }}>{t('agent.reset_label')}</Btn>}
             </div>
             <WidgetPreview config={config} messages={previewMessages} onSend={sendPreview} loading={previewLoading} onToggle={() => setPreviewOpen(p=>!p)} isOpen={previewOpen} />
-            <p className="text-[10px] text-neutral-400 text-center">Apasă butonul din preview ca să deschizi chat-ul și să testezi</p>
+            <p className="text-[10px] text-neutral-400 text-center">{t('agent.preview_hint')}</p>
           </div>
         </div>
       )}
@@ -792,17 +792,17 @@ export default function AgentPage() {
             <div className="flex items-center gap-3 mb-4">
               <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center"><Zap className="h-5 w-5 text-white" /></div>
               <div className="flex-1">
-                <p className="text-[14px] font-semibold text-neutral-900">Product Intelligence</p>
-                <p className="text-[11px] text-neutral-400">AI generează cunoștințe detaliate per produs pentru răspunsuri mai precise.</p>
+                <p className="text-[14px] font-semibold text-neutral-900">{t('agent.intel_title')}</p>
+                <p className="text-[11px] text-neutral-400">{t('agent.intel_desc')}</p>
               </div>
             </div>
             {intelStats && (
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
                 {[
-                  { label:'Total produse',  val:intelStats.total_products, bg:'bg-neutral-50', text:'text-neutral-900' },
+                  { label:t('agent.intel_total'),  val:intelStats.total_products, bg:'bg-neutral-50', text:'text-neutral-900' },
                   { label:'Cu intelligence', val:intelStats.intelligence?.ready||0, bg:'bg-emerald-50', text:'text-emerald-600' },
-                  { label:'În procesare', val:(intelStats.intelligence?.processing||0)+(intelStats.intelligence?.pending||0), bg:'bg-amber-50', text:'text-amber-600' },
-                  { label:'Eșuate', val:intelStats.intelligence?.failed||0, bg:'bg-red-50', text:'text-red-500' },
+                  { label:t('agent.intel_processing'), val:(intelStats.intelligence?.processing||0)+(intelStats.intelligence?.pending||0), bg:'bg-amber-50', text:'text-amber-600' },
+                  { label:t('agent.intel_failed'), val:intelStats.intelligence?.failed||0, bg:'bg-red-50', text:'text-red-500' },
                 ].map(x => (
                   <div key={x.label} className={`${x.bg} rounded-xl p-3 text-center`}>
                     <p className={`text-[18px] font-bold ${x.text} tabular-nums`}>{x.val}</p>
@@ -814,7 +814,7 @@ export default function AgentPage() {
             {intelStats && intelStats.total_products > 0 && (
               <div className="mb-4">
                 <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-[12px] font-medium text-neutral-600">Acoperire</span>
+                  <span className="text-[12px] font-medium text-neutral-600">{t('agent.intel_coverage')}</span>
                   <span className="text-[12px] font-bold text-neutral-900 tabular-nums">{intelStats.coverage}%</span>
                 </div>
                 <div className="h-2 bg-neutral-100 rounded-full overflow-hidden">
@@ -871,14 +871,14 @@ export default function AgentPage() {
                     {intelGenerating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Zap className="h-3 w-3" />}
                     Generează tot
                   </Btn>
-                  <Btn onClick={() => generateIntelligence(true)} disabled={intelGenerating} variant="outline" className="h-8 px-3 text-[11px]">Regenerează</Btn>
+                  <Btn onClick={() => generateIntelligence(true)} disabled={intelGenerating} variant="outline" className="h-8 px-3 text-[11px]">{t('agent.intel_regenerate')}</Btn>
                 </div>
               )}
             </div>
 
             {/* Product list */}
             <div className="space-y-2 max-h-[600px] overflow-y-auto">
-              {filteredProducts.length === 0 && <p className="text-[12px] text-neutral-400 text-center py-8">Niciun produs găsit</p>}
+              {filteredProducts.length === 0 && <p className="text-[12px] text-neutral-400 text-center py-8">{t('agent.intel_no_products')}</p>}
               {filteredProducts.map(p => (
                 <div key={p.id} className="border border-neutral-100 rounded-xl overflow-hidden hover:border-neutral-200 transition-colors">
                   {/* Product row */}
@@ -913,10 +913,10 @@ export default function AgentPage() {
                       {/* Edit / Save / Cancel buttons */}
                       <div className="flex justify-end gap-2">
                         {!isEd ? (
-                          <button onClick={(e) => { e.stopPropagation(); startEditIntel(p.id, p) }} className="text-[11px] font-medium text-blue-600 hover:text-blue-800 flex items-center gap-1"><Settings2 className="h-3 w-3" />Editează</button>
+                          <button onClick={(e) => { e.stopPropagation(); startEditIntel(p.id, p) }} className="text-[11px] font-medium text-blue-600 hover:text-blue-800 flex items-center gap-1"><Settings2 className="h-3 w-3" />{t('agent.intel_edit')}</button>
                         ) : (
                           <>
-                            <button onClick={() => setIntelEditing({})} className="text-[11px] font-medium text-neutral-400 hover:text-neutral-600">Anulează</button>
+                            <button onClick={() => setIntelEditing({})} className="text-[11px] font-medium text-neutral-400 hover:text-neutral-600">{t('agent.intel_cancel')}</button>
                             <button onClick={saveEditIntel} disabled={intelSaving} className="text-[11px] font-semibold text-white bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded-lg flex items-center gap-1 disabled:opacity-50">{intelSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}Salvează</button>
                           </>
                         )}
@@ -924,28 +924,28 @@ export default function AgentPage() {
 
                       {/* Technical summary */}
                       <div>
-                        <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-1">Rezumat tehnic</p>
+                        <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-1">{t('agent.intel_tech_summary')}</p>
                         {isEd ? <textarea value={ed?.technical_summary||''} onChange={e => setField('technical_summary', e.target.value)} className="w-full text-[12px] text-neutral-700 bg-white border border-neutral-200 rounded-lg p-2.5 leading-relaxed outline-none focus:border-blue-400 min-h-[60px] resize-y" />
                           : <p className="text-[12px] text-neutral-700 leading-relaxed">{p.technical_summary || 'N/A'}</p>}
                       </div>
 
                       {/* Sales summary */}
                       <div>
-                        <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-1">Argument de vânzare</p>
+                        <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-1">{t('agent.intel_sales_summary')}</p>
                         {isEd ? <textarea value={ed?.sales_summary||''} onChange={e => setField('sales_summary', e.target.value)} className="w-full text-[12px] text-neutral-700 bg-white border border-neutral-200 rounded-lg p-2.5 leading-relaxed outline-none focus:border-blue-400 min-h-[60px] resize-y" />
                           : <p className="text-[12px] text-neutral-700 leading-relaxed">{p.sales_summary || 'N/A'}</p>}
                       </div>
 
                       {/* Best for */}
                       <div>
-                        <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-1">Ideal pentru</p>
+                        <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-1">{t('agent.intel_best_for')}</p>
                         {isEd ? <textarea value={ed?.best_for||''} onChange={e => setField('best_for', e.target.value)} className="w-full text-[12px] text-neutral-700 bg-white border border-neutral-200 rounded-lg p-2.5 leading-relaxed outline-none focus:border-blue-400 min-h-[40px] resize-y" />
                           : <p className="text-[12px] text-neutral-700 leading-relaxed">{p.best_for || 'N/A'}</p>}
                       </div>
 
                       {/* Benefits */}
                       <div>
-                        <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-1.5">Beneficii principale</p>
+                        <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-1.5">{t('agent.intel_benefits')}</p>
                         {isEd ? (
                           <div className="space-y-1.5">
                             {(ed?.top_benefits||[]).map((b: string, i: number) => (
@@ -954,7 +954,7 @@ export default function AgentPage() {
                                 <button onClick={() => { const arr = [...(ed?.top_benefits||[])]; arr.splice(i,1); setField('top_benefits', arr) }} className="text-red-400 hover:text-red-600"><X className="h-3 w-3" /></button>
                               </div>
                             ))}
-                            <button onClick={() => setField('top_benefits', [...(ed?.top_benefits||[]), ''])} className="text-[11px] text-blue-600 hover:text-blue-800 font-medium">+ Adaugă beneficiu</button>
+                            <button onClick={() => setField('top_benefits', [...(ed?.top_benefits||[]), ''])} className="text-[11px] text-blue-600 hover:text-blue-800 font-medium">{t('agent.intel_add_benefit')}</button>
                           </div>
                         ) : (
                           <div className="flex flex-wrap gap-1.5">{(p.top_benefits||[]).map((b: string, i: number) => (
@@ -966,7 +966,7 @@ export default function AgentPage() {
                       {/* Key specs */}
                       {(isEd || (p.key_specs && Object.keys(p.key_specs).length > 0)) && (
                         <div>
-                          <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-1.5">Specificații cheie</p>
+                          <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-1.5">{t('agent.intel_specs')}</p>
                           {isEd ? (
                             <div className="space-y-1.5">
                               {Object.entries(ed?.key_specs||{}).map(([k, v]) => (
@@ -976,7 +976,7 @@ export default function AgentPage() {
                                   <button onClick={() => { const specs = {...(ed?.key_specs||{})}; delete specs[k]; setField('key_specs', specs) }} className="text-red-400 hover:text-red-600"><X className="h-3 w-3" /></button>
                                 </div>
                               ))}
-                              <button onClick={() => setField('key_specs', {...(ed?.key_specs||{}), '': ''})} className="text-[11px] text-blue-600 hover:text-blue-800 font-medium">+ Adaugă specificație</button>
+                              <button onClick={() => setField('key_specs', {...(ed?.key_specs||{}), '': ''})} className="text-[11px] text-blue-600 hover:text-blue-800 font-medium">{t('agent.intel_add_spec')}</button>
                             </div>
                           ) : (
                             <div className="grid grid-cols-2 gap-2">{Object.entries(p.key_specs||{}).map(([k, v]) => (
@@ -992,7 +992,7 @@ export default function AgentPage() {
                       {/* FAQ */}
                       {(isEd || (p.faq_candidates && p.faq_candidates.length > 0)) && (
                         <div>
-                          <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-1.5">FAQ</p>
+                          <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-1.5">{t('agent.intel_faq')}</p>
                           {isEd ? (
                             <div className="space-y-2">
                               {(ed?.faq_candidates||[]).map((f: any, i: number) => (
@@ -1004,7 +1004,7 @@ export default function AgentPage() {
                                   <textarea value={f.a||''} onChange={e => { const arr = [...(ed?.faq_candidates||[])]; arr[i] = {...arr[i], a: e.target.value}; setField('faq_candidates', arr) }} placeholder="Răspuns" className="w-full text-[11px] text-neutral-600 bg-transparent outline-none resize-y min-h-[30px]" />
                                 </div>
                               ))}
-                              <button onClick={() => setField('faq_candidates', [...(ed?.faq_candidates||[]), {q:'',a:''}])} className="text-[11px] text-blue-600 hover:text-blue-800 font-medium">+ Adaugă FAQ</button>
+                              <button onClick={() => setField('faq_candidates', [...(ed?.faq_candidates||[]), {q:'',a:''}])} className="text-[11px] text-blue-600 hover:text-blue-800 font-medium">{t('agent.intel_add_faq')}</button>
                             </div>
                           ) : (
                             <div className="space-y-2">{(p.faq_candidates||[]).map((f: any, i: number) => (
@@ -1027,7 +1027,7 @@ export default function AgentPage() {
                 </div>
               ))}
             </div>
-            <p className="text-[10px] text-neutral-400 mt-3">Cost: 2 credite per produs. Produsele neschimbate sunt ignorate automat.</p>
+            <p className="text-[10px] text-neutral-400 mt-3">{t('agent.intel_cost')}</p>
           </Card>
         </div>
         )
@@ -1039,11 +1039,11 @@ export default function AgentPage() {
           <Card className="p-5 space-y-4">
             <div className="flex items-center gap-2">
               <Bell className="h-4 w-4 text-blue-500" />
-              <p className="text-[13px] font-semibold text-neutral-900">Notificări email</p>
+              <p className="text-[13px] font-semibold text-neutral-900">{t('agent.notif_email_title')}</p>
             </div>
-            <p className="text-[12px] text-neutral-500">Primești email instant când un client are nevoie de ajutor uman sau raportează o problemă.</p>
+            <p className="text-[12px] text-neutral-500">{t('agent.notif_email_desc')}</p>
             <div>
-              <SectionLabel className="mb-1.5 block">Email pentru notificări</SectionLabel>
+              <SectionLabel className="mb-1.5 block">{t('agent.notif_email_label')}</SectionLabel>
               <input value={config.notify_email||''} onChange={e => setConfig(c => ({ ...c, notify_email:e.target.value }))} type="email" placeholder="tu@magazin.ro"
                 className="w-full text-[13px] border border-neutral-200 rounded-xl px-3 py-2.5 focus:outline-none focus:border-blue-400 transition-colors" />
             </div>
@@ -1063,7 +1063,7 @@ export default function AgentPage() {
               ))}
             </div>
             {!config.notify_email
-              ? <div className="flex items-center gap-2 p-3 bg-amber-50 border border-amber-100 rounded-xl"><AlertCircle className="h-4 w-4 text-amber-500 shrink-0" /><p className="text-[11px] text-amber-700">Adaugă o adresă de email ca să activezi notificările.</p></div>
+              ? <div className="flex items-center gap-2 p-3 bg-amber-50 border border-amber-100 rounded-xl"><AlertCircle className="h-4 w-4 text-amber-500 shrink-0" /><p className="text-[11px] text-amber-700">{t('agent.notif_add_email')}</p></div>
               : <div className="flex items-center gap-2 p-3 bg-emerald-50 border border-emerald-100 rounded-xl"><Check className="h-4 w-4 text-emerald-600 shrink-0" /><p className="text-[11px] text-emerald-700">Notificările vor fi trimise la <strong>{config.notify_email}</strong></p></div>}
             <Btn onClick={handleSave} disabled={saving} variant={saved?'success':'primary'} className="w-full justify-center h-10">
               {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : saved ? <Check className="h-3.5 w-3.5" /> : <Save className="h-3.5 w-3.5" />}
@@ -1072,7 +1072,7 @@ export default function AgentPage() {
           </Card>
           <div className="flex gap-3 p-4 bg-blue-50 border border-blue-100 rounded-xl">
             <Bell className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" />
-            <p className="text-[11px] text-blue-700">Când un client spune „vreau să vorbesc cu cineva" sau raportează o problemă, primești imediat un email cu ultimele mesaje din conversație.</p>
+            <p className="text-[11px] text-blue-700">{t('agent.notif_how_works')}</p>
           </div>
         </div>
       )}
@@ -1083,9 +1083,9 @@ export default function AgentPage() {
           <Card className="p-5">
             <div className="flex items-center gap-2 mb-3">
               <BookOpen className="h-4 w-4 text-blue-500" />
-              <p className="text-[13px] font-semibold text-neutral-900">Adaugă cunoștințe</p>
+              <p className="text-[13px] font-semibold text-neutral-900">{t('agent.knowledge_title')}</p>
             </div>
-            <p className="text-[11px] text-neutral-500 mb-4">Agentul va răspunde la întrebări bazat pe aceste informații.</p>
+            <p className="text-[11px] text-neutral-500 mb-4">{t('agent.knowledge_desc')}</p>
             <div className="flex gap-1 bg-neutral-100 rounded-xl p-1 mb-4">
               {([['file','📄 Fișier'],['url','🔗 URL'],['text','✏️ Text']] as const).map(([t,label]) => (
                 <button key={t} onClick={() => setKUploadType(t)} className={`flex-1 py-1.5 rounded-lg text-[11px] font-medium transition-all ${kUploadType===t?'bg-white text-neutral-900 shadow-sm':'text-neutral-500 hover:text-neutral-700'}`}>{label}</button>
@@ -1097,8 +1097,8 @@ export default function AgentPage() {
               {kUploadType==='file' && (
                 <div onClick={() => kFileRef.current?.click()} className="border-2 border-dashed border-neutral-200 rounded-xl p-6 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-all">
                   <Upload className="h-6 w-6 text-neutral-300 mx-auto mb-2" />
-                  <p className="text-[11px] text-neutral-500">Click sau drag & drop</p>
-                  <p className="text-[10px] text-neutral-400 mt-1">PDF, TXT, MD — max 5MB</p>
+                  <p className="text-[11px] text-neutral-500">{t('agent.knowledge_drop')}</p>
+                  <p className="text-[10px] text-neutral-400 mt-1">{t('agent.knowledge_formats')}</p>
                   <input ref={kFileRef} type="file" accept=".pdf,.txt,.md" className="hidden" onChange={e => { const f=e.target.files?.[0]; if(f) uploadKnowledge(f); e.target.value='' }} />
                 </div>
               )}
@@ -1107,20 +1107,20 @@ export default function AgentPage() {
               {kError && <p className="text-[11px] text-red-500 flex items-center gap-1"><AlertTriangle className="h-3 w-3" />{kError}</p>}
               {(kUploadType==='url'||kUploadType==='text') && (
                 <Btn onClick={() => uploadKnowledge()} disabled={kUploading||(!kUrl&&!kText)} className="w-full justify-center bg-blue-600 hover:bg-blue-700 text-white rounded-xl h-9 text-[12px]">
-                  {kUploading ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />Se procesează...</> : <><PlusCircle className="h-3.5 w-3.5" />Adaugă</>}
+                  {kUploading ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />{t('agent.knowledge_processing')}</> : <><PlusCircle className="h-3.5 w-3.5" />{t('agent.knowledge_add')}</>}
                 </Btn>
               )}
-              {kUploading && kUploadType==='file' && <div className="flex items-center gap-2 text-[11px] text-blue-600"><Loader2 className="h-3.5 w-3.5 animate-spin" />Se procesează documentul...</div>}
+              {kUploading && kUploadType==='file' && <div className="flex items-center gap-2 text-[11px] text-blue-600"><Loader2 className="h-3.5 w-3.5 animate-spin" />{t('agent.knowledge_processing_doc')}</div>}
             </div>
           </Card>
 
           <Card className="p-5">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2"><FileText className="h-4 w-4 text-neutral-400" /><p className="text-[13px] font-semibold text-neutral-900">Documente ({knowledgeDocs.length})</p></div>
-              <Btn variant="ghost" size="sm" onClick={loadKnowledge}>↻ Actualizează</Btn>
+              <Btn variant="ghost" size="sm" onClick={loadKnowledge}>{t('agent.knowledge_refresh')}</Btn>
             </div>
             {knowledgeDocs.length === 0
-              ? <div className="text-center py-8"><BookOpen className="h-10 w-10 text-neutral-200 mx-auto mb-3" /><p className="text-[12px] text-neutral-400">Niciun document adăugat</p></div>
+              ? <div className="text-center py-8"><BookOpen className="h-10 w-10 text-neutral-200 mx-auto mb-3" /><p className="text-[12px] text-neutral-400">{t('agent.knowledge_empty')}</p></div>
               : <div className="space-y-2">
                   {knowledgeDocs.map(doc => (
                     <div key={doc.id} className="flex items-center gap-3 p-3 rounded-xl bg-neutral-50 hover:bg-neutral-100 transition-colors group">
@@ -1145,7 +1145,7 @@ export default function AgentPage() {
           </Card>
           <div className="flex gap-2 p-4 bg-blue-50 border border-blue-100 rounded-xl">
             <BookOpen className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" />
-            <p className="text-[11px] text-blue-700">Adaugă politica de livrare și retur, garanții, FAQ, instrucțiuni de utilizare. Agentul va cita informațiile relevante automat.</p>
+            <p className="text-[11px] text-blue-700">{t('agent.knowledge_hint')} Agentul va cita informațiile relevante automat.</p>
           </div>
         </div>
       )}
@@ -1158,8 +1158,8 @@ export default function AgentPage() {
               <div className="flex items-start gap-4">
                 <div className="h-12 w-12 rounded-xl bg-blue-500/20 border border-blue-400/30 flex items-center justify-center shrink-0 text-2xl">🔌</div>
                 <div>
-                  <p className="text-white font-semibold text-[15px]">Plugin WordPress — instalare 1 click</p>
-                  <p className="text-neutral-400 text-[12px] mt-1">Pluginul Hontrio include AI Agent + Risk Shield.</p>
+                  <p className="text-white font-semibold text-[15px]">{t('agent.install_wp_title')}</p>
+                  <p className="text-neutral-400 text-[12px] mt-1">{t('agent.install_wp_desc')}</p>
                 </div>
               </div>
               <a href="/settings?tab=plugin" className="mt-5 w-full bg-blue-500 hover:bg-blue-400 text-white rounded-xl h-10 gap-2 font-semibold text-[13px] flex items-center justify-center transition-colors">
@@ -1183,7 +1183,7 @@ export default function AgentPage() {
               <div className="bg-neutral-900 p-4">
                 <div className="bg-black/30 rounded-xl p-3 font-mono text-[11px] text-emerald-400 leading-relaxed whitespace-pre-wrap">{snippetCode}</div>
                 <Btn onClick={copySnippet} variant={copied?'success':'ghost'} size="sm" className="mt-3">
-                  {copied ? <><Check className="h-3 w-3" />Copiat!</> : <><Copy className="h-3 w-3" />Copiază codul</>}
+                  {copied ? <><Check className="h-3 w-3" />{t('agent.copied_code')}</> : <><Copy className="h-3 w-3" />{t('agent.copy_code_btn')}</>}
                 </Btn>
               </div>
             </Card>
@@ -1192,8 +1192,8 @@ export default function AgentPage() {
             <div className="flex items-start gap-3 bg-amber-50 border border-amber-100 rounded-xl p-4">
               <AlertCircle className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
               <div>
-                <p className="text-[13px] font-semibold text-amber-800">Numărul WhatsApp lipsește</p>
-                <p className="text-[11px] text-amber-600 mt-0.5">Fără WhatsApp, vizitatorii nu pot fi escaladați.</p>
+                <p className="text-[13px] font-semibold text-amber-800">{t('agent.whatsapp_missing')}</p>
+                <p className="text-[11px] text-amber-600 mt-0.5">{t('agent.whatsapp_missing_desc')}</p>
               </div>
             </div>
           )}

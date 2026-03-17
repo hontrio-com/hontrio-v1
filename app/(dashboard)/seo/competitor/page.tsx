@@ -245,7 +245,7 @@ function StealModal({ open, field, myCurrent, competitorValue, competitorUrl, on
             <h3 className="text-[14px] font-semibold text-neutral-900 flex items-center gap-2">
               <Sparkles className="h-4 w-4 text-neutral-500" />Steal This — {fieldLabels[field] || field}
             </h3>
-            <p className="text-[11px] text-neutral-400 mt-0.5">AI generează o variantă superioară ambelor</p>
+            <p className="text-[11px] text-neutral-400 mt-0.5">{t('seo.ai_generates_superior')}</p>
           </div>
           <button onClick={onClose} className="text-neutral-400 hover:text-neutral-600 text-lg leading-none">×</button>
         </div>
@@ -294,7 +294,7 @@ function StealModal({ open, field, myCurrent, competitorValue, competitorUrl, on
                 Aplică
               </Btn>
             )}
-            {applied && <span className="text-[12px] font-medium text-emerald-600 flex items-center gap-1.5"><CheckCircle className="h-3.5 w-3.5" />Aplicat!</span>}
+            {applied && <span className="text-[12px] font-medium text-emerald-600 flex items-center gap-1.5"><CheckCircle className="h-3.5 w-3.5" />{t('seo.applied')}</span>}
           </div>
         </div>
       </motion.div>
@@ -313,7 +313,7 @@ function TabOverview({ result, onSteal }: {
     <Card className="p-12 text-center">
       <BarChart3 className="h-10 w-10 text-neutral-200 mx-auto mb-4" />
       <p className="text-[14px] font-semibold text-neutral-700 mb-1">{t('seo.no_analysis')}</p>
-      <p className="text-[12px] text-neutral-400 max-w-xs mx-auto">Introdu URL-ul competitorului și apasă Analizează pentru a vedea comparația completă.</p>
+      <p className="text-[12px] text-neutral-400 max-w-xs mx-auto">{t('seo.enter_competitor_url')}</p>
     </Card>
   )
 
@@ -356,7 +356,7 @@ function TabOverview({ result, onSteal }: {
       {/* Metric bars */}
       <Card className="overflow-hidden">
         <div className="px-4 py-3 border-b border-neutral-100 flex items-center justify-between">
-          <p className="text-[13px] font-semibold text-neutral-900">Comparație metrici</p>
+          <p className="text-[13px] font-semibold text-neutral-900">{t('seo.metrics_comparison')}</p>
           <div className="flex items-center gap-3">
             {[{ dot: 'bg-neutral-900', lbl: 'Tu' }, { dot: 'bg-red-400', lbl: 'Competitor' }].map(x => (
               <span key={x.lbl} className="flex items-center gap-1.5 text-[10px] font-medium text-neutral-400">
@@ -376,8 +376,8 @@ function TabOverview({ result, onSteal }: {
       {/* Field compare */}
       <Card className="overflow-hidden">
         <div className="px-4 py-3 border-b border-neutral-100">
-          <p className="text-[13px] font-semibold text-neutral-900">Comparație câmpuri SEO</p>
-          <p className="text-[11px] text-neutral-400 mt-0.5">Apasă "Steal this" pentru a genera o variantă îmbunătățită cu AI</p>
+          <p className="text-[13px] font-semibold text-neutral-900">{t('seo.seo_fields_comparison')}</p>
+          <p className="text-[11px] text-neutral-400 mt-0.5">{t('seo.steal_hint')}</p>
         </div>
         <div className="p-4 space-y-3">
           <FieldRow label="Titlu SEO" mine={r.my_store.title || ''} theirs={r.competitor.title || ''} minLen={50} maxLen={70} winner={r.verdict.winner_title}
@@ -506,7 +506,7 @@ function TabMonitor({ competitorUrl }: { competitorUrl: string }) {
             Adaugă
           </Btn>
         </div>
-        <p className="text-[11px] text-neutral-400 mt-2">Verificăm automat în fiecare zi la 06:00. Primești alertă când detectăm schimbări.</p>
+        <p className="text-[11px] text-neutral-400 mt-2">{t('seo.checking_daily')}</p>
       </Card>
 
       {/* Monitors */}
@@ -637,8 +637,8 @@ function TabKeywords({ myUrl, competitorUrl }: { myUrl: string; competitorUrl: s
       <Card className="p-5">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-[13px] font-semibold text-neutral-900">Keyword Gap Analysis</p>
-            <p className="text-[11px] text-neutral-400 mt-0.5">Keywords pe care le are competitorul și tu nu. Direct acționabile.</p>
+            <p className="text-[13px] font-semibold text-neutral-900">{t('seo.keyword_gap')}</p>
+            <p className="text-[11px] text-neutral-400 mt-0.5">{t('seo.keyword_gap_desc')}</p>
             <p className="text-[10px] text-neutral-300 mt-1">{t('seo.two_credits')}</p>
           </div>
           <Btn onClick={analyze} disabled={loading || !myUrl || !competitorUrl}>
@@ -649,7 +649,7 @@ function TabKeywords({ myUrl, competitorUrl }: { myUrl: string; competitorUrl: s
         {error && <p className="text-[11px] text-red-500 flex items-center gap-1.5 mt-3"><XCircle className="h-3.5 w-3.5" />{error}</p>}
       </Card>
 
-      {loading && <Card className="p-8 text-center"><Loader2 className="h-6 w-6 animate-spin text-neutral-400 mx-auto mb-2" /><p className="text-[13px] text-neutral-500">Analizez ambele pagini...</p></Card>}
+      {loading && <Card className="p-8 text-center"><Loader2 className="h-6 w-6 animate-spin text-neutral-400 mx-auto mb-2" /><p className="text-[13px] text-neutral-500">{t('seo.analyzing_pages')}</p></Card>}
 
       {result && (
         <div className="space-y-4">
@@ -657,7 +657,7 @@ function TabKeywords({ myUrl, competitorUrl }: { myUrl: string; competitorUrl: s
             <Card className="p-5 border-2 border-neutral-900">
               <SectionLabel>{t('seo.max_priority')}</SectionLabel>
               <p className="text-[17px] font-bold text-neutral-900 mt-1">{result.top_priority}</p>
-              <p className="text-[11px] text-neutral-400 mt-1">Adaugă acest keyword în titlul și meta description-ul celor mai importante produse.</p>
+              <p className="text-[11px] text-neutral-400 mt-1">{t('seo.add_keyword_hint')}</p>
             </Card>
           )}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -727,9 +727,9 @@ function TabTechnical({ myUrl, competitorUrl }: { myUrl: string; competitorUrl: 
       <Card className="p-5">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-[13px] font-semibold text-neutral-900">Analiză tehnică SEO</p>
+            <p className="text-[13px] font-semibold text-neutral-900">{t('seo.technical_analysis')}</p>
             <p className="text-[11px] text-neutral-400 mt-0.5">PageSpeed, Core Web Vitals, Schema markup, Open Graph</p>
-            <p className="text-[10px] text-neutral-300 mt-1">Gratuit — Google PageSpeed API</p>
+            <p className="text-[10px] text-neutral-300 mt-1">{t('seo.free_pagespeed')}</p>
           </div>
           <Btn onClick={analyze} disabled={loading || !myUrl || !competitorUrl}>
             {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Shield className="h-3.5 w-3.5" />}
@@ -739,7 +739,7 @@ function TabTechnical({ myUrl, competitorUrl }: { myUrl: string; competitorUrl: 
         {error && <p className="text-[11px] text-red-500 flex items-center gap-1.5 mt-3"><XCircle className="h-3.5 w-3.5" />{error}</p>}
       </Card>
 
-      {loading && <Card className="p-8 text-center"><Loader2 className="h-6 w-6 animate-spin text-neutral-400 mx-auto mb-2" /><p className="text-[13px] text-neutral-500">Se rulează PageSpeed + analiză tehnică...</p><p className="text-[11px] text-neutral-400 mt-1">Poate dura 15-20 secunde</p></Card>}
+      {loading && <Card className="p-8 text-center"><Loader2 className="h-6 w-6 animate-spin text-neutral-400 mx-auto mb-2" /><p className="text-[13px] text-neutral-500">{t('seo.running_pagespeed')}</p><p className="text-[11px] text-neutral-400 mt-1">Poate dura 15-20 secunde</p></Card>}
 
       {data && (
         <div className="space-y-4">
@@ -787,7 +787,7 @@ function TabTechnical({ myUrl, competitorUrl }: { myUrl: string; competitorUrl: 
           {/* Technical checks */}
           <Card className="overflow-hidden">
             <div className="px-4 py-3 border-b border-neutral-100 flex items-center justify-between">
-              <p className="text-[13px] font-semibold text-neutral-900">Verificări SEO tehnic</p>
+              <p className="text-[13px] font-semibold text-neutral-900">{t('seo.technical_checks')}</p>
               <div className="flex items-center gap-3">
                 {[{ dot: 'bg-neutral-900', lbl: 'Tu' }, { dot: 'bg-red-400', lbl: 'Competitor' }].map(x => (
                   <span key={x.lbl} className="flex items-center gap-1.5 text-[10px] font-medium text-neutral-400">
@@ -852,8 +852,8 @@ function TabPricing({ myUrl, competitorUrl }: { myUrl: string; competitorUrl: st
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-[13px] font-semibold text-neutral-900">Pricing, USP & CTA Benchmark</p>
-            <p className="text-[11px] text-neutral-400 mt-0.5">Comparație prețuri, promisiuni unice, call-to-action-uri</p>
-            <p className="text-[10px] text-neutral-300 mt-1">2 credite</p>
+            <p className="text-[11px] text-neutral-400 mt-0.5">{t('seo.pricing_comparison')}</p>
+            <p className="text-[10px] text-neutral-300 mt-1">{t('seo.two_credits')}</p>
           </div>
           <Btn onClick={analyze} disabled={loading || !myUrl || !competitorUrl}>
             {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <DollarSign className="h-3.5 w-3.5" />}
@@ -863,7 +863,7 @@ function TabPricing({ myUrl, competitorUrl }: { myUrl: string; competitorUrl: st
         {error && <p className="text-[11px] text-red-500 flex items-center gap-1.5 mt-3"><XCircle className="h-3.5 w-3.5" />{error}</p>}
       </Card>
 
-      {loading && <Card className="p-8 text-center"><Loader2 className="h-6 w-6 animate-spin text-neutral-400 mx-auto mb-2" /><p className="text-[13px] text-neutral-500">Extrag prețuri, USP-uri și CTA-uri...</p></Card>}
+      {loading && <Card className="p-8 text-center"><Loader2 className="h-6 w-6 animate-spin text-neutral-400 mx-auto mb-2" /><p className="text-[13px] text-neutral-500">{t('seo.extracting_prices')}</p></Card>}
 
       {data && (
         <div className="space-y-4">
@@ -881,7 +881,7 @@ function TabPricing({ myUrl, competitorUrl }: { myUrl: string; competitorUrl: st
                 <div className="flex items-center gap-2 mb-3"><div className={`w-1.5 h-1.5 rounded-full ${dot}`} /><p className="text-[13px] font-semibold text-neutral-900">{label}</p></div>
                 {prices?.length > 0
                   ? <div className="flex flex-wrap gap-1.5">{prices.map((p, i) => <span key={i} className="text-[13px] font-bold text-neutral-800 bg-neutral-50 border border-neutral-200 px-3 py-1 rounded-xl tabular-nums">{p.toFixed(2)} RON</span>)}</div>
-                  : <p className="text-[11px] text-neutral-300">Niciun preț detectat</p>}
+                  : <p className="text-[11px] text-neutral-300">{t('seo.no_price_detected')}</p>}
               </Card>
             ))}
           </div>
@@ -899,7 +899,7 @@ function TabPricing({ myUrl, competitorUrl }: { myUrl: string; competitorUrl: st
 
           {data.missing_usps?.length > 0 && (
             <Card className="p-4">
-              <p className="text-[13px] font-semibold text-neutral-900 mb-3">Promisiuni pe care competitorul le face și TU nu le menționezi</p>
+              <p className="text-[13px] font-semibold text-neutral-900 mb-3">{t('seo.competitor_promises')}</p>
               <div className="space-y-2">
                 {data.missing_usps.map((u, i) => (
                   <div key={i} className="flex items-start gap-3 p-3 bg-amber-50 rounded-xl border border-amber-100">
@@ -913,7 +913,7 @@ function TabPricing({ myUrl, competitorUrl }: { myUrl: string; competitorUrl: st
 
           {data.cta_recommendations?.length > 0 && (
             <Card className="p-4">
-              <p className="text-[13px] font-semibold text-neutral-900 mb-3">Recomandări CTA</p>
+              <p className="text-[13px] font-semibold text-neutral-900 mb-3">{t('seo.cta_recommendations')}</p>
               <div className="space-y-2">
                 {data.cta_recommendations.map((r, i) => (
                   <div key={i} className="flex items-start gap-4 p-3.5 rounded-xl border border-neutral-100 hover:bg-neutral-50 transition-colors">
@@ -981,9 +981,9 @@ function TabReports({ myUrl, competitorUrl, result }: { myUrl: string; competito
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-[13px] font-semibold text-neutral-900">Raport SEO Battle</p>
-            <p className="text-[11px] text-neutral-400 mt-0.5">Raport complet cu scor detaliat, acțiuni prioritizate și strategie.</p>
-            {!result && <p className="text-[10px] text-amber-600 mt-1">Rulează analiza din tab-ul Overview mai întâi.</p>}
-            <p className="text-[10px] text-neutral-300 mt-1">3 credite</p>
+            <p className="text-[11px] text-neutral-400 mt-0.5">{t('seo.full_report_desc')}</p>
+            {!result && <p className="text-[10px] text-amber-600 mt-1">{t('seo.run_overview_first')}</p>}
+            <p className="text-[10px] text-neutral-300 mt-1">{t('seo.three_credits')}</p>
           </div>
           <Btn onClick={generate} disabled={generating || !result}>
             {generating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileText className="h-3.5 w-3.5" />}
@@ -993,7 +993,7 @@ function TabReports({ myUrl, competitorUrl, result }: { myUrl: string; competito
         {error && <p className="text-[11px] text-red-500 flex items-center gap-1.5 mt-2"><XCircle className="h-3.5 w-3.5" />{error}</p>}
       </Card>
 
-      {generating && <Card className="p-8 text-center"><Loader2 className="h-6 w-6 animate-spin text-neutral-400 mx-auto mb-2" /><p className="text-[13px] text-neutral-500">Se generează raportul complet...</p></Card>}
+      {generating && <Card className="p-8 text-center"><Loader2 className="h-6 w-6 animate-spin text-neutral-400 mx-auto mb-2" /><p className="text-[13px] text-neutral-500">{t('seo.generating_report')}</p></Card>}
 
       {report && (
         <div className="space-y-4">
@@ -1030,8 +1030,8 @@ function TabReports({ myUrl, competitorUrl, result }: { myUrl: string; competito
           {report.immediate_actions?.length > 0 && (
             <Card className="overflow-hidden">
               <div className="px-4 py-3 border-b border-neutral-100">
-                <p className="text-[13px] font-semibold text-neutral-900">Acțiuni imediate — matrice priorități</p>
-                <p className="text-[11px] text-neutral-400 mt-0.5">Sortate după impact / efort</p>
+                <p className="text-[13px] font-semibold text-neutral-900">{t('seo.immediate_actions')}</p>
+                <p className="text-[11px] text-neutral-400 mt-0.5">{t('seo.sorted_by_impact')}</p>
               </div>
               <div className="p-4 space-y-2">
                 {report.immediate_actions.map((a: any) => (
@@ -1187,7 +1187,7 @@ export default function CompetitorPage() {
       {/* Header */}
       <div>
         <h1 className="text-[22px] font-semibold text-neutral-900 tracking-tight">{t('seo.competitors')}</h1>
-        <p className="text-[13px] text-neutral-400 mt-1">Monitorizează, compară și depășește orice competitor SEO</p>
+        <p className="text-[13px] text-neutral-400 mt-1">{t('seo.monitor_compare_desc')}</p>
       </div>
 
       {/* Input card */}

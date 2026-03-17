@@ -201,7 +201,7 @@ export default function InboxPage() {
 
               <div className="space-y-2 max-h-96 overflow-y-auto pr-1">
                 {selected.messages.length === 0
-                  ? <p className="text-[11px] text-neutral-400 text-center py-4">Mesajele nu sunt disponibile</p>
+                  ? <p className="text-[11px] text-neutral-400 text-center py-4">{t('agent.no_conversations')}</p>
                   : selected.messages.map((m, i) => (
                     <div key={i} className={`flex ${m.role==='user' ? 'justify-end' : 'justify-start'}`}>
                       <div className={`max-w-[85%] px-3 py-2 rounded-xl text-[12px] leading-relaxed ${m.role==='user' ? 'bg-blue-600 text-white' : 'bg-neutral-100 text-neutral-800'}`}>

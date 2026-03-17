@@ -168,7 +168,7 @@ function LiveScoreWidget({ sections, collapsed, onToggle }: {
         </div>
         <div className="flex-1 text-left">
           <p className="text-[13px] font-semibold text-neutral-900">{t('seo.live_seo_score')}</p>
-          <p className="text-[12px] text-neutral-400">Se actualizează în timp real</p>
+          <p className="text-[12px] text-neutral-400">{t('seo.updating_realtime')}</p>
         </div>
         <ChevronDown className={`h-4 w-4 text-neutral-400 transition-transform shrink-0 ${collapsed ? '' : 'rotate-180'}`} />
       </button>
@@ -206,8 +206,8 @@ function LiveScoreWidget({ sections, collapsed, onToggle }: {
 function KeywordDensity({ keyword, shortDesc, longDesc }: { keyword: string; shortDesc: string; longDesc: string }) {
   if (!keyword) return (
     <Card className="p-4">
-      <p className="text-[10px] font-medium text-neutral-400 uppercase tracking-wide mb-2 flex items-center gap-1.5"><Hash className="h-3 w-3" />Keyword Density</p>
-      <p className="text-[12px] text-neutral-400">Setează un focus keyword pentru a vedea densitatea.</p>
+      <p className="text-[10px] font-medium text-neutral-400 uppercase tracking-wide mb-2 flex items-center gap-1.5"><Hash className="h-3 w-3" />{t('seo.keyword_density')}</p>
+      <p className="text-[12px] text-neutral-400">{t('seo.set_focus_kw')}</p>
     </Card>
   )
   const kw      = keyword.toLowerCase()
@@ -239,8 +239,8 @@ function KeywordDensity({ keyword, shortDesc, longDesc }: { keyword: string; sho
           {inLong ? <Check className="h-3 w-3" /> : <XCircle className="h-3 w-3" />} Desc. lungă
         </span>
       </div>
-      {low && count > 0 && <p className="text-[10px] text-amber-600 mt-2">↑ Menționează keyword-ul mai des</p>}
-      {!ok && !low && <p className="text-[10px] text-red-500 mt-2">↓ Keyword stuffing — reduce frecvența</p>}
+      {low && count > 0 && <p className="text-[10px] text-amber-600 mt-2">{t('seo.mention_more')}</p>}
+      {!ok && !low && <p className="text-[10px] text-red-500 mt-2">{t('seo.keyword_stuffing')}</p>}
     </Card>
   )
 }
@@ -369,10 +369,10 @@ function SchemaWidget({ productId }: { productId: string }) {
         </div>
       </div>
       <div className="p-4">
-        {!schema && <p className="text-[12px] text-neutral-400 leading-relaxed">Generează structured data <strong>Product + Offer</strong> — ajută Google să afișeze prețul și disponibilitatea direct în rezultate.</p>}
+        {!schema && <p className="text-[12px] text-neutral-400 leading-relaxed">Generează structured data <strong>Product + Offer</strong> {t('seo.schema_helps')}</p>}
         {schema && show && (
           <>
-            <p className="text-[11px] text-neutral-400 mb-2">Adaugă în <code className="bg-neutral-100 px-1 rounded text-neutral-600">&lt;head&gt;</code> sau în câmpul JSON-LD din Yoast / Rank Math.</p>
+            <p className="text-[11px] text-neutral-400 mb-2">Adaugă în <code className="bg-neutral-100 px-1 rounded text-neutral-600">&lt;head&gt;</code> {t('seo.schema_yoast')}</p>
             <pre className="bg-neutral-900 text-emerald-400 text-[10px] rounded-xl p-3 overflow-x-auto leading-relaxed font-mono">{schema}</pre>
             <a href="https://search.google.com/test/rich-results" target="_blank" rel="noopener"
               className="inline-flex items-center gap-1 text-[11px] text-neutral-500 hover:text-neutral-700 mt-2 transition-colors">
@@ -481,7 +481,7 @@ function InternalLinkSuggestions({ productId, longDesc, category }: { productId:
         </div>
       </div>
       <div className="p-4">
-        {!done && !loading && <p className="text-[12px] text-neutral-400 leading-relaxed">Analizează descrierea și sugerează produse din catalog care pot fi linkuite natural.</p>}
+        {!done && !loading && <p className="text-[12px] text-neutral-400 leading-relaxed">{t('seo.crosslink_desc')}</p>}
         {loading && <div className="flex items-center gap-2 py-2 text-[12px] text-neutral-400"><Loader2 className="h-4 w-4 animate-spin" />Analizez...</div>}
         {done && suggestions.length === 0 && <p className="text-[12px] text-neutral-400">Nicio sugestie. Completează descrierea lungă pentru rezultate mai bune.</p>}
         {done && suggestions.length > 0 && (
@@ -758,7 +758,7 @@ export default function ProductSEOPage() {
           {product.seo_suggestions && product.seo_suggestions.length > 0 && (
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}>
               <div className="bg-amber-50 border border-amber-100 rounded-xl p-4">
-                <p className="text-[11px] font-semibold text-amber-700 mb-2 flex items-center gap-1.5"><AlertTriangle className="h-3.5 w-3.5" />Sugestii SEO</p>
+                <p className="text-[11px] font-semibold text-amber-700 mb-2 flex items-center gap-1.5"><AlertTriangle className="h-3.5 w-3.5" />{t('seo.seo_suggestions')}</p>
                 <ul className="space-y-1.5">
                   {product.seo_suggestions.map((s, i) => (
                     <li key={i} className="flex items-start gap-2 text-[12px] text-amber-700"><ArrowRight className="h-3.5 w-3.5 shrink-0 mt-0.5" />{s}</li>
@@ -789,7 +789,7 @@ export default function ProductSEOPage() {
               />
               {cfg.key === 'focus_keyword' && product.secondary_keywords && product.secondary_keywords.length > 0 && (
                 <div className="flex flex-wrap gap-1.5 px-1 mt-2">
-                  <span className="text-[11px] text-neutral-400">Keywords secundare:</span>
+                  <span className="text-[11px] text-neutral-400">{t('seo.secondary_kw')}</span>
                   {product.secondary_keywords.map((kw, ki) => (
                     <span key={ki} className="text-[11px] text-neutral-600 bg-neutral-100 px-2 py-0.5 rounded-full">{kw}</span>
                   ))}
@@ -826,7 +826,7 @@ export default function ProductSEOPage() {
       <div className="sticky bottom-4 bg-white/95 backdrop-blur-sm border border-neutral-200 rounded-xl shadow-lg px-4 py-3 flex items-center justify-between gap-3">
         <div className="text-[12px] min-w-0">
           {anyUnsaved
-            ? <span className="text-neutral-600 font-medium">Modificări nesalvate</span>
+            ? <span className="text-neutral-600 font-medium">{t('seo.unsaved_changes')}</span>
             : <span className="text-emerald-600 font-medium flex items-center gap-1.5"><CheckCircle className="h-3.5 w-3.5 shrink-0" />Totul salvat</span>}
           {credits !== null && <span className="text-neutral-400 ml-2 tabular-nums">{t('seo.credits_remaining')}: {credits}</span>}
         </div>

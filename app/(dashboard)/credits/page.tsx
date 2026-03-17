@@ -391,7 +391,7 @@ function SubscriptionPageInner() {
             <Card className="p-5 bg-neutral-50">
               <div className="flex items-center gap-2 mb-1.5">
                 <Shield className="h-3.5 w-3.5 text-neutral-400" />
-                <p className="text-[12px] font-semibold text-neutral-700">Plată securizată</p>
+                <p className="text-[12px] font-semibold text-neutral-700">{t('credits.secure_payment')}</p>
               </div>
               <p className="text-[12px] text-neutral-500 leading-relaxed">
                 Tranzacțiile sunt procesate securizat prin Stripe. Acceptăm Visa, Mastercard, și alte metode de plată.
@@ -415,7 +415,7 @@ function SubscriptionPageInner() {
                 <div className="text-center py-12">
                   <Clock className="h-8 w-8 text-neutral-200 mx-auto mb-3" />
                   <p className="text-[13px] font-medium text-neutral-500">{t('credits.no_transactions')}</p>
-                  <p className="text-[12px] text-neutral-400 mt-1">Tranzacțiile vor apărea aici</p>
+                  <p className="text-[12px] text-neutral-400 mt-1">{t('credits.transactions_appear')}</p>
                 </div>
               ) : (
                 <>
@@ -447,7 +447,7 @@ function SubscriptionPageInner() {
                     <button onClick={() => setShowAll(s => !s)}
                       className="w-full mt-3 py-2 text-[12px] text-neutral-500 hover:text-neutral-700 font-medium flex items-center justify-center gap-1 transition-colors">
                       {showAll
-                        ? <><ChevronUp className="h-3 w-3" />Arată mai puțin</>
+                        ? <><ChevronUp className="h-3 w-3" />{t('credits.show_less')}</>
                         : <><ChevronDown className="h-3 w-3" />Arată toate ({transactions.length})</>}
                     </button>
                   )}
