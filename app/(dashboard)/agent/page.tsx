@@ -19,11 +19,11 @@ const COLORS = [
   '#f97316','#8b5cf6','#06b6d4','#84cc16',
 ]
 
-const INTENT_LABELS: Record<string, string> = {
-  buying_ready:'Gata să cumpere', browsing:'Explorează', comparing:'Compară',
-  compatibility:'Compatibilitate', info_product:'Info produs', info_shipping:'Livrare/retur',
-  problem:'Problemă', escalate:'Escaladare', greeting:'Salut inițial',
-}
+const getIntentLabels = (t: (k: string) => string): Record<string, string> => ({
+  buying_ready: t('agent.intent_buying_ready'), browsing: t('agent.intent_browsing'), comparing: t('agent.intent_comparing'),
+  compatibility: t('agent.intent_compatibility'), info_product: t('agent.intent_info_product'), info_shipping: t('agent.intent_info_shipping'),
+  problem: t('agent.intent_problem'), escalate: t('agent.intent_escalate'), greeting: t('agent.intent_greeting'),
+})
 
 type Config = {
   is_active: boolean; agent_name: string; welcome_message: string
@@ -179,7 +179,7 @@ function WidgetPreview({ config, messages, onSend, loading, onToggle, isOpen }: 
             </div>
             <div className="p-2.5 border-t border-neutral-100 bg-white flex gap-2">
               <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key==='Enter' && handleSend()}
-                placeholder="Scrie un mesaj..." className="flex-1 text-[11px] bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 focus:outline-none focus:border-blue-300 transition-colors" />
+                placeholder={t('agent.type_message')} className="flex-1 text-[11px] bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 focus:outline-none focus:border-blue-300 transition-colors" />
               <button onClick={handleSend} disabled={!input.trim()||loading}
                 className="w-8 h-8 rounded-xl flex items-center justify-center text-white hover:opacity-80 disabled:opacity-40 transition-all"
                 style={{ background:config.widget_color }}><Send className="w-3.5 h-3.5" /></button>
@@ -216,6 +216,7 @@ function WidgetPreview({ config, messages, onSend, loading, onToggle, isOpen }: 
 
 export default function AgentPage() {
   const { t } = useT()
+  const INTENT_LABELS = getIntentLabels(t)
   const [config, setConfig]       = useState<Config>(defaultConfig)
   const [stats, setStats]         = useState<Stats | null>(null)
   const [analytics, setAnalytics] = useState<Analytics | null>(null)
@@ -324,7 +325,7 @@ export default function AgentPage() {
   }
 
   const deleteKnowledge = async (id: string) => {
-    if (!confirm('Ștergi acest document?')) return
+    if (!confirm(t('agent.confirm_delete_doc'))) return
     await fetch('/api/agent/knowledge', { method:'DELETE', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ id }) })
     setKnowledgeDocs(prev => prev.filter(d => d.id !== id))
   }
@@ -382,7 +383,7 @@ export default function AgentPage() {
   const copySnippet = () => { navigator.clipboard.writeText(snippetCode); setCopied(true); setTimeout(()=>setCopied(false),2000) }
 
   const MAIN_TABS = [
-    { id:'overview',      label:'Statistici',  icon:TrendingUp },
+    { id:'overview',      label:t('agent.overview_label'),  icon:TrendingUp },
     { id:'settings',      label:t('agent.config_tab'), icon:Settings2  },
     { id:'knowledge',     label:t('agent.knowledge_label'),  icon:BookOpen   },
     { id:'intelligence',  label:t('agent.intelligence_title'),icon:Zap        },
@@ -417,12 +418,12 @@ export default function AgentPage() {
         <div className="flex items-center gap-3">
           <div className={`h-2 w-2 rounded-full ${config.is_active ? 'bg-emerald-500 animate-pulse' : 'bg-neutral-300'}`} />
           <span className={`text-[13px] font-medium ${config.is_active ? 'text-emerald-700' : 'text-neutral-500'}`}>
-            {config.is_active ? `"${config.agent_name}" este activ` : 'Agentul este oprit'}
+            {config.is_active ? `"${config.agent_name}" ${t('agent.active').toLowerCase()}` : t('agent.inactive')}
           </span>
         </div>
         {!config.is_active && (
           <Btn onClick={handleToggle} variant="success" size="sm">
-            <Power className="h-3 w-3" />Activează
+            <Power className="h-3 w-3" />{t('agent.activate')}
           </Btn>
         )}
       </div>
@@ -442,17 +443,17 @@ export default function AgentPage() {
         <div className="space-y-4">
           <div className="flex justify-end">
             <Btn variant="ghost" size="sm" onClick={() => loadAnalytics()} disabled={analyticsLoading}>
-              {analyticsLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <ArrowUpRight className="h-3 w-3 rotate-180" />}Actualizează
+              {analyticsLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <ArrowUpRight className="h-3 w-3 rotate-180" />}{t('agent.update_stats')}
             </Btn>
           </div>
 
           {/* KPI cards */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {[
-              { label:t('agent.conversations_30d'), value:analytics?.summary.totalSessions??stats?.total??0,  icon:MessageCircle, color:'text-blue-600',   bg:'bg-blue-50',   sub:analytics?.summary.weekTrend ? `${analytics.summary.weekTrend>0?'+':''}${analytics.summary.weekTrend}% vs săpt. trecută` : undefined },
-              { label:'Vizitatori unici',  value:analytics?.summary.uniqueVisitors??0,               icon:Users,         color:'text-violet-600', bg:'bg-violet-50', sub:analytics?`${analytics.summary.returningVisitors} reveniri`:undefined },
+              { label:t('agent.conversations_30d'), value:analytics?.summary.totalSessions??stats?.total??0,  icon:MessageCircle, color:'text-blue-600',   bg:'bg-blue-50',   sub:analytics?.summary.weekTrend ? `${analytics.summary.weekTrend>0?'+':''}${analytics.summary.weekTrend}% ${t('agent.vs_last_week')}` : undefined },
+              { label:t('agent.unique_visitors'),  value:analytics?.summary.uniqueVisitors??0,               icon:Users,         color:'text-violet-600', bg:'bg-violet-50', sub:analytics?`${analytics.summary.returningVisitors} ${t('agent.returns_label')}`:undefined },
               { label:t('agent.messages_per_conv'),    value:analytics?.summary.avgMessages??stats?.avgMessages??0, icon:Zap,          color:'text-amber-600',  bg:'bg-amber-50',  sub:undefined },
-              { label:t('agent.escalations'),        value:analytics?.summary.escalated??stats?.escalated??0,  icon:Phone,         color:'text-red-500',    bg:'bg-red-50',    sub:analytics?.summary.totalSessions ? `${Math.round((analytics.summary.escalated/analytics.summary.totalSessions)*100)}% din total` : undefined },
+              { label:t('agent.escalations'),        value:analytics?.summary.escalated??stats?.escalated??0,  icon:Phone,         color:'text-red-500',    bg:'bg-red-50',    sub:analytics?.summary.totalSessions ? `${Math.round((analytics.summary.escalated/analytics.summary.totalSessions)*100)}% ${t('agent.of_total')}` : undefined },
             ].map(stat => (
               <Card key={stat.label} className="p-4">
                 <div className={`h-8 w-8 rounded-xl ${stat.bg} flex items-center justify-center mb-3`}>
@@ -597,7 +598,7 @@ export default function AgentPage() {
           <div className="space-y-4">
             {/* Sub-tabs */}
             <div className="flex gap-1 p-1 bg-neutral-100 rounded-xl">
-              {([{ id:'identity',label:'Identitate',icon:Bot },{ id:'appearance',label:'Aspect',icon:Palette },{ id:'advanced',label:'Avansat',icon:Code2 }] as const).map(t => (
+              {([{ id:'identity',label:t('agent.config_identity'),icon:Bot },{ id:'appearance',label:t('agent.config_appearance'),icon:Palette },{ id:'advanced',label:t('agent.config_advanced'),icon:Code2 }] as const).map(t => (
                 <button key={t.id} onClick={() => setActiveSettingsTab(t.id)}
                   className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-[11px] font-medium transition-all ${activeSettingsTab===t.id?'bg-white text-neutral-900 shadow-sm':'text-neutral-500 hover:text-neutral-700'}`}>
                   <t.icon className="h-3.5 w-3.5" />{t.label}
@@ -624,13 +625,13 @@ export default function AgentPage() {
                     <input ref={avatarInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
                   </div>
                   <p className="text-[10px] text-neutral-400 mt-2">{t('agent.or_url_direct')}</p>
-                  <input value={config.widget_avatar_url} onChange={e => setConfig(c => ({ ...c, widget_avatar_url:e.target.value }))} placeholder="https://exemplu.ro/avatar.jpg"
+                  <input value={config.widget_avatar_url} onChange={e => setConfig(c => ({ ...c, widget_avatar_url:e.target.value }))} placeholder={t('agent.avatar_url_placeholder')}
                     className="mt-1.5 w-full text-[12px] border border-neutral-200 rounded-xl px-3 py-2 focus:outline-none focus:border-blue-400 transition-colors" />
                 </div>
                 <div className="h-px bg-neutral-100" />
                 <div>
                   <SectionLabel className="mb-1.5 block">{t('agent.agent_name_label')}</SectionLabel>
-                  <input value={config.agent_name} onChange={e => setConfig(c => ({ ...c, agent_name:e.target.value }))} placeholder="ex: Maria"
+                  <input value={config.agent_name} onChange={e => setConfig(c => ({ ...c, agent_name:e.target.value }))} placeholder={t('agent.agent_name_placeholder')}
                     className="w-full text-[13px] border border-neutral-200 rounded-xl px-3 py-2.5 focus:outline-none focus:border-blue-400 transition-colors" />
                 </div>
                 <div>
@@ -681,7 +682,7 @@ export default function AgentPage() {
                 <div>
                   <SectionLabel className="mb-2 block">{t('agent.button_shape')}</SectionLabel>
                   <div className="grid grid-cols-3 gap-2">
-                    {[{ id:'circle',label:'Cerc',icon:Circle },{ id:'rounded',label:'Rotunjit',icon:Square },{ id:'rectangle',label:'Text + icon',icon:RectangleHorizontal }].map(s => (
+                    {[{ id:'circle',label:t('agent.shape_circle'),icon:Circle },{ id:'rounded',label:t('agent.shape_rounded'),icon:Square },{ id:'rectangle',label:t('agent.shape_rectangle'),icon:RectangleHorizontal }].map(s => (
                       <button key={s.id} onClick={() => setConfig(c => ({ ...c, widget_button_shape:s.id }))}
                         className={`flex flex-col items-center gap-1.5 py-3 rounded-xl border text-[11px] font-medium transition-all ${config.widget_button_shape===s.id?'border-blue-500 bg-blue-50 text-blue-600':'border-neutral-200 text-neutral-500 hover:border-neutral-400'}`}>
                         <s.icon className="w-4 h-4" />{s.label}
@@ -689,7 +690,7 @@ export default function AgentPage() {
                     ))}
                   </div>
                   {config.widget_button_shape==='rectangle' && (
-                    <input value={config.widget_button_label} onChange={e => setConfig(c => ({ ...c, widget_button_label:e.target.value }))} placeholder="Text buton (ex: Ajutor?)"
+                    <input value={config.widget_button_label} onChange={e => setConfig(c => ({ ...c, widget_button_label:e.target.value }))} placeholder={t('agent.button_label_placeholder')}
                       className="mt-2 w-full text-[12px] border border-neutral-200 rounded-xl px-3 py-2 focus:outline-none focus:border-blue-400 transition-colors" />
                   )}
                 </div>
@@ -697,7 +698,7 @@ export default function AgentPage() {
                 <div>
                   <SectionLabel className="mb-2 block">{t('agent.widget_size')}</SectionLabel>
                   <div className="flex gap-2">
-                    {[{ id:'small',label:'Mic' },{ id:'medium',label:'Mediu' },{ id:'large',label:'Mare' }].map(s => (
+                    {[{ id:'small',label:t('agent.size_small') },{ id:'medium',label:t('agent.size_medium') },{ id:'large',label:t('agent.size_large') }].map(s => (
                       <button key={s.id} onClick={() => setConfig(c => ({ ...c, widget_size:s.id }))}
                         className={`flex-1 py-2 text-[11px] rounded-xl border font-medium transition-all ${config.widget_size===s.id?'border-blue-500 bg-blue-50 text-blue-600':'border-neutral-200 text-neutral-500 hover:border-neutral-400'}`}>{s.label}</button>
                     ))}
@@ -707,7 +708,7 @@ export default function AgentPage() {
                 <div>
                   <SectionLabel className="mb-2 block">{t('agent.widget_position')}</SectionLabel>
                   <div className="flex gap-2">
-                    {[{ id:'bottom-right',label:'Dreapta jos' },{ id:'bottom-left',label:'Stânga jos' }].map(pos => (
+                    {[{ id:'bottom-right',label:t('agent.pos_bottom_right') },{ id:'bottom-left',label:t('agent.pos_bottom_left') }].map(pos => (
                       <button key={pos.id} onClick={() => setConfig(c => ({ ...c, widget_position:pos.id }))}
                         className={`flex-1 py-2 text-[11px] rounded-xl border font-medium transition-all ${config.widget_position===pos.id?'border-blue-500 bg-blue-50 text-blue-600':'border-neutral-200 text-neutral-500 hover:border-neutral-400'}`}>{pos.label}</button>
                     ))}
@@ -735,14 +736,14 @@ export default function AgentPage() {
                   <SectionLabel className="flex items-center gap-1.5 mb-1"><Code2 className="w-3.5 h-3.5 text-violet-500" />CSS Custom</SectionLabel>
                   <p className="text-[10px] text-neutral-400 mb-2">{t('agent.css_desc')}</p>
                   <textarea value={config.widget_custom_css} onChange={e => setConfig(c => ({ ...c, widget_custom_css:e.target.value }))}
-                    placeholder={`/* Exemplu */\n#_h * { font-family: 'Georgia', serif !important; }`}
+                    placeholder={t('agent.css_placeholder')}
                     rows={12} spellCheck={false}
                     className="w-full text-[11px] font-mono border border-neutral-200 rounded-xl px-3 py-2.5 focus:outline-none focus:border-violet-400 transition-colors resize-none bg-neutral-50" />
                 </div>
                 <div className="bg-amber-50 border border-amber-100 rounded-xl p-3">
                   <p className="text-[11px] font-semibold text-amber-800 mb-1.5">{t('agent.css_selectors')}</p>
                   <div className="space-y-0.5 text-[10px] font-mono text-amber-700">
-                    {[['#_h_b','Butonul'],['#_h_w','Fereastra chat'],['#_h_hd','Header'],['._h_r.u ._h_bb','Mesaje utilizator'],['._h_r.b ._h_bb','Mesaje agent'],['#_h_bl','Bubble intro']].map(([s,d]) => (
+                    {[['#_h_b',t('agent.css_selector_button')],['#_h_w',t('agent.css_selector_window')],['#_h_hd',t('agent.css_selector_header')],['._h_r.u ._h_bb',t('agent.css_selector_user_msg')],['._h_r.b ._h_bb',t('agent.css_selector_agent_msg')],['#_h_bl',t('agent.css_selector_bubble')]].map(([s,d]) => (
                       <div key={s} className="flex gap-2"><span className="shrink-0">{s}</span><span className="text-amber-500">— {d}</span></div>
                     ))}
                   </div>
@@ -841,10 +842,10 @@ export default function AgentPage() {
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mb-4">
               <div className="flex-1 relative w-full">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-neutral-300" />
-                <input value={intelSearch} onChange={e => setIntelSearch(e.target.value)} placeholder="Caută produse..." className="w-full pl-9 pr-3 h-9 bg-neutral-50 border border-neutral-200 rounded-xl text-[13px] outline-none focus:border-neutral-400" />
+                <input value={intelSearch} onChange={e => setIntelSearch(e.target.value)} placeholder={t('agent.search_products_placeholder')} className="w-full pl-9 pr-3 h-9 bg-neutral-50 border border-neutral-200 rounded-xl text-[13px] outline-none focus:border-neutral-400" />
               </div>
               <div className="flex gap-1.5 flex-wrap">
-                {([['all','Toate'],['ready','Cu AI'],['none','Fără AI'],['failed','Eșuate']] as const).map(([v,l]) => (
+                {([['all',t('agent.filter_all')],['ready',t('agent.filter_with_ai')],['none',t('agent.filter_without_ai')],['failed',t('agent.filter_failed')]] as const).map(([v,l]) => (
                   <button key={v} onClick={() => setIntelFilter(v)} className={`px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all ${intelFilter===v ? 'bg-neutral-900 text-white' : 'bg-neutral-100 text-neutral-500 hover:bg-neutral-200'}`}>{l}</button>
                 ))}
               </div>
@@ -853,7 +854,7 @@ export default function AgentPage() {
             {/* Actions */}
             <div className="flex flex-wrap items-center gap-2 mb-4 pb-4 border-b border-neutral-100">
               <button onClick={toggleAll} className="text-[11px] text-blue-600 hover:text-blue-800 font-medium">
-                {allFilteredSelected ? 'Deselectează tot' : `Selectează tot (${filteredProducts.length})`}
+                {allFilteredSelected ? t('agent.deselect_all_intel') : `${t('agent.select_all_intel')} (${filteredProducts.length})`}
               </button>
               {intelSelected.size > 0 && (
                 <>
@@ -861,7 +862,7 @@ export default function AgentPage() {
                   <span className="text-[11px] text-neutral-500">{intelSelected.size} selectate</span>
                   <Btn onClick={() => generateIntelligence(false, true)} disabled={intelGenerating} className="bg-blue-600 hover:bg-blue-700 text-white rounded-lg h-8 px-3 text-[11px] ml-auto">
                     {intelGenerating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Zap className="h-3 w-3" />}
-                    Generează pentru selectate ({intelSelected.size})
+                    {t('agent.generate_for_selected')} ({intelSelected.size})
                   </Btn>
                 </>
               )}
@@ -869,7 +870,7 @@ export default function AgentPage() {
                 <div className="flex gap-2 ml-auto">
                   <Btn onClick={() => generateIntelligence(false)} disabled={intelGenerating} className="bg-blue-600 hover:bg-blue-700 text-white rounded-lg h-8 px-3 text-[11px]">
                     {intelGenerating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Zap className="h-3 w-3" />}
-                    Generează tot
+                    {t('agent.generate_all_intel')}
                   </Btn>
                   <Btn onClick={() => generateIntelligence(true)} disabled={intelGenerating} variant="outline" className="h-8 px-3 text-[11px]">{t('agent.intel_regenerate')}</Btn>
                 </div>
@@ -899,7 +900,7 @@ export default function AgentPage() {
                       p.intel_status === 'processing' ? 'bg-amber-50 text-amber-600' :
                       p.intel_status === 'failed' ? 'bg-red-50 text-red-500' :
                       'bg-neutral-50 text-neutral-400'
-                    }`}>{p.intel_status === 'ready' ? 'AI Ready' : p.intel_status === 'processing' ? 'Procesare...' : p.intel_status === 'failed' ? 'Eșuat' : 'Fără AI'}</span>
+                    }`}>{p.intel_status === 'ready' ? t('agent.ai_ready') : p.intel_status === 'processing' ? t('agent.processing_dots') : p.intel_status === 'failed' ? t('agent.failed_label') : t('agent.no_ai')}</span>
                     <ChevronRight className={`h-4 w-4 text-neutral-300 transition-transform shrink-0 ${intelExpanded === p.id ? 'rotate-90' : ''}`} />
                   </div>
 
@@ -971,8 +972,8 @@ export default function AgentPage() {
                             <div className="space-y-1.5">
                               {Object.entries(ed?.key_specs||{}).map(([k, v]) => (
                                 <div key={k} className="flex gap-2 items-center">
-                                  <input value={k} onChange={e => { const specs = {...(ed?.key_specs||{})}; const val = specs[k]; delete specs[k]; specs[e.target.value] = val; setField('key_specs', specs) }} className="w-1/3 text-[11px] bg-white border border-neutral-200 rounded-lg px-2.5 py-1.5 outline-none focus:border-blue-400" placeholder="Spec" />
-                                  <input value={String(v)} onChange={e => { const specs = {...(ed?.key_specs||{})}; specs[k] = e.target.value; setField('key_specs', specs) }} className="flex-1 text-[11px] bg-white border border-neutral-200 rounded-lg px-2.5 py-1.5 outline-none focus:border-blue-400" placeholder="Valoare" />
+                                  <input value={k} onChange={e => { const specs = {...(ed?.key_specs||{})}; const val = specs[k]; delete specs[k]; specs[e.target.value] = val; setField('key_specs', specs) }} className="w-1/3 text-[11px] bg-white border border-neutral-200 rounded-lg px-2.5 py-1.5 outline-none focus:border-blue-400" placeholder={t('agent.spec_placeholder')} />
+                                  <input value={String(v)} onChange={e => { const specs = {...(ed?.key_specs||{})}; specs[k] = e.target.value; setField('key_specs', specs) }} className="flex-1 text-[11px] bg-white border border-neutral-200 rounded-lg px-2.5 py-1.5 outline-none focus:border-blue-400" placeholder={t('agent.value_placeholder')} />
                                   <button onClick={() => { const specs = {...(ed?.key_specs||{})}; delete specs[k]; setField('key_specs', specs) }} className="text-red-400 hover:text-red-600"><X className="h-3 w-3" /></button>
                                 </div>
                               ))}
@@ -998,7 +999,7 @@ export default function AgentPage() {
                               {(ed?.faq_candidates||[]).map((f: any, i: number) => (
                                 <div key={i} className="bg-white rounded-lg p-2.5 border border-neutral-200 space-y-1.5">
                                   <div className="flex items-center gap-2">
-                                    <input value={f.q||''} onChange={e => { const arr = [...(ed?.faq_candidates||[])]; arr[i] = {...arr[i], q: e.target.value}; setField('faq_candidates', arr) }} placeholder="Întrebare" className="flex-1 text-[11px] font-semibold bg-transparent outline-none" />
+                                    <input value={f.q||''} onChange={e => { const arr = [...(ed?.faq_candidates||[])]; arr[i] = {...arr[i], q: e.target.value}; setField('faq_candidates', arr) }} placeholder={t('agent.question_placeholder')} className="flex-1 text-[11px] font-semibold bg-transparent outline-none" />
                                     <button onClick={() => { const arr = [...(ed?.faq_candidates||[])]; arr.splice(i,1); setField('faq_candidates', arr) }} className="text-red-400 hover:text-red-600"><X className="h-3 w-3" /></button>
                                   </div>
                                   <textarea value={f.a||''} onChange={e => { const arr = [...(ed?.faq_candidates||[])]; arr[i] = {...arr[i], a: e.target.value}; setField('faq_candidates', arr) }} placeholder="Răspuns" className="w-full text-[11px] text-neutral-600 bg-transparent outline-none resize-y min-h-[30px]" />
@@ -1049,8 +1050,8 @@ export default function AgentPage() {
             </div>
             <div className="space-y-2">
               {[
-                { key:'notify_on_escalation', label:'🔴 Client solicită agent uman', desc:'Clientul cere să vorbească cu o persoană reală' },
-                { key:'notify_on_problem',    label:'⚠️ Problemă cu comanda',      desc:'Clientul raportează o problemă sau reclamație' },
+                { key:'notify_on_escalation', label:t('agent.notif_client_human'), desc:t('agent.notif_client_human_desc') },
+                { key:'notify_on_problem',    label:t('agent.notif_order_problem'),      desc:t('agent.notif_order_problem_desc') },
               ].map(({ key, label, desc }) => (
                 <div key={key} onClick={() => setConfig(c => ({ ...c, [key]:!(c as any)[key] }))}
                   className="flex items-center justify-between p-3.5 rounded-xl border border-neutral-100 hover:bg-neutral-50 cursor-pointer transition-colors">
@@ -1087,12 +1088,12 @@ export default function AgentPage() {
             </div>
             <p className="text-[11px] text-neutral-500 mb-4">{t('agent.knowledge_desc')}</p>
             <div className="flex gap-1 bg-neutral-100 rounded-xl p-1 mb-4">
-              {([['file','📄 Fișier'],['url','🔗 URL'],['text','✏️ Text']] as const).map(([t,label]) => (
-                <button key={t} onClick={() => setKUploadType(t)} className={`flex-1 py-1.5 rounded-lg text-[11px] font-medium transition-all ${kUploadType===t?'bg-white text-neutral-900 shadow-sm':'text-neutral-500 hover:text-neutral-700'}`}>{label}</button>
+              {([['file',t('agent.knowledge_type_file')],['url',t('agent.knowledge_type_url')],['text',t('agent.knowledge_type_text')]] as const).map(([tp,label]) => (
+                <button key={tp} onClick={() => setKUploadType(tp)} className={`flex-1 py-1.5 rounded-lg text-[11px] font-medium transition-all ${kUploadType===tp?'bg-white text-neutral-900 shadow-sm':'text-neutral-500 hover:text-neutral-700'}`}>{label}</button>
               ))}
             </div>
             <div className="space-y-3">
-              <input value={kName} onChange={e => setKName(e.target.value)} placeholder="Nume document (opțional)"
+              <input value={kName} onChange={e => setKName(e.target.value)} placeholder={t('agent.doc_name_optional')}
                 className="w-full text-[12px] border border-neutral-200 rounded-xl px-3 py-2 focus:outline-none focus:border-blue-400 transition-colors" />
               {kUploadType==='file' && (
                 <div onClick={() => kFileRef.current?.click()} className="border-2 border-dashed border-neutral-200 rounded-xl p-6 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-all">
@@ -1167,7 +1168,7 @@ export default function AgentPage() {
               </a>
             </div>
             <div className="p-5 space-y-3">
-              {[{ step:'1',text:'Descarcă ZIP-ul' },{ step:'2',text:'WordPress → Plugins → Add New → Upload Plugin' },{ step:'3',text:'Selectează ZIP și Install Now' },{ step:'4',text:'Activate Plugin — gata!' }].map(s => (
+              {[{ step:'1',text:t('agent.install_step1_text') },{ step:'2',text:t('agent.install_step2_text') },{ step:'3',text:t('agent.install_step3_text') },{ step:'4',text:t('agent.install_step4_text') }].map(s => (
                 <div key={s.step} className="flex items-center gap-3">
                   <div className="h-6 w-6 rounded-full bg-blue-100 flex items-center justify-center text-[10px] font-bold text-blue-600 shrink-0">{s.step}</div>
                   <p className="text-[13px] text-neutral-700">{s.text}</p>

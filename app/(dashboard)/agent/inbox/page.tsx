@@ -5,17 +5,17 @@ import { useT } from '@/lib/i18n/context'
 import { useState, useEffect, useCallback } from 'react'
 import { MessageCircle, Search, Star, Archive, ChevronRight, Loader2, AlertTriangle, Clock, RefreshCw, X } from 'lucide-react'
 
-const INTENT_META: Record<string, { label: string; bg: string; text: string }> = {
-  buying_ready:  { label:'Gata să cumpere', bg:'bg-emerald-100', text:'text-emerald-700' },
-  browsing:      { label:'Navighează',      bg:'bg-neutral-100', text:'text-neutral-600' },
-  comparing:     { label:'Compară',         bg:'bg-blue-100',    text:'text-blue-700'    },
-  info_shipping: { label:'Livrare',         bg:'bg-violet-100',  text:'text-violet-700'  },
-  escalate:      { label:'Escaladare',      bg:'bg-red-100',     text:'text-red-700'     },
-  problem:       { label:'Problemă',        bg:'bg-orange-100',  text:'text-orange-700'  },
-  order_tracking:{ label:'Urmărire coletă', bg:'bg-amber-100',   text:'text-amber-700'   },
+const getIntentMeta = (t: (k: string) => string): Record<string, { label: string; bg: string; text: string }> => ({
+  buying_ready:  { label:t('agent.intent_buying_ready'), bg:'bg-emerald-100', text:'text-emerald-700' },
+  browsing:      { label:t('agent.intent_browsing'),      bg:'bg-neutral-100', text:'text-neutral-600' },
+  comparing:     { label:t('agent.intent_comparing'),         bg:'bg-blue-100',    text:'text-blue-700'    },
+  info_shipping: { label:t('agent.intent_info_shipping'),         bg:'bg-violet-100',  text:'text-violet-700'  },
+  escalate:      { label:t('agent.intent_escalate'),      bg:'bg-red-100',     text:'text-red-700'     },
+  problem:       { label:t('agent.intent_problem'),        bg:'bg-orange-100',  text:'text-orange-700'  },
+  order_tracking:{ label:t('agent.intent_order_tracking'), bg:'bg-amber-100',   text:'text-amber-700'   },
   off_topic:     { label:'Offtopic',        bg:'bg-neutral-100', text:'text-neutral-500' },
-  greeting:      { label:'Salut',           bg:'bg-sky-100',     text:'text-sky-600'     },
-}
+  greeting:      { label:t('agent.intent_greeting'),           bg:'bg-sky-100',     text:'text-sky-600'     },
+})
 
 type Conversation = {
   session_id: string; visitor_id: string; messages_count: number
@@ -34,6 +34,7 @@ function Badge({ label, bg, text }: { label: string; bg: string; text: string })
 
 export default function InboxPage() {
   const { t } = useT()
+  const INTENT_META = getIntentMeta(t)
   const [convs, setConvs]               = useState<Conversation[]>([])
   const [selected, setSelected]         = useState<Conversation | null>(null)
   const [loading, setLoading]           = useState(true)
@@ -85,10 +86,10 @@ export default function InboxPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-[22px] font-semibold text-neutral-900 tracking-tight">{t('agent.inbox_title')}</h1>
-          <p className="text-[13px] text-neutral-400 mt-0.5">{total} conversații în ultimele {days} zile</p>
+          <p className="text-[13px] text-neutral-400 mt-0.5">{t('agent.conversations_in_days', { total: String(total), days: String(days) })}</p>
         </div>
         <button onClick={load} className="flex items-center gap-1.5 text-[11px] text-neutral-400 hover:text-neutral-600 transition-colors px-2.5 py-1.5 rounded-lg hover:bg-neutral-100">
-          <RefreshCw className="h-3.5 w-3.5" />Actualizează
+          <RefreshCw className="h-3.5 w-3.5" />{t('agent.update_stats')}
         </button>
       </div>
 
@@ -196,7 +197,7 @@ export default function InboxPage() {
                   const m = INTENT_META[i]
                   return m ? <Badge key={i} label={m.label} bg={m.bg} text={m.text} /> : null
                 })}
-                {selected.is_escalated && <Badge label="⚠️ Escaladare" bg="bg-red-100" text="text-red-700" />}
+                {selected.is_escalated && <Badge label={`⚠️ ${t('agent.intent_escalate')}`} bg="bg-red-100" text="text-red-700" />}
               </div>
 
               <div className="space-y-2 max-h-96 overflow-y-auto pr-1">

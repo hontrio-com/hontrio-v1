@@ -17,22 +17,22 @@ interface Trigger {
   message: string; conditions: Record<string, any>; cooldown_hours: number; priority: number
 }
 
-const TRIGGER_META: Record<TriggerType, { label: string; icon: any; iconColor: string; badgeBg: string; badgeText: string; desc: string }> = {
-  exit_intent:      { label:'Intenție de ieșire', icon:MousePointer,  iconColor:'text-red-500',    badgeBg:'bg-red-50',    badgeText:'text-red-600',    desc:'Se activează când cursorul iese din fereastra browserului' },
-  time_on_page:     { label:'Timp pe pagină',      icon:Clock,         iconColor:'text-blue-500',   badgeBg:'bg-blue-50',   badgeText:'text-blue-600',   desc:'Se activează după X secunde petrecute pe pagină' },
-  scroll_depth:     { label:'Adâncime scroll',     icon:TrendingDown,  iconColor:'text-violet-500', badgeBg:'bg-violet-50', badgeText:'text-violet-600', desc:'Se activează când vizitatorul scrollează X% din pagină' },
-  cart_abandonment: { label:'Coș abandonat',       icon:ShoppingCart,  iconColor:'text-orange-500', badgeBg:'bg-orange-50', badgeText:'text-orange-600', desc:'Se activează când are produse în coș dar nu finalizează' },
-  page_specific:    { label:'Pagină specifică',    icon:FileText,      iconColor:'text-emerald-500',badgeBg:'bg-emerald-50',badgeText:'text-emerald-600',desc:'Se activează pe anumite tipuri de pagini după X secunde' },
-  inactivity:       { label:'Inactivitate',        icon:Moon,          iconColor:'text-neutral-500',badgeBg:'bg-neutral-100',badgeText:'text-neutral-600',desc:'Se activează când vizitatorul nu face nimic X secunde' },
-}
+const getTriggerMeta = (t: (k: string) => string): Record<TriggerType, { label: string; icon: any; iconColor: string; badgeBg: string; badgeText: string; desc: string }> => ({
+  exit_intent:      { label:t('agent.trigger_exit_intent'), icon:MousePointer,  iconColor:'text-red-500',    badgeBg:'bg-red-50',    badgeText:'text-red-600',    desc:t('agent.trigger_exit_desc') },
+  time_on_page:     { label:t('agent.trigger_time_label'),      icon:Clock,         iconColor:'text-blue-500',   badgeBg:'bg-blue-50',   badgeText:'text-blue-600',   desc:t('agent.trigger_time_desc') },
+  scroll_depth:     { label:t('agent.trigger_scroll_label'),     icon:TrendingDown,  iconColor:'text-violet-500', badgeBg:'bg-violet-50', badgeText:'text-violet-600', desc:t('agent.trigger_scroll_desc') },
+  cart_abandonment: { label:t('agent.trigger_cart_label'),       icon:ShoppingCart,  iconColor:'text-orange-500', badgeBg:'bg-orange-50', badgeText:'text-orange-600', desc:t('agent.trigger_cart_desc') },
+  page_specific:    { label:t('agent.trigger_page_label'),    icon:FileText,      iconColor:'text-emerald-500',badgeBg:'bg-emerald-50',badgeText:'text-emerald-600',desc:t('agent.trigger_page_desc') },
+  inactivity:       { label:t('agent.trigger_inactivity_label'),        icon:Moon,          iconColor:'text-neutral-500',badgeBg:'bg-neutral-100',badgeText:'text-neutral-600',desc:t('agent.trigger_inactivity_desc') },
+})
 
-const PAGE_OPTIONS = [
-  { value:'all',      label:'Toate paginile' },
-  { value:'product',  label:'Pagini produs'  },
-  { value:'cart',     label:'Pagina coș'     },
-  { value:'checkout', label:'Checkout'        },
-  { value:'home',     label:'Homepage'        },
-  { value:'contact',  label:'Contact'         },
+const getPageOptions = (t: (k: string) => string) => [
+  { value:'all',      label:t('agent.page_all') },
+  { value:'product',  label:t('agent.page_product')  },
+  { value:'cart',     label:t('agent.page_cart')     },
+  { value:'checkout', label:t('agent.page_checkout')        },
+  { value:'home',     label:t('agent.page_home')        },
+  { value:'contact',  label:t('agent.page_contact')         },
   { value:'category', label:'Categorie'       },
 ]
 
@@ -42,6 +42,8 @@ function Card({ children, className = '' }: { children: React.ReactNode; classNa
 
 export default function TriggersPage() {
   const { t } = useT()
+  const TRIGGER_META = getTriggerMeta(t)
+  const PAGE_OPTIONS = getPageOptions(t)
   const [triggers, setTriggers] = useState<Trigger[]>([])
   const [loading, setLoading]   = useState(true)
   const [saving, setSaving]     = useState<string|null>(null)
@@ -75,7 +77,7 @@ export default function TriggersPage() {
   }
 
   const deleteTrigger = async (id: string) => {
-    if (!confirm('Ștergi acest trigger?')) return
+    if (!confirm(t('agent.confirm_delete_trigger'))) return
     await fetch('/api/agent/triggers?id='+id, { method:'DELETE' })
     setTriggers(ts => ts.filter(t => t.id!==id))
     showToast('Trigger șters')
@@ -83,12 +85,12 @@ export default function TriggersPage() {
 
   const addTrigger = async () => {
     const defaults: Record<TriggerType, any> = {
-      exit_intent:      { conditions:{ pages:['all'] },              message:'Hei, pleci deja? Te pot ajuta să găsești ce cauți! 😊', cooldown_hours:24, priority:10 },
-      time_on_page:     { conditions:{ pages:['all'],seconds:45 },   message:'Văd că ești pe site de ceva timp. Te pot ajuta cu ceva?',  cooldown_hours:24, priority:5  },
-      scroll_depth:     { conditions:{ pages:['product'],percent:70},message:'Ai văzut destul de mult. Îți recomand ceva potrivit?',      cooldown_hours:24, priority:5  },
-      cart_abandonment: { conditions:{ pages:['cart'],minutes:3 },   message:'Ai produse în coș! Te ajut să finalizezi comanda? 🛒',      cooldown_hours:12, priority:20 },
-      page_specific:    { conditions:{ pages:['product'],seconds:20},message:'Ai întrebări despre acest produs? Sunt aici!',               cooldown_hours:4,  priority:8  },
-      inactivity:       { conditions:{ pages:['all'],seconds:120 },  message:'Ești încă acolo? Te pot ajuta! 👋',                          cooldown_hours:24, priority:3  },
+      exit_intent:      { conditions:{ pages:['all'] },              message:t('agent.default_trigger_exit'), cooldown_hours:24, priority:10 },
+      time_on_page:     { conditions:{ pages:['all'],seconds:45 },   message:t('agent.default_trigger_time'),  cooldown_hours:24, priority:5  },
+      scroll_depth:     { conditions:{ pages:['product'],percent:70},message:t('agent.default_trigger_scroll'),      cooldown_hours:24, priority:5  },
+      cart_abandonment: { conditions:{ pages:['cart'],minutes:3 },   message:t('agent.default_trigger_cart'),      cooldown_hours:12, priority:20 },
+      page_specific:    { conditions:{ pages:['product'],seconds:20},message:t('agent.default_trigger_page'),               cooldown_hours:4,  priority:8  },
+      inactivity:       { conditions:{ pages:['all'],seconds:120 },  message:t('agent.default_trigger_inactivity'),                          cooldown_hours:24, priority:3  },
     }
     const d    = defaults[newType]
     const r    = await fetch('/api/agent/triggers', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ name:TRIGGER_META[newType].label, type:newType, ...d }) })
@@ -126,9 +128,7 @@ export default function TriggersPage() {
       {/* Info banner */}
       <div className="flex gap-3 bg-blue-50 border border-blue-100 rounded-xl p-4">
         <Info className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" />
-        <p className="text-[12px] text-blue-700">
-          Triggerii se activează în ordinea priorității. Fiecare vizitator vede maxim <strong>1 trigger per sesiune</strong>. Cooldown-ul previne repetiția între vizite.
-        </p>
+        <p className="text-[12px] text-blue-700" dangerouslySetInnerHTML={{ __html: t('agent.trigger_explanation') }} />
       </div>
 
       {/* Modal adăugare */}

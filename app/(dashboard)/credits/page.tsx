@@ -22,33 +22,33 @@ type Transaction = {
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
-const PLANS = [
+const getPlans = (t: (k: string) => string) => [
   {
     id: 'free', name: 'Free Trial', price: 0, period: '',
-    description: 'Perfect pentru a testa platforma',
+    description: t('credits.test_platform'),
     icon: Gift, credits: 20,
-    features: ['20 credite incluse', 'Generare text AI', 'Generare imagini AI', '1 magazin conectat', 'Suport prin email'],
-    limitations: ['Fără generare în masă', 'Fără suport prioritar'],
+    features: [t('credits.credits_included'), t('credits.ai_text_gen'), t('credits.ai_image_gen'), t('credits.store_connected'), t('credits.email_support')],
+    limitations: [t('credits.no_bulk_gen'), t('credits.no_priority_support')],
   },
   {
-    id: 'starter', name: 'Starter', price: 99, period: '/lună',
-    description: 'Ideal pentru magazine mici',
+    id: 'starter', name: 'Starter', price: 99, period: t('credits.per_month_label'),
+    description: t('credits.test_platform'),
     icon: Zap, credits: 250,
-    features: ['250 credite / lună', 'Generare text AI nelimitată', 'Toate stilurile de imagini', '1 magazin conectat', 'Suport prioritar', 'Analiză SEO completă'],
+    features: [t('credits.feat_credits_month', { count: '250' }), t('credits.feat_unlimited_text'), t('credits.feat_all_styles'), t('credits.feat_1_store'), t('credits.feat_priority_support'), t('credits.feat_full_seo')],
     limitations: [],
   },
   {
-    id: 'professional', name: 'Professional', price: 249, period: '/lună',
-    description: 'Pentru magazine în creștere',
+    id: 'professional', name: 'Professional', price: 249, period: t('credits.per_month_label'),
+    description: t('credits.plan_for_growing'),
     icon: Rocket, credits: 750,
-    features: ['750 credite / lună', 'Tot ce include Starter', 'Generare în masă (batch)', '3 magazine conectate', 'Suport prioritar 24/7', 'Rapoarte avansate'],
+    features: [t('credits.feat_credits_month', { count: '750' }), t('credits.feat_includes_starter'), t('credits.feat_batch_gen'), t('credits.feat_3_stores'), t('credits.feat_priority_247'), t('credits.feat_advanced_reports')],
     limitations: [], popular: true,
   },
   {
-    id: 'enterprise', name: 'Enterprise', price: 499, period: '/lună',
-    description: 'Pentru operațiuni la scară mare',
+    id: 'enterprise', name: 'Enterprise', price: 499, period: t('credits.per_month_label'),
+    description: t('credits.plan_for_scale'),
     icon: Crown, credits: 2000,
-    features: ['2000 credite / lună', 'Tot ce include Professional', 'Magazine nelimitate', 'Manager de cont dedicat', 'SLA garantat 99.9%', 'Training personalizat'],
+    features: [t('credits.feat_credits_month', { count: '2000' }), t('credits.feat_includes_pro'), t('credits.feat_unlimited_stores'), t('credits.feat_dedicated_manager'), t('credits.feat_sla'), t('credits.feat_personal_training')],
     limitations: [],
   },
 ]
@@ -61,13 +61,13 @@ const PACKS = [
   { id: 'pack_1000', credits: 1000, price: 399, perCredit: 0.40, popular: false },
 ]
 
-const COSTS = [
-  { label: 'Generare text AI',      cost: '5 cr.', icon: FileText  },
-  { label: 'Imagine Fundal Alb',    cost: '2 cr.', icon: ImageIcon },
+const getCosts = (t: (k: string) => string) => [
+  { label: t('credits.ai_text_gen'),      cost: '5 cr.', icon: FileText  },
+  { label: t('credits.image_white'),    cost: '2 cr.', icon: ImageIcon },
   { label: 'Imagine Lifestyle',     cost: '3 cr.', icon: ImageIcon },
   { label: 'Imagine Premium',       cost: '3 cr.', icon: ImageIcon },
   { label: 'Imagine Seasonal',      cost: '4 cr.', icon: ImageIcon },
-  { label: 'Generare automată 3×',  cost: '8 cr.', icon: Sparkles  },
+  { label: t('credits.auto_gen_3x_label'),  cost: '8 cr.', icon: Sparkles  },
 ]
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -95,6 +95,8 @@ function Btn({ onClick, disabled, children, variant = 'primary', className = '' 
 
 function SubscriptionPageInner() {
   const { t } = useT()
+  const PLANS = getPlans(t)
+  const COSTS = getCosts(t)
   const { data: session } = useSession()
   const searchParams = useSearchParams()
   const [transactions, setTransactions] = useState<Transaction[]>([])
@@ -139,7 +141,7 @@ function SubscriptionPageInner() {
       const r = await fetch('/api/stripe/credits', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pack_id: packId }) })
       const d = await r.json()
       if (d.url) window.location.href = d.url
-      else setMsg({ type: 'error', text: d.error || 'Eroare la inițializarea plății' })
+      else setMsg({ type: 'error', text: d.error || t('credits.error_payment_init') })
     } catch { setMsg({ type: 'error', text: 'Eroare de conexiune' }) }
     finally { setCheckoutId('') }
   }
@@ -220,7 +222,7 @@ function SubscriptionPageInner() {
             {userPlan !== 'free' && (
               <Btn variant="outline" onClick={handlePortal} disabled={portalLoading}>
                 {portalLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Settings className="h-3.5 w-3.5" />}
-                Gestionează
+                {t('credits.manage_btn')}
               </Btn>
             )}
           </div>
@@ -302,12 +304,12 @@ function SubscriptionPageInner() {
                         <button onClick={() => handleSubscribe(plan.id)} disabled={checkoutId === plan.id}
                           className="w-full h-9 rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white text-[12px] font-medium flex items-center justify-center gap-1.5 disabled:opacity-50 transition-all">
                           {checkoutId === plan.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Zap className="h-3.5 w-3.5" />}
-                          {checkoutId === plan.id ? 'Se procesează...' : `Upgrade la ${plan.name}`}
+                          {checkoutId === plan.id ? t('credits.processing_checkout') : t('credits.upgrade_to', { plan: plan.name })}
                         </button>
                       ) : (
                         <button onClick={handlePortal} disabled={portalLoading}
                           className="w-full h-9 rounded-xl border border-neutral-200 text-neutral-500 hover:bg-neutral-50 text-[12px] font-medium flex items-center justify-center gap-1.5 disabled:opacity-50 transition-all">
-                          Gestionează
+                          {t('credits.manage_btn')}
                         </button>
                       )}
                     </div>
@@ -325,7 +327,7 @@ function SubscriptionPageInner() {
               <div>
                 <p className="text-[13px] font-medium text-neutral-700 mb-0.5">{t('credits.secure_stripe')}</p>
                 <p className="text-[12px] text-neutral-400 leading-relaxed">
-                  Toate plățile sunt procesate securizat. Poți face upgrade sau downgrade oricând. Anularea se face simplu, fără obligații. Acceptăm Visa, Mastercard, și alte metode de plată.
+                  {t('credits.payments_secure_desc')}
                 </p>
               </div>
             </div>
@@ -394,7 +396,7 @@ function SubscriptionPageInner() {
                 <p className="text-[12px] font-semibold text-neutral-700">{t('credits.secure_payment')}</p>
               </div>
               <p className="text-[12px] text-neutral-500 leading-relaxed">
-                Tranzacțiile sunt procesate securizat prin Stripe. Acceptăm Visa, Mastercard, și alte metode de plată.
+                {t('credits.transactions_secure_stripe')}
               </p>
             </Card>
           </div>
@@ -500,7 +502,7 @@ function SubscriptionPageInner() {
               <Card className="p-5">
                 <p className="text-[13px] font-semibold text-neutral-900 mb-1">Facturare</p>
                 <p className="text-[12px] text-neutral-400 leading-relaxed mb-3">
-                  Gestionează abonamentul, metoda de plată și descarcă facturile din portalul Stripe.
+                  {t('credits.manage_stripe_desc')}
                 </p>
                 <Btn variant="outline" onClick={handlePortal} disabled={portalLoading} className="w-full justify-center">
                   {portalLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ExternalLink className="h-3.5 w-3.5" />}

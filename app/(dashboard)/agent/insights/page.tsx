@@ -68,7 +68,7 @@ function UnansweredTab() {
       {loading
         ? <div className="flex justify-center py-12"><Loader2 className="h-5 w-5 animate-spin text-neutral-300" /></div>
         : filtered.length === 0
-          ? <div className="text-center py-12"><CheckCircle2 className="h-10 w-10 text-emerald-300 mx-auto mb-3" /><p className="text-[13px] text-neutral-400">Nicio întrebare nerezolvată!</p></div>
+          ? <div className="text-center py-12"><CheckCircle2 className="h-10 w-10 text-emerald-300 mx-auto mb-3" /><p className="text-[13px] text-neutral-400">{t('agent.no_unresolved_questions')}</p></div>
           : <div className="space-y-2">
               {filtered.map(q => (
                 <div key={q.id} className={`p-4 rounded-xl border transition-colors ${q.resolved ? 'bg-neutral-50 border-neutral-100 opacity-60' : 'bg-white border-neutral-200 hover:border-neutral-300'}`}>
@@ -88,7 +88,7 @@ function UnansweredTab() {
                     {!q.resolved && (
                       <div className="flex gap-2 shrink-0">
                         <a href="/agent" className="text-[11px] text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1">
-                          <BookOpen className="h-3 w-3" />Adaugă în RAG
+                          <BookOpen className="h-3 w-3" />{t('agent.add_to_rag')}
                         </a>
                         <button onClick={() => resolve(q.id)} className="text-[11px] text-emerald-600 hover:text-emerald-700 font-medium flex items-center gap-1">
                           <CheckCircle2 className="h-3 w-3" />Rezolvat
@@ -135,7 +135,7 @@ function HeatmapTab() {
       {loading
         ? <div className="flex justify-center py-12"><Loader2 className="h-5 w-5 animate-spin text-neutral-300" /></div>
         : products.length === 0
-          ? <div className="text-center py-12"><TrendingUp className="h-10 w-10 text-neutral-200 mx-auto mb-3" /><p className="text-[13px] text-neutral-400">Nicio activitate înregistrată</p></div>
+          ? <div className="text-center py-12"><TrendingUp className="h-10 w-10 text-neutral-200 mx-auto mb-3" /><p className="text-[13px] text-neutral-400">{t('agent.no_activity_recorded')}</p></div>
           : <div className="space-y-2">
               {products.slice(0,20).map((p,i) => (
                 <div key={p.id} className="p-3 bg-white rounded-xl border border-neutral-100 hover:border-neutral-200 transition-colors">
@@ -150,9 +150,9 @@ function HeatmapTab() {
                   <div className="flex gap-3 text-[11px] text-neutral-400 flex-wrap">
                     <span>👁️ {p.shown} cereri</span>
                     {p.clicked  > 0 && <span>🖱️ {p.clicked} click-uri</span>}
-                    {p.compared > 0 && <span>⚖️ {p.compared} comparații</span>}
-                    {p.carted   > 0 && <span className="text-emerald-600 font-medium">🛒 {p.carted} în coș</span>}
-                    {p.escalated> 0 && <span className="text-red-500">⚠️ {p.escalated} escaladări</span>}
+                    {p.compared > 0 && <span>⚖️ {p.compared} {t('agent.comparisons')}</span>}
+                    {p.carted   > 0 && <span className="text-emerald-600 font-medium">🛒 {p.carted} {t('agent.in_cart')}</span>}
+                    {p.escalated> 0 && <span className="text-red-500">⚠️ {p.escalated} {t('agent.escalations_count')}</span>}
                   </div>
                 </div>
               ))}
@@ -176,7 +176,7 @@ function TrainingTab() {
   }, [])
 
   const add = async () => {
-    if (!form.question || !form.correct) { setError('Completează întrebarea și răspunsul corect'); return }
+    if (!form.question || !form.correct) { setError(t('agent.fill_question_answer')); return }
     setSaving(true); setError('')
     try {
       const r    = await fetch('/api/agent/training', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ original_question:form.question, wrong_answer:form.wrong||undefined, correct_answer:form.correct }) })
@@ -193,7 +193,7 @@ function TrainingTab() {
   }
 
   const remove = async (id: string) => {
-    if (!confirm('Ștergi această corecție?')) return
+    if (!confirm(t('agent.confirm_delete_correction'))) return
     await fetch('/api/agent/training', { method:'DELETE', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ id }) })
     setCorrections(prev => prev.filter(x => x.id!==id))
   }
@@ -204,12 +204,12 @@ function TrainingTab() {
         <p className="text-[13px] font-semibold text-neutral-900">{t('agent.add_new_correction')}</p>
         <p className="text-[11px] text-neutral-500">Când agentul răspunde greșit, adaugă răspunsul corect. Agentul îl va folosi prioritar.</p>
         <div className="space-y-2">
-          <input value={form.question} onChange={e => setForm(f=>({...f,question:e.target.value}))} placeholder="Întrebarea clientului (ex: Cât durează livrarea?)"
+          <input value={form.question} onChange={e => setForm(f=>({...f,question:e.target.value}))} placeholder={t('agent.question_client_placeholder')}
             className="w-full text-[12px] border border-neutral-200 rounded-xl px-3 py-2 focus:outline-none focus:border-neutral-400 transition-colors" />
-          <input value={form.wrong} onChange={e => setForm(f=>({...f,wrong:e.target.value}))} placeholder="Răspunsul greșit al agentului (opțional)"
+          <input value={form.wrong} onChange={e => setForm(f=>({...f,wrong:e.target.value}))} placeholder={t('agent.wrong_answer_placeholder')}
             className="w-full text-[12px] border border-orange-200 rounded-xl px-3 py-2 bg-orange-50/50 focus:outline-none focus:border-orange-400 transition-colors" />
           <textarea value={form.correct} onChange={e => setForm(f=>({...f,correct:e.target.value}))} rows={3}
-            placeholder="Răspunsul CORECT pe care trebuie să-l dea agentul"
+            placeholder={t('agent.correct_answer_placeholder')}
             className="w-full text-[12px] border border-emerald-200 rounded-xl px-3 py-2 bg-emerald-50/50 focus:outline-none focus:border-emerald-400 transition-colors resize-none" />
         </div>
         {error && <p className="text-[11px] text-red-500 flex items-center gap-1"><AlertCircle className="h-3 w-3" />{error}</p>}
@@ -305,13 +305,13 @@ function ReviewsTab() {
 
         <div>
           <p className="text-[10px] font-medium text-neutral-500 uppercase tracking-wide mb-1.5">{t('agent.email_subject_opt')}</p>
-          <input value={config.review_email_subject} onChange={e => setConfig(c=>({...c,review_email_subject:e.target.value}))} placeholder="Cum a fost experiența ta? ⭐"
+          <input value={config.review_email_subject} onChange={e => setConfig(c=>({...c,review_email_subject:e.target.value}))} placeholder={t('agent.review_email_subject_placeholder')}
             className="w-full text-[12px] border border-neutral-200 rounded-xl px-3 py-2 focus:outline-none focus:border-neutral-400 transition-colors" />
         </div>
         <div>
           <p className="text-[10px] font-medium text-neutral-500 uppercase tracking-wide mb-1.5">{t('agent.custom_message_opt')}</p>
           <textarea value={config.review_email_body} onChange={e => setConfig(c=>({...c,review_email_body:e.target.value}))}
-            placeholder="Lăsă un review și ajuți alți clienți..." rows={3}
+            placeholder={t('agent.review_message_placeholder')} rows={3}
             className="w-full text-[12px] border border-neutral-200 rounded-xl px-3 py-2 focus:outline-none focus:border-neutral-400 transition-colors resize-none" />
         </div>
 

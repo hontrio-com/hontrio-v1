@@ -48,17 +48,17 @@ const PLANS = [
   { id: 'enterprise',   name: 'Enterprise',   price: 499, credits: 2000 },
 ]
 
-const TABS = [
+const getTabs = (t: (k: string) => string) => [
   { value: 'general',      label: 'General',    icon: User },
-  { value: 'brand',        label: 'Brand & AI', icon: Sparkles },
-  { value: 'integrations', label: 'Integrări',  icon: Plug },
-  { value: 'credits',      label: 'Credite',    icon: CreditCard },
-  { value: 'security',     label: 'Securitate', icon: Shield },
-  { value: 'preferences',  label: 'Preferințe', icon: SlidersHorizontal },
+  { value: 'brand',        label: t('settings.brand_ai'), icon: Sparkles },
+  { value: 'integrations', label: t('settings.tab_integrations'),  icon: Plug },
+  { value: 'credits',      label: t('common.credits_label'),    icon: CreditCard },
+  { value: 'security',     label: t('settings.security'), icon: Shield },
+  { value: 'preferences',  label: t('settings.tab_preferences'), icon: SlidersHorizontal },
   { value: 'plugin',       label: 'Plugin WP',  icon: Download },
 ]
 
-function pwStrength(p: string) {
+const getPwStrength = (t: (k: string) => string) => (p: string) => {
   if (!p) return { score: 0, label: '', color: '' }
   let s = 0
   if (p.length >= 8)           s++
@@ -66,10 +66,10 @@ function pwStrength(p: string) {
   if (/[A-Z]/.test(p))         s++
   if (/[0-9]/.test(p))         s++
   if (/[^A-Za-z0-9]/.test(p)) s++
-  if (s <= 1) return { score: s, label: 'Slabă',    color: 'bg-red-400' }
-  if (s <= 2) return { score: s, label: 'Medie',    color: 'bg-amber-400' }
-  if (s <= 3) return { score: s, label: 'Bună',     color: 'bg-neutral-400' }
-  return              { score: s, label: 'Puternică', color: 'bg-emerald-500' }
+  if (s <= 1) return { score: s, label: t('settings.pw_weak'),    color: 'bg-red-400' }
+  if (s <= 2) return { score: s, label: t('settings.pw_fair'),    color: 'bg-amber-400' }
+  if (s <= 3) return { score: s, label: t('settings.pw_good'),     color: 'bg-neutral-400' }
+  return              { score: s, label: t('settings.pw_strong'), color: 'bg-emerald-500' }
 }
 
 // ─── Shared UI ────────────────────────────────────────────────────────────────
@@ -135,6 +135,8 @@ function Toast({ type, text, onClose }: { type: string; text: string; onClose: (
 
 export default function SettingsPage() {
   const { t } = useT()
+  const TABS = getTabs(t)
+  const pwStrength = getPwStrength(t)
   const { data: session } = useSession()
   const [tab, setTab]             = useState('general')
   const [store, setStore]         = useState<StoreData | null>(null)
@@ -379,7 +381,7 @@ export default function SettingsPage() {
                   <p className="text-[13px] font-medium text-neutral-900">{userName}</p>
                   <p className="text-[12px] text-neutral-400">{userEmail}</p>
                   <button onClick={() => avatarRef.current?.click()} className="text-[11px] text-neutral-500 hover:text-neutral-800 mt-1 underline underline-offset-2">
-                    Schimbă avatar
+                    {t('settings.change_avatar')}
                   </button>
                 </div>
               </div>
@@ -450,14 +452,14 @@ export default function SettingsPage() {
               <div className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <Field label={t('settings.business_name')}>
-                    <Inp value={brandForm.businessName} onChange={e => setBrandForm(p => ({ ...p, businessName: e.target.value }))} placeholder="Numele magazinului tău" />
+                    <Inp value={brandForm.businessName} onChange={e => setBrandForm(p => ({ ...p, businessName: e.target.value }))} placeholder={t('settings.store_name_placeholder')} />
                   </Field>
                   <Field label="Website">
                     <Inp value={brandForm.website} onChange={e => setBrandForm(p => ({ ...p, website: e.target.value }))} placeholder="https://magazin.ro" />
                   </Field>
                 </div>
 
-                <Field label="Nișa / Industria">
+                <Field label={t('settings.niche_label')}>
                   <Inp value={brandForm.niche} onChange={e => setBrandForm(p => ({ ...p, niche: e.target.value }))} placeholder="ex: Fashion feminin, Electronice, Cosmetice..." />
                   <p className="text-[11px] text-neutral-400 mt-1">Ajută AI-ul să folosească terminologia corectă</p>
                 </Field>
@@ -467,8 +469,8 @@ export default function SettingsPage() {
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                     {[
                       { value: 'professional', label: 'Profesional', emoji: '👔' },
-                      { value: 'friendly',     label: 'Prietenos',   emoji: '😊' },
-                      { value: 'luxury',       label: 'Premium',     emoji: '💎' },
+                      { value: 'friendly',     label: t('settings.tone_friendly_label'),   emoji: '😊' },
+                      { value: 'luxury',       label: t('settings.tone_premium_label'),     emoji: '💎' },
                       { value: 'casual',       label: 'Casual',      emoji: '✌️' },
                     ].map(t => (
                       <button key={t.value} onClick={() => setBrandForm(p => ({ ...p, tone: t.value }))}
@@ -484,7 +486,7 @@ export default function SettingsPage() {
                 <div>
                   <label className="block text-[11px] font-medium text-neutral-400 uppercase tracking-wide mb-2">Limbă conținut</label>
                   <div className="flex gap-2">
-                    {[{ value: 'ro', label: '🇷🇴 Română' }, { value: 'en', label: '🇬🇧 Engleză' }].map(l => (
+                    {[{ value: 'ro', label: t('settings.lang_ro') }, { value: 'en', label: t('settings.lang_en') }].map(l => (
                       <button key={l.value} onClick={() => setBrandForm(p => ({ ...p, language: l.value }))}
                         className={`h-9 px-4 rounded-xl border-2 text-[13px] font-medium transition-all
                           ${brandForm.language === l.value ? 'border-neutral-900 bg-neutral-900 text-white' : 'border-neutral-200 text-neutral-500 hover:border-neutral-300'}`}>
@@ -506,10 +508,10 @@ export default function SettingsPage() {
             <Card className="p-5">
               <p className="text-[11px] font-medium text-neutral-400 uppercase tracking-wide mb-3">Preview ton selectat</p>
               <p className="text-[13px] text-neutral-600 leading-relaxed italic">
-                {brandForm.tone === 'professional' && '"Produs de înaltă calitate, conceput pentru performanță și durabilitate."'}
+                {brandForm.tone === 'professional' && t('settings.tone_pro_example')}
                 {brandForm.tone === 'friendly'     && '"Exact ce ai nevoie! Super simplu de folosit — vei adora rezultatele."'}
-                {brandForm.tone === 'luxury'       && '"O experiență rafinată, creată pentru cei care apreciază excelența."'}
-                {brandForm.tone === 'casual'       && '"Hai să fim sinceri — e bun, simplu, funcționează. Fără complicații."'}
+                {brandForm.tone === 'luxury'       && t('settings.tone_luxury_example')}
+                {brandForm.tone === 'casual'       && t('settings.tone_casual_example')}
               </p>
             </Card>
 
@@ -570,7 +572,7 @@ export default function SettingsPage() {
                   </Btn>
                   <Btn variant="danger" onClick={handleDisconnect} disabled={disconnecting}>
                     {disconnecting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Unplug className="h-3.5 w-3.5" />}
-                    Deconectează
+                    {t('settings.disconnect_store')}
                   </Btn>
                 </div>
               </Card>
@@ -621,7 +623,7 @@ export default function SettingsPage() {
                   <div className="flex gap-2">
                     <Btn variant="outline" onClick={handleTestConn} disabled={testingConn}>
                       {testingConn ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wifi className="h-3.5 w-3.5" />}
-                      Testează
+                      {t('settings.test_btn')}
                     </Btn>
                     <Btn onClick={handleConnect} disabled={connecting} className="flex-1 justify-center">
                       {connecting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plug className="h-3.5 w-3.5" />}
@@ -640,7 +642,7 @@ export default function SettingsPage() {
                 <p className="text-[12px] font-semibold text-neutral-700">Cum obțin cheile API?</p>
               </div>
               <div className="space-y-1.5 text-[12px] text-neutral-500 leading-relaxed">
-                {['1. Intră în WordPress Admin', '2. WooCommerce → Setări → Avansat', '3. Click pe tab-ul REST API', '4. Add Key → Permissions: Read/Write', '5. Copiază Consumer Key și Secret'].map((s, i) => (
+                {t('settings.tutorial_wp_steps').split(',').map((s: string, i: number) => (
                   <p key={i}>{s}</p>
                 ))}
               </div>
@@ -871,9 +873,9 @@ export default function SettingsPage() {
               <p className="text-[11px] font-medium text-neutral-400 uppercase tracking-wide mb-4">Notificări & Automatizări</p>
               <div className="space-y-3">
                 {[
-                  { key: 'emailNotifications', icon: Mail,     title: 'Notificări email', desc: 'Emailuri la răspunsuri tichete, sincronizări eșuate și activitate cont' },
-                  { key: 'weeklyReport',        icon: Bell,     title: 'Raport săptămânal', desc: 'Sumar cu produse optimizate și credite consumate — trimis luni dimineața' },
-                  { key: 'autoOptimize',        icon: Sparkles, title: 'Optimizare automată la sync', desc: 'Produsele noi cu scor 0 sunt optimizate automat. Costă 5 credite per produs.' },
+                  { key: 'emailNotifications', icon: Mail,     title: t('settings.pref_email_notifs'), desc: t('settings.pref_email_desc') },
+                  { key: 'weeklyReport',        icon: Bell,     title: t('settings.pref_weekly_report'), desc: t('settings.pref_weekly_desc') },
+                  { key: 'autoOptimize',        icon: Sparkles, title: t('settings.pref_auto_optimize'), desc: t('settings.pref_auto_desc') },
                 ].map(pref => (
                   <div key={pref.key} className="flex items-center justify-between px-4 py-3.5 bg-neutral-50 rounded-xl gap-4">
                     <div className="flex items-center gap-3 min-w-0">
@@ -893,7 +895,7 @@ export default function SettingsPage() {
 
             <Btn onClick={handleSavePrefs} disabled={savingPrefs}>
               {savingPrefs ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-              {savingPrefs ? 'Se salvează...' : 'Salvează preferințele'}
+              {savingPrefs ? t('settings.saving_prefs') : t('settings.save_prefs_btn')}
             </Btn>
           </div>
 

@@ -28,28 +28,28 @@ type Attachment = { url: string; name: string; size: number; type: string }
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
-const STATUS: Record<string, { label: string; bg: string; text: string; dot: string }> = {
-  open:        { label: 'Deschis',  bg: 'bg-neutral-100', text: 'text-neutral-700', dot: 'bg-neutral-900' },
-  in_progress: { label: 'În lucru', bg: 'bg-amber-50',    text: 'text-amber-700',   dot: 'bg-amber-400' },
-  resolved:    { label: 'Rezolvat', bg: 'bg-neutral-900', text: 'text-white',        dot: 'bg-white' },
-  closed:      { label: 'Închis',   bg: 'bg-neutral-100', text: 'text-neutral-400',  dot: 'bg-neutral-300' },
-}
+const getStatus = (t: (k: string) => string): Record<string, { label: string; bg: string; text: string; dot: string }> => ({
+  open:        { label: t('support.open'), bg: 'bg-neutral-100', text: 'text-neutral-700', dot: 'bg-neutral-900' },
+  in_progress: { label: t('support.status_in_progress'), bg: 'bg-amber-50',    text: 'text-amber-700',   dot: 'bg-amber-400' },
+  resolved:    { label: t('support.reply'),  bg: 'bg-neutral-900', text: 'text-white',        dot: 'bg-white' },
+  closed:      { label: t('support.status_closed'),   bg: 'bg-neutral-100', text: 'text-neutral-400',  dot: 'bg-neutral-300' },
+})
 
-const CATEGORY: Record<string, { label: string; icon: any }> = {
-  general:     { label: 'General',   icon: HelpCircle },
+const getCategory = (t: (k: string) => string): Record<string, { label: string; icon: any }> => ({
+  general:     { label: t('support.general'),   icon: HelpCircle },
   bug:         { label: 'Bug',       icon: Bug },
-  feature:     { label: 'Sugestie',  icon: Lightbulb },
-  billing:     { label: 'Facturare', icon: CreditCard },
-  integration: { label: 'Integrare', icon: Link2 },
-}
+  feature:     { label: t('support.feature'),  icon: Lightbulb },
+  billing:     { label: t('support.billing'),  icon: CreditCard },
+  integration: { label: t('settings.tab_integrations'), icon: Link2 },
+})
 
-const FAQ = [
-  { q: 'Cum conectez magazinul WooCommerce?', a: 'Mergi la Setări → Integrări și introdu URL-ul magazinului împreună cu Consumer Key și Consumer Secret din WooCommerce → Setări → Avansat → REST API.' },
-  { q: 'Cum funcționează creditele?', a: 'Fiecare acțiune AI consumă credite: generarea textului SEO costă 5 credite, regenerarea unei secțiuni 2 credite, iar generarea unei imagini 2–4 credite în funcție de stil.' },
-  { q: 'De ce sincronizarea nu aduce toate produsele?', a: 'Verifică dacă cheia API WooCommerce are permisiuni de citire (Read). Dacă folosești Cloudflare, asigură-te că IP-urile noastre nu sunt blocate. Poți reîncerca sincronizarea din pagina Produse.' },
-  { q: 'Cât durează generarea unei imagini AI?', a: 'De obicei 20–60 de secunde per imagine, în funcție de stilul ales. Imaginile „Fundal Alb" sunt cele mai rapide.' },
-  { q: 'Cum public produsele înapoi în WooCommerce?', a: 'Din pagina SEO a unui produs, după ce ai salvat conținutul, apasă „Publică în magazin". Produsul va fi actualizat direct în WooCommerce.' },
-  { q: 'Pot folosi Hontrio cu alt CMS?', a: 'Momentan suportăm doar WooCommerce. Shopify și alte platforme sunt în roadmap.' },
+const getFaq = (t: (k: string) => string) => [
+  { q: t('support.faq_connect_q'), a: t('support.faq_connect_a') },
+  { q: t('support.faq_credits_q'), a: t('support.faq_credits_a') },
+  { q: t('support.faq_sync_q'), a: t('support.faq_sync_a') },
+  { q: t('support.faq_image_q'), a: t('support.faq_image_a') },
+  { q: t('support.faq_publish_q'), a: t('support.faq_publish_a') },
+  { q: t('support.faq_cms_q'), a: t('support.faq_cms_a') },
 ]
 
 const MAX_FILES = 5
@@ -202,6 +202,8 @@ function FaqItem({ q, a }: { q: string; a: string }) {
 // ─── Status Badge ─────────────────────────────────────────────────────────────
 
 function StatusBadge({ status }: { status: string }) {
+  const { t } = useT()
+  const STATUS = getStatus(t)
   const s = STATUS[status] || STATUS.open
   return (
     <span className={`inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-md ${s.bg} ${s.text}`}>
@@ -215,6 +217,9 @@ function StatusBadge({ status }: { status: string }) {
 
 export default function SupportPage() {
   const { t } = useT()
+  const STATUS = getStatus(t)
+  const CATEGORY = getCategory(t)
+  const FAQ = getFaq(t)
   const [tickets, setTickets]           = useState<Ticket[]>([])
   const [loading, setLoading]           = useState(true)
   const [view, setView]                 = useState<'list' | 'create' | 'detail'>('list')
@@ -286,7 +291,7 @@ export default function SupportPage() {
       const data = await res.json()
       if (res.ok) { setReplies(p => [...p, data.reply]); setReplyText(''); replyAtts.clear() }
       else setSendErr(data.error || 'Eroare la trimitere')
-    } catch { setSendErr('Eroare de rețea') }
+    } catch { setSendErr(t('support.network_error')) }
     finally { setSending(false) }
   }
 
@@ -318,7 +323,7 @@ export default function SupportPage() {
           <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
             className="flex items-center gap-3 px-4 py-3 bg-neutral-900 text-white rounded-xl text-[13px]">
             <CheckCircle className="h-4 w-4 shrink-0" />
-            <span>Tichetul a fost trimis cu succes! Te redirecționăm înapoi...</span>
+            <span>{t('support.ticket_sent_redirect')}</span>
           </motion.div>
         )}
       </AnimatePresence>
@@ -329,7 +334,7 @@ export default function SupportPage() {
             Subiect <span className="text-red-400">*</span>
           </label>
           <input value={subject} onChange={e => setSubject(e.target.value)} required maxLength={200}
-            placeholder="Descrie pe scurt problema sau întrebarea..."
+            placeholder={t('support.describe_short')}
             className="w-full h-10 px-3.5 rounded-xl border border-neutral-200 bg-white text-[13px] text-neutral-900 placeholder:text-neutral-300 focus:outline-none focus:border-neutral-400 transition-all" />
           <p className="text-[10px] text-neutral-300 mt-1 text-right tabular-nums">{subject.length}/200</p>
         </div>
@@ -355,7 +360,7 @@ export default function SupportPage() {
             Mesaj <span className="text-red-400">*</span>
           </label>
           <textarea value={message} onChange={e => setMessage(e.target.value)} required maxLength={5000}
-            placeholder="Descrie detaliat problema sau întrebarea ta..."
+            placeholder={t('support.describe_detailed')}
             className="w-full h-40 px-3.5 py-3 rounded-xl border border-neutral-200 bg-white text-[13px] text-neutral-900 placeholder:text-neutral-300 resize-none focus:outline-none focus:border-neutral-400 transition-all leading-relaxed" />
           <div className="flex items-center gap-2 mt-1">
             <div className="flex-1 h-0.5 bg-neutral-100 rounded-full overflow-hidden">
@@ -463,7 +468,7 @@ export default function SupportPage() {
         {selected.status !== 'closed' ? (
           <div className="bg-white border border-neutral-200 rounded-xl p-4 space-y-3">
             <textarea value={replyText} onChange={e => setReplyText(e.target.value)}
-              placeholder="Scrie răspunsul tău..."
+              placeholder={t('support.write_reply')}
               className="w-full h-28 px-3.5 py-3 rounded-xl border border-neutral-200 bg-neutral-50 text-[13px] text-neutral-900 placeholder:text-neutral-300 resize-none focus:outline-none focus:border-neutral-300 focus:bg-white transition-all leading-relaxed"
               maxLength={5000}
               onKeyDown={e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) sendReply() }} />
@@ -490,7 +495,7 @@ export default function SupportPage() {
           </div>
         ) : (
           <div className="text-center py-4 text-[13px] text-neutral-400 bg-neutral-50 border border-neutral-200 rounded-xl">
-            Tichetul este închis. Deschide un tichet nou dacă ai nevoie de ajutor.
+            {t('support.ticket_is_closed')}
           </div>
         )}
       </div>
@@ -538,9 +543,9 @@ export default function SupportPage() {
           {[
             { value: 'all', label: t('common.all'),     count: tickets.length },
             { value: 'open',        label: 'Deschise',  count: tickets.filter(t => t.status === 'open').length },
-            { value: 'in_progress', label: 'În lucru',  count: tickets.filter(t => t.status === 'in_progress').length },
+            { value: 'in_progress', label: t('support.filter_in_progress'),  count: tickets.filter(t => t.status === 'in_progress').length },
             { value: 'resolved',    label: 'Rezolvate', count: tickets.filter(t => t.status === 'resolved').length },
-            { value: 'closed',      label: 'Închise',   count: tickets.filter(t => t.status === 'closed').length },
+            { value: 'closed',      label: t('support.filter_closed'),   count: tickets.filter(t => t.status === 'closed').length },
           ].map(opt => (
             <button key={opt.value} onClick={() => setTabFilter(opt.value)}
               className={`flex items-center gap-1.5 h-7 px-3 rounded-lg text-[12px] font-medium transition-all

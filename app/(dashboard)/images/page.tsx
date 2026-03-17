@@ -68,13 +68,13 @@ const PROMO_STYLES = [
 const ALL_STYLES = [...PRODUCT_STYLES, ...PROMO_STYLES.map(s => ({ ...s, value: `promo_${s.value}` }))]
 function styleLabel(val: string) { return ALL_STYLES.find(s => s.value === val)?.label || val }
 
-function getCurrentSeason() {
+function getCurrentSeason(t: (k: string) => string) {
   const m = new Date().getMonth() + 1
   if (m === 11) return { label: 'Black Friday', style: 'bold_dynamic', reason: 'Noiembrie — sezon Black Friday' }
-  if (m === 12) return { label: 'Crăciun',      style: 'seasonal',    reason: 'Decembrie — sezon Crăciun' }
+  if (m === 12) return { label: t('images.season_christmas'),      style: 'seasonal',    reason: t('images.season_christmas_reason') }
   if (m === 2)  return { label: 'Valentine',    style: 'elegant_luxury', reason: 'Februarie — Valentine Day' }
-  if (m >= 3 && m <= 5) return { label: 'Primăvară', style: 'lifestyle', reason: 'Sezon de primăvară' }
-  if (m >= 6 && m <= 8) return { label: 'Vară',      style: 'lifestyle', reason: 'Sezon de vară' }
+  if (m >= 3 && m <= 5) return { label: t('images.season_spring'), style: 'lifestyle', reason: t('images.season_spring_reason') }
+  if (m >= 6 && m <= 8) return { label: t('images.season_summer'),      style: 'lifestyle', reason: t('images.season_summer_reason') }
   return null
 }
 
@@ -289,10 +289,10 @@ function useGenerationProgress(taskId: string | null, imageRecordId: string | nu
         const data = JSON.parse(e.data)
         if (data.type === 'done')    { es.close(); onDone(data.urls || [data.primary_url]) }
         if (data.type === 'error')   { es.close(); onError(data.message || 'Eroare') }
-        if (data.type === 'timeout') { es.close(); onError('Timeout — revino în câteva minute') }
+        if (data.type === 'timeout') { es.close(); onError(t('images.error_timeout')) }
       } catch {}
     }
-    es.onerror = () => { es.close(); onError('Conexiunea a fost întreruptă') }
+    es.onerror = () => { es.close(); onError(t('images.error_connection_interrupted')) }
     return () => { es.close() }
   }, [taskId])
 }
@@ -315,7 +315,7 @@ function GeneratingScreen({ taskId, imageRecordId, onDone, onError, variantCount
       </div>
       <p className="text-[17px] font-semibold text-neutral-900 mb-2">{t('images.ai_generating')}</p>
       <p className="text-[13px] text-neutral-400 mb-6">
-        GPT construiește promptul → Nano Banana Pro generează
+        {t('images.gpt_builds_prompt')}
         {variantCount > 1 && <span className="ml-1 font-semibold text-neutral-700">{variantCount} variante</span>}
       </p>
       <div className="flex items-center gap-2 px-4 py-2 bg-neutral-50 rounded-full border border-neutral-100">
@@ -372,7 +372,7 @@ function StyleSelector({ styles, selected, onSelect, credits, season }: {
 function ProductGenerator({ onImageGenerated, brandKit }: { onImageGenerated: (img: GeneratedImage) => void; brandKit: BrandKit | null }) {
   const { t } = useT()
   const { credits }   = useCredits()
-  const season        = getCurrentSeason()
+  const season        = getCurrentSeason(t)
   const [step, setStep]                     = useState<ProductStep>('select_image')
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
   const [selectedProductImage, setSelectedProductImage] = useState<string | null>(null)
@@ -423,7 +423,7 @@ function ProductGenerator({ onImageGenerated, brandKit }: { onImageGenerated: (i
   }
 
   const handleDone = async (urls: string[], recId?: string) => {
-    if (!urls[0]) { setError('Imaginea nu a putut fi generată'); setStep('select_style'); return }
+    if (!urls[0]) { setError(t('images.error_image_not_generated')); setStep('select_style'); return }
     const finalId = recId || imageRecordId
     setLastUrls(urls); setSelectedVariant(0); setImageRecordId(finalId)
     if (finalId) {
@@ -483,7 +483,7 @@ function ProductGenerator({ onImageGenerated, brandKit }: { onImageGenerated: (i
               <div className="bg-neutral-50 rounded-xl border border-neutral-100 px-4 py-3">
                 <p className="text-[11px] font-semibold text-neutral-500 mb-1.5">Sfaturi pentru rezultate optime</p>
                 <ul className="space-y-1">
-                  {['Fundal alb sau uni', 'Produsul să ocupe 70%+ din imagine', 'Rezoluție minimă: 800×800px', 'Evită mâini sau alte obiecte'].map((tip, i) => (
+                  {[t('images.tip_white_bg'), t('images.tip_fill_70'), t('images.tip_min_resolution'), t('images.tip_avoid_hands')].map((tip, i) => (
                     <li key={i} className="flex items-start gap-1.5 text-[11px] text-neutral-500"><span className="text-neutral-300 mt-0.5 shrink-0">·</span>{tip}</li>
                   ))}
                 </ul>
@@ -536,7 +536,7 @@ function ProductGenerator({ onImageGenerated, brandKit }: { onImageGenerated: (i
                   <div className="p-4 bg-neutral-50 rounded-xl border border-neutral-200 space-y-2">
                     <SectionLabel>{t('images.describe_scene')}</SectionLabel>
                     <textarea value={manualDesc} onChange={e => setManualDesc(e.target.value)}
-                      placeholder="Ex: Produs pe raft din lemn rustic, lumină naturală de la fereastră..."
+                      placeholder={t('images.manual_prompt_placeholder')}
                       className="w-full h-24 text-[12px] px-3 py-2 rounded-xl border border-neutral-200 bg-white focus:outline-none focus:border-neutral-400 resize-none" />
                   </div>
                 </motion.div>
@@ -642,7 +642,7 @@ function ProductGenerator({ onImageGenerated, brandKit }: { onImageGenerated: (i
 function PromoGenerator({ onImageGenerated, brandKit }: { onImageGenerated: (img: GeneratedImage) => void; brandKit: BrandKit | null }) {
   const { t } = useT()
   const { credits }   = useCredits()
-  const season        = getCurrentSeason()
+  const season        = getCurrentSeason(t)
   const [step, setStep]                     = useState<PromoStep>('select_image')
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
   const [selectedProductImage, setSelectedProductImage] = useState<string | null>(null)
@@ -700,7 +700,7 @@ function PromoGenerator({ onImageGenerated, brandKit }: { onImageGenerated: (img
   }
 
   const handleDone = async (urls: string[], recId?: string) => {
-    if (!urls[0]) { setError('Generarea a eșuat'); setStep('edit_text'); return }
+    if (!urls[0]) { setError(t('images.error_generation_failed')); setStep('edit_text'); return }
     const finalId = recId || imageRecordId
     setLastUrl(urls[0]); setImageRecordId(finalId)
     if (finalId) {
@@ -774,7 +774,7 @@ function PromoGenerator({ onImageGenerated, brandKit }: { onImageGenerated: (img
               <p className="text-[13px] font-semibold text-neutral-900">{t('images.edit_poster_texts')}</p>
               {error && <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-100 rounded-xl text-[12px] text-red-600"><AlertCircle className="h-4 w-4 shrink-0" />{error}</div>}
               <div className="space-y-3">
-                {[{ key: 'headline', label: 'Titlu principal', max: 30, placeholder: 'Cel Mai Bun Preț' }, { key: 'subtitle', label: 'Subtitlu', max: 55, placeholder: 'Calitate premium la preț imbatabil' }].map(({ key, label, max, placeholder }) => {
+                {[{ key: 'headline', label: t('images.poster_headline_label'), max: 30, placeholder: t('images.poster_headline_placeholder') }, { key: 'subtitle', label: t('images.poster_subtitle_label'), max: 55, placeholder: t('images.poster_subtitle_placeholder') }].map(({ key, label, max, placeholder }) => {
                   const val   = (promoText as any)[key] as string
                   const len   = val.length
                   const color = len > max ? 'text-red-500' : len > max * 0.8 ? 'text-amber-500' : 'text-emerald-500'
@@ -806,7 +806,7 @@ function PromoGenerator({ onImageGenerated, brandKit }: { onImageGenerated: (img
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
-                  {[{ key: 'cta', label: 'CTA (buton)', max: 22, ph: 'Comandă Acum' }, { key: 'price_text', label: 'Preț (opțional)', max: 20, ph: 'Doar 299 RON' }].map(({ key, label, max, ph }) => (
+                  {[{ key: 'cta', label: t('images.poster_cta_label'), max: 22, ph: t('images.poster_cta_placeholder') }, { key: 'price_text', label: t('images.poster_price_label'), max: 20, ph: t('images.poster_price_placeholder') }].map(({ key, label, max, ph }) => (
                     <div key={key}>
                       <SectionLabel className="mb-1.5 block">{label}</SectionLabel>
                       <input value={(promoText as any)[key] || ''} onChange={e => setPromoText(pt => pt ? { ...pt, [key]: e.target.value || null } : pt)}
@@ -850,7 +850,7 @@ function PromoGenerator({ onImageGenerated, brandKit }: { onImageGenerated: (img
                   <button onClick={async () => { setPublishing(true); const res = await fetch('/api/generate/publish-to-woo', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ image_id: imageRecordId, product_id: selectedProduct.id, set_as_main: false }) }); if (res.ok) setPublished(true); setPublishing(false) }} disabled={publishing || published}
                     className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-[12px] font-medium transition-colors border ${published ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-neutral-200 hover:bg-neutral-50 text-neutral-700'}`}>
                     {publishing ? <Loader2 className="h-4 w-4 animate-spin" /> : published ? <CheckCircle className="h-4 w-4" /> : <Globe className="h-4 w-4" />}
-                    {published ? 'Publicat!' : 'Publică în WooCommerce'}
+                    {published ? t('images.published_woo') : t('images.publish_to_woo')}
                   </button>
                 )}
               </div>
@@ -921,7 +921,7 @@ function BulkTab() {
   }
 
   const jobStatusColor = (s: string) => ({ queued: 'text-amber-600 bg-amber-50', processing: 'text-neutral-900 bg-neutral-100', completed: 'text-emerald-600 bg-emerald-50', failed: 'text-red-500 bg-red-50', cancelled: 'text-neutral-400 bg-neutral-100' }[s] || 'text-neutral-400 bg-neutral-100')
-  const jobStatusLabel = (s: string) => ({ queued: 'În coadă', processing: 'În procesare', completed: 'Finalizat', failed: 'Eșuat', cancelled: 'Anulat' }[s] || s)
+  const jobStatusLabel = (s: string) => ({ queued: t('images.job_queued'), processing: t('images.job_processing'), completed: t('images.job_completed'), failed: t('images.job_failed'), cancelled: t('images.job_cancelled') }[s] || s)
 
   const PRIORITY_OPTIONS = [
     { value: 'normal',     label: t('images.all_products_bulk'),   desc: t('images.all_products_desc') },
@@ -973,7 +973,7 @@ function BulkTab() {
                   <div className="flex items-center justify-between">
                     <p className="text-[11px] text-neutral-500">{selectedIds.length} produse selectate</p>
                     <button onClick={() => setSelectedIds(selectedIds.length === products.length ? [] : products.map(p => p.id))} className="text-[11px] text-neutral-500 hover:text-neutral-800 transition-colors">
-                      {selectedIds.length === products.length ? 'Deselectează tot' : 'Selectează tot'}
+                      {selectedIds.length === products.length ? t('images.deselect_all_images') : t('images.select_all_images')}
                     </button>
                   </div>
                   <div className="max-h-52 overflow-y-auto border border-neutral-200 rounded-xl divide-y divide-neutral-100">
@@ -1017,7 +1017,7 @@ function BulkTab() {
             <Btn onClick={() => { const count = selectedIds.length || maxProducts; setEstimate({ credits: count * creditCost, products: count, minutes: Math.ceil(count * 1.5) }); setShowConfirm(true) }}
               disabled={submitting || credits < creditCost}>
               {submitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Zap className="h-3.5 w-3.5" />}
-              {submitting ? 'Se procesează...' : 'Lansează job'}
+              {submitting ? t('images.submitting_job') : t('images.launch_job')}
             </Btn>
           </div>
 
@@ -1184,7 +1184,7 @@ function BrandTab() {
         {/* Culori */}
         <Card className="p-5 space-y-4">
           <SectionLabel>Culori</SectionLabel>
-          {[{ key: 'primary_color', label: 'Culoare principală' }, { key: 'secondary_color', label: 'Culoare secundară' }, { key: 'accent_color', label: 'Accent' }].map(({ key, label }) => (
+          {[{ key: 'primary_color', label: t('images.color_primary') }, { key: 'secondary_color', label: t('images.color_secondary') }, { key: 'accent_color', label: t('images.color_accent') }].map(({ key, label }) => (
             <div key={key} className="flex items-center gap-3">
               <input type="color" value={(kit as any)[key]} onChange={e => setKit(k => k ? { ...k, [key]: e.target.value } : k)} className="h-9 w-9 rounded-lg border border-neutral-200 cursor-pointer p-0.5" />
               <div className="flex-1">
@@ -1414,7 +1414,7 @@ function GalleryTab({ gallery, onUpdate }: { gallery: GeneratedImage[]; onUpdate
 
 const MAIN_TABS: { value: MainTab; label: string; icon: any }[] = [
   { value: 'generator', label: 'Generator', icon: Wand2     },
-  { value: 'bulk',      label: 'Masă',      icon: Layers    },
+  { value: 'bulk',      label: t('images.tab_bulk'),      icon: Layers    },
   { value: 'brand',     label: 'Brand Kit', icon: Palette   },
   { value: 'gallery',   label: 'Galerie',   icon: ImageIcon },
 ]
@@ -1427,7 +1427,7 @@ export default function ImagesPage() {
   const [gallery, setGallery] = useState<GeneratedImage[]>([])
   const [galleryLoading, setGalleryLoading] = useState(true)
   const [brandKit, setBrandKit] = useState<BrandKit | null>(null)
-  const season = getCurrentSeason()
+  const season = getCurrentSeason(t)
 
   const fetchGallery = useCallback(async () => {
     try { const res = await fetch('/api/images'); const data = await res.json(); setGallery(data.images || []) } finally { setGalleryLoading(false) }

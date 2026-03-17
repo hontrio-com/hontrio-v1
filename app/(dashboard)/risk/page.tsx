@@ -71,11 +71,11 @@ type ClusterMatch = {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const ORDER_STATUS_LABELS: Record<string, string> = {
-  pending: 'Așteptare', processing: 'Procesare', shipped: 'Expediat',
-  collected: 'Ridicat', refused: 'Refuzat', not_home: 'Absent',
-  cancelled: 'Anulat', returned: 'Returnat',
-}
+const getOrderStatusLabels = (t: (k: string) => string): Record<string, string> => ({
+  pending: t('risk.status_pending'), processing: t('risk.status_processing'), shipped: t('risk.status_shipped'),
+  collected: t('risk.collected'), refused: t('risk.refused'), not_home: t('risk.status_not_home'),
+  cancelled: t('risk.cancelled'), returned: t('risk.status_returned_label'),
+})
 
 const ORDER_STATUS_ICON: Record<string, string> = {
   collected: '✓', refused: '✗', not_home: '○', cancelled: '—',
@@ -183,6 +183,7 @@ function Timeline({ orders, onUpdateStatus, updatingOrder }: {
   orders: Order[]; onUpdateStatus: (id: string, status: string) => void; updatingOrder: string | null
 }) {
   const { t } = useT()
+  const ORDER_STATUS_LABELS = getOrderStatusLabels(t)
   const sorted = [...orders].sort((a, b) => new Date(b.ordered_at).getTime() - new Date(a.ordered_at).getTime())
   return (
     <div className="relative">
@@ -331,7 +332,7 @@ function CustomerBadges({ customer }: { customer: Customer }) {
   if (customer.orders_refused >= 5)            badges.push({ label: 'Serial Refuser', icon: TriangleAlert, color: 'bg-red-100 text-red-700 border border-red-200' })
   if (customer.total_orders >= 10 && rate >= 90) badges.push({ label: 'VIP Trusted', icon: Award, color: 'bg-emerald-100 text-emerald-700 border border-emerald-200' })
   if (customer.manual_label_override)          badges.push({ label: 'Override Manual', icon: Pencil, color: 'bg-amber-100 text-amber-700 border border-amber-200' })
-  if (customer.total_orders <= 1)              badges.push({ label: 'Prima comandă', icon: Sparkles, color: 'bg-neutral-100 text-neutral-600 border border-neutral-200' })
+  if (customer.total_orders <= 1)              badges.push({ label: t('risk.first_order_badge'), icon: Sparkles, color: 'bg-neutral-100 text-neutral-600 border border-neutral-200' })
   if (badges.length === 0) return null
   return (
     <div className="flex flex-wrap gap-1.5">
@@ -376,7 +377,7 @@ function ClusterTab({ storeId, customers, onOpenProfile }: {
         </div>
         <Btn onClick={run} disabled={loading}>
           <Layers className={`h-3.5 w-3.5 ${loading ? 'animate-pulse' : ''}`} />
-          {loading ? 'Analizez...' : 'Rulează Analiza'}
+          {loading ? t('risk.analyzing_btn') : t('risk.run_analysis_btn')}
         </Btn>
       </div>
 
@@ -385,7 +386,7 @@ function ClusterTab({ storeId, customers, onOpenProfile }: {
           <Network className="h-8 w-8 text-neutral-200 mx-auto mb-3" />
           <p className="text-[13px] font-medium text-neutral-600 mb-1">{t('risk.clustering_analysis')}</p>
           <p className="text-[12px] text-neutral-400 mb-4 max-w-xs mx-auto">
-            Algoritmul detectează clienți care par a fi aceeași persoană, bazat pe similaritate nume + adresă.
+            {t('risk.algorithm_desc')}
           </p>
           <Btn onClick={run}>{t('risk.start_analysis')}</Btn>
         </div>
@@ -494,10 +495,10 @@ function SettingsTab({ settings, mlAccuracy, mlTotalPredictions, savingSettings,
           </div>
           {[
             { key: 'email_alerts_enabled',   label: t('risk.alert_per_order') },
-            { key: 'alert_on_blocked',        label: 'Alertă pentru clienți Blocați' },
-            { key: 'alert_on_problematic',    label: 'Alertă pentru clienți Problematici' },
-            { key: 'alert_on_watch',          label: 'Alertă pentru clienți Watch' },
-            { key: 'weekly_report_enabled',   label: 'Raport săptămânal (luni 08:00)' },
+            { key: 'alert_on_blocked',        label: t('risk.alert_blocked') },
+            { key: 'alert_on_problematic',    label: t('risk.alert_problematic') },
+            { key: 'alert_on_watch',          label: t('risk.alert_watch') },
+            { key: 'weekly_report_enabled',   label: t('risk.weekly_report_mon') },
           ].map(item => (
             <div key={item.key} className="flex items-center justify-between py-2 border-b border-neutral-50 last:border-0">
               <span className="text-[13px] text-neutral-700">{item.label}</span>
@@ -535,7 +536,7 @@ function SettingsTab({ settings, mlAccuracy, mlTotalPredictions, savingSettings,
           <div className="grid grid-cols-2 gap-3">
             {[
               { k: 'max_orders_per_day',       label: 'Max comenzi/zi',              type: 'number', min: 1, max: 20 },
-              { k: 'min_collection_rate_pct',  label: 'Rată min ridicare (%)',        type: 'number', min: 10, max: 100 },
+              { k: 'min_collection_rate_pct',  label: t('risk.min_collection_rate'),        type: 'number', min: 10, max: 100 },
               { k: 'flag_high_value_cod_ron',  label: 'Prag COD valoare mare (RON)',  type: 'number', min: 100 },
               { k: 'flag_new_account_days',    label: 'Cont nou (zile)',              type: 'number', min: 0, max: 30 },
             ].map(f => (
@@ -546,9 +547,9 @@ function SettingsTab({ settings, mlAccuracy, mlTotalPredictions, savingSettings,
             ))}
           </div>
           {[
-            { key: 'flag_night_orders',                    label: 'Detectează comenzi de noapte (00:00–06:00)' },
-            { key: 'flag_temp_email',                      label: 'Detectează emailuri temporare' },
-            { key: 'participate_in_global_blacklist',      label: 'Participă la blacklist global Hontrio' },
+            { key: 'flag_night_orders',                    label: t('risk.detect_night_orders') },
+            { key: 'flag_temp_email',                      label: t('risk.detect_temp_email') },
+            { key: 'participate_in_global_blacklist',      label: t('risk.participate_blacklist') },
           ].map(item => (
             <div key={item.key} className="flex items-center justify-between py-2 border-b border-neutral-50 last:border-0">
               <span className="text-[13px] text-neutral-700">{item.label}</span>
@@ -574,7 +575,7 @@ function SettingsTab({ settings, mlAccuracy, mlTotalPredictions, savingSettings,
           </div>
         </div>
         <p className="text-[12px] text-neutral-400 leading-relaxed">
-          Modelul ML ajustează automat ponderea fiecărui semnal în funcție de rezultatele reale. Cu cât mai multe comenzi sunt finalizate, cu atât predicțiile devin mai precise.
+          {t('risk.ml_model_desc')}
         </p>
       </Card>
 
@@ -727,7 +728,7 @@ export default function RiskShieldPage() {
           }
         } catch {}
       }
-      evtSource.onerror = () => { evtSource.close(); setSyncingAll(false); setSyncProgress({ stage: 'error', message: 'Conexiunea s-a întrerupt.' }) }
+      evtSource.onerror = () => { evtSource.close(); setSyncingAll(false); setSyncProgress({ stage: 'error', message: t('risk.connection_interrupted') }) }
     } catch { setSyncingAll(false); setSyncProgress({ stage: 'error', message: t('risk.error_start') }) }
   }
 
@@ -889,7 +890,7 @@ export default function RiskShieldPage() {
                syncProgress.stage === 'done'   ? <CheckCircle2 className="h-4 w-4 text-emerald-600" /> :
                <RefreshCw className="h-4 w-4 text-neutral-500 animate-spin" />}
               <span className={`text-[13px] font-medium ${syncProgress.stage === 'error' ? 'text-red-700' : syncProgress.stage === 'done' ? 'text-emerald-800' : 'text-neutral-700'}`}>
-                {syncProgress.message || 'Se procesează...'}
+                {syncProgress.message || t('risk.processing_msg')}
               </span>
             </div>
             {(syncProgress.stage === 'done' || syncProgress.stage === 'error') && (
@@ -903,7 +904,7 @@ export default function RiskShieldPage() {
             </div>
           )}
           <div className="flex flex-wrap gap-3 text-[11px] text-neutral-400 mt-1.5">
-            {syncProgress.custCreated !== undefined && <span>{syncProgress.custCreated} clienți noi</span>}
+            {syncProgress.custCreated !== undefined && <span>{syncProgress.custCreated} {t('risk.new_customers')}</span>}
             {syncProgress.ordInserted !== undefined && <span>{syncProgress.ordInserted} comenzi importate</span>}
           </div>
         </motion.div>
@@ -913,7 +914,7 @@ export default function RiskShieldPage() {
       <div className="grid grid-cols-3 lg:grid-cols-6 gap-2">
         {[
           { key: 'all',          label: 'Total',        value: totalCustomers,       color: 'text-neutral-900' },
-          { key: 'blocked',      label: 'Blocați',      value: stats.blocked || 0,   color: 'text-red-600' },
+          { key: 'blocked',      label: t('risk.blocked_label'),      value: stats.blocked || 0,   color: 'text-red-600' },
           { key: 'problematic',  label: 'Problematici', value: stats.problematic||0, color: 'text-orange-600' },
           { key: 'watch',        label: 'Watch',        value: stats.watch || 0,     color: 'text-amber-600' },
           { key: 'new',          label: 'Noi',          value: stats.new || 0,       color: 'text-neutral-600' },
@@ -935,13 +936,13 @@ export default function RiskShieldPage() {
       {/* Tab Nav */}
       <div className="flex items-center gap-1 overflow-x-auto pb-1 scrollbar-none -mx-1 px-1">
         {[
-          { key: 'customers',  label: 'Clienți',   icon: Users      },
+          { key: 'customers',  label: t('risk.customers_tab'),   icon: Users      },
           { key: 'alerts',     label: t('risk.alerts'),    icon: Bell,  badge: unreadAlerts },
           { key: 'financial',  label: 'Financiar', icon: DollarSign },
           { key: 'heatmap',    label: 'Heatmap',   icon: MapPin     },
           { key: 'clusters',   label: 'Clustere',  icon: Network    },
           { key: 'analytics',  label: 'Analytics', icon: BarChart3  },
-          { key: 'settings',   label: 'Setări',    icon: Settings   },
+          { key: 'settings',   label: t('risk.settings_tab_label'),    icon: Settings   },
         ].map(tab => {
           const Icon = tab.icon
           return (
@@ -963,7 +964,7 @@ export default function RiskShieldPage() {
           <div className="relative">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-neutral-300" />
             <input value={search} onChange={e => setSearch(e.target.value)}
-              placeholder="Caută după telefon, email, nume..."
+              placeholder={t('risk.search_placeholder_risk')}
               className="w-full pl-10 pr-4 h-9 rounded-xl border border-neutral-200 text-[13px] focus:outline-none focus:border-neutral-400 bg-white" />
           </div>
 
@@ -1131,15 +1132,15 @@ export default function RiskShieldPage() {
                   {financialData.refusalRateChange !== 0 && (
                     <span className={`text-[12px] font-medium pb-1 flex items-center gap-1 ${financialData.refusalRateChange > 0 ? 'text-red-400' : 'text-emerald-400'}`}>
                       {financialData.refusalRateChange > 0 ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
-                      {Math.abs(financialData.refusalRateChange)}% față de perioada anterioară
+                      {Math.abs(financialData.refusalRateChange)}% {t('risk.vs_previous_period')}
                     </span>
                   )}
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   {[
-                    { label: 'Valoare marfă',       val: financialData.loss.productLoss },
+                    { label: t('risk.product_value'),       val: financialData.loss.productLoss },
                     { label: 'Transport dus',        val: financialData.loss.shippingLoss },
-                    { label: 'Transport întors',     val: financialData.loss.returnShippingLoss },
+                    { label: t('risk.return_shipping'),     val: financialData.loss.returnShippingLoss },
                     { label: 'Reimpachetare',        val: financialData.loss.repackagingLoss },
                   ].map(item => (
                     <div key={item.label} className="bg-white/10 rounded-xl p-3">
@@ -1298,9 +1299,9 @@ export default function RiskShieldPage() {
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
             {[
-              { label: 'Rată risc ridicat', value: `${riskRate}%`, sub: `${(stats.blocked||0) + (stats.problematic||0)} clienți`, color: riskRate > 20 ? 'text-red-600' : 'text-neutral-900' },
-              { label: 'Rată ridicare comenzi', value: `${globalCollectionRate}%`, sub: `${totalCollected} din ${totalOrders}`, color: globalCollectionRate < 60 ? 'text-orange-600' : 'text-emerald-600' },
-              { label: 'Rată refuzuri', value: `${globalRefusalRate}%`, sub: `${totalRefused} refuzate · ${totalNotHome} absent`, color: globalRefusalRate > 20 ? 'text-red-600' : 'text-neutral-900' },
+              { label: t('risk.high_risk_rate'), value: `${riskRate}%`, sub: `${(stats.blocked||0) + (stats.problematic||0)} ${t('risk.high_risk_customers')}`, color: riskRate > 20 ? 'text-red-600' : 'text-neutral-900' },
+              { label: t('risk.collection_rate_label'), value: `${globalCollectionRate}%`, sub: `${totalCollected} ${t('common.of')} ${totalOrders}`, color: globalCollectionRate < 60 ? 'text-orange-600' : 'text-emerald-600' },
+              { label: t('risk.refusal_rate_label'), value: `${globalRefusalRate}%`, sub: `${totalRefused} ${t('risk.refused')} · ${totalNotHome} ${t('risk.status_not_home')}`, color: globalRefusalRate > 20 ? 'text-red-600' : 'text-neutral-900' },
               { label: 'Alerte active', value: activeAlerts, sub: `${unreadAlerts} necitite`, color: activeAlerts > 0 ? 'text-red-600' : 'text-neutral-900' },
             ].map((item, i) => (
               <Card key={i} className="p-4">
@@ -1462,7 +1463,7 @@ export default function RiskShieldPage() {
                         {selectedCustomer.last_order_at && (
                           <div className="flex items-center gap-2 text-[11px] text-neutral-400">
                             <Clock className="h-3.5 w-3.5 shrink-0" />
-                            Ultima comandă acum {timeAgo(selectedCustomer.last_order_at)}
+                            {t('risk.last_order_ago', { time: timeAgo(selectedCustomer.last_order_at) })}
                           </div>
                         )}
                       </div>
@@ -1490,7 +1491,7 @@ export default function RiskShieldPage() {
 
                     {/* Override label */}
                     <div>
-                      <SectionLabel>Etichetă Manuală</SectionLabel>
+                      <SectionLabel>{t('risk.manual_label_section')}</SectionLabel>
                       <div className="flex flex-wrap gap-2">
                         {(['trusted', 'watch', 'problematic', 'blocked'] as const).map(l => {
                           const isActive = selectedCustomer.risk_label === l
@@ -1523,13 +1524,13 @@ export default function RiskShieldPage() {
                     <div>
                       <SectionLabel>Note Operator</SectionLabel>
                       <textarea value={editNote} onChange={e => setEditNote(e.target.value)}
-                        placeholder="Adaugă note interne..." rows={3}
+                        placeholder={t('risk.add_internal_notes')} rows={3}
                         className="w-full px-3 py-2.5 rounded-xl border border-neutral-200 text-[13px] focus:outline-none focus:border-neutral-400 resize-none text-neutral-700 bg-neutral-50" />
                       <Btn onClick={saveNote} disabled={savingNote} className="mt-2"
                         variant={noteSaved ? 'outline' : 'primary'}>
                         {savingNote ? <><RefreshCw className="h-3 w-3 animate-spin" />Salvare...</> :
                          noteSaved  ? <><CheckCircle2 className="h-3 w-3" />Salvat!</> :
-                         'Salvează nota'}
+                         t('risk.save_note')}
                       </Btn>
                     </div>
 
@@ -1541,7 +1542,7 @@ export default function RiskShieldPage() {
                             ? 'bg-neutral-900 text-white hover:bg-neutral-800'
                             : 'border-2 border-neutral-900 text-neutral-900 hover:bg-neutral-50'}`}>
                         <Ban className="h-4 w-4" />
-                        {selectedCustomer.in_local_blacklist ? '✓ Eliminat din Blacklist' : 'Adaugă în Blacklist'}
+                        {selectedCustomer.in_local_blacklist ? t('risk.removed_from_blacklist') : t('risk.added_to_blacklist')}
                       </button>
                     </div>
                   </div>
@@ -1614,7 +1615,7 @@ export default function RiskShieldPage() {
                         <Card className="p-3.5 bg-amber-50 border-amber-100 flex items-start gap-2.5">
                           <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
                           <p className="text-[12px] text-amber-700 leading-relaxed">
-                            <strong>{clusterMatches.length} identități similare</strong> detectate — pot fi același client cu date diferite.
+                            <span dangerouslySetInnerHTML={{ __html: t('risk.similar_identities_detected', { count: String(clusterMatches.length) }) }} /> 
                           </p>
                         </Card>
                         {clusterMatches.map((match: any, i: number) => (
