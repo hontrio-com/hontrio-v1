@@ -69,6 +69,7 @@ function FieldDot({ has, label }: { has: boolean; label: string }) {
 }
 
 function ImpactBadge({ impact }: { impact: string }) {
+  const { t } = useT()
   if (impact === 'passed')   return <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100"><CheckCircle className="h-3 w-3" />OK</span>
   if (impact === 'critical') return <span className="inline-flex items-center gap-1 text-[11px] font-medium text-red-600 bg-red-50 px-2 py-0.5 rounded-full border border-red-100"><XCircle className="h-3 w-3" />Critic</span>
   return <span className="inline-flex items-center gap-1 text-[11px] font-medium text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-100"><AlertTriangle className="h-3 w-3" />{t('seo.attention')}</span>

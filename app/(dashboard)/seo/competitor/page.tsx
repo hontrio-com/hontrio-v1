@@ -690,6 +690,7 @@ function TabKeywords({ myUrl, competitorUrl }: { myUrl: string; competitorUrl: s
 // ─── TAB: TECHNICAL ───────────────────────────────────────────────────────────
 
 function TabTechnical({ myUrl, competitorUrl }: { myUrl: string; competitorUrl: string }) {
+  const { t } = useT()
   const [loading, setLoading] = useState(false)
   const [data, setData]       = useState<TechData | null>(null)
   const [error, setError]     = useState('')
@@ -830,6 +831,7 @@ function TabTechnical({ myUrl, competitorUrl }: { myUrl: string; competitorUrl: 
 // ─── TAB: PRICING ─────────────────────────────────────────────────────────────
 
 function TabPricing({ myUrl, competitorUrl }: { myUrl: string; competitorUrl: string }) {
+  const { t } = useT()
   const [loading, setLoading] = useState(false)
   const [data, setData]       = useState<PricingData | null>(null)
   const [error, setError]     = useState('')
