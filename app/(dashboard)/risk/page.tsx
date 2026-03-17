@@ -71,7 +71,7 @@ type ClusterMatch = {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const getOrderStatusLabels = (t: (k: string) => string): Record<string, string> => ({
+const getOrderStatusLabels = (t: (k: string, p?: Record<string, string | number>) => string): Record<string, string> => ({
   pending: t('risk.status_pending'), processing: t('risk.status_processing'), shipped: t('risk.status_shipped'),
   collected: t('risk.collected'), refused: t('risk.refused'), not_home: t('risk.status_not_home'),
   cancelled: t('risk.cancelled'), returned: t('risk.status_returned_label'),

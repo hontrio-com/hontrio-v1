@@ -48,7 +48,7 @@ const PLANS = [
   { id: 'enterprise',   name: 'Enterprise',   price: 499, credits: 2000 },
 ]
 
-const getTabs = (t: (k: string) => string) => [
+const getTabs = (t: (k: string, p?: Record<string, string | number>) => string) => [
   { value: 'general',      label: 'General',    icon: User },
   { value: 'brand',        label: t('settings.brand_ai'), icon: Sparkles },
   { value: 'integrations', label: t('settings.tab_integrations'),  icon: Plug },
@@ -58,7 +58,7 @@ const getTabs = (t: (k: string) => string) => [
   { value: 'plugin',       label: 'Plugin WP',  icon: Download },
 ]
 
-const getPwStrength = (t: (k: string) => string) => (p: string) => {
+const getPwStrength = (t: (k: string, p?: Record<string, string | number>) => string) => (p: string) => {
   if (!p) return { score: 0, label: '', color: '' }
   let s = 0
   if (p.length >= 8)           s++

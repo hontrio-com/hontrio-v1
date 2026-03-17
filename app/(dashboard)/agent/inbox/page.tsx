@@ -5,7 +5,7 @@ import { useT } from '@/lib/i18n/context'
 import { useState, useEffect, useCallback } from 'react'
 import { MessageCircle, Search, Star, Archive, ChevronRight, Loader2, AlertTriangle, Clock, RefreshCw, X } from 'lucide-react'
 
-const getIntentMeta = (t: (k: string) => string): Record<string, { label: string; bg: string; text: string }> => ({
+const getIntentMeta = (t: (k: string, p?: Record<string, string | number>) => string): Record<string, { label: string; bg: string; text: string }> => ({
   buying_ready:  { label:t('agent.intent_buying_ready'), bg:'bg-emerald-100', text:'text-emerald-700' },
   browsing:      { label:t('agent.intent_browsing'),      bg:'bg-neutral-100', text:'text-neutral-600' },
   comparing:     { label:t('agent.intent_comparing'),         bg:'bg-blue-100',    text:'text-blue-700'    },

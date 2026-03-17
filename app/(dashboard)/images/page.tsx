@@ -68,7 +68,7 @@ const PROMO_STYLES = [
 const ALL_STYLES = [...PRODUCT_STYLES, ...PROMO_STYLES.map(s => ({ ...s, value: `promo_${s.value}` }))]
 function styleLabel(val: string) { return ALL_STYLES.find(s => s.value === val)?.label || val }
 
-function getCurrentSeason(t: (k: string) => string) {
+function getCurrentSeason(t: (k: string, p?: Record<string, string | number>) => string) {
   const m = new Date().getMonth() + 1
   if (m === 11) return { label: 'Black Friday', style: 'bold_dynamic', reason: 'Noiembrie — sezon Black Friday' }
   if (m === 12) return { label: t('images.season_christmas'),      style: 'seasonal',    reason: t('images.season_christmas_reason') }

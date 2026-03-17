@@ -17,7 +17,7 @@ interface Trigger {
   message: string; conditions: Record<string, any>; cooldown_hours: number; priority: number
 }
 
-const getTriggerMeta = (t: (k: string) => string): Record<TriggerType, { label: string; icon: any; iconColor: string; badgeBg: string; badgeText: string; desc: string }> => ({
+const getTriggerMeta = (t: (k: string, p?: Record<string, string | number>) => string): Record<TriggerType, { label: string; icon: any; iconColor: string; badgeBg: string; badgeText: string; desc: string }> => ({
   exit_intent:      { label:t('agent.trigger_exit_intent'), icon:MousePointer,  iconColor:'text-red-500',    badgeBg:'bg-red-50',    badgeText:'text-red-600',    desc:t('agent.trigger_exit_desc') },
   time_on_page:     { label:t('agent.trigger_time_label'),      icon:Clock,         iconColor:'text-blue-500',   badgeBg:'bg-blue-50',   badgeText:'text-blue-600',   desc:t('agent.trigger_time_desc') },
   scroll_depth:     { label:t('agent.trigger_scroll_label'),     icon:TrendingDown,  iconColor:'text-violet-500', badgeBg:'bg-violet-50', badgeText:'text-violet-600', desc:t('agent.trigger_scroll_desc') },
@@ -26,7 +26,7 @@ const getTriggerMeta = (t: (k: string) => string): Record<TriggerType, { label: 
   inactivity:       { label:t('agent.trigger_inactivity_label'),        icon:Moon,          iconColor:'text-neutral-500',badgeBg:'bg-neutral-100',badgeText:'text-neutral-600',desc:t('agent.trigger_inactivity_desc') },
 })
 
-const getPageOptions = (t: (k: string) => string) => [
+const getPageOptions = (t: (k: string, p?: Record<string, string | number>) => string) => [
   { value:'all',      label:t('agent.page_all') },
   { value:'product',  label:t('agent.page_product')  },
   { value:'cart',     label:t('agent.page_cart')     },

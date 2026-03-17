@@ -22,7 +22,7 @@ type Transaction = {
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
-const getPlans = (t: (k: string) => string) => [
+const getPlans = (t: (k: string, p?: Record<string, string | number>) => string) => [
   {
     id: 'free', name: 'Free Trial', price: 0, period: '',
     description: t('credits.test_platform'),
@@ -61,7 +61,7 @@ const PACKS = [
   { id: 'pack_1000', credits: 1000, price: 399, perCredit: 0.40, popular: false },
 ]
 
-const getCosts = (t: (k: string) => string) => [
+const getCosts = (t: (k: string, p?: Record<string, string | number>) => string) => [
   { label: t('credits.ai_text_gen'),      cost: '5 cr.', icon: FileText  },
   { label: t('credits.image_white'),    cost: '2 cr.', icon: ImageIcon },
   { label: 'Imagine Lifestyle',     cost: '3 cr.', icon: ImageIcon },
