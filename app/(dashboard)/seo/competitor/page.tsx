@@ -935,6 +935,7 @@ function TabPricing({ myUrl, competitorUrl }: { myUrl: string; competitorUrl: st
 // ─── TAB: REPORTS ─────────────────────────────────────────────────────────────
 
 function TabReports({ myUrl, competitorUrl, result }: { myUrl: string; competitorUrl: string; result: ComparisonResult | null }) {
+  const { t } = useT()
   const [generating, setGenerating] = useState(false)
   const [report, setReport]         = useState<any>(null)
   const [pastReports, setPastReports] = useState<any[]>([])
