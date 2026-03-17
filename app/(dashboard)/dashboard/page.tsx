@@ -19,7 +19,7 @@ type DashboardData = {
   agent: { is_active: boolean; agent_name: string | null; conversations_today: number } | null
   onboardingChecklist: { id: string; label: string; done: boolean; href: string }[]
   onboardingProgress: number; onboardingComplete: boolean
-  aiInsight: { type: string; message: string; action: string; actionUrl: string; stat: string } | null
+  aiInsight: { type: string; message: string; action: string; actionUrl: string; stat: string; params?: Record<string, any> } | null
 }
 
 function AnimatedNumber({ value, suffix = '' }: { value: number; suffix?: string }) {
@@ -138,13 +138,13 @@ export default function DashboardPage() {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-0.5">
                   <span className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500">{t('dashboard.ai_insight')}</span>
-                  <span className="text-[11px] text-neutral-400 bg-neutral-100 px-2 py-0.5 rounded-full">{data.aiInsight.stat}</span>
+                  <span className="text-[11px] text-neutral-400 bg-neutral-100 px-2 py-0.5 rounded-full">{t('dashboard.' + data.aiInsight.stat, data.aiInsight.params)}</span>
                 </div>
-                <p className="text-[13px] text-neutral-600 leading-relaxed">{data.aiInsight.message}</p>
+                <p className="text-[13px] text-neutral-600 leading-relaxed">{t('dashboard.' + data.aiInsight.message, data.aiInsight.params)}</p>
               </div>
               <Link href={data.aiInsight.actionUrl} className="shrink-0">
                 <button className="group flex items-center gap-2 bg-neutral-900 hover:bg-neutral-800 text-white text-[13px] font-medium px-4 py-2 rounded-xl transition-all">
-                  {data.aiInsight.action}<ArrowRight className="h-3.5 w-3.5 group-hover:translate-x-0.5 transition-transform" />
+                  {t('dashboard.' + data.aiInsight.action, data.aiInsight.params)}<ArrowRight className="h-3.5 w-3.5 group-hover:translate-x-0.5 transition-transform" />
                 </button>
               </Link>
             </div>

@@ -83,11 +83,11 @@ export async function GET() {
     const hasAgent = !!agentConfigRes.data
 
     const onboardingChecklist = [
-      { id: 'account', label: 'Cont creat', done: true, href: '/settings' },
-      { id: 'store', label: 'Magazin conectat', done: hasStore, href: '/settings' },
-      { id: 'products', label: 'Produse sincronizate', done: hasSyncedProducts, href: '/products' },
-      { id: 'optimized', label: 'Prima optimizare', done: hasOptimized, href: '/products' },
-      { id: 'agent', label: 'AI Agent activat', done: hasAgent, href: '/agent' },
+      { id: 'account', label: 'checklist_account', done: true, href: '/settings' },
+      { id: 'store', label: 'checklist_store', done: hasStore, href: '/settings' },
+      { id: 'products', label: 'checklist_products', done: hasSyncedProducts, href: '/products' },
+      { id: 'optimized', label: 'checklist_optimized', done: hasOptimized, href: '/products' },
+      { id: 'agent', label: 'checklist_agent', done: hasAgent, href: '/agent' },
     ]
     const onboardingProgress = onboardingChecklist.filter(i => i.done).length
     const onboardingComplete = onboardingProgress === onboardingChecklist.length
@@ -101,24 +101,24 @@ export async function GET() {
     })
     if (shortDescProducts.length > 0 && totalProducts > 0) {
       const pct = Math.round(shortDescProducts.length / totalProducts * 100)
-      insights.push({ type: 'short_descriptions', priority: shortDescProducts.length > totalProducts * 0.5 ? 10 : 7, message: `${shortDescProducts.length} din ${totalProducts} produse au descrieri sub 100 de cuvinte — optimizarea lor poate crește vânzările cu până la 34%.`, action: 'Optimizează acum', actionUrl: '/products', stat: `${pct}% afectate` })
+      insights.push({ type: 'short_descriptions', priority: shortDescProducts.length > totalProducts * 0.5 ? 10 : 7, message: `insight_short_desc`, action: 'insight_short_desc_action', actionUrl: '/products', stat: 'insight_short_desc_stat', params: { count: shortDescProducts.length, total: totalProducts, pct } })
     }
 
     const noImageProducts = allProductStats.filter(p => !p.original_images || p.original_images.length === 0)
     if (noImageProducts.length > 0) {
-      insights.push({ type: 'no_images', priority: 9, message: `${noImageProducts.length} produse nu au nicio imagine. Produsele cu imagini au rată de conversie cu 40% mai mare.`, action: 'Generează imagini', actionUrl: '/images', stat: `${noImageProducts.length} fără imagini` })
+      insights.push({ type: 'no_images', priority: 9, message: 'insight_no_images', action: 'insight_no_images_action', actionUrl: '/images', stat: 'insight_no_images_stat', params: { count: noImageProducts.length } })
     }
     if (seoRed > 0) {
-      insights.push({ type: 'low_seo', priority: 8, message: `${seoRed} produse au scor SEO sub 50/100. Îmbunătățirea lor crește traficul organic cu până la 53%.`, action: 'Analizează SEO', actionUrl: '/seo', stat: `${seoRed} scor slab` })
+      insights.push({ type: 'low_seo', priority: 8, message: 'insight_low_seo', action: 'insight_low_seo_action', actionUrl: '/seo', stat: 'insight_low_seo_stat', params: { count: seoRed } })
     }
     if (draftProducts > 0 && draftProducts >= totalProducts * 0.3) {
-      insights.push({ type: 'unoptimized', priority: draftProducts === totalProducts ? 10 : 6, message: `${draftProducts} produse sunt încă neoptimizate. Fiecare produs optimizat crește șansele de vânzare cu 20%.`, action: 'Optimizează produse', actionUrl: '/products', stat: `${draftProducts} draft` })
+      insights.push({ type: 'unoptimized', priority: draftProducts === totalProducts ? 10 : 6, message: 'insight_unoptimized', action: 'insight_unoptimized_action', actionUrl: '/products', stat: 'insight_unoptimized_stat', params: { count: draftProducts } })
     }
     if (totalProducts === 0) {
-      insights.push({ type: 'no_products', priority: 10, message: 'Nu ai niciun produs sincronizat. Conectează magazinul pentru a începe optimizarea.', action: 'Conectează magazin', actionUrl: '/settings', stat: '0 produse' })
+      insights.push({ type: 'no_products', priority: 10, message: 'insight_no_products', action: 'insight_no_products_action', actionUrl: '/settings', stat: 'insight_no_products_stat', params: {} })
     }
     if (avgSeoScore >= 80 && totalProducts > 5) {
-      insights.push({ type: 'great_score', priority: 3, message: `Scor SEO mediu de ${avgSeoScore}/100 — excelent! Publică produsele actualizate pentru impact maxim.`, action: 'Publică produse', actionUrl: '/products', stat: `${avgSeoScore}/100 SEO` })
+      insights.push({ type: 'great_score', priority: 3, message: 'insight_great_score', action: 'insight_great_score_action', actionUrl: '/products', stat: 'insight_great_score_stat', params: { score: avgSeoScore } })
     }
     insights.sort((a, b) => b.priority - a.priority)
 
