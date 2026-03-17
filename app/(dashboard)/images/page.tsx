@@ -280,6 +280,7 @@ function ImageSourceSelector({ selectedProduct, setSelectedProduct, selectedProd
 // ─── SSE Progress Hook ────────────────────────────────────────────────────────
 
 function useGenerationProgress(taskId: string | null, imageRecordId: string | null, onDone: (urls: string[]) => void, onError: (msg: string) => void) {
+  const { t } = useT()
   useEffect(() => {
     if (!taskId) return
     const url = `/api/generate/progress?task_id=${taskId}${imageRecordId ? `&image_record_id=${imageRecordId}` : ''}`
