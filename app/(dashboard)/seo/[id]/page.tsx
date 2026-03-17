@@ -204,6 +204,7 @@ function LiveScoreWidget({ sections, collapsed, onToggle }: {
 // ─── Keyword Density ──────────────────────────────────────────────────────────
 
 function KeywordDensity({ keyword, shortDesc, longDesc }: { keyword: string; shortDesc: string; longDesc: string }) {
+  const { t } = useT()
   if (!keyword) return (
     <Card className="p-4">
       <p className="text-[10px] font-medium text-neutral-400 uppercase tracking-wide mb-2 flex items-center gap-1.5"><Hash className="h-3 w-3" />{t('seo.keyword_density')}</p>
@@ -445,6 +446,7 @@ function HistoryWidget({ productId, onRestore }: { productId: string; onRestore:
 // ─── Internal Links ───────────────────────────────────────────────────────────
 
 function InternalLinkSuggestions({ productId, longDesc, category }: { productId: string; longDesc: string; category: string | null }) {
+  const { t } = useT()
   const [suggestions, setSuggestions] = useState<{ id: string; title: string; reason: string }[]>([])
   const [loading, setLoading]         = useState(false)
   const [done, setDone]               = useState(false)
