@@ -92,7 +92,7 @@ export async function GET() {
     const onboardingProgress = onboardingChecklist.filter(i => i.done).length
     const onboardingComplete = onboardingProgress === onboardingChecklist.length
 
-    const insights: { type: string; priority: number; message: string; action: string; actionUrl: string; stat: string }[] = []
+    const insights: { type: string; priority: number; message: string; action: string; actionUrl: string; stat: string; params?: Record<string, any> }[] = []
 
     const shortDescProducts = allProductStats.filter(p => {
       if (!p.original_description) return true
