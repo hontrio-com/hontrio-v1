@@ -111,6 +111,7 @@ function UnansweredTab() {
 
 // ─── Heatmap Tab ──────────────────────────────────────────────────────────────
 function HeatmapTab() {
+  const { t } = useT()
   const [products, setProducts] = useState<ProductStat[]>([])
   const [loading, setLoading]   = useState(true)
   const [days, setDays]         = useState(30)
