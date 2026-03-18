@@ -30,7 +30,8 @@
       "Bash(python:*)",
       "Bash(grep -v \"//.*[ăâîșțĂÂÎȘȚ]\")",
       "Bash(grep -v \"^\\\\s*//\")",
-      "Bash(git restore:*)"
+      "Bash(git restore:*)",
+      "Bash(xargs grep:*)"
     ]
   }
 }

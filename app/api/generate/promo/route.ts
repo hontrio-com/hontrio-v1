@@ -36,23 +36,55 @@ export const PROMO_STYLES = {
     label: 'Gradient Pop',
     description: 'Vivid gradient backgrounds, modern, social-media optimized',
   },
+  retro_vintage: {
+    label: 'Retro Vintage',
+    description: 'Aged nostalgic aesthetic, warm sepia tones, distressed texture, vintage typography',
+  },
+  editorial_magazine: {
+    label: 'Editorial Magazine',
+    description: 'High-fashion editorial look, bold headline, dramatic off-center product placement',
+  },
+  social_story: {
+    label: 'Social Story',
+    description: 'Instagram/TikTok story style, sticker elements, Gen-Z colors, fun and authentic',
+  },
+}
+
+// ─── Language detection heuristic ────────────────────────────────────────────
+function detectLanguage(title: string, description: string | null): string {
+  const text = (title + ' ' + (description || '')).toLowerCase()
+  // Romanian diacritics
+  if (/[ăâîșțĂÂÎȘȚ]/.test(text)) return 'Romanian'
+  // Common Romanian words
+  if (/\b(si|sau|pentru|cu|de|la|un|o|cel|cea|ale|din|pe|este|sunt|care|acest|aceasta)\b/.test(text)) return 'Romanian'
+  // Common French words
+  if (/\b(et|ou|pour|avec|de|le|la|les|un|une|du|au|ce|cette|est|sont)\b/.test(text)) return 'French'
+  // Common Spanish words
+  if (/\b(y|o|para|con|de|el|la|los|las|un|una|del|al|este|esta|es|son)\b/.test(text)) return 'Spanish'
+  // Common German words
+  if (/\b(und|oder|für|mit|der|die|das|ein|eine|des|dem|den|ist|sind|dieser|diese)\b/.test(text)) return 'German'
+  // Default to English
+  return 'English'
 }
 
 // ─── System prompt text generation ───────────────────────────────────────────
-const TEXT_GENERATION_SYSTEM = [
-  'You are an expert Romanian e-commerce copywriter and marketing specialist.',
-  'Generate compelling promotional text for product advertisement images targeting Romanian consumers.',
-  '',
-  'Rules:',
-  '- Write ALL text in Romanian language',
-  '- Keep it concise and impactful',
-  '- Title: maximum 6 words, punchy and benefit-focused',
-  '- Subtitle: maximum 12 words, elaborates the main benefit',
-  '- Benefits: exactly 3 bullet points, maximum 5 words each, start with action verb or strong adjective',
-  '- CTA: maximum 4 words, action-oriented (ex: "Comanda Acum", "Descopera Oferta", "Cumpara Azi")',
-  '- Price: if available, format as "Doar X RON" or "De la X RON"',
-  '- Respond ONLY with valid JSON, no markdown, no backticks',
-].join('\n')
+function buildTextGenerationSystem(language: string): string {
+  return [
+    `You are an expert e-commerce copywriter and marketing specialist writing for ${language}-speaking consumers.`,
+    `Generate compelling promotional text for product advertisement images.`,
+    '',
+    'Rules:',
+    `- Write ALL text in ${language} language`,
+    '- Keep it concise and impactful',
+    '- CRITICAL: Count EVERY character (letters, spaces, punctuation). These are HARD limits — if you exceed them, shorten until it fits. This is a hard constraint, not a suggestion.',
+    '- Headline: maximum 30 characters TOTAL (count every letter, space, punctuation) — punchy and benefit-focused',
+    '- Subtitle: maximum 55 characters TOTAL — elaborates the main benefit',
+    '- Benefits: exactly 3 bullet points, maximum 35 characters TOTAL each — start with action verb or strong adjective',
+    '- CTA: maximum 22 characters TOTAL — action-oriented',
+    '- Price: maximum 20 characters TOTAL — if available, format naturally for the language',
+    '- Respond ONLY with valid JSON, no markdown, no backticks',
+  ].join('\n')
+}
 
 async function generatePromoText(params: {
   productTitle: string
@@ -60,6 +92,7 @@ async function generatePromoText(params: {
   productDescription: string | null
   price: number | null
   style: string
+  language?: string
 }): Promise<{
   headline: string
   subtitle: string
@@ -68,36 +101,48 @@ async function generatePromoText(params: {
   price_text: string | null
 }> {
 
+  const language = params.language || detectLanguage(params.productTitle, params.productDescription)
+
   const styleTone: Record<string, string> = {
-    modern_minimalist: 'curat, sofisticat, minimalist — mai putin inseamna mai mult',
-    bold_dynamic: 'energic, puternic, orientat spre actiune — bold si incitant',
-    elegant_luxury: 'premium, exclusiv, aspirational — sentiment high-end',
-    vibrant_sale: 'urgent, incitant, axat pe oferta — creeaza FOMO',
-    dark_premium: 'misterios, exclusiv, dramatic — vibe premium de noapte',
-    gradient_pop: 'modern, proaspat, vibrant — nativ social media',
+    modern_minimalist: 'clean, sophisticated, minimalist — less is more',
+    bold_dynamic: 'energetic, powerful, action-oriented — bold and exciting',
+    elegant_luxury: 'premium, exclusive, aspirational — high-end feel',
+    vibrant_sale: 'urgent, exciting, offer-focused — creates FOMO',
+    dark_premium: 'mysterious, exclusive, dramatic — premium night vibe',
+    gradient_pop: 'modern, fresh, vibrant — social media native',
+    retro_vintage: 'nostalgic, warm, artisanal — timeless quality and heritage',
+    editorial_magazine: 'bold, exclusive, fashion-forward — editorial prestige',
+    social_story: 'fun, authentic, relatable — Gen-Z energy, not corporate',
   }
 
   const cleanDesc = params.productDescription
     ? params.productDescription.replace(/<[^>]*>/g, '').substring(0, 400)
-    : 'Nedisponibil'
+    : 'Not available'
 
-  const priceJson = params.price ? '"Doar ' + params.price + ' RON"' : 'null'
+  const priceJson = params.price ? '"' + params.price + '"' : 'null'
 
   const prompt = [
-    'Genereaza text promotional pentru acest produs:',
+    'Generate promotional text for this product. Write EVERYTHING in ' + language + '.',
     '',
-    'Produs: ' + params.productTitle,
-    'Categorie: ' + (params.productCategory || 'Nespecificata'),
-    'Descriere: ' + cleanDesc,
-    'Pret: ' + (params.price ? params.price + ' RON' : 'Nespecificat'),
-    'Ton stil reclama: ' + (styleTone[params.style] || 'modern si atractiv'),
+    'Product: ' + params.productTitle,
+    'Category: ' + (params.productCategory || 'Not specified'),
+    'Description: ' + cleanDesc,
+    'Price: ' + (params.price ? String(params.price) : 'Not specified'),
+    'Ad style tone: ' + (styleTone[params.style] || 'modern and attractive'),
     '',
-    'Returneaza DOAR acest JSON (fara markdown, fara backticks):',
+    'HARD CHARACTER LIMITS — count every character including spaces and punctuation:',
+    '  headline: max 30 characters',
+    '  subtitle: max 55 characters',
+    '  each benefit: max 35 characters',
+    '  cta: max 22 characters',
+    '  price_text: max 20 characters',
+    '',
+    'Return ONLY this JSON (no markdown, no backticks):',
     '{',
-    '  "headline": "Maximum 6 cuvinte, titlu roman impactant",',
-    '  "subtitle": "Maximum 12 cuvinte subtitlu roman elaborand beneficiul",',
-    '  "benefits": ["Beneficiu 1 max 5 cuvinte", "Beneficiu 2 max 5 cuvinte", "Beneficiu 3 max 5 cuvinte"],',
-    '  "cta": "Maximum 4 cuvinte CTA roman",',
+    '  "headline": "short impactful headline in ' + language + '",',
+    '  "subtitle": "subtitle elaborating the main benefit in ' + language + '",',
+    '  "benefits": ["benefit 1 in ' + language + '", "benefit 2 in ' + language + '", "benefit 3 in ' + language + '"],',
+    '  "cta": "action CTA in ' + language + '",',
     '  "price_text": ' + priceJson,
     '}',
   ].join('\n')
@@ -105,7 +150,7 @@ async function generatePromoText(params: {
   const response = await openai.chat.completions.create({
     model: 'gpt-4o',
     messages: [
-      { role: 'system', content: TEXT_GENERATION_SYSTEM },
+      { role: 'system', content: buildTextGenerationSystem(language) },
       { role: 'user', content: prompt },
     ],
     temperature: 0.7,
@@ -406,6 +451,133 @@ function getPromoStyleLayout(style: string): string {
       '',
       'OVERALL FEEL: Fresh, modern, social-media native. Clean white panels make text perfectly legible against the vibrant gradient.',
     ].join('\n'),
+
+    retro_vintage: [
+      'STYLE: Retro Vintage — Aged Americana / Artisan Heritage / Nostalgic Poster',
+      '',
+      'LAYOUT PHILOSOPHY: Every element looks hand-crafted and time-worn. The design feels like it was made decades ago and has been lovingly preserved.',
+      '',
+      'BACKGROUND AND TEXTURE:',
+      '- Base background: warm kraft paper tone #F5E6C8 or aged cream #EDD9A3',
+      '- MANDATORY TEXTURE OVERLAY: distressed noise/grain texture at 10% opacity across entire canvas — simulates aged paper or worn print',
+      '- Subtle vignette: dark brown #2D1810 at 25% opacity fading inward from all four edges (60px feather)',
+      '- Optional: faint horizontal scan lines at 3% opacity to simulate old print registration',
+      '',
+      'STAMP/BADGE ELEMENT (SIGNATURE):',
+      '- Circular or rectangular border stamp design, centered top or bottom zone',
+      '- Stamp border: 2px dashed or double-line in rust orange #C45C26 or dark brown #2D1810',
+      '- Stamp text curves along the inside of the border (category or brand phrase)',
+      '- Star or diamond ornamental marks at compass points on the stamp ring',
+      '',
+      'PRODUCT PLACEMENT:',
+      '- Centered horizontally, 44% from top (classic centered composition)',
+      '- Scale: 58-65% of frame height',
+      '- WARM COLOR TREATMENT: product lighting has a warm sepia cast — 3000-3200K, single directional source upper-left at 45°',
+      '- Aged photo edge: soft vignette specifically around the product at 15% dark brown opacity — looks like an old photograph',
+      '- Optional: subtle vertical scratches or dust marks at 4% opacity over the product zone',
+      '',
+      'ORNAMENTAL DIVIDERS:',
+      '- Between headline and subtitle: thin ornamental line with central diamond or leaf motif, #C45C26, full width minus 60px margins',
+      '- Between benefits and CTA: same ornamental divider style',
+      '- Decorative corner flourishes: 4 symmetrical ornamental corner pieces, dark brown #2D1810, 40x40px each, inset 24px from edges',
+      '',
+      'TYPOGRAPHY (all centered):',
+      '- HEADLINE: Bold condensed slab serif or condensed serif, 56-64px, dark brown #2D1810, centered, ALL CAPS',
+      '  Slight letter-press effect: subtle shadow offset 1px down-right at 30% opacity',
+      '- SUBTITLE: Italic serif or script, 20px, rust orange #C45C26, centered, normal case',
+      '- BENEFITS: 3 items, 15px, dark brown #2D1810, centered, separated by small star ★ or bullet in muted gold #B8860B',
+      '- PRICE TAG: Starburst or banner shape behind price text — rust orange fill, white or cream price text bold 28px',
+      '- CTA BUTTON: Rectangle with ornamental border (double line, 1px inner + 2px outer), dark brown text on cream background, 220px × 46px',
+      '',
+      'COLOR PALETTE: Warm cream #F5E6C8, rust orange #C45C26, dark brown #2D1810, muted gold #B8860B — ZERO modern colors, zero gradients.',
+    ].join('\n'),
+
+    editorial_magazine: [
+      'STYLE: Editorial Magazine — Vogue / Elle / High-Fashion Spread',
+      '',
+      'LAYOUT PHILOSOPHY: Fashion photography meets advertising. Asymmetric, bold, dramatic. Text and product coexist in unexpected ways.',
+      '',
+      'BACKGROUND:',
+      '- Choose based on product type for maximum editorial impact:',
+      '  Light/pastel/neutral product → stark white #FFFFFF (creates graphic tension)',
+      '  Dark/rich/jewel-toned product → deep black #0A0A0A (creates mystery)',
+      '  Colorful/vibrant product → choose the MORE DRAMATIC option (usually black)',
+      '- The background is a pure flat field — no gradients, no textures, maximum graphic impact',
+      '',
+      'HEADLINE DOMINANCE (SIGNATURE):',
+      '- LARGE EDITORIAL HEADLINE takes up 32-38% of the total canvas height',
+      '- Positioned in upper zone, may bleed slightly off the left edge',
+      '- Font: ultra-bold condensed serif (like Bodoni or Didot style), massive scale 80-96px',
+      '- Color: opposite of background — white on black, black on white',
+      '- ALL CAPS, very tight tracking -0.03em, slightly compressed letter-forms',
+      '- The headline is a GRAPHIC ELEMENT as much as text — it IS part of the composition',
+      '',
+      'PRODUCT PLACEMENT — DRAMATIC OFF-CENTER:',
+      '- TILTED 8-12° clockwise or counter-clockwise (choose based on product shape)',
+      '- Positioned right-center or left-center, offset from canvas middle by 15-20%',
+      '- Scale: 65-72% of frame height — hero placement',
+      '- Text BLEEDS OVER product: subtitle or category label overlaps the product corners at 2-3 edges',
+      '- Dramatic directional studio lighting: single large softbox at 55° upper-left, deep shadows right side',
+      '  For white background: light from above creating strong drop shadow on white',
+      '  For black background: rim light from behind in ONE accent color only',
+      '',
+      'ACCENT COLOR — ONE ONLY:',
+      '- Choose ONE accent color derived from the product itself (its dominant color)',
+      '- This accent appears ONLY in: category label text, one thin rule line, price numeral',
+      '- Everything else: pure black and white',
+      '',
+      'TYPOGRAPHY:',
+      '- CATEGORY LABEL: ALL CAPS thin sans-serif, 11px, wide 0.4em tracking, accent color — top zone',
+      '- HEADLINE: See above — massive condensed serif, dominant graphic element',
+      '- SUBTITLE: Hairline-thin sans-serif, 15-16px, body text color, maximum 1 line below headline',
+      '  If on black: #888888. If on white: #333333.',
+      '- BENEFITS: 3 items, very small 12px, same thin sans-serif, subtle weight — de-emphasized',
+      '- PRICE: Small elegant type, 14-16px, accent color, barely prominent — exclusivity over urgency',
+      '  Format: simple numeral and currency, no decoration',
+      '- CTA: Minimal text-only (no button shape), 13px ALL CAPS, thin weight, accent color',
+      '',
+      'COLOR RULE: Monochrome (black + white) + exactly ONE accent color. Nothing else.',
+    ].join('\n'),
+
+    social_story: [
+      'STYLE: Social Story — Instagram / TikTok Gen-Z Aesthetic',
+      '',
+      'LAYOUT PHILOSOPHY: Looks like it was designed by a creative Gen-Z user, not a corporate studio. Fun, expressive, layered with personality. Sticker energy.',
+      '',
+      'BACKGROUND:',
+      '- Choose one of two Gen-Z palettes based on product:',
+      '  Bright pastels: soft lavender #E8D5FF, bubblegum pink #FFD6E7, mint #C8F7E4, sky #C5E8FF',
+      '  Electric neons: hot pink #FF2D78, electric blue #0095FF, acid yellow #F9F500, neon green #39FF14',
+      '- Solid color or two-tone diagonal split — not gradient, feels more graphic and intentional',
+      '- Small doodle-style decorations scattered in background: stars ✦, small hearts ♥, tiny sparkles, wavy lines — hand-drawn feel, 20-30% opacity',
+      '',
+      'PRODUCT STICKER (SIGNATURE):',
+      '- Product sits on a solid color rounded-rectangle "sticker" shape',
+      '- Sticker background: white #FFFFFF solid fill',
+      '- WHITE BORDER: 8px thick white stroke around the sticker shape — classic sticker look',
+      '- Slight drop shadow below sticker: rgba(0,0,0,0.20), 12px blur, 4px down offset',
+      '- Product centered in sticker, fills 75% of sticker area',
+      '- Sticker centered on canvas, sticker fills approximately 55% of canvas width',
+      '',
+      'DOODLE DECORATIONS AROUND STICKER:',
+      '- 4-6 small hand-drawn style elements near sticker edges: tiny arrows pointing at product, small star clusters, mini hearts, zigzag underlines',
+      '- These are in accent colors from the palette — NOT on the product itself',
+      '- Size: 16-32px, irregular placement, slight rotation each',
+      '',
+      'TYPOGRAPHY:',
+      '- HEADLINE: Bold rounded bubble font (like Nunito Black or Fredoka One), 52-60px, dark #1A1A1A or deep version of palette color',
+      '  Position: above sticker or below, centered',
+      '  May have slight rotation ±2°',
+      '- SUBTITLE: Rounded medium font, 18px, slightly lighter color or accent, centered',
+      '- BENEFITS: 3 items, 14px rounded font, each on a small pill/tag shape background in pale accent color',
+      '  Pill tags have 6px rounded corners, stacked vertically with 8px gap',
+      '- PRICE BADGE: Fun shape — star, blob, or sunburst — in accent color, white bold price text centered inside',
+      '  Price badge positioned near CTA or corner of sticker, slight rotation 3-5°',
+      '- CTA: Rounded rectangle, 48px height, 200px width, bold 16px rounded font',
+      '  Bold filled button in accent color with white or dark text — energetic, inviting',
+      '',
+      'OVERALL FEEL: Maximum fun, zero corporate. Feels hand-assembled, sticker-art style, scroll-stopping authenticity.',
+    ].join('\n'),
   }
 
   return layouts[style] || layouts.modern_minimalist
@@ -424,6 +596,11 @@ async function buildPromoImagePrompt(params: {
     cta: string
     price_text: string | null
   }
+  brandKit?: {
+    brand_name: string | null
+    primary_color: string | null
+    tone: string | null
+  } | null
 }): Promise<string> {
 
   const cleanDescription = params.productDescription
@@ -434,19 +611,47 @@ async function buildPromoImagePrompt(params: {
   const b = params.promoText.benefits
   const priceDisplay = params.promoText.price_text || 'no price'
 
-  // Variație controlată — garantează unicitate chiar pentru același produs și stil
-  const variationSeed = Date.now() % 8
+  // Controlled variation — guarantees uniqueness even for the same product and style
+  const variationSeed = Date.now() % 20
   const variationDirectives = [
-    'Emphasize the product\'s most distinctive visual feature as the focal point of the entire composition.',
-    'Design the color scheme to create the strongest possible contrast between the product and the background.',
-    'Choose a slightly unconventional product angle that reveals its most interesting dimensional aspect.',
-    'Let the product\'s dominant color inspire one unexpected design accent that ties the whole poster together.',
-    'Design the typography scale so the headline size creates maximum visual hierarchy and impact.',
-    'Position the product slightly off from the expected location to create dynamic tension and visual interest.',
-    'Make the product appear to emerge from or interact with the design elements around it.',
-    'Focus on making the product feel as large and powerful as possible within the poster frame.',
+    // Composition & focal point
+    'Emphasize the product\'s most distinctive visual feature as the undeniable focal point of the entire composition.',
+    'Position the product slightly off-center using the rule of thirds — create dynamic tension and visual interest with intentional asymmetry.',
+    'Make the product appear to emerge from or actively interact with the design elements surrounding it, blurring the line between product and poster.',
+    'Compose the poster so the product is seen from a slightly unconventional angle that reveals its most interesting three-dimensional aspect.',
+    'Design the layout so the eye travels a deliberate path — from headline, past the product, to the CTA — guiding the viewer with precision.',
+    // Color & lighting
+    'Design the color scheme to create the strongest possible contrast between product and background, making it impossible to look away.',
+    'Let the product\'s dominant color inspire one unexpected bold accent that appears in the typography and one geometric element, tying everything together.',
+    'Use a dramatically low-angle warm key light on the product (20° from the surface) to create long shadows and intense depth.',
+    'Apply a cinematic golden-hour rim light from the upper rear — the product glows against the background as if lit by the setting sun.',
+    'Choose a cool-temperature background (blue or deep teal tones) to make a warm-colored product pop with maximum chromatic contrast.',
+    // Seasonal & contextual mood
+    'Evoke a winter holiday premium feel — deep rich tones, subtle snowflake scatter at very low opacity, warm soft lighting on the product.',
+    'Convey a bright summer energy — high-key lighting, airy whites or vivid tropical tones, the product looking fresh and inviting.',
+    'Suggest a cozy autumn harvest mood — warm amber and burnt orange tones, soft diffused light, a grounded and inviting composition.',
+    'Project a sleek spring-renewal freshness — clean pastels or soft greens, crisp lighting, a sense of optimism and new beginnings.',
+    // Urgency & commercial energy
+    'Maximize urgency: make the price display and CTA the second-most prominent element after the product — viewers should feel compelled to act now.',
+    'Design around scarcity and exclusivity — the layout should feel like a limited-edition collector\'s announcement, with deliberate restraint and refinement.',
+    'Create a "hero launch" energy — the product is treated like the star of a major reveal event, with dramatic lighting and announcement-style typography.',
+    // Typography-led & graphic experiments
+    'Design the typography scale so the headline commands maximum visual hierarchy — the text itself becomes a graphic element competing with the product.',
+    'Use a bold geometric pattern or repeated motif (very subtle, 8% opacity) in the background to add texture depth without distracting from the product.',
+    'Make the product feel as large and powerful as physically possible — push the scale to its limits while keeping all text elements perfectly readable.',
   ]
   const variationDirective = variationDirectives[variationSeed]
+
+  // Brand identity section — only injected when brand kit data is available
+  const brandSection = params.brandKit
+    ? [
+        '',
+        'BRAND IDENTITY:',
+        'Brand: ' + (params.brandKit.brand_name || 'Not specified'),
+        'Primary color: ' + (params.brandKit.primary_color || 'Not specified') + ' — use as accent in design elements',
+        'Brand tone: ' + (params.brandKit.tone || 'Not specified'),
+      ].join('\n')
+    : ''
 
   const userMessage = [
     'Write a detailed image generation prompt for an advertising poster for this product.',
@@ -454,6 +659,7 @@ async function buildPromoImagePrompt(params: {
     'PRODUCT: ' + params.productTitle,
     'Category: ' + (params.productCategory || 'general consumer product'),
     'Description: ' + cleanDescription,
+    brandSection,
     '',
     'The poster should include these text elements as part of the visual design:',
     '- Main headline (large bold text): ' + params.promoText.headline,
@@ -507,7 +713,7 @@ export async function POST(request: Request) {
 
     // ── Action: generate text preview ─────────────────────────────────────────
     if (action === 'generate_text') {
-      const { product_id, style } = body
+      const { product_id, style, language } = body
 
       const supabase = createAdminClient()
       const { data: product } = await supabase
@@ -521,12 +727,19 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'Produs negasit' }, { status: 404 })
       }
 
+      // Prefer sale_price when available and non-zero
+      const effectivePrice: number | null =
+        (product.sale_price != null && product.sale_price > 0)
+          ? product.sale_price
+          : (product.price ?? null)
+
       const promoText = await generatePromoText({
         productTitle: product.optimized_title || product.original_title,
         productCategory: product.category,
         productDescription: product.optimized_short_description || product.original_description,
-        price: product.price,
+        price: effectivePrice,
         style,
+        language: language || undefined,
       })
 
       return NextResponse.json({ promoText })
@@ -536,6 +749,7 @@ export async function POST(request: Request) {
     const {
       product_id,
       style,
+      language,
       reference_image_url,
       reference_image_base64,
       promo_text,
@@ -575,6 +789,17 @@ export async function POST(request: Request) {
     let productCategory: string | null = null
     let productDescription: string | null = null
     let productDbId: string | null = null
+    let brandKit: { brand_name: string | null; primary_color: string | null; tone: string | null } | null = null
+
+    // Fetch brand kit for the user (best-effort, does not block generation)
+    const { data: brandKitData } = await supabase
+      .from('brand_kits')
+      .select('brand_name, primary_color, tone')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    if (brandKitData) brandKit = brandKitData
 
     if (product_id) {
       const { data: product } = await supabase
@@ -662,9 +887,10 @@ export async function POST(request: Request) {
         productDescription,
         style,
         promoText: promo_text,
+        brandKit,
       })
 
-      console.log('[PromoGen] Prompt built (' + detailedPrompt.length + ' chars) style: ' + style)
+      console.log('[PromoGen] Prompt built (' + detailedPrompt.length + ' chars) style: ' + style + ' language: ' + (language || 'auto'))
       console.log('[PromoGen] Prompt preview:', detailedPrompt.substring(0, 600))
 
       await supabase

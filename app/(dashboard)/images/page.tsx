@@ -62,7 +62,10 @@ const getPromoStyles = (t: (k: string, p?: Record<string, string | number>) => s
   { value: 'elegant_luxury',    label: 'Elegant Luxury',    desc: t('images.promo_elegant_desc'),  cost: 4 },
   { value: 'vibrant_sale',      label: 'Vibrant Sale',      desc: t('images.seasonal_desc'),     cost: 4 },
   { value: 'dark_premium',      label: 'Dark Premium',      desc: t('images.promo_dark_desc'),          cost: 4 },
-  { value: 'gradient_pop',      label: 'Gradient Pop',      desc: t('images.promo_gradient_desc'),   cost: 4 },
+  { value: 'gradient_pop',      label: 'Gradient Pop',      desc: t('images.promo_gradient_desc'),         cost: 4 },
+  { value: 'retro_vintage',     label: t('images.promo_retro_vintage_label'),     desc: t('images.promo_retro_vintage_desc'),     cost: 4 },
+  { value: 'editorial_magazine', label: t('images.promo_editorial_magazine_label'), desc: t('images.promo_editorial_magazine_desc'), cost: 4 },
+  { value: 'social_story',      label: t('images.promo_social_story_label'),      desc: t('images.promo_social_story_desc'),      cost: 4 },
 ]
 
 const getAllStyles = (t: (k: string, p?: Record<string, string | number>) => string) => [...getProductStyles(t), ...getPromoStyles(t).map(s => ({ ...s, value: `promo_${s.value}` }))]
@@ -1267,6 +1270,17 @@ function GalleryTab({ gallery, onUpdate }: { gallery: GeneratedImage[]; onUpdate
   const [search, setSearch]   = useState('')
   const [preview, setPreview] = useState<GeneratedImage | null>(null)
   const [publishing, setPublishing] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState<string | null>(null)
+
+  const handleDelete = async (img: GeneratedImage, e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (!confirm(t('common.delete') + '?')) return
+    setDeleting(img.id)
+    await fetch('/api/images', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ image_ids: [img.id] }) })
+    setDeleting(null)
+    if (preview?.id === img.id) setPreview(null)
+    onUpdate()
+  }
 
   const filtered = gallery.filter(img => {
     const isPromo     = img.style.startsWith('promo_')
@@ -1341,6 +1355,10 @@ function GalleryTab({ gallery, onUpdate }: { gallery: GeneratedImage[]; onUpdate
                             {publishing === img.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Globe className="h-4 w-4" />}
                           </button>
                         )}
+                        <button onClick={e => handleDelete(img, e)}
+                          className="opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 delay-100 transition-all h-9 w-9 rounded-xl bg-white/90 flex items-center justify-center text-red-500 hover:bg-white shadow-lg">
+                          {deleting === img.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                        </button>
                       </div>
                     </div>
                     <div className="p-2.5">
@@ -1406,6 +1424,9 @@ function GalleryTab({ gallery, onUpdate }: { gallery: GeneratedImage[]; onUpdate
                       <Globe className="h-4 w-4" />{t('images.publish_gallery_btn')}
                     </button>
                   )}
+                  <button onClick={e => handleDelete(preview, e)} className="flex items-center gap-2 px-4 py-2 rounded-xl border border-red-200 text-red-500 text-[12px] hover:bg-red-50 transition-colors">
+                    {deleting === preview.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}{t('common.delete')}
+                  </button>
                   <button onClick={() => setPreview(null)} className="px-4 py-2 rounded-xl border border-neutral-200 text-neutral-500 text-[12px] hover:bg-neutral-50 transition-colors">{t('common.close_label')}</button>
                 </div>
               </div>

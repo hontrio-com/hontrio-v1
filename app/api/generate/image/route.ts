@@ -383,6 +383,7 @@ async function buildPromptWithGPT(params: {
   style: string
   manualDescription?: string
   brandKit?: { primary_color: string; secondary_color: string; accent_color: string; brand_name: string; tone: string }
+  topRatedPrompts?: { prompt: string | null; rating: number }[]
 }): Promise<string> {
   const cleanDescription = params.productDescription
     ? params.productDescription.replace(/<[^>]*>/g, '').substring(0, 700)
@@ -391,11 +392,30 @@ async function buildPromptWithGPT(params: {
   // Seed de variație bazat pe timestamp — garantează unicitate chiar pentru același produs
   const variationSeed = Date.now() % 10000
   const variationHints = [
-    'Choose an unexpected but logical camera angle that best reveals this product\'s unique shape.',
-    'Focus on creating maximum contrast between the product\'s dominant color and the scene.',
-    'Emphasize the product\'s most distinctive physical feature through lighting and composition.',
-    'Design the scene around the emotional feeling this product evokes in its target customer.',
-    'Create depth and layers in the scene while keeping the product as the undisputed hero.',
+    // Lighting mood: golden hour
+    'LIGHTING MOOD — GOLDEN HOUR: Bathe the entire scene in 2700K amber-gold directional light as if late-afternoon sun is streaming from camera-left at 15° above horizontal. The scene surface catches this warm glow and the product casts a long, dramatic shadow stretching right. Add a subtle secondary warm fill from below at 10% power. Composition: rule of thirds, product placed on the left intersection point with rich negative space opening to the right.',
+    // Lighting mood: blue hour
+    'LIGHTING MOOD — BLUE HOUR: Envelop the scene in cool 5500-6000K ambient light simulating outdoor dusk. Deep blue-gray shadows fill the scene, making the product the brightest, warmest element in the frame. Add a subtle warm rim light from directly behind the product at 3000K to give it a luminous edge that separates it from the cool background. Composition: product centered, deep moody negative space recedes behind it.',
+    // Lighting mood: dramatic studio
+    'LIGHTING MOOD — DRAMATIC STUDIO: Single large 120cm octabox at 55° upper-left as key light, a tight strip reflector at 30° camera-right as fill at 40% power, zero ambient. Clinical precision. Every material surface — matte, glossy, metallic, transparent — should be rendered with absolute clarity. No mystery, only exactness. Composition: off-center hero, product placed at right third of frame, strong left negative space.',
+    // Lighting mood: neon accent
+    'LIGHTING MOOD — NEON ACCENT: Primary scene illumination from a narrow LED strip light in a hue complementary to the product\'s dominant color, casting a colored rim along the product\'s right edge. Front fill is neutral soft 5000K at low power. The background retains a moody, near-dark atmosphere. Composition: close macro angle, product fills 80% of frame, colored light streak adds drama.',
+    // Lighting mood: natural soft diffused
+    'LIGHTING MOOD — NATURAL SOFT DIFFUSED: Soft, diffused overcast daylight from a large imaginary north-facing window camera-left, 5000K neutral white, perfectly even. Gentle gradual shadows on the right side of the product. The overall mood is organic, calm, and authentic — zero studio artifice. Composition: elevated 3/4 angle at 25° above horizontal, showing the product\'s top surface and front face simultaneously.',
+    // Lighting mood: hard directional
+    'LIGHTING MOOD — HARD DIRECTIONAL: A single bare-bulb spotlight or narrow snoot at 90° side angle (camera-left or right), creating crisp hard-edged shadows that fall dramatically across the scene surface. The shadow itself becomes a strong graphic design element. No fill light — full dramatic contrast. Composition: wide establishing shot, product at rule-of-thirds intersection, shadow extends across visible surface.',
+    // Composition: close macro
+    'COMPOSITION — CLOSE MACRO: Position the camera extremely close to the product, filling the frame with just the most visually compelling portion. Show textures, materials, label details, and surface finish at near 1:1 scale. Background dissolves into pure smooth bokeh. Lighting: very soft even illumination from above to reveal texture without harsh reflections. Choose the angle that best shows the product\'s unique character and materials.',
+    // Composition: wide environmental
+    'COMPOSITION — WIDE ENVIRONMENTAL STORYTELLING: Pull back to show the product within its complete, rich natural environment. The product occupies 35-40% of the frame — the remainder tells a vivid story of where and how it is used. Background fully in focus at f/8, clearly readable. Choose the environment that most powerfully communicates the product\'s real-world purpose and its owner\'s aspirational lifestyle.',
+    // Composition: dynamic edge tension
+    'COMPOSITION — DYNAMIC EDGE TENSION: Place the product at an extreme edge of frame — either far left 20% or far right 20% of the canvas — with vast, dramatically lit negative space on the opposite side. The negative space should be a deep, rich, perfectly graduated background tone. Camera angle is 10-12° below the product\'s center, making it appear confident, powerful, and monumental against the expansive empty background.',
+    // Scene story: morning ritual
+    'SCENE STORY — MORNING RITUAL: Design the scene to evoke the precise moment of a morning routine where this product plays a starring role. Warm early morning light (3200K) streams in from the side. The surface is a natural wood or white marble kitchen counter or bathroom vanity. One or two subtle morning context props — a ceramic coffee cup, a folded linen towel, morning newspaper — frame the product without competing with it. The mood is fresh, optimistic, purposeful.',
+    // Scene story: gift presentation
+    'SCENE STORY — GIFT PRESENTATION: Style the product as the hero of a premium gift-reveal moment. The product sits perfectly centered on a dark velvet or brushed premium surface. Subtle gift context in the background: a partially open elegant box, a curl of satin ribbon, premium tissue paper folds. Lighting is warm and celebratory (3000K from above). The entire composition communicates "this is the perfect gift" — precious, considered, worth giving.',
+    // Scene story: professional use
+    'SCENE STORY — PROFESSIONAL MASTERY: Show the product in the context of expert, professional use. The environment signals skill and quality: a craftsman\'s workshop bench, a professional chef\'s kitchen counter, a well-organized designer\'s studio, a photographer\'s desk. Two to three professional-grade props surrounding the product validate its quality without overshadowing it. The product appears as the essential, trusted tool of someone who takes their craft seriously. Lighting: cool 4500K side window light.',
   ]
   const variationHint = variationHints[variationSeed % variationHints.length]
 
@@ -411,9 +431,21 @@ async function buildPromptWithGPT(params: {
     'IMPORTANT: Brand colors should appear in scene elements (background accents, props, lighting tint) but NEVER alter the product itself.',
   ].filter(Boolean) : []
 
+  // Add top-rated prompts feedback context if available
+  const feedbackContext = (params.topRatedPrompts && params.topRatedPrompts.length > 0) ? [
+    '',
+    '═══════════════════════════════════════════════════════════════════',
+    'PROVEN SUCCESSFUL APPROACHES (learn from these — adapt, don\'t copy):',
+    'Style patterns that this user rated highly (4-5 stars):',
+    params.topRatedPrompts.map((p, i) => `Example ${i + 1} (${p.rating}★): ${p.prompt?.slice(0, 300)}...`).join('\n\n'),
+    'Apply similar composition thinking, lighting approach, and atmosphere — but create something NEW and UNIQUE for this specific product.',
+    '═══════════════════════════════════════════════════════════════════',
+  ] : []
+
   const userMessage = [
     'Write a complete, ultra-detailed, UNIQUE product photography prompt for Nano Banana Pro.',
     ...brandContext,
+    ...feedbackContext,
     '',
     '═══════════════════════════════════════════',
     'PRODUCT:',
@@ -623,6 +655,16 @@ export async function POST(request: Request) {
       .eq('user_id', userId)
       .maybeSingle()
 
+    // Fetch top-rated image prompts for feedback loop
+    const { data: topRatedPrompts } = await supabase
+      .from('generated_images')
+      .select('prompt, rating')
+      .eq('user_id', userId)
+      .gte('rating', 4)
+      .order('rating', { ascending: false })
+      .order('created_at', { ascending: false })
+      .limit(3)
+
     // ── Concurrent job guard ───────────────────────────────────────────────
     const jobKey = `${userId}:image:${productDbId || 'upload'}`
     if (!markJobRunning(jobKey)) {
@@ -671,6 +713,7 @@ export async function POST(request: Request) {
         style,
         manualDescription: manual_description,
         brandKit: brandKit || undefined,
+        topRatedPrompts: topRatedPrompts || undefined,
       })
 
       console.log(`[ImageGen] GPT prompt built (${detailedPrompt.length} chars) for style: ${style}`)
