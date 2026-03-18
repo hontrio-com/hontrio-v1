@@ -1,0 +1,36 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(wc:*)",
+      "Bash(npm list:*)",
+      "Bash(python3:*)",
+      "Bash(ls:*)",
+      "Bash(node -e \"const en = require\\(''./lib/i18n/messages/en.json''\\); console.log\\(JSON.stringify\\(en.settings, null, 2\\)\\)\")",
+      "Bash(node -e \"const ro = require\\(''./lib/i18n/messages/ro.json''\\); console.log\\(JSON.stringify\\(ro.settings, null, 2\\)\\)\")",
+      "Bash(wc -l \"app/\\(dashboard\\)/settings/page.tsx\")",
+      "Bash(node -e \"const en = require\\(''./lib/i18n/messages/en.json''\\); console.log\\(JSON.stringify\\(en.common, null, 2\\)\\)\")",
+      "Bash(node -e \"const en = require\\(''./lib/i18n/messages/en.json''\\); const keys = Object.keys\\(en.settings\\); console.log\\(keys.join\\(''\\\\n''\\)\\)\")",
+      "Bash(grep -n '\"\"profile_info\"\"' lib/i18n/messages/en.json)",
+      "Bash(grep -n '\"\"profile_info\"\"' lib/i18n/messages/ro.json)",
+      "Bash(node -e \"require\\(''./lib/i18n/messages/en.json''\\); console.log\\(''en.json: valid''\\)\")",
+      "Bash(node -e \"require\\(''./lib/i18n/messages/ro.json''\\); console.log\\(''ro.json: valid''\\)\")",
+      "Bash(node -e \"const en = require\\(''./lib/i18n/messages/en.json''\\); console.log\\(''general tab:'', en.settings?.tab_general\\); console.log\\(''plugin tab:'', en.settings?.tab_plugin\\)\")",
+      "Bash(node -e \"const en = require\\(''./lib/i18n/messages/en.json''\\); console.log\\(''consumer_key:'', en.settings.consumer_key\\); console.log\\(''consumer_secret:'', en.settings.consumer_secret\\)\")",
+      "Bash(node -e \"require\\(''./lib/i18n/messages/en.json''\\); console.log\\(''en.json OK''\\)\")",
+      "Bash(node -e \"require\\(''./lib/i18n/messages/ro.json''\\); console.log\\(''ro.json OK''\\)\")",
+      "Bash(grep -n \"''\\\\\\([^'']*[ăîâșțĂÎÂȘȚ][^'']*\\\\\\)''\" \"app/\\(dashboard\\)/settings/page.tsx\")",
+      "Bash(node -e \"const en = require\\(''./lib/i18n/messages/en.json''\\); const keys = Object.keys\\(en.settings\\); console.log\\(''Total settings keys:'', keys.length\\)\")",
+      "Bash(node -e \"const en = require\\(''./lib/i18n/messages/en.json''\\); const ro = require\\(''./lib/i18n/messages/ro.json''\\); const enKeys = Object.keys\\(en.settings\\); const roKeys = Object.keys\\(ro.settings\\); const missing = enKeys.filter\\(k => !roKeys.includes\\(k\\)\\); console.log\\(''Missing in ro.json:'', missing.length, missing\\)\")",
+      "Bash(node -e \"var en = require\\(''./lib/i18n/messages/en.json''\\); var ro = require\\(''./lib/i18n/messages/ro.json''\\); var enKeys = Object.keys\\(en.settings\\); var roKeys = Object.keys\\(ro.settings\\); var missing = enKeys.filter\\(function\\(k\\) { return roKeys.indexOf\\(k\\) === -1; }\\); console.log\\(''en settings keys:'', enKeys.length\\); console.log\\(''ro settings keys:'', roKeys.length\\); console.log\\(''Missing in ro.json:'', JSON.stringify\\(missing\\)\\);\")",
+      "Bash(node:*)",
+      "Bash(python:*)",
+      "Bash(grep -v \"//.*[ăâîșțĂÂÎȘȚ]\")",
+      "Bash(grep -v \"^\\\\s*//\")",
+      "Bash(git restore:*)"
+    ]
+  }
+}

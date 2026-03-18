@@ -1,7 +1,7 @@
 'use client'
 
 import { useSession, signOut } from 'next-auth/react'
-import { useLocale, useT } from '@/lib/i18n/context'
+import { useT } from '@/lib/i18n/context'
 import type { UILocale } from '@/lib/i18n/context'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
@@ -114,10 +114,7 @@ function useSearchShortcut(onOpen: () => void) {
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { data: session } = useSession()
-  const { locale, setLocale } = useLocale()
   const { t } = useT()
-
-  const toggleLocale = () => setLocale(locale === 'ro' ? 'en' : 'ro')
   const pathname = usePathname()
   const router = useRouter()
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -267,10 +264,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             {/* User */}
             <div className={`border-t border-neutral-100 ${collapsed ? 'p-2' : 'p-3'}`}>
               {collapsed ? (
-                <>
-                <Tooltip><TooltipTrigger asChild><button onClick={toggleLocale} className="w-full flex items-center justify-center p-2.5 rounded-xl text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100 transition-all text-[13px] font-bold">{locale === 'ro' ? '🇷🇴' : '🇬🇧'}</button></TooltipTrigger><TooltipContent side="right" sideOffset={10}>{locale === 'ro' ? t('common.switch_to_english') : t('dashboard.switch_to_romanian')}</TooltipContent></Tooltip>
                 <Tooltip><TooltipTrigger asChild><button onClick={() => signOut({ callbackUrl: '/login' })} className="w-full flex items-center justify-center p-2.5 rounded-xl text-neutral-400 hover:text-red-500 hover:bg-red-50 transition-all"><LogOut className="h-[18px] w-[18px]" /></button></TooltipTrigger><TooltipContent side="right" sideOffset={10}>{t('common.logout')}</TooltipContent></Tooltip>
-                </>
               ) : (
                 <div className="flex items-center gap-3">
                   <div className="h-9 w-9 rounded-full bg-neutral-100 flex items-center justify-center shrink-0 overflow-hidden">
@@ -280,7 +274,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     <p className="text-[13px] font-medium text-neutral-900 truncate">{userName}</p>
                     <p className="text-[11px] text-neutral-400 truncate">{userEmail}</p>
                   </div>
-                  <button onClick={toggleLocale} className="p-1.5 rounded-lg text-neutral-300 hover:text-neutral-700 hover:bg-neutral-100 transition-all text-[12px] font-bold" title={locale === 'ro' ? t('common.switch_to_english') : t('dashboard.switch_to_romanian')}>{locale === 'ro' ? '🇷🇴' : '🇬🇧'}</button>
                   <button onClick={() => signOut({ callbackUrl: '/login' })} className="p-1.5 rounded-lg text-neutral-300 hover:text-red-500 hover:bg-red-50 transition-all"><LogOut className="h-4 w-4" /></button>
                 </div>
               )}

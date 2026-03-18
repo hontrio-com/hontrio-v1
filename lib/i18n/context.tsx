@@ -29,15 +29,13 @@ async function loadMessages(locale: UILocale): Promise<Messages> {
   }
 }
 
-// ─── Auto-detect locale from browser ─────────────────────────────────────────
-function detectLocale(): UILocale {
+// ─── Detect locale from IP geolocation ───────────────────────────────────────
+async function detectLocaleFromGeo(): Promise<UILocale> {
   try {
-    const browserLang = navigator.language || (navigator as any).userLanguage || ''
-    const langCode = browserLang.toLowerCase().split('-')[0]
-    if (langCode === 'ro') return 'ro'
-    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || ''
-    if (tz === 'Europe/Bucharest') return 'ro'
-    return 'en'
+    const res = await fetch('/api/geo', { cache: 'no-store' })
+    if (!res.ok) return 'en'
+    const { country } = await res.json()
+    return country === 'RO' ? 'ro' : 'en'
   } catch {
     return 'en'
   }
@@ -77,19 +75,17 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false)
 
   useEffect(() => {
-    const saved = localStorage.getItem('hontrio_locale') as UILocale | null
-    const initial = saved && ['ro', 'en'].includes(saved) ? saved : detectLocale()
-    setLocaleState(initial)
-    if (!saved) localStorage.setItem('hontrio_locale', initial)
-    loadMessages(initial).then(msgs => {
-      setMessages(msgs)
-      setReady(true)
+    detectLocaleFromGeo().then(locale => {
+      setLocaleState(locale)
+      loadMessages(locale).then(msgs => {
+        setMessages(msgs)
+        setReady(true)
+      })
     })
   }, [])
 
   const setLocale = useCallback((newLocale: UILocale) => {
     setLocaleState(newLocale)
-    localStorage.setItem('hontrio_locale', newLocale)
     loadMessages(newLocale).then(setMessages)
   }, [])
 

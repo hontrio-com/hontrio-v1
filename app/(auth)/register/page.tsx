@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { useT, useLocale } from '@/lib/i18n/context'
+import { useT } from '@/lib/i18n/context'
 import { signIn } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -36,7 +36,6 @@ function Toast({ message, type, onClose }: { message: string; type: 'success' | 
 export default function RegisterPage() {
   const router = useRouter()
   const { t } = useT()
-  const { locale, setLocale } = useLocale()
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -80,9 +79,6 @@ export default function RegisterPage() {
 
   return (
     <div className="min-h-[100dvh] flex items-center justify-center relative px-5 py-6">
-        <button onClick={() => setLocale(locale === 'ro' ? 'en' : 'ro')} className="fixed top-5 right-5 z-20 flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-neutral-200 bg-white/80 backdrop-blur-sm hover:bg-neutral-50 transition-all text-[12px] font-medium text-neutral-600">
-          {locale === 'ro' ? '🇬🇧 English' : '🇷🇴 Română'}
-        </button>
       <AnimatePresence>{toast && <Toast {...toast} onClose={() => setToast(null)} />}</AnimatePresence>
 
       <div className="relative z-10 w-full max-w-[400px] text-center animate-[fadeInUp_0.5s_ease-out]">
