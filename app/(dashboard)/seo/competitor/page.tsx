@@ -1102,12 +1102,12 @@ function TabReports({ myUrl, competitorUrl, result }: { myUrl: string; competito
 // ─── MAIN PAGE ────────────────────────────────────────────────────────────────
 
 const TABS = [
-  { id: 'overview',   label: 'Overview',     icon: BarChart3  },
-  { id: 'monitor',    label: 'Monitor',      icon: Bell       },
-  { id: 'keywords',   label: 'Keywords',     icon: Hash       },
-  { id: 'technical',  label: t('seo.comp_tab_technical'),       icon: Shield     },
-  { id: 'pricing',    label: 'Pricing & USP', icon: DollarSign },
-  { id: 'reports',    label: t('seo.comp_tab_reports'),     icon: FileText   },
+  { id: 'overview',   labelKey: null,                        label: 'Overview',      icon: BarChart3  },
+  { id: 'monitor',    labelKey: null,                        label: 'Monitor',       icon: Bell       },
+  { id: 'keywords',   labelKey: null,                        label: 'Keywords',      icon: Hash       },
+  { id: 'technical',  labelKey: 'seo.comp_tab_technical',   label: 'Technical',     icon: Shield     },
+  { id: 'pricing',    labelKey: null,                        label: 'Pricing & USP', icon: DollarSign },
+  { id: 'reports',    labelKey: 'seo.comp_tab_reports',     label: 'Reports',       icon: FileText   },
 ] as const
 
 type TabId = typeof TABS[number]['id']
@@ -1268,7 +1268,7 @@ export default function CompetitorPage() {
             <button key={tab.id} onClick={() => setActiveTab(tab.id)}
               className={`flex items-center gap-1.5 h-8 px-3 rounded-xl text-[12px] font-medium whitespace-nowrap transition-all shrink-0
                 ${activeTab === tab.id ? 'bg-neutral-900 text-white' : 'text-neutral-500 hover:text-neutral-700 hover:bg-neutral-100'}`}>
-              <Icon className="h-3.5 w-3.5" />{tab.label}
+              <Icon className="h-3.5 w-3.5" />{tab.labelKey ? t(tab.labelKey) : tab.label}
             </button>
           )
         })}
