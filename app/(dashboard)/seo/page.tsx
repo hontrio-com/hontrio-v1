@@ -59,8 +59,9 @@ function Btn({ onClick, disabled, children, variant = 'primary', size = 'md', cl
 }
 
 function FieldDot({ has, label }: { has: boolean; label: string }) {
+  const { t } = useT()
   return (
-    <span title={`${label}: ${has ? 'completat' : 'lipsă'}`}
+    <span title={`${label}: ${has ? t('seo.field_completed_tooltip') : t('seo.field_missing_tooltip')}`}
       className={`inline-flex items-center justify-center w-5 h-5 rounded text-[9px] font-bold
         ${has ? 'bg-emerald-100 text-emerald-600' : 'bg-red-50 text-red-400'}`}>
       {label[0]}
@@ -301,8 +302,8 @@ export default function SEOPage() {
                   <div className="flex items-center justify-between mb-3">
                     <p className="text-[13px] font-semibold text-neutral-900">
                       {bulkRunning
-                        ? '⚡ Optimizare în curs...'
-                        : `✓ ${bulkDone} produse optimizate${bulkFailed > 0 ? `, ${bulkFailed} eșuate` : ''}`}
+                        ? t('seo.bulk_in_progress_msg')
+                        : `${t('seo.bulk_done_format', { done: String(bulkDone) })}${bulkFailed > 0 ? t('seo.bulk_failed_format', { failed: String(bulkFailed) }) : ''}`}
                     </p>
                     {bulkFinished && <button onClick={() => setBulkFinished(false)}><X className="h-4 w-4 text-neutral-400" /></button>}
                   </div>
@@ -328,7 +329,7 @@ export default function SEOPage() {
               <p className="text-[13px] font-semibold text-neutral-900">{t('seo.products_label')}</p>
               <div className="flex items-center gap-3">
                 <div className="hidden sm:flex items-center gap-1 text-[9px] font-semibold text-neutral-400">
-                  {['T·Titlu', 'M·Meta', 'K·Keyword', 'S·Scurtă', 'L·Lungă'].map(s => {
+                  {[t('seo.header_t_title'), t('seo.header_m_meta'), t('seo.header_k_keyword'), t('seo.header_s_short'), t('seo.header_l_long')].map(s => {
                     const [letter, ...rest] = s.split('·')
                     return (
                       <span key={s} className="flex items-center gap-0.5">
@@ -385,11 +386,11 @@ export default function SEOPage() {
                         </div>
                       </Link>
                       <div className="hidden sm:flex items-center gap-1 shrink-0">
-                        <FieldDot has={!!p.optimized_title}             label="Titlu"   />
-                        <FieldDot has={!!p.meta_description}            label="Meta"    />
-                        <FieldDot has={!!p.focus_keyword}               label="Keyword" />
-                        <FieldDot has={!!p.optimized_short_description} label="Scurtă"  />
-                        <FieldDot has={!!p.optimized_long_description}  label="Lungă"   />
+                        <FieldDot has={!!p.optimized_title}             label={t('seo.field_dot_title')}   />
+                        <FieldDot has={!!p.meta_description}            label={t('seo.field_dot_meta')}    />
+                        <FieldDot has={!!p.focus_keyword}               label={t('seo.field_dot_keyword')} />
+                        <FieldDot has={!!p.optimized_short_description} label={t('seo.field_dot_short')}  />
+                        <FieldDot has={!!p.optimized_long_description}  label={t('seo.field_dot_long')}   />
                       </div>
                       <div className="hidden md:flex flex-col items-end gap-1 w-14 shrink-0">
                         <span className={`text-[12px] font-bold tabular-nums ${cs.text}`}>{score > 0 ? score : '—'}</span>
@@ -429,7 +430,7 @@ export default function SEOPage() {
               <button onClick={runAudit} disabled={auditing || !storeUrl.trim()}
                 className="flex items-center justify-center gap-2 bg-white text-neutral-900 rounded-xl px-4 py-2.5 text-[13px] font-semibold hover:bg-neutral-100 disabled:opacity-40 transition-all shrink-0">
                 {auditing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-                {auditing ? 'Analizez...' : 'Analizează'}
+                {auditing ? t('seo.audit_analyzing') : t('seo.audit_analyze_btn')}
               </button>
             </div>
             <div className="flex items-center gap-2">
@@ -483,10 +484,10 @@ export default function SEOPage() {
                   </button>
                 </div>
                 <div className="flex gap-5 flex-wrap">
-                  <ScoreRing score={auditResult.scores.performance}    label="Performanță" />
+                  <ScoreRing score={auditResult.scores.performance}    label={t('seo.audit_performance')} />
                   <ScoreRing score={auditResult.scores.seo}            label="SEO" />
-                  <ScoreRing score={auditResult.scores.accessibility}  label="Accesibilitate" />
-                  <ScoreRing score={auditResult.scores.best_practices} label="Bune practici" />
+                  <ScoreRing score={auditResult.scores.accessibility}  label={t('seo.audit_accessibility')} />
+                  <ScoreRing score={auditResult.scores.best_practices} label={t('seo.audit_best_practices')} />
                 </div>
                 <div className="mt-4 pt-4 border-t border-white/10">
                   <p className="text-[10px] font-medium text-neutral-500 uppercase tracking-wide mb-3">Core Web Vitals</p>
@@ -602,9 +603,9 @@ export default function SEOPage() {
           {!auditResult && !auditing && !auditError && (
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               {[
-                { icon: Zap,      label: 'Core Web Vitals', desc: 'seo.cwv_desc' },
-                { icon: Search,   label: 'Audit SEO tehnic', desc: 'Title, meta, canonical, robots.txt, structured data, alt text' },
-                { icon: BarChart3, label: 'Fix instructions', desc: 'seo.technical_audit_desc' },
+                { icon: Zap,      label: t('seo.audit_cwv'), desc: t('seo.cwv_desc') },
+                { icon: Search,   label: t('seo.audit_seo_technical'), desc: t('seo.audit_seo_technical_desc') },
+                { icon: BarChart3, label: t('seo.audit_fix_instructions'), desc: t('seo.technical_audit_desc') },
               ].map(item => {
                 const Icon = item.icon
                 return (

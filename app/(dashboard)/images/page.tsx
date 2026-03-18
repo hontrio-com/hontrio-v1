@@ -493,7 +493,7 @@ function ProductGenerator({ onImageGenerated, brandKit }: { onImageGenerated: (i
               </div>
               <div className="flex justify-end">
                 <Btn onClick={() => setStep('select_style')} disabled={!activeImage}>
-                  Continuă <ArrowRight className="h-3.5 w-3.5" />
+                  {t('images.continue_btn')} <ArrowRight className="h-3.5 w-3.5" />
                 </Btn>
               </div>
             </motion.div>
@@ -740,7 +740,7 @@ function PromoGenerator({ onImageGenerated, brandKit }: { onImageGenerated: (img
               <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={handleFileUpload} className="hidden" />
               <div className="flex justify-end">
                 <Btn onClick={() => setStep('select_style')} disabled={!activeImage}>
-                  Continuă <ArrowRight className="h-3.5 w-3.5" />
+                  {t('images.continue_btn')} <ArrowRight className="h-3.5 w-3.5" />
                 </Btn>
               </div>
             </motion.div>
@@ -878,7 +878,7 @@ function PromoGenerator({ onImageGenerated, brandKit }: { onImageGenerated: (img
 // ─── BULK TAB ─────────────────────────────────────────────────────────────────
 
 function BulkTab() {
-  const { t } = useT()
+  const { t, locale } = useT()
   const PRODUCT_STYLES = getProductStyles(t)
   const styleLabel = getStyleLabel(t)
   const { credits }   = useCredits()
@@ -947,7 +947,7 @@ function BulkTab() {
           {error && <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-100 rounded-xl text-[12px] text-red-600"><AlertCircle className="h-4 w-4 shrink-0" />{error}</div>}
 
           <div>
-            <SectionLabel className="mb-2 block">Stil imagine</SectionLabel>
+            <SectionLabel className="mb-2 block">{t('images.bulk_image_style')}</SectionLabel>
             <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
               {PRODUCT_STYLES.filter(s => s.value !== 'manual').map(s => (
                 <button key={s.value} onClick={() => setStyle(s.value)}
@@ -1071,7 +1071,7 @@ function BulkTab() {
                         <Badge className={jobStatusColor(job.status)}>{jobStatusLabel(job.status)}</Badge>
                         {job.auto_publish && <Badge className="text-emerald-600 bg-emerald-50">Auto-publish</Badge>}
                       </div>
-                      <p className="text-[10px] text-neutral-400 mt-0.5">{job.completed_count}/{job.total_products} completate · {job.credits_used} cr · {new Date(job.created_at).toLocaleDateString('ro-RO')}</p>
+                      <p className="text-[10px] text-neutral-400 mt-0.5">{job.completed_count}/{job.total_products} {t('images.bulk_completed_of')} · {job.credits_used} cr · {new Date(job.created_at).toLocaleDateString(locale === 'ro' ? 'ro-RO' : 'en-US')}</p>
                     </div>
                     {(job.status === 'queued' || job.status === 'processing') && (
                       <Btn variant="ghost" size="sm" onClick={() => cancelJob(job.id)}>

@@ -61,22 +61,26 @@ type PricingData = {
 
 function hn(url: string) { try { return new URL(url.startsWith('http') ? url : 'https://'+url).hostname.replace('www.','') } catch { return url } }
 
-function charStatus(len: number, min: number, max: number) {
-  if (!len) return { text: 'Necompletat', cls: 'text-neutral-300' }
-  if (len >= min && len <= max) return { text: `${len} car. — ideal`, cls: 'text-emerald-600' }
-  if (len < min) return { text: `${len} car. — sub ${min}`, cls: 'text-amber-600' }
-  return { text: `${len} car. — peste ${max}`, cls: 'text-red-500' }
+function getCharStatus(t: (k: string, p?: Record<string, string | number>) => string) {
+  return (len: number, min: number, max: number) => {
+    if (!len) return { text: t('seo.comp_not_filled'), cls: 'text-neutral-300' }
+    if (len >= min && len <= max) return { text: t('seo.comp_chars_ideal', { len }), cls: 'text-emerald-600' }
+    if (len < min) return { text: t('seo.comp_chars_under', { len, min }), cls: 'text-amber-600' }
+    return { text: t('seo.comp_chars_over', { len, max }), cls: 'text-red-500' }
+  }
 }
 
-function alertLabel(type: string): { text: string; color: string } {
-  const map: Record<string, { text: string; color: string }> = {
-    title_changed:    { text: 'Titlu schimbat',    color: 'text-neutral-700' },
-    meta_changed:     { text: 'Meta schimbat',      color: 'text-neutral-700' },
-    keywords_changed: { text: 'Keywords schimbate', color: 'text-neutral-700' },
-    score_drop:       { text: 'Scor scăzut',        color: 'text-red-500'     },
-    score_rise:       { text: 'Scor crescut',        color: 'text-emerald-600' },
+function getAlertLabel(t: (k: string, p?: Record<string, string | number>) => string) {
+  return (type: string): { text: string; color: string } => {
+    const map: Record<string, { text: string; color: string }> = {
+      title_changed:    { text: t('seo.comp_title_changed'),    color: 'text-neutral-700' },
+      meta_changed:     { text: t('seo.comp_meta_changed'),      color: 'text-neutral-700' },
+      keywords_changed: { text: t('seo.comp_keywords_changed'), color: 'text-neutral-700' },
+      score_drop:       { text: t('seo.comp_score_drop'),        color: 'text-red-500'     },
+      score_rise:       { text: t('seo.comp_score_rise'),        color: 'text-emerald-600' },
+    }
+    return map[type] || { text: type, color: 'text-neutral-500' }
   }
-  return map[type] || { text: type, color: 'text-neutral-500' }
 }
 
 // ─── Primitives ───────────────────────────────────────────────────────────────
@@ -125,6 +129,7 @@ function ScoreCircle({ score, you, size = 72 }: { score: number; you: boolean; s
 }
 
 function MetricBar({ label, you, them }: { label: string; you: number; them: number }) {
+  const { t } = useT()
   const max    = Math.max(you, them, 1)
   const youWin = you > them
   const draw   = you === them
@@ -140,7 +145,7 @@ function MetricBar({ label, you, them }: { label: string; you: number; them: num
       <div className="text-center w-20">
         <p className="text-[10px] font-medium text-neutral-400 uppercase tracking-wide">{label}</p>
         <p className={`text-[9px] font-bold mt-0.5 ${youWin ? 'text-emerald-600' : draw ? 'text-neutral-400' : 'text-red-500'}`}>
-          {youWin ? 'Tu' : draw ? 'Egal' : 'Competitor'}
+          {youWin ? t('seo.comp_you') : draw ? t('seo.comp_equal') : t('seo.comp_competitor')}
         </p>
       </div>
       <div className="flex items-center gap-2">
@@ -158,6 +163,8 @@ function FieldRow({ label, mine, theirs, minLen, maxLen, winner, onSteal }: {
   label: string; mine: string; theirs: string; minLen?: number; maxLen?: number
   winner: Winner; onSteal?: (field: string, val: string) => void
 }) {
+  const { t } = useT()
+  const charStatus = getCharStatus(t)
   const ms       = minLen && maxLen ? charStatus(mine.length, minLen, maxLen) : null
   const ts       = minLen && maxLen ? charStatus(theirs.length, minLen, maxLen) : null
   const fieldKey = label.includes('Titlu') ? 'title' : label.includes('Meta') ? 'meta_description' : 'focus_keyword'
@@ -174,13 +181,13 @@ function FieldRow({ label, mine, theirs, minLen, maxLen, winner, onSteal }: {
           )}
           <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full
             ${winner === 'tu' ? 'text-emerald-700 bg-emerald-50' : winner === 'competitor' ? 'text-red-600 bg-red-50' : 'text-neutral-400 bg-neutral-100'}`}>
-            {winner === 'tu' ? 'Tu câștigă' : winner === 'competitor' ? 'Competitor câștigă' : 'Egal'}
+            {winner === 'tu' ? t('seo.comp_you_win') : winner === 'competitor' ? t('seo.comp_competitor_wins') : t('seo.comp_equal')}
           </span>
         </div>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-neutral-100">
         {[
-          { val: mine,   status: ms, winner: winner === 'tu',         tag: 'Tu',         dot: 'bg-neutral-900' },
+          { val: mine,   status: ms, winner: winner === 'tu',         tag: t('seo.comp_you'),         dot: 'bg-neutral-900' },
           { val: theirs, status: ts, winner: winner === 'competitor',  tag: 'Competitor', dot: 'bg-red-400'     },
         ].map((side, i) => (
           <div key={i} className={`p-4 ${side.winner ? 'bg-emerald-50/20' : ''}`}>
@@ -189,7 +196,7 @@ function FieldRow({ label, mine, theirs, minLen, maxLen, winner, onSteal }: {
               <SectionLabel>{side.tag}</SectionLabel>
             </div>
             <p className={`text-[13px] leading-relaxed ${side.val ? 'text-neutral-800' : 'text-neutral-300 italic text-[11px]'}`}>
-              {side.val || 'Necompletat'}
+              {side.val || t('seo.comp_not_filled')}
             </p>
             {side.status && side.val && <p className={`text-[10px] mt-1.5 font-medium ${side.status.cls}`}>{side.status.text}</p>}
           </div>
@@ -234,7 +241,7 @@ function StealModal({ open, field, myCurrent, competitorValue, competitorUrl, on
   }
 
   if (!open) return null
-  const fieldLabels: Record<string, string> = { title: 'Titlu SEO', meta_description: 'Meta Description', focus_keyword: 'Focus Keyword' }
+  const fieldLabels: Record<string, string> = { title: t('seo.comp_seo_title'), meta_description: t('seo.comp_meta_desc'), focus_keyword: t('seo.comp_focus_kw') }
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/30 backdrop-blur-sm p-4">
@@ -251,7 +258,7 @@ function StealModal({ open, field, myCurrent, competitorValue, competitorUrl, on
         </div>
         <div className="p-5 space-y-4">
           <div className="grid grid-cols-2 gap-3">
-            {[{ label: 'Varianta ta', val: myCurrent, dot: 'bg-neutral-900' }, { label: 'Competitor', val: competitorValue, dot: 'bg-red-400' }].map((s, i) => (
+            {[{ label: t('seo.comp_your_variant'), val: myCurrent, dot: 'bg-neutral-900' }, { label: 'Competitor', val: competitorValue, dot: 'bg-red-400' }].map((s, i) => (
               <div key={i} className="bg-neutral-50 rounded-xl p-3 border border-neutral-100">
                 <div className="flex items-center gap-1.5 mb-1.5">
                   <div className={`w-1.5 h-1.5 rounded-full ${s.dot}`} />
@@ -291,7 +298,7 @@ function StealModal({ open, field, myCurrent, competitorValue, competitorUrl, on
             {result && !applied && (
               <Btn size="sm" onClick={apply} disabled={applying}>
                 {applying ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle className="h-3.5 w-3.5" />}
-                Aplică
+                {t('seo.comp_apply_btn')}
               </Btn>
             )}
             {applied && <span className="text-[12px] font-medium text-emerald-600 flex items-center gap-1.5"><CheckCircle className="h-3.5 w-3.5" />{t('seo.applied')}</span>}
@@ -346,7 +353,7 @@ function TabOverview({ result, onSteal }: {
           </div>
           <div className="flex-1 min-w-0 sm:border-l sm:border-neutral-100 sm:pl-6">
             <p className="text-[15px] font-semibold text-neutral-900 mb-1.5 leading-snug">
-              {youWin ? 'Magazinul tău este mai bine optimizat SEO' : draw ? 'Egalitate — detaliile fac diferența' : 'Competitorul te depășește la SEO'}
+              {youWin ? t('seo.comp_your_store_better') : draw ? t('seo.comp_equal_details') : t('seo.comp_competitor_beats')}
             </p>
             <p className="text-[13px] text-neutral-500 leading-relaxed">{r.verdict.summary}</p>
           </div>
@@ -358,7 +365,7 @@ function TabOverview({ result, onSteal }: {
         <div className="px-4 py-3 border-b border-neutral-100 flex items-center justify-between">
           <p className="text-[13px] font-semibold text-neutral-900">{t('seo.metrics_comparison')}</p>
           <div className="flex items-center gap-3">
-            {[{ dot: 'bg-neutral-900', lbl: 'Tu' }, { dot: 'bg-red-400', lbl: 'Competitor' }].map(x => (
+            {[{ dot: 'bg-neutral-900', lbl: t('seo.comp_you') }, { dot: 'bg-red-400', lbl: t('seo.comp_competitor') }].map(x => (
               <span key={x.lbl} className="flex items-center gap-1.5 text-[10px] font-medium text-neutral-400">
                 <span className={`w-2 h-2 rounded-full ${x.dot}`} />{x.lbl}
               </span>
@@ -393,8 +400,8 @@ function TabOverview({ result, onSteal }: {
       {/* Keywords */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {[
-          { label: 'Keywords tale',       kws: r.my_store.focus_keywords,  bg: 'bg-neutral-100', text: 'text-neutral-700' },
-          { label: 'Keywords competitor', kws: r.competitor.focus_keywords, bg: 'bg-red-50',      text: 'text-red-700'     },
+          { label: t('seo.comp_your_keywords'),       kws: r.my_store.focus_keywords,  bg: 'bg-neutral-100', text: 'text-neutral-700' },
+          { label: t('seo.comp_their_keywords'), kws: r.competitor.focus_keywords, bg: 'bg-red-50',      text: 'text-red-700'     },
         ].map(({ label, kws, bg, text }) => (
           <Card key={label} className="p-4">
             <div className="flex items-center justify-between mb-3">
@@ -432,6 +439,7 @@ function TabOverview({ result, onSteal }: {
 
 function TabMonitor({ competitorUrl }: { competitorUrl: string }) {
   const { t } = useT()
+  const alertLabel = getAlertLabel(t)
   const [monitors, setMonitors]   = useState<MonitorItem[]>([])
   const [alerts, setAlerts]       = useState<AlertItem[]>([])
   const [snapshots, setSnapshots] = useState<Record<string, Snapshot[]>>({})
@@ -499,11 +507,11 @@ function TabMonitor({ competitorUrl }: { competitorUrl: string }) {
             <span className="text-[13px] text-neutral-500 truncate">{competitorUrl || 'Introdu URL competitor mai sus'}</span>
           </div>
           <input value={newLabel} onChange={e => setNewLabel(e.target.value)}
-            placeholder="Etichetă (ex: Principalul competitor)"
+            placeholder={t('seo.comp_label_placeholder')}
             className="flex-1 min-w-[180px] border border-neutral-200 rounded-xl px-3.5 py-2.5 text-[13px] focus:outline-none focus:border-neutral-400 transition-colors" />
           <Btn onClick={addMonitor} disabled={adding || !competitorUrl}>
             {adding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-            Adaugă
+            {t('seo.comp_add_btn')}
           </Btn>
         </div>
         <p className="text-[11px] text-neutral-400 mt-2">{t('seo.checking_daily')}</p>
@@ -643,7 +651,7 @@ function TabKeywords({ myUrl, competitorUrl }: { myUrl: string; competitorUrl: s
           </div>
           <Btn onClick={analyze} disabled={loading || !myUrl || !competitorUrl}>
             {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Hash className="h-3.5 w-3.5" />}
-            {loading ? 'Analizez...' : 'Analizează keywords'}
+            {loading ? t('seo.comp_analyzing') : t('seo.comp_analyze_keywords')}
           </Btn>
         </div>
         {error && <p className="text-[11px] text-red-500 flex items-center gap-1.5 mt-3"><XCircle className="h-3.5 w-3.5" />{error}</p>}
@@ -662,10 +670,10 @@ function TabKeywords({ myUrl, competitorUrl }: { myUrl: string; competitorUrl: s
           )}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {[
-              { title: 'Keywords lipsă (gap)',   items: result.gap_keywords,     bg: 'bg-red-50',     text: 'text-red-700',     desc: 'Le are competitorul, tu nu' },
-              { title: 'Avantajele tale',         items: result.my_advantages,    bg: 'bg-emerald-50', text: 'text-emerald-700', desc: 'Le ai tu, competitorul nu' },
-              { title: 'Oportunitate nouă',       items: result.opportunities,    bg: 'bg-neutral-100',text: 'text-neutral-600', desc: 'Nici tu, nici competitorul' },
-              { title: 'Keywords comune',         items: result.common_keywords,  bg: 'bg-neutral-100',text: 'text-neutral-500', desc: 'Amândoi le folosiți' },
+              { title: t('seo.comp_gap_title'),   items: result.gap_keywords,     bg: 'bg-red-50',     text: 'text-red-700',     desc: t('seo.comp_gap_desc') },
+              { title: t('seo.comp_advantage_title'),         items: result.my_advantages,    bg: 'bg-emerald-50', text: 'text-emerald-700', desc: t('seo.comp_advantage_desc') },
+              { title: t('seo.comp_opportunity_title'),       items: result.opportunities,    bg: 'bg-neutral-100',text: 'text-neutral-600', desc: t('seo.comp_opportunity_desc') },
+              { title: t('seo.comp_common_title'),         items: result.common_keywords,  bg: 'bg-neutral-100',text: 'text-neutral-500', desc: t('seo.comp_common_desc') },
             ].map(({ title, items, bg, text, desc }) => (
               <Card key={title} className="p-4">
                 <p className="text-[13px] font-semibold text-neutral-900 mb-0.5">{title}</p>
@@ -734,7 +742,7 @@ function TabTechnical({ myUrl, competitorUrl }: { myUrl: string; competitorUrl: 
           </div>
           <Btn onClick={analyze} disabled={loading || !myUrl || !competitorUrl}>
             {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Shield className="h-3.5 w-3.5" />}
-            {loading ? 'Analizez...' : 'Analizează tehnic'}
+            {loading ? t('seo.comp_analyzing') : t('seo.comp_analyze_technical')}
           </Btn>
         </div>
         {error && <p className="text-[11px] text-red-500 flex items-center gap-1.5 mt-3"><XCircle className="h-3.5 w-3.5" />{error}</p>}
@@ -761,7 +769,7 @@ function TabTechnical({ myUrl, competitorUrl }: { myUrl: string; competitorUrl: 
               </div>
             </div>
             <div className="grid grid-cols-2 divide-x divide-neutral-100">
-              {[{ label: 'Tu', ps: data.my_store.pagespeed[device], you: true }, { label: 'Competitor', ps: data.competitor.pagespeed[device], you: false }].map(({ label, ps, you }) => (
+              {[{ label: t('seo.comp_you'), ps: data.my_store.pagespeed[device], you: true }, { label: t('seo.comp_competitor'), ps: data.competitor.pagespeed[device], you: false }].map(({ label, ps, you }) => (
                 <div key={label} className="p-5">
                   <div className="flex items-center gap-2 mb-4">
                     <div className={`w-1.5 h-1.5 rounded-full ${you ? 'bg-neutral-900' : 'bg-red-400'}`} />
@@ -790,7 +798,7 @@ function TabTechnical({ myUrl, competitorUrl }: { myUrl: string; competitorUrl: 
             <div className="px-4 py-3 border-b border-neutral-100 flex items-center justify-between">
               <p className="text-[13px] font-semibold text-neutral-900">{t('seo.technical_checks')}</p>
               <div className="flex items-center gap-3">
-                {[{ dot: 'bg-neutral-900', lbl: 'Tu' }, { dot: 'bg-red-400', lbl: 'Competitor' }].map(x => (
+                {[{ dot: 'bg-neutral-900', lbl: t('seo.comp_you') }, { dot: 'bg-red-400', lbl: t('seo.comp_competitor') }].map(x => (
                   <span key={x.lbl} className="flex items-center gap-1.5 text-[10px] font-medium text-neutral-400">
                     <span className={`w-2 h-2 rounded-full ${x.dot}`} />{x.lbl}
                   </span>
@@ -803,14 +811,14 @@ function TabTechnical({ myUrl, competitorUrl }: { myUrl: string; competitorUrl: 
               <TechCheck label="OG Tags"      mine={data.my_store.technical.has_og_tags}         theirs={data.competitor.technical.has_og_tags}         good />
               <TechCheck label="OG Image"     mine={data.my_store.technical.has_og_image}        theirs={data.competitor.technical.has_og_image}        good />
               <TechCheck label="Hreflang"     mine={data.my_store.technical.has_hreflang}        theirs={data.competitor.technical.has_hreflang}        good />
-              <TechCheck label="Img fără ALT" mine={data.my_store.technical.images_without_alt}  theirs={data.competitor.technical.images_without_alt}  invert good />
-              <TechCheck label="Limbă"        mine={data.my_store.technical.lang || '—'}         theirs={data.competitor.technical.lang || '—'} />
+              <TechCheck label={t('seo.comp_img_no_alt')} mine={data.my_store.technical.images_without_alt}  theirs={data.competitor.technical.images_without_alt}  invert good />
+              <TechCheck label={t('seo.comp_language')}        mine={data.my_store.technical.lang || '—'}         theirs={data.competitor.technical.lang || '—'} />
             </div>
           </Card>
 
           {/* Schema */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {[{ label: 'Schema.org — Tu', types: data.my_store.technical.schema_types, dot: 'bg-neutral-900' }, { label: 'Schema.org — Competitor', types: data.competitor.technical.schema_types, dot: 'bg-red-400' }].map(({ label, types, dot }) => (
+            {[{ label: t('seo.comp_schema_you'), types: data.my_store.technical.schema_types, dot: 'bg-neutral-900' }, { label: t('seo.comp_schema_competitor'), types: data.competitor.technical.schema_types, dot: 'bg-red-400' }].map(({ label, types, dot }) => (
               <Card key={label} className="p-4">
                 <div className="flex items-center gap-2 mb-3">
                   <div className={`w-1.5 h-1.5 rounded-full ${dot}`} />
@@ -846,7 +854,7 @@ function TabPricing({ myUrl, competitorUrl }: { myUrl: string; competitorUrl: st
   }
 
   const posColors: Record<string, string>  = { mai_ieftin: 'text-emerald-700 bg-emerald-50', similar: 'text-neutral-600 bg-neutral-100', mai_scump: 'text-amber-700 bg-amber-50', necunoscut: 'text-neutral-500 bg-neutral-100' }
-  const posLabels: Record<string, string>  = { mai_ieftin: 'Mai ieftin decât competitorul', similar: 'Prețuri similare', mai_scump: 'Mai scump decât competitorul', necunoscut: 'Poziționare necunoscută' }
+  const posLabels: Record<string, string>  = { mai_ieftin: t('seo.comp_cheaper'), similar: t('seo.comp_similar_price'), mai_scump: t('seo.comp_more_expensive'), necunoscut: t('seo.comp_unknown_position') }
 
   return (
     <div className="space-y-4">
@@ -859,7 +867,7 @@ function TabPricing({ myUrl, competitorUrl }: { myUrl: string; competitorUrl: st
           </div>
           <Btn onClick={analyze} disabled={loading || !myUrl || !competitorUrl}>
             {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <DollarSign className="h-3.5 w-3.5" />}
-            {loading ? 'Analizez...' : 'Analizează pricing'}
+            {loading ? t('seo.comp_analyzing') : t('seo.comp_analyze_pricing')}
           </Btn>
         </div>
         {error && <p className="text-[11px] text-red-500 flex items-center gap-1.5 mt-3"><XCircle className="h-3.5 w-3.5" />{error}</p>}
@@ -878,7 +886,7 @@ function TabPricing({ myUrl, competitorUrl }: { myUrl: string; competitorUrl: st
           </Card>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {[{ label: 'Prețuri detectate — Tu', prices: data.my_detected_prices, dot: 'bg-neutral-900' }, { label: 'Prețuri detectate — Competitor', prices: data.their_detected_prices, dot: 'bg-red-400' }].map(({ label, prices, dot }) => (
+            {[{ label: t('seo.comp_prices_you'), prices: data.my_detected_prices, dot: 'bg-neutral-900' }, { label: t('seo.comp_prices_competitor'), prices: data.their_detected_prices, dot: 'bg-red-400' }].map(({ label, prices, dot }) => (
               <Card key={label} className="p-4">
                 <div className="flex items-center gap-2 mb-3"><div className={`w-1.5 h-1.5 rounded-full ${dot}`} /><p className="text-[13px] font-semibold text-neutral-900">{label}</p></div>
                 {prices?.length > 0
@@ -950,7 +958,7 @@ function TabReports({ myUrl, competitorUrl, result }: { myUrl: string; competito
   }
 
   async function generate() {
-    if (!result) { setError('Rulează mai întâi analiza Overview'); return }
+    if (!result) { setError(t('seo.comp_run_overview_first')); return }
     setGenerating(true); setError('')
     const res  = await fetch('/api/competitor/reports', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -990,7 +998,7 @@ function TabReports({ myUrl, competitorUrl, result }: { myUrl: string; competito
           </div>
           <Btn onClick={generate} disabled={generating || !result}>
             {generating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileText className="h-3.5 w-3.5" />}
-            {generating ? 'Generez...' : 'Generează raport'}
+            {generating ? t('seo.comp_generating_report') : t('seo.comp_generate_report')}
           </Btn>
         </div>
         {error && <p className="text-[11px] text-red-500 flex items-center gap-1.5 mt-2"><XCircle className="h-3.5 w-3.5" />{error}</p>}
@@ -1023,7 +1031,7 @@ function TabReports({ myUrl, competitorUrl, result }: { myUrl: string; competito
                 </div>
                 <span className={`ml-2 text-[13px] font-semibold px-3 py-1.5 rounded-full
                   ${report.overall_winner === 'tu' ? 'text-emerald-700 bg-emerald-50' : report.overall_winner === 'competitor' ? 'text-red-600 bg-red-50' : 'text-neutral-600 bg-neutral-100'}`}>
-                  {report.overall_winner === 'tu' ? 'Tu câștigă' : report.overall_winner === 'competitor' ? 'Competitor câștigă' : 'Egalitate'}
+                  {report.overall_winner === 'tu' ? t('seo.comp_you_win') : report.overall_winner === 'competitor' ? t('seo.comp_competitor_wins') : t('seo.comp_equal_label')}
                 </span>
               </div>
               <p className="text-[13px] text-neutral-700 leading-relaxed">{report.executive_summary}</p>
@@ -1078,7 +1086,7 @@ function TabReports({ myUrl, competitorUrl, result }: { myUrl: string; competito
                 <div className="flex items-center gap-2 shrink-0">
                   <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full
                     ${r.overall_winner === 'tu' ? 'text-emerald-600 bg-emerald-50' : r.overall_winner === 'competitor' ? 'text-red-500 bg-red-50' : 'text-neutral-400 bg-neutral-100'}`}>
-                    {r.overall_winner === 'tu' ? 'Tu' : r.overall_winner === 'competitor' ? 'Competitor' : 'Egal'}
+                    {r.overall_winner === 'tu' ? t('seo.comp_you') : r.overall_winner === 'competitor' ? t('seo.comp_competitor') : t('seo.comp_equal')}
                   </span>
                   <Btn variant="ghost" size="sm" onClick={() => openReport(r.id)}>Deschide</Btn>
                 </div>
@@ -1097,9 +1105,9 @@ const TABS = [
   { id: 'overview',   label: 'Overview',     icon: BarChart3  },
   { id: 'monitor',    label: 'Monitor',      icon: Bell       },
   { id: 'keywords',   label: 'Keywords',     icon: Hash       },
-  { id: 'technical',  label: 'Tehnic',       icon: Shield     },
+  { id: 'technical',  label: t('seo.comp_tab_technical'),       icon: Shield     },
   { id: 'pricing',    label: 'Pricing & USP', icon: DollarSign },
-  { id: 'reports',    label: 'Rapoarte',     icon: FileText   },
+  { id: 'reports',    label: t('seo.comp_tab_reports'),     icon: FileText   },
 ] as const
 
 type TabId = typeof TABS[number]['id']
@@ -1153,7 +1161,7 @@ export default function CompetitorPage() {
       ])
       const myData   = await myRes.json()
       const theirData = await theirRes.json()
-      if (!myRes.ok)    { setError(myData.error || 'Eroare la încărcarea magazinului tău'); setLoading(false); return }
+      if (!myRes.ok)    { setError(myData.error || t('seo.comp_error_loading')); setLoading(false); return }
       if (!theirRes.ok) { setError(theirData.error || 'Nu pot accesa URL-ul competitorului'); setLoading(false); return }
 
       if (myData.store_url && !myUrl) setMyUrl(myData.store_url)
@@ -1175,7 +1183,7 @@ export default function CompetitorPage() {
         verdict: {
           winner_title: wt, winner_meta: wm, winner_keywords: wk,
           overall_score_you: ms, overall_score_competitor: ts,
-          summary: ms > ts ? `Scor SEO ${ms} vs ${ts}. Magazinul tău e mai bine optimizat.` : ms === ts ? `Scor egal ${ms}. Detaliile fac diferența.` : `Scor SEO ${ms} vs ${ts}. Competitorul e mai bine optimizat — aplică planul de acțiune.`,
+          summary: ms > ts ? t('seo.comp_score_summary_better', { my: String(ms), their: String(ts) }) : ms === ts ? t('seo.comp_score_summary_equal', { score: String(ms) }) : t('seo.comp_score_summary_worse', { my: String(ms), their: String(ts) }),
           top_actions: them.opportunities?.slice(0, 4) || my.weaknesses?.slice(0, 4) || [],
         },
       })
@@ -1212,7 +1220,7 @@ export default function CompetitorPage() {
             <div className="flex items-center gap-2 shrink-0">
               <Btn onClick={analyze} disabled={loading || !competitorUrl.trim()}>
                 {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-                {loading ? 'Analizez...' : 'Analizează'}
+                {loading ? t('seo.comp_analyzing') : t('seo.comp_analyze_btn')}
               </Btn>
             </div>
           </div>
@@ -1243,11 +1251,11 @@ export default function CompetitorPage() {
 
         <div className="px-5 py-3 border-t border-neutral-50 bg-neutral-50 flex gap-4 flex-wrap">
           {[
-            'Magazin tău: gratuit (din DB)',
-            'Competitor: 3 credite',
-            'Keywords gap: 2 credite',
-            'Pricing & USP: 2 credite',
-            'Raport Battle: 3 credite',
+            t('seo.comp_store_free'),
+            t('seo.comp_competitor_credits'),
+            t('seo.comp_keywords_credits'),
+            t('seo.comp_pricing_credits'),
+            t('seo.comp_report_credits'),
           ].map(t => <span key={t} className="text-[10px] text-neutral-400 font-medium">{t}</span>)}
         </div>
       </Card>

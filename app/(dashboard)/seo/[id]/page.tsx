@@ -34,7 +34,7 @@ type HistoryVersion = {
 
 // ─── Live Score ───────────────────────────────────────────────────────────────
 
-function calcLiveScore(s: Record<SectionKey, SectionState>) {
+function calcLiveScore(s: Record<SectionKey, SectionState>, t: (k: string, p?: Record<string, string | number>) => string) {
   const title     = s.title.current.trim()
   const meta      = s.meta_description.current.trim()
   const short     = s.short_description.current.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
@@ -48,14 +48,14 @@ function calcLiveScore(s: Record<SectionKey, SectionState>) {
   const kwCount   = kw ? allText.split(kw).length - 1 : 0
   const density   = kw ? (kwCount / totalWords) * 100 : 0
   const checks = [
-    { label: `Titlu 50-70 car. (${tLen})`,            pts: tLen >= 50 && tLen <= 70 ? 15 : tLen > 0 ? 7 : 0,      max: 15, ok: tLen >= 50 && tLen <= 70 },
-    { label: 'Keyword în titlu',                       pts: kw && title.toLowerCase().includes(kw) ? 10 : !kw ? 5 : 0, max: 10, ok: !kw || title.toLowerCase().includes(kw) },
-    { label: `Meta 120-155 car. (${mLen})`,            pts: mLen >= 120 && mLen <= 155 ? 15 : mLen > 0 ? 7 : 0,    max: 15, ok: mLen >= 120 && mLen <= 155 },
-    { label: 'Keyword în meta',                        pts: kw && meta.toLowerCase().includes(kw) ? 10 : !kw ? 5 : 0, max: 10, ok: !kw || meta.toLowerCase().includes(kw) },
-    { label: 'Descriere scurtă',                       pts: short.length >= 80 ? 15 : short.length > 0 ? 7 : 0,    max: 15, ok: short.length >= 80 },
-    { label: `Desc. lungă 200+ cuv. (${longWords})`,   pts: longWords >= 200 ? 20 : longWords > 0 ? 8 : 0,          max: 20, ok: longWords >= 200 },
-    { label: 'Focus keyword setat',                    pts: kw.length >= 2 ? 8 : 0,                                 max: 8,  ok: kw.length >= 2 },
-    { label: `Density ${density.toFixed(1)}% (0.5-2.5%)`, pts: density >= 0.5 && density <= 2.5 ? 7 : 0,          max: 7,  ok: density >= 0.5 && density <= 2.5 },
+    { label: t('seo.rule_title_len', { len: String(tLen) }),            pts: tLen >= 50 && tLen <= 70 ? 15 : tLen > 0 ? 7 : 0,      max: 15, ok: tLen >= 50 && tLen <= 70 },
+    { label: t('seo.rule_keyword_title'),                       pts: kw && title.toLowerCase().includes(kw) ? 10 : !kw ? 5 : 0, max: 10, ok: !kw || title.toLowerCase().includes(kw) },
+    { label: t('seo.rule_meta_len', { len: String(mLen) }),            pts: mLen >= 120 && mLen <= 155 ? 15 : mLen > 0 ? 7 : 0,    max: 15, ok: mLen >= 120 && mLen <= 155 },
+    { label: t('seo.rule_keyword_meta'),                        pts: kw && meta.toLowerCase().includes(kw) ? 10 : !kw ? 5 : 0, max: 10, ok: !kw || meta.toLowerCase().includes(kw) },
+    { label: t('seo.rule_short_desc'),                       pts: short.length >= 80 ? 15 : short.length > 0 ? 7 : 0,    max: 15, ok: short.length >= 80 },
+    { label: t('seo.rule_long_desc', { count: String(longWords) }),   pts: longWords >= 200 ? 20 : longWords > 0 ? 8 : 0,          max: 20, ok: longWords >= 200 },
+    { label: t('seo.rule_focus_kw_set'),                    pts: kw.length >= 2 ? 8 : 0,                                 max: 8,  ok: kw.length >= 2 },
+    { label: t('seo.rule_density', { val: density.toFixed(1) }), pts: density >= 0.5 && density <= 2.5 ? 7 : 0,          max: 7,  ok: density >= 0.5 && density <= 2.5 },
   ]
   return { score: Math.min(100, checks.reduce((a, c) => a + c.pts, 0)), breakdown: checks }
 }
@@ -110,7 +110,7 @@ function GooglePreview({ title, description, url, mobile }: { title: string; des
   const maxT = mobile ? 55 : 60
   const maxD = mobile ? 120 : 155
   const titleText = title || 'Titlu produs'
-  const d = description || 'Meta description lipsă — Google va alege automat un snippet.'
+  const d = description || t('seo.meta_missing_fallback')
   return (
     <Card className="p-4">
       <p className="text-[10px] font-medium text-neutral-400 uppercase tracking-wide flex items-center gap-1.5 mb-3">
@@ -149,7 +149,7 @@ function LiveScoreWidget({ sections, collapsed, onToggle }: {
   sections: Record<SectionKey, SectionState>; collapsed: boolean; onToggle: () => void
 }) {
   const { t } = useT()
-  const { score, breakdown } = calcLiveScore(sections)
+  const { score, breakdown } = calcLiveScore(sections, t)
   const c      = score >= 80 ? '#10b981' : score >= 50 ? '#f59e0b' : '#ef4444'
   const textC  = score >= 80 ? 'text-emerald-600' : score >= 50 ? 'text-amber-600' : 'text-red-500'
   const borderC = score >= 80 ? 'border-emerald-200' : score >= 50 ? 'border-amber-200' : 'border-red-200'
@@ -228,7 +228,7 @@ function KeywordDensity({ keyword, shortDesc, longDesc }: { keyword: string; sho
           <span className={`text-[14px] font-bold tabular-nums ${ok ? 'text-emerald-600' : 'text-red-500'}`}>{density.toFixed(1)}%</span>
         </div>
         <div className="min-w-0">
-          <p className={`text-[12px] font-semibold ${ok ? 'text-emerald-600' : 'text-red-500'}`}>{ok ? 'Ideal ✓' : low ? 'Prea puțin' : 'Prea mult'}</p>
+          <p className={`text-[12px] font-semibold ${ok ? 'text-emerald-600' : 'text-red-500'}`}>{ok ? 'Ideal ✓' : low ? t('seo.too_few_label') : t('seo.too_much_label')}</p>
           <p className="text-[10px] text-neutral-400 truncate">"{keyword}" × {count} în {words} cuv.</p>
         </div>
       </div>
@@ -389,6 +389,7 @@ function SchemaWidget({ productId }: { productId: string }) {
 // ─── History Widget ───────────────────────────────────────────────────────────
 
 function HistoryWidget({ productId, onRestore }: { productId: string; onRestore: (v: HistoryVersion) => void }) {
+  const { t } = useT()
   const [history, setHistory] = useState<HistoryVersion[]>([])
   const [loading, setLoading] = useState(false)
   const [open, setOpen]       = useState(false)
@@ -429,7 +430,7 @@ function HistoryWidget({ productId, onRestore }: { productId: string; onRestore:
                           </div>
                           <button onClick={() => onRestore(v)}
                             className="text-[10px] font-medium text-neutral-400 hover:text-neutral-700 px-2 py-1 rounded-lg hover:bg-neutral-100 transition-colors shrink-0 opacity-0 group-hover:opacity-100">
-                            Restaurează
+                            {t('seo.restore_btn')}
                           </button>
                         </div>
                       ))}
@@ -463,7 +464,7 @@ function InternalLinkSuggestions({ productId, longDesc, category }: { productId:
         const matches = words.filter((w: string) => text.includes(w)).length
         return { id: p.id, title: p.optimized_title || p.original_title, score: matches }
       }).sort((a: any, b: any) => b.score - a.score).slice(0, 5)
-        .map((p: any) => ({ id: p.id, title: p.title, reason: p.score > 0 ? 'Cuvinte comune în descriere' : `Aceeași categorie: ${category}` }))
+        .map((p: any) => ({ id: p.id, title: p.title, reason: p.score > 0 ? t('seo.reason_common_words') : t('seo.reason_same_category', { cat: category }) }))
       setSuggestions(scored); setDone(true)
     } catch {} finally { setLoading(false) }
   }
@@ -478,7 +479,7 @@ function InternalLinkSuggestions({ productId, longDesc, category }: { productId:
           </div>
           <Btn variant="outline" size="sm" onClick={generate} disabled={loading}>
             {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
-            {done ? 'Reîncarcă' : 'Sugerează'}
+            {done ? t('seo.reload_btn') : t('seo.suggest_btn')}
           </Btn>
         </div>
       </div>
@@ -582,7 +583,7 @@ export default function ProductSEOPage() {
         body: JSON.stringify({ product_id: productId, label, snapshot: {
           optimized_title: sections.title.current, meta_description: sections.meta_description.current,
           optimized_short_description: sections.short_description.current, optimized_long_description: sections.long_description.current,
-          focus_keyword: sections.focus_keyword.current, seo_score: calcLiveScore(sections).score,
+          focus_keyword: sections.focus_keyword.current, seo_score: calcLiveScore(sections, t).score,
         }}),
       })
     } catch {}
@@ -679,7 +680,7 @@ export default function ProductSEOPage() {
   if (!product) return null
 
   const anyUnsaved = Object.values(sections).some(s => s.modified !== null)
-  const liveScore  = calcLiveScore(sections).score
+  const liveScore  = calcLiveScore(sections, t).score
   const scoreColor = liveScore >= 80 ? 'text-emerald-600' : liveScore >= 50 ? 'text-amber-600' : liveScore > 0 ? 'text-red-500' : 'text-neutral-400'
   const previewUrl = product.category ? `${product.category}/${(product.original_title || '').toLowerCase().replace(/\s+/g, '-').substring(0, 30)}` : 'produs'
 
@@ -715,7 +716,7 @@ export default function ProductSEOPage() {
             </Btn>
             <Btn size="sm" onClick={handlePublish} disabled={publishing}>
               {publishing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
-              {publishing ? 'Publicare...' : 'Publică în magazin'}
+              {publishing ? t('seo.publishing_btn') : t('seo.publish_to_store_btn')}
             </Btn>
           </div>
         </div>
@@ -773,8 +774,8 @@ export default function ProductSEOPage() {
           {/* Sections */}
           {([
             { key: 'title',             label: t('seo.title_tag'),     maxChars: 70,  minChars: 50,  placeholder: 'Titlu optimizat — 50-70 caractere',                hint: 'Apare în Google și tab browser. Include keyword-ul principal în primele cuvinte.', creditCost: 1 },
-            { key: 'meta_description',  label: 'Meta Description',          maxChars: 155, minChars: 120, placeholder: 'Meta description — max 155 car., include CTA',      hint: 'Apare sub titlu în Google. Crește CTR cu un beneficiu clar și CTA.',           creditCost: 1 },
-            { key: 'focus_keyword',     label: 'Focus Keyword',             maxChars: 60,                 placeholder: 'ex: mop spin inox, tricou bumbac organic',          hint: 'Query-ul principal al cumpărătorilor. 2-4 cuvinte, natural și specific.',       creditCost: 1 },
+            { key: 'meta_description',  label: 'Meta Description',          maxChars: 155, minChars: 120, placeholder: t('seo.meta_placeholder_text'),      hint: t('seo.meta_hint_text'),           creditCost: 1 },
+            { key: 'focus_keyword',     label: 'Focus Keyword',             maxChars: 60,                 placeholder: t('seo.kw_placeholder_text'),          hint: t('seo.kw_hint_text'),       creditCost: 1 },
             { key: 'short_description', label: t('seo.short_desc_label'),          maxChars: 350, minChars: 80,  placeholder: 'Descriere scurtă — apare înainte de Adaugă în coș', hint: '2-4 propoziții care conving clientul.',                                          creditCost: 2, isHtml: /<[a-z][\s\S]*>/i.test(sections.short_description.current) },
             { key: 'long_description',  label: t('seo.long_desc_html'),                                  placeholder: '<h3>Titlu</h3><p>Conținut...</p>',                  hint: 'Editor HTML. Structura existentă e PĂSTRATĂ — AI optimizează textul, nu tagurile.', creditCost: 2, isHtml: true },
           ] as any[]).map((cfg, i) => (
@@ -840,7 +841,7 @@ export default function ProductSEOPage() {
           )}
           <Btn size="sm" onClick={handlePublish} disabled={publishing}>
             {publishing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
-            {publishing ? 'Publicare...' : 'Publică'}
+            {publishing ? t('seo.publishing_btn') : t('seo.publish_short_btn')}
           </Btn>
         </div>
       </div>
