@@ -19,7 +19,7 @@ const COLORS = [
   '#f97316','#8b5cf6','#06b6d4','#84cc16',
 ]
 
-const getIntentLabels = (t: (k: string) => string): Record<string, string> => ({
+const getIntentLabels = (t: (k: string, p?: Record<string, string | number>) => string): Record<string, string> => ({
   buying_ready: t('agent.intent_buying_ready'), browsing: t('agent.intent_browsing'), comparing: t('agent.intent_comparing'),
   compatibility: t('agent.intent_compatibility'), info_product: t('agent.intent_info_product'), info_shipping: t('agent.intent_info_shipping'),
   problem: t('agent.intent_problem'), escalate: t('agent.intent_escalate'), greeting: t('agent.intent_greeting'),
@@ -195,7 +195,7 @@ function WidgetPreview({ config, messages, onSend, loading, onToggle, isOpen }: 
             className="absolute rounded-xl px-3 py-2.5 shadow-lg text-[11px] text-neutral-700 font-medium max-w-[170px] cursor-pointer hover:shadow-xl transition-shadow"
             style={{ background:'#fff', bottom:config.widget_bottom_offset+btnSize+14, [config.widget_position==='bottom-right'?'right':'left']:12, boxShadow:'0 4px 20px rgba(0,0,0,.12),0 0 0 1px rgba(0,0,0,.06)', borderBottomRightRadius:config.widget_position==='bottom-right'?4:16, borderBottomLeftRadius:config.widget_position==='bottom-left'?4:16 }}
             onClick={onToggle}>
-            👋 {(config.welcome_message||'Cu ce te pot ajuta?').slice(0,55)}
+            👋 {(config.welcome_message||t('agent.default_bubble_short')).slice(0,55)}
           </motion.div>
         )}
       </AnimatePresence>
@@ -315,7 +315,7 @@ export default function AgentPage() {
       const fd = new FormData()
       if (file) { fd.append('file', file); fd.append('name', kName||file.name) }
       else if (kUploadType==='url') { fd.append('url', kUrl); fd.append('name', kName||kUrl) }
-      else { fd.append('text', kText); fd.append('name', kName||'Text manual') }
+      else { fd.append('text', kText); fd.append('name', kName||t('agent.knowledge_text_default_name')) }
       const r = await fetch('/api/agent/knowledge/upload', { method:'POST', body:fd })
       const data = await r.json()
       if (!r.ok) { setKError(data.error||t('common.error_upload')); return }
@@ -801,7 +801,7 @@ export default function AgentPage() {
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
                 {[
                   { label:t('agent.intel_total'),  val:intelStats.total_products, bg:'bg-neutral-50', text:'text-neutral-900' },
-                  { label:'Cu intelligence', val:intelStats.intelligence?.ready||0, bg:'bg-emerald-50', text:'text-emerald-600' },
+                  { label:t('agent.intel_with_intelligence'), val:intelStats.intelligence?.ready||0, bg:'bg-emerald-50', text:'text-emerald-600' },
                   { label:t('agent.intel_processing'), val:(intelStats.intelligence?.processing||0)+(intelStats.intelligence?.pending||0), bg:'bg-amber-50', text:'text-amber-600' },
                   { label:t('agent.intel_failed'), val:intelStats.intelligence?.failed||0, bg:'bg-red-50', text:'text-red-500' },
                 ].map(x => (
@@ -859,7 +859,7 @@ export default function AgentPage() {
               {intelSelected.size > 0 && (
                 <>
                   <span className="text-[11px] text-neutral-300">|</span>
-                  <span className="text-[11px] text-neutral-500">{intelSelected.size} selectate</span>
+                  <span className="text-[11px] text-neutral-500">{intelSelected.size} {t('agent.selected_count')}</span>
                   <Btn onClick={() => generateIntelligence(false, true)} disabled={intelGenerating} className="bg-blue-600 hover:bg-blue-700 text-white rounded-lg h-8 px-3 text-[11px] ml-auto">
                     {intelGenerating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Zap className="h-3 w-3" />}
                     {t('agent.generate_for_selected')} ({intelSelected.size})
@@ -893,7 +893,7 @@ export default function AgentPage() {
                     {p.image ? <img src={p.image} alt="" className="w-10 h-10 rounded-lg object-cover shrink-0 bg-neutral-100" /> : <div className="w-10 h-10 rounded-lg bg-neutral-100 flex items-center justify-center shrink-0"><FileText className="h-4 w-4 text-neutral-300" /></div>}
                     <div className="flex-1 min-w-0">
                       <p className="text-[13px] font-medium text-neutral-900 truncate">{p.title}</p>
-                      <p className="text-[11px] text-neutral-400">{p.category || 'Fără categorie'}{p.price ? ` · ${p.price} RON` : ''}</p>
+                      <p className="text-[11px] text-neutral-400">{p.category || t('agent.no_category')}{p.price ? ` · ${p.price} RON` : ''}</p>
                     </div>
                     <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold shrink-0 ${
                       p.intel_status === 'ready' ? 'bg-emerald-50 text-emerald-600' :
@@ -1045,7 +1045,7 @@ export default function AgentPage() {
             <p className="text-[12px] text-neutral-500">{t('agent.notif_email_desc')}</p>
             <div>
               <SectionLabel className="mb-1.5 block">{t('agent.notif_email_label')}</SectionLabel>
-              <input value={config.notify_email||''} onChange={e => setConfig(c => ({ ...c, notify_email:e.target.value }))} type="email" placeholder="tu@magazin.ro"
+              <input value={config.notify_email||''} onChange={e => setConfig(c => ({ ...c, notify_email:e.target.value }))} type="email" placeholder={t('agent.notif_email_placeholder')}
                 className="w-full text-[13px] border border-neutral-200 rounded-xl px-3 py-2.5 focus:outline-none focus:border-blue-400 transition-colors" />
             </div>
             <div className="space-y-2">
@@ -1103,8 +1103,8 @@ export default function AgentPage() {
                   <input ref={kFileRef} type="file" accept=".pdf,.txt,.md" className="hidden" onChange={e => { const f=e.target.files?.[0]; if(f) uploadKnowledge(f); e.target.value='' }} />
                 </div>
               )}
-              {kUploadType==='url' && <input value={kUrl} onChange={e => setKUrl(e.target.value)} placeholder="https://magazin.ro/politica-retur" className="w-full text-[12px] border border-neutral-200 rounded-xl px-3 py-2 focus:outline-none focus:border-blue-400 transition-colors" />}
-              {kUploadType==='text' && <textarea value={kText} onChange={e => setKText(e.target.value)} rows={5} placeholder="Ex: Livrăm în 24-48h prin Fan Courier..." className="w-full text-[12px] border border-neutral-200 rounded-xl px-3 py-2 focus:outline-none focus:border-blue-400 transition-colors resize-none" />}
+              {kUploadType==='url' && <input value={kUrl} onChange={e => setKUrl(e.target.value)} placeholder={t('agent.knowledge_url_placeholder')} className="w-full text-[12px] border border-neutral-200 rounded-xl px-3 py-2 focus:outline-none focus:border-blue-400 transition-colors" />}
+              {kUploadType==='text' && <textarea value={kText} onChange={e => setKText(e.target.value)} rows={5} placeholder={t('agent.knowledge_text_placeholder')} className="w-full text-[12px] border border-neutral-200 rounded-xl px-3 py-2 focus:outline-none focus:border-blue-400 transition-colors resize-none" />}
               {kError && <p className="text-[11px] text-red-500 flex items-center gap-1"><AlertTriangle className="h-3 w-3" />{kError}</p>}
               {(kUploadType==='url'||kUploadType==='text') && (
                 <Btn onClick={() => uploadKnowledge()} disabled={kUploading||(!kUrl&&!kText)} className="w-full justify-center bg-blue-600 hover:bg-blue-700 text-white rounded-xl h-9 text-[12px]">
@@ -1117,7 +1117,7 @@ export default function AgentPage() {
 
           <Card className="p-5">
             <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2"><FileText className="h-4 w-4 text-neutral-400" /><p className="text-[13px] font-semibold text-neutral-900">Documente ({knowledgeDocs.length})</p></div>
+              <div className="flex items-center gap-2"><FileText className="h-4 w-4 text-neutral-400" /><p className="text-[13px] font-semibold text-neutral-900">{t('agent.knowledge_documents_title')} ({knowledgeDocs.length})</p></div>
               <Btn variant="ghost" size="sm" onClick={loadKnowledge}>{t('agent.knowledge_refresh')}</Btn>
             </div>
             {knowledgeDocs.length === 0
@@ -1164,7 +1164,7 @@ export default function AgentPage() {
                 </div>
               </div>
               <a href="/settings?tab=plugin" className="mt-5 w-full bg-blue-500 hover:bg-blue-400 text-white rounded-xl h-10 gap-2 font-semibold text-[13px] flex items-center justify-center transition-colors">
-                <ArrowUpRight className="h-4 w-4" />Descarcă din Setări → Plugin WP
+                <ArrowUpRight className="h-4 w-4" />{t('agent.install_download_settings')}
               </a>
             </div>
             <div className="p-5 space-y-3">
@@ -1178,7 +1178,7 @@ export default function AgentPage() {
           </Card>
           <details className="group">
             <summary className="cursor-pointer text-[12px] text-neutral-400 hover:text-neutral-600 flex items-center gap-2 select-none">
-              <ChevronRight className="h-4 w-4 group-open:rotate-90 transition-transform" />Instalare manuală (cod snippet)
+              <ChevronRight className="h-4 w-4 group-open:rotate-90 transition-transform" />{t('agent.install_manual_snippet')}
             </summary>
             <Card className="overflow-hidden mt-2">
               <div className="bg-neutral-900 p-4">

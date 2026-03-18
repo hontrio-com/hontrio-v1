@@ -33,7 +33,7 @@ function Badge({ label, bg, text }: { label: string; bg: string; text: string })
 }
 
 export default function InboxPage() {
-  const { t } = useT()
+  const { t, locale } = useT()
   const INTENT_META = getIntentMeta(t)
   const [convs, setConvs]               = useState<Conversation[]>([])
   const [selected, setSelected]         = useState<Conversation | null>(null)
@@ -75,9 +75,9 @@ export default function InboxPage() {
     if (!iso) return ''
     const d    = new Date(iso)
     const diff = Math.floor((Date.now()-d.getTime())/1000)
-    if (diff < 3600)  return `acum ${Math.floor(diff/60)}m`
-    if (diff < 86400) return `acum ${Math.floor(diff/3600)}h`
-    return d.toLocaleDateString('ro-RO', { day:'numeric', month:'short' })
+    if (diff < 3600)  return t('agent.inbox_time_m', { n: String(Math.floor(diff/60)) })
+    if (diff < 86400) return t('agent.inbox_time_h', { n: String(Math.floor(diff/3600)) })
+    return d.toLocaleDateString(locale === 'ro' ? 'ro-RO' : 'en-US', { day:'numeric', month:'short' })
   }
 
   return (
@@ -141,7 +141,7 @@ export default function InboxPage() {
                         <span className="text-[10px] text-neutral-400 shrink-0">{fmt(c.started_at)}</span>
                       </div>
                       <p className="text-[12px] text-neutral-600 truncate">{c.preview || t('agent.conversation_no_msg')}</p>
-                      <p className="text-[10px] text-neutral-400 mt-0.5">{c.messages_count} mesaje</p>
+                      <p className="text-[10px] text-neutral-400 mt-0.5">{c.messages_count} {t('agent.inbox_messages_count')}</p>
                     </div>
                     <div className="flex flex-col items-center gap-1 shrink-0">
                       <button onClick={e => { e.stopPropagation(); toggleStar(c) }} className="p-1 hover:bg-neutral-100 rounded-lg transition-colors">
@@ -216,12 +216,12 @@ export default function InboxPage() {
               <div className="flex items-center gap-4 pt-3 border-t border-neutral-100">
                 <div className="text-center">
                   <p className="text-[16px] font-bold text-neutral-900 tabular-nums">{selected.messages_count}</p>
-                  <p className="text-[9px] text-neutral-400 uppercase tracking-wide">mesaje</p>
+                  <p className="text-[9px] text-neutral-400 uppercase tracking-wide">{t('agent.inbox_messages_count')}</p>
                 </div>
                 <div className="h-6 w-px bg-neutral-100" />
                 <div className="text-center">
                   <p className="text-[16px] font-bold text-neutral-900 tabular-nums">{selected.intents.length}</p>
-                  <p className="text-[9px] text-neutral-400 uppercase tracking-wide">intenții</p>
+                  <p className="text-[9px] text-neutral-400 uppercase tracking-wide">{t('agent.inbox_intents_label')}</p>
                 </div>
                 {selected.is_escalated && (
                   <>

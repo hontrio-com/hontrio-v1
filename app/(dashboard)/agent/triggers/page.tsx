@@ -115,13 +115,13 @@ export default function TriggersPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-[22px] font-semibold text-neutral-900 tracking-tight flex items-center gap-2">
-            <Zap className="h-5 w-5 text-amber-400 fill-amber-300" />Triggeri Proactivi
+            <Zap className="h-5 w-5 text-amber-400 fill-amber-300" />{t('agent.triggers_title')}
           </h1>
-          <p className="text-[13px] text-neutral-400 mt-0.5">Agentul vorbește primul la momentul potrivit</p>
+          <p className="text-[13px] text-neutral-400 mt-0.5">{t('agent.triggers_subtitle')}</p>
         </div>
         <button onClick={() => setShowAdd(true)}
           className="inline-flex items-center gap-1.5 h-9 px-3.5 text-[12px] font-medium bg-neutral-900 hover:bg-neutral-800 text-white rounded-xl transition-colors">
-          <Plus className="h-3.5 w-3.5" />Trigger nou
+          <Plus className="h-3.5 w-3.5" />{t('agent.trigger_new')}
         </button>
       </div>
 
@@ -136,7 +136,7 @@ export default function TriggersPage() {
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={e => e.target===e.currentTarget && setShowAdd(false)}>
           <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-[15px] font-semibold text-neutral-900">Alege tipul de trigger</h2>
+              <h2 className="text-[15px] font-semibold text-neutral-900">{t('agent.trigger_choose_type')}</h2>
               <button onClick={() => setShowAdd(false)} className="p-1.5 hover:bg-neutral-100 rounded-lg transition-colors"><X className="h-4 w-4 text-neutral-400" /></button>
             </div>
             <div className="grid grid-cols-2 gap-2 mb-4">
@@ -156,7 +156,7 @@ export default function TriggersPage() {
             <p className="text-[11px] text-neutral-500 mb-5 bg-neutral-50 rounded-xl p-3">{TRIGGER_META[newType].desc}</p>
             <div className="flex gap-2">
               <button onClick={() => setShowAdd(false)} className="flex-1 h-9 text-[12px] font-medium border border-neutral-200 text-neutral-600 hover:bg-neutral-50 rounded-xl transition-colors">{t('common.cancel_label')}</button>
-              <button onClick={addTrigger} className="flex-1 h-9 text-[12px] font-medium bg-neutral-900 text-white hover:bg-neutral-800 rounded-xl transition-colors">Adaugă</button>
+              <button onClick={addTrigger} className="flex-1 h-9 text-[12px] font-medium bg-neutral-900 text-white hover:bg-neutral-800 rounded-xl transition-colors">{t('agent.trigger_add_btn')}</button>
             </div>
           </div>
         </div>
@@ -166,7 +166,7 @@ export default function TriggersPage() {
       {triggers.length === 0 ? (
         <div className="text-center py-16">
           <Zap className="h-12 w-12 mx-auto mb-3 text-neutral-200" />
-          <p className="text-[13px] text-neutral-500">Nu ai triggeri configurați</p>
+          <p className="text-[13px] text-neutral-500">{t('agent.trigger_no_triggers')}</p>
           <p className="text-[11px] text-neutral-400 mt-1">{t('agent.first_trigger_hint')}</p>
         </div>
       ) : (
@@ -221,7 +221,7 @@ export default function TriggersPage() {
                     <div className="grid grid-cols-2 gap-3">
                       {(trigger.type==='time_on_page'||trigger.type==='page_specific') && (
                         <div>
-                          <p className="text-[10px] font-medium text-neutral-500 uppercase tracking-wide mb-1.5">Secunde pe pagină</p>
+                          <p className="text-[10px] font-medium text-neutral-500 uppercase tracking-wide mb-1.5">{t('agent.trigger_seconds_on_page')}</p>
                           <input type="number" min={5} max={300} value={trigger.conditions.seconds||30} onChange={e => updateCondition(trigger.id,'seconds',Number(e.target.value))}
                             className="w-full text-[12px] border border-neutral-200 rounded-xl px-3 py-2 bg-white focus:outline-none focus:border-neutral-400 transition-colors" />
                         </div>
@@ -261,7 +261,7 @@ export default function TriggersPage() {
 
                     {/* Pagini active */}
                     <div>
-                      <p className="text-[10px] font-medium text-neutral-500 uppercase tracking-wide mb-2">Pagini active</p>
+                      <p className="text-[10px] font-medium text-neutral-500 uppercase tracking-wide mb-2">{t('agent.trigger_active_pages')}</p>
                       <div className="flex flex-wrap gap-2">
                         {PAGE_OPTIONS.map(opt => {
                           const pages: string[] = trigger.conditions.pages||['all']
@@ -290,7 +290,7 @@ export default function TriggersPage() {
 
                     <div className="flex items-center justify-between pt-2 border-t border-neutral-200">
                       <button onClick={() => deleteTrigger(trigger.id)} className="flex items-center gap-1.5 text-[11px] text-red-400 hover:text-red-600 font-medium transition-colors">
-                        <Trash2 className="h-3.5 w-3.5" />Șterge
+                        <Trash2 className="h-3.5 w-3.5" />{t('agent.trigger_delete_btn')}
                       </button>
                       <button onClick={() => saveTrigger(trigger)} disabled={saving===trigger.id}
                         className="inline-flex items-center gap-1.5 h-8 px-4 text-[12px] font-medium bg-neutral-900 hover:bg-neutral-800 text-white rounded-xl transition-colors disabled:opacity-40">

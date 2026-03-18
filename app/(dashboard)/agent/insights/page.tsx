@@ -54,7 +54,7 @@ function UnansweredTab() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <p className="text-[12px] text-neutral-500">{unresolvedCount} întrebări fără răspuns bun</p>
+        <p className="text-[12px] text-neutral-500">{unresolvedCount} {t('agent.questions_unanswered')}</p>
         <div className="flex gap-1 bg-neutral-100 rounded-lg p-1">
           {(['unresolved','all'] as const).map(f => (
             <button key={f} onClick={() => setFilter(f)}
@@ -91,7 +91,7 @@ function UnansweredTab() {
                           <BookOpen className="h-3 w-3" />{t('agent.add_to_rag')}
                         </a>
                         <button onClick={() => resolve(q.id)} className="text-[11px] text-emerald-600 hover:text-emerald-700 font-medium flex items-center gap-1">
-                          <CheckCircle2 className="h-3 w-3" />Rezolvat
+                          <CheckCircle2 className="h-3 w-3" />{t('agent.resolved_label')}
                         </button>
                       </div>
                     )}
@@ -103,7 +103,7 @@ function UnansweredTab() {
 
       <div className="flex gap-2 p-4 bg-blue-50 border border-blue-100 rounded-xl">
         <BookOpen className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" />
-        <p className="text-[11px] text-blue-700">{t('agent.add_correction')} în <strong>Cunoștințe</strong> și marchează întrebarea ca rezolvată. Agentul va răspunde corect data viitoare.</p>
+        <p className="text-[11px] text-blue-700" dangerouslySetInnerHTML={{ __html: t('agent.unanswered_hint') }} />
       </div>
     </div>
   )
@@ -126,10 +126,10 @@ function HeatmapTab() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <p className="text-[12px] text-neutral-500">{products.length} produse cu activitate</p>
+        <p className="text-[12px] text-neutral-500">{products.length} {t('agent.products_with_activity')}</p>
         <select value={days} onChange={e => setDays(Number(e.target.value))}
           className="text-[12px] border border-neutral-200 rounded-xl px-3 py-1.5 focus:outline-none focus:border-neutral-400 bg-white text-neutral-600">
-          <option value={7}>7 zile</option><option value={30}>30 zile</option><option value={90}>90 zile</option>
+          <option value={7}>{t('agent.days_7')}</option><option value={30}>{t('agent.days_30')}</option><option value={90}>{t('agent.days_90')}</option>
         </select>
       </div>
 
@@ -143,13 +143,13 @@ function HeatmapTab() {
                   <div className="flex items-center gap-3 mb-2">
                     <span className="text-[11px] font-bold text-neutral-300 w-5 tabular-nums">#{i+1}</span>
                     <p className="text-[13px] font-medium text-neutral-800 flex-1 truncate">{p.name}</p>
-                    <span className="text-[11px] font-semibold text-neutral-600 tabular-nums">Scor: {p.score}</span>
+                    <span className="text-[11px] font-semibold text-neutral-600 tabular-nums">{t('agent.score_label')}: {p.score}</span>
                   </div>
                   <div className="h-1.5 bg-neutral-100 rounded-full overflow-hidden mb-2">
                     <div className="h-full bg-gradient-to-r from-blue-400 to-blue-600 rounded-full transition-all" style={{ width:`${Math.round((p.score/maxScore)*100)}%` }} />
                   </div>
                   <div className="flex gap-3 text-[11px] text-neutral-400 flex-wrap">
-                    <span>👁️ {p.shown} cereri</span>
+                    <span>👁️ {p.shown} {t('agent.requests_label')}</span>
                     {p.clicked  > 0 && <span>🖱️ {p.clicked} click-uri</span>}
                     {p.compared > 0 && <span>⚖️ {p.compared} {t('agent.comparisons')}</span>}
                     {p.carted   > 0 && <span className="text-emerald-600 font-medium">🛒 {p.carted} {t('agent.in_cart')}</span>}
@@ -203,7 +203,7 @@ function TrainingTab() {
     <div className="space-y-5">
       <Card className="p-5 space-y-3">
         <p className="text-[13px] font-semibold text-neutral-900">{t('agent.add_new_correction')}</p>
-        <p className="text-[11px] text-neutral-500">Când agentul răspunde greșit, adaugă răspunsul corect. Agentul îl va folosi prioritar.</p>
+        <p className="text-[11px] text-neutral-500">{t('agent.training_desc')}</p>
         <div className="space-y-2">
           <input value={form.question} onChange={e => setForm(f=>({...f,question:e.target.value}))} placeholder={t('agent.question_client_placeholder')}
             className="w-full text-[12px] border border-neutral-200 rounded-xl px-3 py-2 focus:outline-none focus:border-neutral-400 transition-colors" />
@@ -222,13 +222,13 @@ function TrainingTab() {
       {loading
         ? <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-neutral-300" /></div>
         : corrections.length === 0
-          ? <div className="text-center py-10"><Star className="h-10 w-10 text-neutral-200 mx-auto mb-3" /><p className="text-[13px] text-neutral-400">{t('agent.no_corrections')} adăugată</p></div>
+          ? <div className="text-center py-10"><Star className="h-10 w-10 text-neutral-200 mx-auto mb-3" /><p className="text-[13px] text-neutral-400">{t('agent.no_corrections_added')}</p></div>
           : <div className="space-y-2">
               {corrections.map(c => (
                 <div key={c.id} className={`p-4 rounded-xl border transition-colors ${c.is_active ? 'bg-white border-neutral-200' : 'bg-neutral-50 border-neutral-100 opacity-60'}`}>
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0 space-y-1">
-                      <p className="text-[11px] text-neutral-500">Întrebare: <span className="font-medium text-neutral-700">"{c.original_question}"</span></p>
+                      <p className="text-[11px] text-neutral-500">{t('agent.question_label')} <span className="font-medium text-neutral-700">"{c.original_question}"</span></p>
                       {c.wrong_answer && <p className="text-[11px] text-orange-600">❌ Greșit: "{c.wrong_answer}"</p>}
                       <p className="text-[11px] text-emerald-700">✅ Corect: "{c.correct_answer}"</p>
                     </div>
@@ -271,9 +271,9 @@ function ReviewsTab() {
   }
 
   const statusMeta: Record<string,{bg:string;text:string;label:string}> = {
-    pending: { bg:'bg-amber-100', text:'text-amber-700', label:'Programat' },
-    sent:    { bg:'bg-emerald-100', text:'text-emerald-700', label:'Trimis' },
-    clicked: { bg:'bg-blue-100', text:'text-blue-700', label:'Deschis' },
+    pending: { bg:'bg-amber-100', text:'text-amber-700', label:t('agent.review_status_scheduled') },
+    sent:    { bg:'bg-emerald-100', text:'text-emerald-700', label:t('agent.review_status_sent') },
+    clicked: { bg:'bg-blue-100', text:'text-blue-700', label:t('agent.review_status_opened') },
   }
 
   return (
@@ -281,7 +281,7 @@ function ReviewsTab() {
       <Card className="p-5 space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-[13px] font-semibold text-neutral-900">Colectare automată review-uri</p>
+            <p className="text-[13px] font-semibold text-neutral-900">{t('agent.review_auto_collect')}</p>
             <p className="text-[11px] text-neutral-400 mt-0.5">{t('agent.email_sent_auto')}</p>
           </div>
           <button onClick={() => setConfig(c=>({...c,review_enabled:!c.review_enabled}))}>
@@ -293,12 +293,12 @@ function ReviewsTab() {
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <p className="text-[10px] font-medium text-neutral-500 uppercase tracking-wide mb-1.5">Zile după livrare</p>
+            <p className="text-[10px] font-medium text-neutral-500 uppercase tracking-wide mb-1.5">{t('agent.review_days_after')}</p>
             <input type="number" min={1} max={30} value={config.review_delay_days} onChange={e => setConfig(c=>({...c,review_delay_days:Number(e.target.value)}))}
               className="w-full text-[12px] border border-neutral-200 rounded-xl px-3 py-2 focus:outline-none focus:border-neutral-400 transition-colors" />
           </div>
           <div>
-            <p className="text-[10px] font-medium text-neutral-500 uppercase tracking-wide mb-1.5">Link Google Reviews</p>
+            <p className="text-[10px] font-medium text-neutral-500 uppercase tracking-wide mb-1.5">{t('agent.review_google_link')}</p>
             <input value={config.review_google_url} onChange={e => setConfig(c=>({...c,review_google_url:e.target.value}))} placeholder="https://g.page/..."
               className="w-full text-[12px] border border-neutral-200 rounded-xl px-3 py-2 focus:outline-none focus:border-neutral-400 transition-colors" />
           </div>
@@ -322,8 +322,8 @@ function ReviewsTab() {
         </Btn>
 
         <div className="p-3 bg-amber-50 border border-amber-100 rounded-xl">
-          <p className="text-[11px] font-semibold text-amber-800 mb-1">Setup webhook WooCommerce</p>
-          <p className="text-[10px] text-amber-700 mb-2">WooCommerce → Setări → Avansat → Webhooks:</p>
+          <p className="text-[11px] font-semibold text-amber-800 mb-1">{t('agent.review_webhook_setup')}</p>
+          <p className="text-[10px] text-amber-700 mb-2">{t('agent.review_webhook_path')}</p>
           <code className="text-[10px] bg-amber-100 px-2 py-1 rounded block break-all text-amber-800">
             {typeof window !== 'undefined' ? window.location.origin : 'https://app.hontrio.com'}/api/agent/reviews?userId=YOUR_USER_ID
           </code>
@@ -333,7 +333,7 @@ function ReviewsTab() {
 
       {requests.length > 0 && (
         <Card className="p-5">
-          <p className="text-[13px] font-semibold text-neutral-900 mb-3">Istoric emailuri ({requests.length})</p>
+          <p className="text-[13px] font-semibold text-neutral-900 mb-3">{t('agent.review_email_history')} ({requests.length})</p>
           <div className="space-y-2">
             {requests.slice(0,15).map((r: any) => {
               const s = statusMeta[r.status] || { bg:'bg-neutral-100', text:'text-neutral-500', label:r.status }
@@ -370,7 +370,7 @@ export default function InsightsPage() {
     <div className="space-y-5">
       <div>
         <h1 className="text-[22px] font-semibold text-neutral-900 tracking-tight">{t('agent.insights_title')}</h1>
-        <p className="text-[13px] text-neutral-400 mt-0.5">Îmbunătățește continuu agentul bazat pe date reale</p>
+        <p className="text-[13px] text-neutral-400 mt-0.5">{t('agent.insights_subtitle')}</p>
       </div>
 
       <div className="flex gap-1 bg-neutral-100 rounded-xl p-1 overflow-x-auto">
