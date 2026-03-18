@@ -48,25 +48,25 @@ type PromoText   = { headline: string; subtitle: string; benefits: string[]; cta
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const PRODUCT_STYLES = [
-  { value: 'white_bg',     label: 'Simplu',       desc: 'images.white_bg_desc', cost: 2 },
-  { value: 'lifestyle',    label: 'Lifestyle',    desc: 'images.lifestyle_desc',          cost: 3 },
-  { value: 'premium_dark', label: 'Premium Dark', desc: 'images.premium_desc',               cost: 3 },
-  { value: 'industrial',   label: 'Industrial',   desc: 'Raw, texturi naturale',           cost: 3 },
-  { value: 'seasonal',     label: 'De sezon',     desc: 'Festiv, cadouri',                 cost: 4 },
-  { value: 'manual',       label: 'Manual',       desc: 'images.manual_desc',         cost: 3 },
+const getProductStyles = (t: (k: string, p?: Record<string, string | number>) => string) => [
+  { value: 'white_bg',     label: t('images.style_simple'),       desc: t('images.white_bg_desc'), cost: 2 },
+  { value: 'lifestyle',    label: 'Lifestyle',    desc: t('images.lifestyle_desc'),          cost: 3 },
+  { value: 'premium_dark', label: 'Premium Dark', desc: t('images.premium_desc'),               cost: 3 },
+  { value: 'industrial',   label: 'Industrial',   desc: t('images.style_industrial_desc'),           cost: 3 },
+  { value: 'seasonal',     label: t('images.style_seasonal_label'),     desc: t('images.style_seasonal_short'),                 cost: 4 },
+  { value: 'manual',       label: 'Manual',       desc: t('images.manual_desc'),         cost: 3 },
 ]
-const PROMO_STYLES = [
-  { value: 'modern_minimalist', label: 'Modern Minimalist', desc: 'Clean, premium',          cost: 4 },
-  { value: 'bold_dynamic',      label: 'Bold & Dynamic',    desc: 'Energic, impact mare',    cost: 4 },
-  { value: 'elegant_luxury',    label: 'Elegant Luxury',    desc: 'Accente aurii, premium',  cost: 4 },
-  { value: 'vibrant_sale',      label: 'Vibrant Sale',      desc: 'images.seasonal_desc',     cost: 4 },
-  { value: 'dark_premium',      label: 'Dark Premium',      desc: 'Neon, dramatic',          cost: 4 },
-  { value: 'gradient_pop',      label: 'Gradient Pop',      desc: 'Vibrant, social media',   cost: 4 },
+const getPromoStyles = (t: (k: string, p?: Record<string, string | number>) => string) => [
+  { value: 'modern_minimalist', label: 'Modern Minimalist', desc: t('images.promo_modern_desc'),          cost: 4 },
+  { value: 'bold_dynamic',      label: 'Bold & Dynamic',    desc: t('images.promo_bold_desc'),    cost: 4 },
+  { value: 'elegant_luxury',    label: 'Elegant Luxury',    desc: t('images.promo_elegant_desc'),  cost: 4 },
+  { value: 'vibrant_sale',      label: 'Vibrant Sale',      desc: t('images.seasonal_desc'),     cost: 4 },
+  { value: 'dark_premium',      label: 'Dark Premium',      desc: t('images.promo_dark_desc'),          cost: 4 },
+  { value: 'gradient_pop',      label: 'Gradient Pop',      desc: t('images.promo_gradient_desc'),   cost: 4 },
 ]
 
-const ALL_STYLES = [...PRODUCT_STYLES, ...PROMO_STYLES.map(s => ({ ...s, value: `promo_${s.value}` }))]
-function styleLabel(val: string) { return ALL_STYLES.find(s => s.value === val)?.label || val }
+const getAllStyles = (t: (k: string, p?: Record<string, string | number>) => string) => [...getProductStyles(t), ...getPromoStyles(t).map(s => ({ ...s, value: `promo_${s.value}` }))]
+function getStyleLabel(t: (k: string, p?: Record<string, string | number>) => string) { return (val: string) => getAllStyles(t).find(s => s.value === val)?.label || val }
 
 function getCurrentSeason(t: (k: string, p?: Record<string, string | number>) => string) {
   const m = new Date().getMonth() + 1
@@ -242,7 +242,7 @@ function ImageSourceSelector({ selectedProduct, setSelectedProduct, selectedProd
             <div className="h-9 w-9 rounded-xl bg-neutral-100 flex items-center justify-center shrink-0"><Upload className="h-4 w-4 text-neutral-600" /></div>
             <div>
               <p className="text-[13px] font-semibold text-neutral-900">{t('images.upload_image')}</p>
-              <p className="text-[11px] text-neutral-400 mt-0.5">JPG sau PNG de pe calculator</p>
+              <p className="text-[11px] text-neutral-400 mt-0.5">{t('images.gen_jpg_upload')}</p>
             </div>
           </div>
           {uploadedImage ? (
@@ -289,7 +289,7 @@ function useGenerationProgress(taskId: string | null, imageRecordId: string | nu
       try {
         const data = JSON.parse(e.data)
         if (data.type === 'done')    { es.close(); onDone(data.urls || [data.primary_url]) }
-        if (data.type === 'error')   { es.close(); onError(data.message || 'Eroare') }
+        if (data.type === 'error')   { es.close(); onError(data.message || t('common.error_generic')) }
         if (data.type === 'timeout') { es.close(); onError(t('images.error_timeout')) }
       } catch {}
     }
@@ -330,7 +330,7 @@ function GeneratingScreen({ taskId, imageRecordId, onDone, onError, variantCount
 // ─── Style Selector ───────────────────────────────────────────────────────────
 
 function StyleSelector({ styles, selected, onSelect, credits, season }: {
-  styles: typeof PRODUCT_STYLES; selected: string | null; onSelect: (v: string) => void
+  styles: ReturnType<typeof getProductStyles>; selected: string | null; onSelect: (v: string) => void
   credits: number; season?: ReturnType<typeof getCurrentSeason>
 }) {
   const { t } = useT()
@@ -341,7 +341,7 @@ function StyleSelector({ styles, selected, onSelect, credits, season }: {
           onClick={() => onSelect(season.style)}>
           <Bell className="h-4 w-4 text-amber-500 shrink-0" />
           <div className="flex-1 min-w-0">
-            <p className="text-[12px] font-semibold text-amber-800">Recomandat acum — {season.label}</p>
+            <p className="text-[12px] font-semibold text-amber-800">{t('images.gen_recommended_now')} — {season.label}</p>
             <p className="text-[10px] text-amber-600">{season.reason}</p>
           </div>
           <Badge className={`${selected === season.style ? 'bg-amber-500 text-white' : 'bg-amber-200 text-amber-700'}`}>
@@ -372,6 +372,8 @@ function StyleSelector({ styles, selected, onSelect, credits, season }: {
 
 function ProductGenerator({ onImageGenerated, brandKit }: { onImageGenerated: (img: GeneratedImage) => void; brandKit: BrandKit | null }) {
   const { t } = useT()
+  const PRODUCT_STYLES = getProductStyles(t)
+  const styleLabel = getStyleLabel(t)
   const { credits }   = useCredits()
   const season        = getCurrentSeason(t)
   const [step, setStep]                     = useState<ProductStep>('select_image')
@@ -440,7 +442,7 @@ function ProductGenerator({ onImageGenerated, brandKit }: { onImageGenerated: (i
       style: selectedStyle!, generated_image_url: urls[0], original_image_url: activeImage,
       status: 'completed', credits_used: (styleDef?.cost || 3) * variantCount,
       created_at: new Date().toISOString(),
-      product_title: selectedProduct?.optimized_title || selectedProduct?.original_title || 'Upload manual',
+      product_title: selectedProduct?.optimized_title || selectedProduct?.original_title || t('images.gen_upload_manual'),
       variants: urls.length > 1 ? urls : null,
     }
     onImageGenerated(newImg); setStep('done')
@@ -482,7 +484,7 @@ function ProductGenerator({ onImageGenerated, brandKit }: { onImageGenerated: (i
               <ImageSourceSelector {...{ selectedProduct, setSelectedProduct, selectedProductImage, setSelectedProductImage, uploadedImage, setUploadedImage, setUploadedImageFile, showPicker, setShowPicker, fileInputRef }} />
               <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={handleFileUpload} className="hidden" />
               <div className="bg-neutral-50 rounded-xl border border-neutral-100 px-4 py-3">
-                <p className="text-[11px] font-semibold text-neutral-500 mb-1.5">Sfaturi pentru rezultate optime</p>
+                <p className="text-[11px] font-semibold text-neutral-500 mb-1.5">{t('images.gen_tips_title')}</p>
                 <ul className="space-y-1">
                   {[t('images.tip_white_bg'), t('images.tip_fill_70'), t('images.tip_min_resolution'), t('images.tip_avoid_hands')].map((tip, i) => (
                     <li key={i} className="flex items-start gap-1.5 text-[11px] text-neutral-500"><span className="text-neutral-300 mt-0.5 shrink-0">·</span>{tip}</li>
@@ -546,7 +548,7 @@ function ProductGenerator({ onImageGenerated, brandKit }: { onImageGenerated: (i
               <div className="flex items-center justify-between pt-1">
                 <Btn variant="ghost" onClick={() => { setStep('select_image'); setError(null) }}>{t('common.back_label')}</Btn>
                 <Btn onClick={handleGenerate} disabled={!selectedStyle || credits < (styleDef?.cost || 0) * variantCount || (selectedStyle === 'manual' && !manualDesc.trim())}>
-                  <Wand2 className="h-3.5 w-3.5" />Generează {styleDef && <Badge className="ml-1 bg-white/20 text-white">{styleDef.cost * variantCount} cr</Badge>}
+                  <Wand2 className="h-3.5 w-3.5" />{t('images.gen_generate_btn')} {styleDef && <Badge className="ml-1 bg-white/20 text-white">{styleDef.cost * variantCount} {t('images.gen_cr')}</Badge>}
                 </Btn>
               </div>
             </motion.div>
@@ -564,7 +566,7 @@ function ProductGenerator({ onImageGenerated, brandKit }: { onImageGenerated: (i
             <motion.div key="done" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
               <div className="flex items-center gap-2 p-3 bg-emerald-50 border border-emerald-100 rounded-xl">
                 <CheckCircle className="h-4 w-4 text-emerald-600 shrink-0" />
-                <p className="text-[13px] font-medium text-emerald-700">{lastUrls.length > 1 ? `${lastUrls.length} variante generate!` : 'Imagine generată cu succes!'}</p>
+                <p className="text-[13px] font-medium text-emerald-700">{lastUrls.length > 1 ? t('images.gen_variants_success', { count: String(lastUrls.length) }) : t('images.gen_image_success')}</p>
               </div>
 
               {lastUrls.length > 1 && (
@@ -580,8 +582,8 @@ function ProductGenerator({ onImageGenerated, brandKit }: { onImageGenerated: (i
 
               <div className="grid grid-cols-2 gap-3">
                 {[
-                  { label: 'Original', url: activeImage },
-                  { label: lastUrls.length > 1 ? `Varianta ${selectedVariant + 1}` : 'Generat AI', url: lastUrls[selectedVariant] },
+                  { label: t('images.gen_original'), url: activeImage },
+                  { label: lastUrls.length > 1 ? t('images.gen_variant_n', { n: String(selectedVariant + 1) }) : t('images.gen_generated_ai'), url: lastUrls[selectedVariant] },
                 ].map(item => item.url && (
                   <div key={item.label} className="space-y-1.5">
                     <SectionLabel>{item.label}</SectionLabel>
@@ -603,7 +605,7 @@ function ProductGenerator({ onImageGenerated, brandKit }: { onImageGenerated: (i
               <div className="grid grid-cols-2 gap-2">
                 <button onClick={() => window.open(lastUrls[selectedVariant], '_blank')}
                   className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-neutral-900 text-white text-[12px] font-medium hover:bg-neutral-800 transition-colors">
-                  <Download className="h-4 w-4" />Descarcă
+                  <Download className="h-4 w-4" />{t('images.gen_download')}
                 </button>
                 {selectedProduct && (
                   <button onClick={handlePublish} disabled={publishing || published}
@@ -615,11 +617,11 @@ function ProductGenerator({ onImageGenerated, brandKit }: { onImageGenerated: (i
               </div>
 
               <Card className="overflow-hidden">
-                <div className="px-4 py-2.5 bg-neutral-50 border-b border-neutral-100"><SectionLabel>Regenerare</SectionLabel></div>
+                <div className="px-4 py-2.5 bg-neutral-50 border-b border-neutral-100"><SectionLabel>{t('images.gen_regeneration')}</SectionLabel></div>
                 <div className="grid grid-cols-3 gap-2 p-3">
                   {[
-                    { label: 'Poster nou', icon: <RefreshCw className="h-4 w-4" />, action: reset },
-                    { label: 'Alt stil', icon: <Wand2 className="h-4 w-4" />, action: () => setStep('select_style') },
+                    { label: t('images.gen_new_poster'), icon: <RefreshCw className="h-4 w-4" />, action: reset },
+                    { label: t('images.gen_other_style'), icon: <Wand2 className="h-4 w-4" />, action: () => setStep('select_style') },
                     { label: 'Mai multe', icon: <Layers className="h-4 w-4" />, action: () => { setVariantCount(3); setStep('select_style') } },
                   ].map(b => (
                     <button key={b.label} onClick={b.action} className="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-neutral-200 hover:border-neutral-400 hover:bg-neutral-50 transition-all group">
@@ -642,6 +644,7 @@ function ProductGenerator({ onImageGenerated, brandKit }: { onImageGenerated: (i
 
 function PromoGenerator({ onImageGenerated, brandKit }: { onImageGenerated: (img: GeneratedImage) => void; brandKit: BrandKit | null }) {
   const { t } = useT()
+  const PROMO_STYLES = getPromoStyles(t)
   const { credits }   = useCredits()
   const season        = getCurrentSeason(t)
   const [step, setStep]                     = useState<PromoStep>('select_image')
@@ -794,7 +797,7 @@ function PromoGenerator({ onImageGenerated, brandKit }: { onImageGenerated: (img
                   )
                 })}
                 <div>
-                  <SectionLabel className="mb-1.5 block">Beneficii</SectionLabel>
+                  <SectionLabel className="mb-1.5 block">{t('images.gen_benefits')}</SectionLabel>
                   <div className="space-y-2">
                     {promoText.benefits.map((b, i) => (
                       <div key={i} className="flex items-center gap-2">
@@ -819,7 +822,7 @@ function PromoGenerator({ onImageGenerated, brandKit }: { onImageGenerated: (img
               <div className="flex items-center justify-between pt-1">
                 <Btn variant="ghost" onClick={() => setStep('select_style')}>{t('images.back')}</Btn>
                 <Btn onClick={handleGenerate} disabled={credits < PROMO_COST}>
-                  <Wand2 className="h-3.5 w-3.5" />Generează <Badge className="ml-1 bg-white/20 text-white">{PROMO_COST} cr</Badge>
+                  <Wand2 className="h-3.5 w-3.5" />{t('images.gen_generate_btn')} <Badge className="ml-1 bg-white/20 text-white">{PROMO_COST} {t('images.gen_cr')}</Badge>
                 </Btn>
               </div>
             </motion.div>
@@ -845,7 +848,7 @@ function PromoGenerator({ onImageGenerated, brandKit }: { onImageGenerated: (img
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <button onClick={() => window.open(lastUrl, '_blank')} className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-neutral-900 text-white text-[12px] font-medium hover:bg-neutral-800 transition-colors">
-                  <Download className="h-4 w-4" />Descarcă
+                  <Download className="h-4 w-4" />{t('images.gen_download')}
                 </button>
                 {selectedProduct && (
                   <button onClick={async () => { setPublishing(true); const res = await fetch('/api/generate/publish-to-woo', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ image_id: imageRecordId, product_id: selectedProduct.id, set_as_main: false }) }); if (res.ok) setPublished(true); setPublishing(false) }} disabled={publishing || published}
@@ -856,7 +859,7 @@ function PromoGenerator({ onImageGenerated, brandKit }: { onImageGenerated: (img
                 )}
               </div>
               <div className="grid grid-cols-3 gap-2">
-                {[{ label: 'Poster nou', icon: <RefreshCw className="h-4 w-4" />, action: reset }, { label: 'Alt stil', icon: <Wand2 className="h-4 w-4" />, action: () => setStep('select_style') }, { label: 'Editează text', icon: <Edit3 className="h-4 w-4" />, action: () => setStep('edit_text') }].map(b => (
+                {[{ label: t('images.gen_new_poster'), icon: <RefreshCw className="h-4 w-4" />, action: reset }, { label: t('images.gen_other_style'), icon: <Wand2 className="h-4 w-4" />, action: () => setStep('select_style') }, { label: t('images.gen_edit_text_btn'), icon: <Edit3 className="h-4 w-4" />, action: () => setStep('edit_text') }].map(b => (
                   <button key={b.label} onClick={b.action} className="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-neutral-200 hover:border-neutral-400 hover:bg-neutral-50 transition-all group">
                     <span className="text-neutral-400 group-hover:text-neutral-700">{b.icon}</span>
                     <span className="text-[11px] text-neutral-500 group-hover:text-neutral-700 text-center">{b.label}</span>
@@ -876,6 +879,8 @@ function PromoGenerator({ onImageGenerated, brandKit }: { onImageGenerated: (img
 
 function BulkTab() {
   const { t } = useT()
+  const PRODUCT_STYLES = getProductStyles(t)
+  const styleLabel = getStyleLabel(t)
   const { credits }   = useCredits()
   const [jobs, setJobs]         = useState<BulkJob[]>([])
   const [loadingJobs, setLoadingJobs] = useState(true)
@@ -912,7 +917,7 @@ function BulkTab() {
     if (selectedIds.length > 0) body.product_ids = selectedIds
     const res  = await fetch('/api/images/bulk', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
     const data = await res.json()
-    if (!res.ok) { setError(data.error || 'Eroare'); setSubmitting(false); return }
+    if (!res.ok) { setError(data.error || t('common.error_generic')); setSubmitting(false); return }
     await loadJobs(); setSubmitting(false); setSelectedIds([]); triggerCreditsRefresh()
   }
 
@@ -994,7 +999,7 @@ function BulkTab() {
 
           {priority !== 'manual' && (
             <div>
-              <SectionLabel className="mb-2 block">Număr maxim produse ({maxProducts})</SectionLabel>
+              <SectionLabel className="mb-2 block">{t('images.bulk_max_products')} ({maxProducts})</SectionLabel>
               <input type="range" min={10} max={200} step={10} value={maxProducts} onChange={e => setMaxProducts(Number(e.target.value))} className="w-full accent-neutral-900" />
               <div className="flex justify-between text-[10px] text-neutral-400 mt-1"><span>10</span><span>100</span><span>200</span></div>
             </div>
@@ -1013,7 +1018,7 @@ function BulkTab() {
 
           <div className="flex items-center justify-between pt-1">
             <p className="text-[11px] text-neutral-400 tabular-nums">
-              ~{((selectedIds.length || maxProducts) * creditCost).toLocaleString()} credite estimate · {credits} disponibile
+              ~{((selectedIds.length || maxProducts) * creditCost).toLocaleString()} {t('images.credits_label_short')} {t('images.credits_estimated_short')} · {credits} {t('images.credits_available')}
             </p>
             <Btn onClick={() => { const count = selectedIds.length || maxProducts; setEstimate({ credits: count * creditCost, products: count, minutes: Math.ceil(count * 1.5) }); setShowConfirm(true) }}
               disabled={submitting || credits < creditCost}>
@@ -1027,14 +1032,14 @@ function BulkTab() {
               <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="border-2 border-neutral-900 rounded-xl p-4 space-y-3">
                 <p className="text-[13px] font-semibold text-neutral-900">Confirmare job</p>
                 <div className="grid grid-cols-3 gap-3 text-center">
-                  {[{ label: 'Produse', val: estimate.products }, { label: 'Credite', val: estimate.credits }, { label: 'Timp est.', val: `~${estimate.minutes}min` }].map(x => (
+                  {[{ label: t('images.bulk_products_label'), val: estimate.products }, { label: t('images.bulk_credits_label'), val: estimate.credits }, { label: t('images.bulk_time_est'), val: `~${estimate.minutes}min` }].map(x => (
                     <div key={x.label} className="bg-neutral-50 rounded-xl p-3">
                       <p className="text-[17px] font-bold text-neutral-900 tabular-nums">{x.val}</p>
                       <SectionLabel className="mt-0.5">{x.label}</SectionLabel>
                     </div>
                   ))}
                 </div>
-                {estimate.credits > credits && <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-100 rounded-xl text-[12px] text-red-600"><AlertCircle className="h-4 w-4 shrink-0" />Credite insuficiente! Îți lipsesc {estimate.credits - credits} credite.</div>}
+                {estimate.credits > credits && <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-100 rounded-xl text-[12px] text-red-600"><AlertCircle className="h-4 w-4 shrink-0" />{t('images.credits_insufficient', { count: String(estimate.credits - credits) })}</div>}
                 <div className="flex gap-2">
                   <button onClick={() => setShowConfirm(false)} className="flex-1 text-[12px] text-neutral-500 border border-neutral-200 rounded-xl py-2 hover:bg-neutral-50 transition-colors">{t('common.cancel_label')}</button>
                   <button onClick={handleSubmit} disabled={estimate.credits > credits || submitting}
@@ -1051,7 +1056,7 @@ function BulkTab() {
       {jobs.length > 0 && (
         <Card className="overflow-hidden">
           <div className="px-5 py-4 border-b border-neutral-100 flex items-center justify-between">
-            <p className="text-[13px] font-semibold text-neutral-900">Job-uri active & istorice</p>
+            <p className="text-[13px] font-semibold text-neutral-900">{t('images.bulk_jobs_title')}</p>
             <Btn variant="ghost" size="sm" onClick={loadJobs}><RefreshCw className="h-3 w-3" /></Btn>
           </div>
           <div className="divide-y divide-neutral-50">
@@ -1141,7 +1146,7 @@ function BrandTab() {
     setDetecting(false)
   }
 
-  const STYLE_LABELS: Record<string, string> = { white_bg: 'Simplu', lifestyle: 'Lifestyle', premium_dark: 'Premium Dark', industrial: 'Industrial', seasonal: 'De sezon', manual: 'Manual' }
+  const STYLE_LABELS: Record<string, string> = { white_bg: t('images.style_simple'), lifestyle: 'Lifestyle', premium_dark: 'Premium Dark', industrial: 'Industrial', seasonal: t('images.style_seasonal_label'), manual: 'Manual' }
 
   if (loading) return <Card className="p-8 flex items-center gap-3"><Loader2 className="h-5 w-5 animate-spin text-neutral-400" /><span className="text-[12px] text-neutral-500">{t('images.loading')}</span></Card>
   if (!kit) return null
@@ -1154,14 +1159,14 @@ function BrandTab() {
           <p className="text-[11px] text-neutral-400 mt-0.5">{t('images.brand_kit')}</p>
         </div>
         <Btn variant="outline" onClick={handleDetect} disabled={detecting}>
-          {detecting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <TrendingUp className="h-3.5 w-3.5" />}AI Detectează
+          {detecting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <TrendingUp className="h-3.5 w-3.5" />}{t('images.brand_ai_detect')}
         </Btn>
       </Card>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {/* Identitate */}
         <Card className="p-5 space-y-4">
-          <SectionLabel>Identitate</SectionLabel>
+          <SectionLabel>{t('images.brand_identity')}</SectionLabel>
           <div>
             <SectionLabel className="mb-2 block">{t('images.brand_logo')}</SectionLabel>
             <div className="flex items-center gap-3">
@@ -1170,21 +1175,21 @@ function BrandTab() {
               </div>
               <div>
                 <button onClick={() => fileInputRef.current?.click()} className="text-[12px] text-neutral-600 font-semibold hover:text-neutral-900 transition-colors">{t('images.upload_logo')}</button>
-                <p className="text-[10px] text-neutral-400 mt-0.5">PNG transparent recomandat</p>
+                <p className="text-[10px] text-neutral-400 mt-0.5">{t('images.brand_png_recommended')}</p>
               </div>
               <input ref={fileInputRef} type="file" accept="image/png,image/jpeg,image/svg+xml" onChange={handleLogoUpload} className="hidden" />
             </div>
           </div>
           <div>
-            <SectionLabel className="mb-1.5 block">Numele brandului</SectionLabel>
+            <SectionLabel className="mb-1.5 block">{t('images.brand_name_label')}</SectionLabel>
             <input value={kit.brand_name} onChange={e => setKit(k => k ? { ...k, brand_name: e.target.value } : k)}
-              className="w-full px-3 py-2.5 text-[12px] rounded-xl border border-neutral-200 focus:outline-none focus:border-neutral-400 transition-colors" placeholder="Ex: MagazinulMeu" />
+              className="w-full px-3 py-2.5 text-[12px] rounded-xl border border-neutral-200 focus:outline-none focus:border-neutral-400 transition-colors" placeholder={t('images.brand_name_placeholder')} />
           </div>
         </Card>
 
         {/* Culori */}
         <Card className="p-5 space-y-4">
-          <SectionLabel>Culori</SectionLabel>
+          <SectionLabel>{t('images.brand_colors')}</SectionLabel>
           {[{ key: 'primary_color', label: t('images.color_primary') }, { key: 'secondary_color', label: t('images.color_secondary') }, { key: 'accent_color', label: t('images.color_accent') }].map(({ key, label }) => (
             <div key={key} className="flex items-center gap-3">
               <input type="color" value={(kit as any)[key]} onChange={e => setKit(k => k ? { ...k, [key]: e.target.value } : k)} className="h-9 w-9 rounded-lg border border-neutral-200 cursor-pointer p-0.5" />
@@ -1199,8 +1204,8 @@ function BrandTab() {
 
         {/* Stil & Ton */}
         <Card className="p-5 space-y-4">
-          <SectionLabel>Stil & Ton</SectionLabel>
-          {[{ field: 'font_style', label: 'Font style', opts: ['modern', 'classic', 'bold', 'minimal'] }, { field: 'tone', label: 'Ton brand', opts: ['professional', 'friendly', 'luxury', 'playful'] }].map(({ field, label, opts }) => (
+          <SectionLabel>{t('images.brand_style_tone')}</SectionLabel>
+          {[{ field: 'font_style', label: 'Font style', opts: ['modern', 'classic', 'bold', 'minimal'] }, { field: 'tone', label: t('images.brand_tone_label'), opts: ['professional', 'friendly', 'luxury', 'playful'] }].map(({ field, label, opts }) => (
             <div key={field}>
               <SectionLabel className="mb-2 block">{label}</SectionLabel>
               <div className="flex gap-2 flex-wrap">
@@ -1256,7 +1261,8 @@ function BrandTab() {
 // ─── GALLERY TAB ──────────────────────────────────────────────────────────────
 
 function GalleryTab({ gallery, onUpdate }: { gallery: GeneratedImage[]; onUpdate: () => void }) {
-  const { t } = useT()
+  const { t, locale } = useT()
+  const styleLabel = getStyleLabel(t)
   const [filter, setFilter]   = useState<'all' | 'product' | 'promo' | 'published'>('all')
   const [search, setSearch]   = useState('')
   const [preview, setPreview] = useState<GeneratedImage | null>(null)
@@ -1282,7 +1288,7 @@ function GalleryTab({ gallery, onUpdate }: { gallery: GeneratedImage[]; onUpdate
     <div className="space-y-4">
       <div className="flex items-center gap-3 flex-wrap">
         <div className="flex gap-1">
-          {[{ value: 'all', label: 'Toate' }, { value: 'product', label: 'Produs' }, { value: 'promo', label: 'Promo' }, { value: 'published', label: 'Publicate' }].map(f => (
+          {[{ value: 'all', label: t('images.gallery_all') }, { value: 'product', label: t('images.gallery_product') }, { value: 'promo', label: t('images.gallery_promo') }, { value: 'published', label: t('images.gallery_published') }].map(f => (
             <button key={f.value} onClick={() => setFilter(f.value as any)}
               className={`h-8 px-3 rounded-xl text-[12px] font-medium transition-all ${filter === f.value ? 'bg-neutral-900 text-white' : 'bg-white border border-neutral-200 text-neutral-500 hover:border-neutral-400'}`}>
               {f.label}
@@ -1369,7 +1375,7 @@ function GalleryTab({ gallery, onUpdate }: { gallery: GeneratedImage[]; onUpdate
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="text-[14px] font-semibold text-neutral-900">{preview.product_title}</p>
-                    <p className="text-[10px] text-neutral-400 mt-0.5">{styleLabel(preview.style)} · {preview.credits_used} credite · {new Date(preview.created_at).toLocaleDateString('ro-RO')}</p>
+                    <p className="text-[10px] text-neutral-400 mt-0.5">{styleLabel(preview.style)} · {preview.credits_used} {t('images.credits_label_short')} · {new Date(preview.created_at).toLocaleDateString(locale === 'ro' ? 'ro-RO' : 'en-US')}</p>
                   </div>
                   <StarRating value={preview.rating || null} onChange={async r => { await fetch('/api/images/rate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ image_id: preview.id, rating: r }) }); setPreview(p => p ? { ...p, rating: r } : p); onUpdate() }} />
                 </div>
@@ -1393,7 +1399,7 @@ function GalleryTab({ gallery, onUpdate }: { gallery: GeneratedImage[]; onUpdate
                 )}
                 <div className="flex gap-2">
                   <button onClick={() => window.open(preview.generated_image_url, '_blank')} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-neutral-900 text-white text-[12px] hover:bg-neutral-800 flex-1 justify-center transition-colors">
-                    <Download className="h-4 w-4" />Descarcă
+                    <Download className="h-4 w-4" />{t('images.gen_download')}
                   </button>
                   {preview.product_id && !preview.wc_published_at && (
                     <button onClick={e => handlePublish(preview, e)} className="flex items-center gap-2 px-4 py-2 rounded-xl border border-neutral-200 text-neutral-600 text-[12px] hover:bg-neutral-50 transition-colors">
@@ -1420,7 +1426,7 @@ export default function ImagesPage() {
     { value: 'generator', label: 'Generator', icon: Wand2     },
     { value: 'bulk',      label: t('images.tab_bulk'),      icon: Layers    },
     { value: 'brand',     label: 'Brand Kit', icon: Palette   },
-    { value: 'gallery',   label: 'Galerie',   icon: ImageIcon },
+    { value: 'gallery',   label: t('images.gallery_label'),   icon: ImageIcon },
   ]
   const { credits }     = useCredits()
   const [mainTab, setMainTab] = useState<MainTab>('generator')
@@ -1461,7 +1467,7 @@ export default function ImagesPage() {
           <div className="flex items-center gap-1.5 bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-1.5">
             <Coins className="h-3.5 w-3.5 text-neutral-500" />
             <span className="text-[14px] font-bold text-neutral-700 tabular-nums">{credits}</span>
-            <span className="text-[11px] text-neutral-400">credite</span>
+            <span className="text-[11px] text-neutral-400">{t('images.credits_label_short')}</span>
           </div>
         </div>
       </div>
@@ -1490,10 +1496,10 @@ export default function ImagesPage() {
           <motion.div key="generator" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-4">
             {/* Gen sub-tabs */}
             <div className="flex gap-1 border-b border-neutral-100">
-              {([{ value: 'product', label: 'Imagine Produs' }, { value: 'promo', label: 'Poster Promo' }] as const).map(t => (
-                <button key={t.value} onClick={() => setGenTab(t.value)}
-                  className={`flex items-center h-9 px-4 text-[12px] font-medium border-b-2 transition-all -mb-px ${genTab === t.value ? 'border-neutral-900 text-neutral-900' : 'border-transparent text-neutral-400 hover:text-neutral-600'}`}>
-                  {t.label}
+              {([{ value: 'product', label: t('images.gen_product_image') }, { value: 'promo', label: t('images.gen_poster_promo') }] as const).map(gt => (
+                <button key={gt.value} onClick={() => setGenTab(gt.value)}
+                  className={`flex items-center h-9 px-4 text-[12px] font-medium border-b-2 transition-all -mb-px ${genTab === gt.value ? 'border-neutral-900 text-neutral-900' : 'border-transparent text-neutral-400 hover:text-neutral-600'}`}>
+                  {gt.label}
                 </button>
               ))}
             </div>
