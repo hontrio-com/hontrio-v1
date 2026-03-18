@@ -324,6 +324,7 @@ function LossCalculator({ customer, orders }: { customer: Customer; orders: Orde
 // ─── Customer Badges ──────────────────────────────────────────────────────────
 
 function CustomerBadges({ customer }: { customer: Customer }) {
+  const { t } = useT()
   const rate = customer.total_orders > 0 ? (customer.orders_collected / customer.total_orders) * 100 : 100
   const badges = []
   if (customer.in_global_blacklist) badges.push({ label: 'Global Blacklist', icon: Globe, color: 'bg-red-600 text-white' })
