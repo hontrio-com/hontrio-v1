@@ -1102,7 +1102,8 @@
     "doc_error": "Error",
     "intel_failed_msg": "Generation failed. Select the product and regenerate.",
     "intel_processing_msg": "Processing...",
-    "intel_not_generated_msg": "Intelligence not generated yet. Select the product and press Generate."
+    "intel_not_generated_msg": "Intelligence not generated yet. Select the product and press Generate.",
+    "n_days": "{{n}} days"
   },
   "risk": {
     "title": "Risk Shield",

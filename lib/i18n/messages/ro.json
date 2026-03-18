@@ -1102,7 +1102,8 @@
     "doc_error": "Eroare",
     "intel_failed_msg": "Generarea a eșuat. Selectează produsul și regenerează.",
     "intel_processing_msg": "Se procesează...",
-    "intel_not_generated_msg": "Intelligence-ul nu a fost generat încă. Selectează produsul și apasă Generează."
+    "intel_not_generated_msg": "Intelligence-ul nu a fost generat încă. Selectează produsul și apasă Generează.",
+    "n_days": "{{n}} zile"
   },
   "risk": {
     "title": "Risk Shield",

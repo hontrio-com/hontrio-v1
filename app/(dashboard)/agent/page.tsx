@@ -475,7 +475,7 @@ export default function AgentPage() {
                   {([7,30] as const).map(d => (
                     <button key={d} onClick={() => { setAnalyticsRange(d); loadAnalytics(d) }}
                       className={`h-7 px-3 rounded-lg text-[11px] font-medium transition-all ${analyticsRange===d ? 'bg-blue-600 text-white' : 'text-neutral-500 hover:bg-neutral-100'}`}>
-                      {d} zile
+                      {t('agent.n_days', { n: String(d) })}
                     </button>
                   ))}
                 </div>
