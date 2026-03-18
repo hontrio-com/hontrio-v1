@@ -156,6 +156,43 @@ export async function POST(request: Request) {
       )
     }
 
+    // Auto-register WooCommerce webhooks via REST API (fire-and-forget)
+    // This works alongside the plugin approach — whichever happens first wins
+    const appUrl = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://app.hontrio.com'
+    const webhookUrl = `${appUrl}/api/risk/webhook`
+    const wcAuth = 'Basic ' + Buffer.from(`${consumer_key}:${consumer_secret}`).toString('base64')
+    void (async () => {
+      try {
+        // Check existing webhooks to avoid duplicates
+        const listRes = await fetch(`${cleanUrl}/wp-json/wc/v3/webhooks?per_page=50`, {
+          headers: { Authorization: wcAuth }, signal: AbortSignal.timeout(15000),
+        })
+        const existing: any[] = listRes.ok ? await listRes.json() : []
+        const hontrioWebhooks = Array.isArray(existing)
+          ? existing.filter((w: any) => w.delivery_url?.includes('/api/risk/webhook'))
+          : []
+        const registeredTopics = new Set(hontrioWebhooks.map((w: any) => w.topic))
+
+        for (const topic of ['order.created', 'order.updated']) {
+          if (registeredTopics.has(topic)) continue
+          await fetch(`${cleanUrl}/wp-json/wc/v3/webhooks`, {
+            method: 'POST',
+            headers: { Authorization: wcAuth, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              name: `Hontrio Risk Shield — ${topic}`,
+              topic, delivery_url: webhookUrl,
+              secret: store.webhook_secret, status: 'active',
+            }),
+            signal: AbortSignal.timeout(15000),
+          })
+        }
+        console.log('[StoreConnect] Webhooks registered via WooCommerce API for store:', cleanUrl)
+      } catch (e: any) {
+        // Non-fatal — user can still use the plugin approach
+        console.warn('[StoreConnect] Webhook auto-registration failed (non-fatal):', e.message)
+      }
+    })()
+
     return NextResponse.json({ store })
   } catch (err) {
     console.error('Stores connect unexpected error:', err)

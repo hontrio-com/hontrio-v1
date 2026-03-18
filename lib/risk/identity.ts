@@ -93,15 +93,19 @@ export async function resolveCustomer(
   }
 
   // ── GUEST ORDER (no customer_id) ────────────────────────────────────────
-  // WooCommerce grupează guest orders pe email în pagina Customers.
-  // Facem la fel: dacă există deja un guest customer cu același email, îl refolosim.
+  // Deduplication priority:
+  // 1. Existing guest with same email (exact match)
+  // 2. Any customer (registered or guest) with same phone — same person, different email
+  // 3. Existing guest with same name (fallback for phone-less orders)
+  // If no match → create new guest
   const em = email?.toLowerCase().trim() || null
+  const ph = phone?.replace(/\s/g, '') || null
 
+  // 1. Match by email (most reliable)
   if (em) {
     const { data: existingGuest } = await supabase.from('risk_customers')
       .select('*')
       .eq('store_id', storeId)
-      .eq('is_guest', true)
       .ilike('email', em)
       .limit(1)
 
@@ -110,7 +114,34 @@ export async function resolveCustomer(
     }
   }
 
-  // Nu există guest cu acest email — creează nou
+  // 2. Match by phone — same phone = same person even if different email
+  if (ph && ph.length >= 8) {
+    const { data: byPhone } = await supabase.from('risk_customers')
+      .select('*')
+      .eq('store_id', storeId)
+      .eq('phone', ph)
+      .limit(1)
+
+    if (byPhone?.[0]) {
+      return { customer: byPhone[0], isNew: false }
+    }
+  }
+
+  // 3. Match by exact name (only for nameless-email orders — rare fallback)
+  if (!em && !ph && name && name.length > 3) {
+    const { data: byName } = await supabase.from('risk_customers')
+      .select('*')
+      .eq('store_id', storeId)
+      .eq('is_guest', true)
+      .ilike('name', name.trim())
+      .limit(1)
+
+    if (byName?.[0]) {
+      return { customer: byName[0], isNew: false }
+    }
+  }
+
+  // No match — create new guest
   const { data: guest, error } = await supabase.from('risk_customers').insert({
     store_id: storeId, user_id: userId,
     external_customer_id: null,
@@ -134,18 +165,31 @@ export async function recalc(
   supabase: any, customerId: string, storeId: string, settings: any = {}
 ): Promise<{ score: number; label: string; flags: any[]; recommendation: string; refusalProbability: number }> {
   const { data: orders } = await supabase.from('risk_orders')
-    .select('order_status, shipping_address')
+    .select('order_status, shipping_address, payment_method, total_value, currency, ordered_at')
     .eq('customer_id', customerId).eq('store_id', storeId)
 
   const all = orders || []
   let tc = 0, tr = 0, tn = 0, tcan = 0
   const addrs = new Set<string>()
+  const today = new Date().toISOString().slice(0, 10)
+  let ordersToday = 0
+  // Use the most recent order's context for risk calculation
+  let lastPm: string = 'cod', lastVal = 0, lastCurr = 'RON', lastAddr = ''
   for (const o of all) {
     if (o.order_status === 'collected') tc++
     else if (['refused', 'returned'].includes(o.order_status)) tr++
     else if (o.order_status === 'not_home') tn++
     else if (o.order_status === 'cancelled') tcan++
     if (o.shipping_address) addrs.add(o.shipping_address.trim().toLowerCase())
+    if (o.ordered_at?.slice(0, 10) === today) ordersToday++
+  }
+  // Last order for context
+  if (all.length > 0) {
+    const last = all[all.length - 1]
+    lastPm = last.payment_method || 'cod'
+    lastVal = last.total_value || 0
+    lastCurr = last.currency || 'RON'
+    lastAddr = last.shipping_address || ''
   }
 
   const { data: cust } = await supabase.from('risk_customers')
@@ -153,15 +197,16 @@ export async function recalc(
 
   const result = calculateRiskScore({
     totalOrders: all.length, ordersCollected: tc, ordersRefused: tr,
-    ordersNotHome: tn, ordersCancelled: tcan, ordersToday: 0,
+    ordersNotHome: tn, ordersCancelled: tcan, ordersToday,
     lastOrderAt: cust?.last_order_at, firstOrderAt: cust?.first_order_at,
     accountCreatedAt: null,
     phoneValidated: !!(cust?.phone?.match(/^(07\d{8}|02\d{8}|03\d{8})$/)),
     isNewAccount: all.length <= 1, addressChanges: addrs.size,
   }, {
-    paymentMethod: 'cod', totalValue: 0, currency: 'RON',
+    paymentMethod: lastPm as 'cod' | 'card' | 'bank_transfer',
+    totalValue: lastVal, currency: lastCurr,
     orderedAt: cust?.last_order_at || new Date().toISOString(),
-    customerEmail: cust?.email || '', shippingAddress: '',
+    customerEmail: cust?.email || '', shippingAddress: lastAddr,
     inGlobalBlacklist: cust?.in_global_blacklist || false, globalReportCount: 0,
   }, settings)
 

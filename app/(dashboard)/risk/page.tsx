@@ -457,6 +457,33 @@ function SettingsTab({ settings, mlAccuracy, mlTotalPredictions, savingSettings,
 }) {
   const { t } = useT()
   const [local, setLocal] = useState<any>(settings || {})
+  const [webhookStatus, setWebhookStatus] = useState<any>(null)
+  const [checkingWebhook, setCheckingWebhook] = useState(false)
+  const [registeringWebhook, setRegisteringWebhook] = useState(false)
+
+  const checkWebhooks = async () => {
+    setCheckingWebhook(true)
+    try {
+      const res = await fetch('/api/risk/setup-webhooks')
+      if (res.ok) setWebhookStatus(await res.json())
+    } catch {}
+    setCheckingWebhook(false)
+  }
+
+  const registerWebhooks = async () => {
+    setRegisteringWebhook(true)
+    try {
+      const res = await fetch('/api/risk/setup-webhooks', { method: 'POST' })
+      if (res.ok) {
+        const data = await res.json()
+        setWebhookStatus({ allActive: data.success, ...data })
+        await checkWebhooks()
+      }
+    } catch {}
+    setRegisteringWebhook(false)
+  }
+
+  useEffect(() => { checkWebhooks() }, [])
   if (settings && JSON.stringify(settings) !== JSON.stringify(local) && Object.keys(local).length < 5) setLocal(settings)
   const set = (key: string, val: any) => setLocal((prev: any) => ({ ...prev, [key]: val }))
 
@@ -486,6 +513,50 @@ function SettingsTab({ settings, mlAccuracy, mlTotalPredictions, savingSettings,
 
   return (
     <div className="space-y-4 max-w-2xl">
+
+      {/* Webhooks Real-Time */}
+      <Card className="p-5">
+        <SectionLabel>{t('risk.webhook_setup')}</SectionLabel>
+        <p className="text-[12px] text-neutral-400 mb-3">{t('risk.webhook_desc')}</p>
+        {webhookStatus ? (
+          <div className="space-y-2 mb-3">
+            {(['order.created', 'order.updated'] as const).map(topic => {
+              const wh = topic === 'order.created' ? webhookStatus.orderCreated : webhookStatus.orderUpdated
+              const active = wh?.status === 'active'
+              return (
+                <div key={topic} className="flex items-center justify-between py-2 border-b border-neutral-50 last:border-0">
+                  <div className="flex items-center gap-2">
+                    <span className={`h-2 w-2 rounded-full shrink-0 ${active ? 'bg-green-500' : 'bg-red-400'}`} />
+                    <span className="text-[13px] text-neutral-700 font-mono">{topic}</span>
+                  </div>
+                  <span className={`text-[11px] font-medium ${active ? 'text-green-600' : 'text-red-500'}`}>
+                    {active ? t('risk.webhook_active') : t('risk.webhook_inactive')}
+                    {wh?.id ? ` (#${wh.id})` : ''}
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+        ) : (
+          <div className="h-12 flex items-center">
+            <div className="h-4 w-4 border-2 border-neutral-200 border-t-neutral-900 rounded-full animate-spin" />
+          </div>
+        )}
+        <div className="flex gap-2">
+          <Btn variant="outline" size="sm" onClick={checkWebhooks} disabled={checkingWebhook}>
+            {checkingWebhook ? <RefreshCw className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+            {t('risk.webhook_check')}
+          </Btn>
+          <Btn size="sm" onClick={registerWebhooks} disabled={registeringWebhook || webhookStatus?.allActive}>
+            {registeringWebhook
+              ? <><RefreshCw className="h-3 w-3 animate-spin" /> {t('common.loading')}</>
+              : webhookStatus?.allActive
+                ? <><Check className="h-3 w-3" /> {t('risk.webhook_all_active')}</>
+                : <>{t('risk.webhook_register')}</>
+            }
+          </Btn>
+        </div>
+      </Card>
 
       {/* Notificări */}
       <Card className="p-5">
