@@ -45,7 +45,7 @@ function calcLiveScore(s: Record<SectionKey, SectionState>, t: (k: string, p?: R
   const longWords = long.split(/\s+/).filter(Boolean).length
   const allText   = (short + ' ' + long).toLowerCase()
   const totalWords = allText.split(/\s+/).filter(Boolean).length || 1
-  const kwCount   = kw ? allText.split(kw).length - 1 : 0
+  const kwCount   = kw ? (() => { try { const esc = kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); return (allText.match(new RegExp(`(?<![a-zA-ZăâîșțĂÂÎȘȚ])${esc}(?![a-zA-ZăâîșțĂÂÎȘȚ])`, 'gi')) || []).length } catch { return allText.split(kw).length - 1 } })() : 0
   const density   = kw ? (kwCount / totalWords) * 100 : 0
   const checks = [
     { label: t('seo.rule_title_len', { len: String(tLen) }),            pts: tLen >= 50 && tLen <= 70 ? 15 : tLen > 0 ? 7 : 0,      max: 15, ok: tLen >= 50 && tLen <= 70 },
@@ -214,7 +214,7 @@ function KeywordDensity({ keyword, shortDesc, longDesc }: { keyword: string; sho
   const kw      = keyword.toLowerCase()
   const text    = (shortDesc + ' ' + longDesc).replace(/<[^>]*>/g, '').toLowerCase()
   const words   = text.split(/\s+/).filter(Boolean).length || 1
-  const count   = text.split(kw).length - 1
+  const count   = (() => { try { const esc = kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); return (text.match(new RegExp(`(?<![a-zA-ZăâîșțĂÂÎȘȚ])${esc}(?![a-zA-ZăâÎșțĂÂÎȘȚ])`, 'gi')) || []).length } catch { return text.split(kw).length - 1 } })()
   const density = (count / words) * 100
   const ok      = density >= 0.5 && density <= 2.5
   const low     = density < 0.5

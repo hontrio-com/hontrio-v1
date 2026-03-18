@@ -31,7 +31,8 @@
       "Bash(grep -v \"//.*[ăâîșțĂÂÎȘȚ]\")",
       "Bash(grep -v \"^\\\\s*//\")",
       "Bash(git restore:*)",
-      "Bash(xargs grep:*)"
+      "Bash(xargs grep:*)",
+      "Bash(grep -n \"postProcess\\\\|kwCount\\\\|density\\\\|200\\\\|word\\\\|180\\\\|keyword\" /c/Users/iorda/Desktop/Hontrio.com/v1/hontrio/app/\\\\\\(dashboard\\\\\\)/seo/[id]/page.tsx)"
     ]
   }
 }

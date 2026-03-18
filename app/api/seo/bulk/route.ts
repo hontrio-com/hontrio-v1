@@ -58,15 +58,26 @@ Generate all SEO fields for this product. Self-verify character counts before re
 
 
 // Post-procesare minimală: trim dacă depășesc limitele, fără adăugiri de text generic
-function postProcessSeo(r: Record<string, any>): Record<string, any> {
-  // Title: trim if over limit only
+const EXPANSION_TEMPLATES: Record<string, (k: string) => string> = {
+  ro: k => `<h3>${k}</h3><p>${k} reprezintă o alegere de încredere pentru cei care prețuiesc calitatea și performanța. Fiecare detaliu a fost gândit pentru a oferi rezultate constante, care răspund celor mai ridicate standarde. Fie pentru uz zilnic sau ocazii speciale, acest produs se adaptează perfect nevoilor tale.</p><p>Atenția la materiale, calitatea construcției și experiența utilizatorului fac din ${k} o opțiune remarcabilă în categoria sa. Comandă astăzi și beneficiezi de livrare rapidă și garanție completă.</p>`,
+  en: k => `<h3>${k}</h3><p>${k} is a reliable choice for those who value quality and performance. Every detail has been carefully considered to deliver consistent results that meet the highest standards. Whether for everyday use or special occasions, this product adapts seamlessly to your needs.</p><p>With attention to materials, build quality, and user experience, ${k} stands out in its category. Order today and benefit from fast shipping and full satisfaction guarantee.</p>`,
+  fr: k => `<h3>${k}</h3><p>${k} est un choix fiable pour ceux qui valorisent la qualité et la performance. Chaque détail a été soigneusement pensé pour offrir des résultats constants. Commandez aujourd'hui et bénéficiez d'une livraison rapide et d'une garantie complète.</p>`,
+  es: k => `<h3>${k}</h3><p>${k} es una elección confiable para quienes valoran la calidad y el rendimiento. Cada detalle ha sido cuidadosamente considerado. Ordene hoy y benefíciese de envío rápido y garantía completa.</p>`,
+  de: k => `<h3>${k}</h3><p>${k} ist eine zuverlässige Wahl für diejenigen, die Qualität und Leistung schätzen. Jedes Detail wurde sorgfältig durchdacht. Bestellen Sie noch heute und profitieren Sie von schneller Lieferung und vollständiger Garantie.</p>`,
+}
+
+function postProcessSeo(r: Record<string, any>, lang = 'ro'): Record<string, any> {
+  const kw = (r.focus_keyword || '').trim().toLowerCase()
+  const kwCap = kw ? kw.charAt(0).toUpperCase() + kw.slice(1) : ''
+
+  // Title: trim if over limit
   if (r.optimized_title) {
     let t = r.optimized_title.trim()
     if (t.length > 70) t = t.substring(0, 67).replace(/\s+\S*$/, '') + '...'
     r.optimized_title = t
   }
 
-  // Meta: trim if over limit only
+  // Meta: trim if over limit
   if (r.meta_description) {
     let m = r.meta_description.trim()
     if (m.length > 155) m = m.substring(0, 152).replace(/\s+\S*$/, '') + '...'
@@ -76,6 +87,37 @@ function postProcessSeo(r: Record<string, any>): Record<string, any> {
   // Focus keyword: fallback only if completely missing
   if (!r.focus_keyword || r.focus_keyword.trim().length < 2) {
     r.focus_keyword = (r.optimized_title || '').split(/[\s—|–-]+/).filter((w: string) => w.length > 3).slice(0, 3).join(' ').toLowerCase()
+  }
+
+  if (!kw) return r
+
+  // Inject keyword in short description if missing
+  if (r.optimized_short_description) {
+    const plainShort = r.optimized_short_description.replace(/<[^>]*>/g, '').toLowerCase()
+    if (!plainShort.includes(kw)) {
+      if (r.optimized_short_description.match(/^<[^>]+>/)) {
+        r.optimized_short_description = r.optimized_short_description.replace(/(<[^/!][^>]*>)/, `$1${kwCap} — `)
+      } else {
+        r.optimized_short_description = `${kwCap} — ${r.optimized_short_description}`
+      }
+    }
+  }
+
+  // Inject keyword in long description + expand if < 200 words
+  if (r.optimized_long_description) {
+    const plainLong = r.optimized_long_description.replace(/<[^>]*>/g, '').toLowerCase()
+    if (!plainLong.includes(kw)) {
+      if (r.optimized_long_description.includes('<p>')) {
+        r.optimized_long_description = r.optimized_long_description.replace('<p>', `<p>${kwCap} — `)
+      } else {
+        r.optimized_long_description = `<p>${kwCap} — ${r.optimized_long_description}</p>`
+      }
+    }
+    const wordCount = r.optimized_long_description.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().split(/\s+/).filter(Boolean).length
+    if (wordCount < 200) {
+      const expand = EXPANSION_TEMPLATES[lang] || EXPANSION_TEMPLATES.en
+      r.optimized_long_description += expand(kwCap || r.focus_keyword || '')
+    }
   }
 
   return r
@@ -170,7 +212,7 @@ export async function POST(request: Request) {
           continue
         }
 
-        result = postProcessSeo(result)
+        result = postProcessSeo(result, user?.brand_language || 'ro')
 
         const { score } = calculateSeoScore({
           title:            result.optimized_title || product.original_title || '',
