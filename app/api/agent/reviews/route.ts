@@ -10,7 +10,7 @@ const CORS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods
 export async function GET() {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user) return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
+    if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     const userId = (session.user as any).id
     const supabase = createAdminClient()
     const { data } = await supabase
@@ -20,7 +20,7 @@ export async function GET() {
       .order('created_at', { ascending: false })
       .limit(50)
     return NextResponse.json({ requests: data || [] })
-  } catch { return NextResponse.json({ error: 'Eroare' }, { status: 500 }) }
+  } catch { return NextResponse.json({ error: 'Error' }, { status: 500 }) }
 }
 
 // POST — WooCommerce webhook order.completed SAU cron pentru trimitere
@@ -36,7 +36,7 @@ export async function POST(request: Request) {
     // WooCommerce webhook — order completed
     const { searchParams } = new URL(request.url)
     const userId = searchParams.get('userId')
-    if (!userId) return NextResponse.json({ error: 'userId lipsă' }, { status: 400 }, )
+    if (!userId) return NextResponse.json({ error: 'Missing userId' }, { status: 400 }, )
 
     const supabase = createAdminClient()
     const { data: config } = await supabase.from('agent_configs').select('review_enabled,review_delay_days').eq('user_id', userId).single()
@@ -49,7 +49,7 @@ export async function POST(request: Request) {
     const customerName = order.billing?.first_name || order.customer?.first_name || ''
     const productNames = (order.line_items || []).map((item: any) => item.name).filter(Boolean)
 
-    if (!orderId || !customerEmail) return NextResponse.json({ ok: false, error: 'Date comandă incomplete' }, { headers: CORS })
+    if (!orderId || !customerEmail) return NextResponse.json({ ok: false, error: 'Incomplete order data' }, { headers: CORS })
 
     const delayDays = config.review_delay_days || 7
     const scheduledAt = new Date(Date.now() + delayDays * 24 * 60 * 60 * 1000).toISOString()

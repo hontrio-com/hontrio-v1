@@ -70,9 +70,9 @@ function getStyleLabel(t: (k: string, p?: Record<string, string | number>) => st
 
 function getCurrentSeason(t: (k: string, p?: Record<string, string | number>) => string) {
   const m = new Date().getMonth() + 1
-  if (m === 11) return { label: 'Black Friday', style: 'bold_dynamic', reason: 'Noiembrie — sezon Black Friday' }
+  if (m === 11) return { label: 'Black Friday', style: 'bold_dynamic', reason: t('images.november_season_reason') }
   if (m === 12) return { label: t('images.season_christmas'),      style: 'seasonal',    reason: t('images.season_christmas_reason') }
-  if (m === 2)  return { label: 'Valentine',    style: 'elegant_luxury', reason: 'Februarie — Valentine Day' }
+  if (m === 2)  return { label: 'Valentine',    style: 'elegant_luxury', reason: t('images.february_season_reason') }
   if (m >= 3 && m <= 5) return { label: t('images.season_spring'), style: 'lifestyle', reason: t('images.season_spring_reason') }
   if (m >= 6 && m <= 8) return { label: t('images.season_summer'),      style: 'lifestyle', reason: t('images.season_summer_reason') }
   return null
@@ -317,7 +317,7 @@ function GeneratingScreen({ taskId, imageRecordId, onDone, onError, variantCount
       <p className="text-[17px] font-semibold text-neutral-900 mb-2">{t('images.ai_generating')}</p>
       <p className="text-[13px] text-neutral-400 mb-6">
         {t('images.gpt_builds_prompt')}
-        {variantCount > 1 && <span className="ml-1 font-semibold text-neutral-700">{variantCount} variante</span>}
+        {variantCount > 1 && <span className="ml-1 font-semibold text-neutral-700">{t('images.variant_count_label', { count: String(variantCount) })}</span>}
       </p>
       <div className="flex items-center gap-2 px-4 py-2 bg-neutral-50 rounded-full border border-neutral-100">
         <Loader2 className="h-4 w-4 animate-spin text-neutral-400" />
@@ -622,7 +622,7 @@ function ProductGenerator({ onImageGenerated, brandKit }: { onImageGenerated: (i
                   {[
                     { label: t('images.gen_new_poster'), icon: <RefreshCw className="h-4 w-4" />, action: reset },
                     { label: t('images.gen_other_style'), icon: <Wand2 className="h-4 w-4" />, action: () => setStep('select_style') },
-                    { label: 'Mai multe', icon: <Layers className="h-4 w-4" />, action: () => { setVariantCount(3); setStep('select_style') } },
+                    { label: t('images.more_label'), icon: <Layers className="h-4 w-4" />, action: () => { setVariantCount(3); setStep('select_style') } },
                   ].map(b => (
                     <button key={b.label} onClick={b.action} className="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-neutral-200 hover:border-neutral-400 hover:bg-neutral-50 transition-all group">
                       <span className="text-neutral-400 group-hover:text-neutral-700 transition-colors">{b.icon}</span>
@@ -700,7 +700,7 @@ function PromoGenerator({ onImageGenerated, brandKit }: { onImageGenerated: (img
       if (data.mode === 'async' && data.task_id) { setTaskId(data.task_id); setImageRecordId(data.image_record_id) }
       else { handleDone([data.image?.generated_image_url], data.image_record_id) }
       triggerCreditsRefresh()
-    } catch { setError('Eroare de conexiune.'); setStep('edit_text') }
+    } catch { setError(t('images.promo_connection_error')); setStep('edit_text') }
   }
 
   const handleDone = async (urls: string[], recId?: string) => {
@@ -765,9 +765,9 @@ function PromoGenerator({ onImageGenerated, brandKit }: { onImageGenerated: (img
               )}
               <div className="flex items-center justify-between pt-1">
                 <Btn variant="ghost" onClick={() => { setStep('select_image'); setSelectedStyle(null); setPromoText(null) }}>{t('images.back')}</Btn>
-                <Btn onClick={() => { if (!promoText) setPromoText({ headline: 'Titlu Produs', subtitle: 'Subtitlu', benefits: ['Beneficiu 1', 'Beneficiu 2', 'Beneficiu 3'], cta: 'Comandă Acum', price_text: null }); setStep('edit_text') }}
+                <Btn onClick={() => { if (!promoText) setPromoText({ headline: t('images.promo_default_headline'), subtitle: t('images.promo_default_subtitle'), benefits: [t('images.promo_default_benefit', { n: '1' }), t('images.promo_default_benefit', { n: '2' }), t('images.promo_default_benefit', { n: '3' })], cta: t('images.promo_default_cta'), price_text: null }); setStep('edit_text') }}
                   disabled={!selectedStyle || loadingText}>
-                  {loadingText ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />{t('images.generating')}</> : <>Editează textele <Edit3 className="h-3.5 w-3.5" /></>}
+                  {loadingText ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />{t('images.generating')}</> : <>{t('images.edit_texts_btn')} <Edit3 className="h-3.5 w-3.5" /></>}
                 </Btn>
               </div>
             </motion.div>
@@ -803,7 +803,7 @@ function PromoGenerator({ onImageGenerated, brandKit }: { onImageGenerated: (img
                       <div key={i} className="flex items-center gap-2">
                         <span className="text-emerald-500 text-[13px] shrink-0">✓</span>
                         <input value={b} onChange={e => e.target.value.length <= 35 && setPromoText(pt => pt ? { ...pt, benefits: pt.benefits.map((x, j) => j === i ? e.target.value : x) } : pt)}
-                          className="flex-1 px-3 py-2 text-[12px] rounded-xl border border-neutral-200 focus:outline-none focus:border-neutral-400" placeholder={`Beneficiu ${i + 1}`} />
+                          className="flex-1 px-3 py-2 text-[12px] rounded-xl border border-neutral-200 focus:outline-none focus:border-neutral-400" placeholder={t('images.benefit_placeholder', { n: String(i + 1) })} />
                         <span className="text-[10px] text-neutral-400 w-8 text-right shrink-0 tabular-nums">{b.length}/35</span>
                       </div>
                     ))}
@@ -977,7 +977,7 @@ function BulkTab() {
               {loadingProds ? <div className="flex items-center gap-2 text-[12px] text-neutral-400 py-2"><Loader2 className="h-4 w-4 animate-spin" />{t('images.loading')}</div>
               : <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <p className="text-[11px] text-neutral-500">{selectedIds.length} produse selectate</p>
+                    <p className="text-[11px] text-neutral-500">{t('images.products_selected', { count: String(selectedIds.length) })}</p>
                     <button onClick={() => setSelectedIds(selectedIds.length === products.length ? [] : products.map(p => p.id))} className="text-[11px] text-neutral-500 hover:text-neutral-800 transition-colors">
                       {selectedIds.length === products.length ? t('images.deselect_all_images') : t('images.select_all_images')}
                     </button>
@@ -1030,7 +1030,7 @@ function BulkTab() {
           <AnimatePresence>
             {showConfirm && estimate && (
               <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="border-2 border-neutral-900 rounded-xl p-4 space-y-3">
-                <p className="text-[13px] font-semibold text-neutral-900">Confirmare job</p>
+                <p className="text-[13px] font-semibold text-neutral-900">{t('images.confirm_job_title')}</p>
                 <div className="grid grid-cols-3 gap-3 text-center">
                   {[{ label: t('images.bulk_products_label'), val: estimate.products }, { label: t('images.bulk_credits_label'), val: estimate.credits }, { label: t('images.bulk_time_est'), val: `~${estimate.minutes}min` }].map(x => (
                     <div key={x.label} className="bg-neutral-50 rounded-xl p-3">
@@ -1044,7 +1044,7 @@ function BulkTab() {
                   <button onClick={() => setShowConfirm(false)} className="flex-1 text-[12px] text-neutral-500 border border-neutral-200 rounded-xl py-2 hover:bg-neutral-50 transition-colors">{t('common.cancel_label')}</button>
                   <button onClick={handleSubmit} disabled={estimate.credits > credits || submitting}
                     className="flex-1 text-[12px] font-semibold text-white bg-neutral-900 hover:bg-neutral-800 disabled:opacity-40 rounded-xl py-2 flex items-center justify-center gap-2 transition-colors">
-                    {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}Confirmă
+                    {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}{t('images.confirm_btn')}
                   </button>
                 </div>
               </motion.div>
@@ -1075,7 +1075,7 @@ function BulkTab() {
                     </div>
                     {(job.status === 'queued' || job.status === 'processing') && (
                       <Btn variant="ghost" size="sm" onClick={() => cancelJob(job.id)}>
-                        <StopCircle className="h-3 w-3 text-red-400" />Anulează
+                        <StopCircle className="h-3 w-3 text-red-400" />{t('images.cancel_job_btn')}
                       </Btn>
                     )}
                   </div>
@@ -1220,7 +1220,7 @@ function BrandTab() {
           ))}
           {kit.style_summary && (
             <div className="p-3 bg-neutral-50 rounded-xl border border-neutral-100">
-              <SectionLabel className="mb-1 block">Stil detectat AI</SectionLabel>
+              <SectionLabel className="mb-1 block">{t('images.ai_style_detected')}</SectionLabel>
               <p className="text-[11px] text-neutral-700">{kit.style_summary}</p>
             </div>
           )}
@@ -1251,7 +1251,7 @@ function BrandTab() {
 
       <div className="flex justify-end">
         <Btn onClick={handleSave} disabled={saving} variant={saved ? 'success' : 'primary'}>
-          {saving ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />Salvez...</> : saved ? <><CheckCircle className="h-3.5 w-3.5" />Salvat!</> : <>{t('images.save_brand_kit')}</>}
+          {saving ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />{t('images.saving')}</> : saved ? <><CheckCircle className="h-3.5 w-3.5" />{t('images.saved')}</> : <>{t('images.save_brand_kit')}</>}
         </Btn>
       </div>
     </div>
@@ -1315,7 +1315,7 @@ function GalleryTab({ gallery, onUpdate }: { gallery: GeneratedImage[]; onUpdate
       {gallery.length === 0
         ? <Card className="p-16 text-center"><ImageIcon className="h-10 w-10 text-neutral-200 mx-auto mb-3" /><p className="text-neutral-400 text-[13px]">{t('images.no_images_desc')}</p></Card>
         : filtered.length === 0
-        ? <Card className="p-10 text-center"><p className="text-neutral-400 text-[13px]">Nicio imagine pentru filtrul selectat.</p></Card>
+        ? <Card className="p-10 text-center"><p className="text-neutral-400 text-[13px]">{t('images.no_filter_images')}</p></Card>
         : (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
             {filtered.map((img, i) => {
@@ -1381,13 +1381,13 @@ function GalleryTab({ gallery, onUpdate }: { gallery: GeneratedImage[]; onUpdate
                 </div>
                 {preview.prompt && (
                   <div className="p-3 bg-neutral-50 rounded-xl border border-neutral-100">
-                    <SectionLabel className="mb-1 block">Prompt AI folosit</SectionLabel>
+                    <SectionLabel className="mb-1 block">{t('images.ai_prompt_used')}</SectionLabel>
                     <p className="text-[11px] text-neutral-600 leading-relaxed line-clamp-4">{preview.prompt}</p>
                   </div>
                 )}
                 {preview.variants && preview.variants.length > 1 && (
                   <div>
-                    <SectionLabel className="mb-2 block">Variante generate</SectionLabel>
+                    <SectionLabel className="mb-2 block">{t('images.variants_generated')}</SectionLabel>
                     <div className="flex gap-2">
                       {preview.variants.map((url, i) => (
                         <div key={i} className="h-16 w-16 rounded-xl overflow-hidden border border-neutral-200 cursor-pointer hover:border-neutral-900 transition-colors" onClick={() => setPreview(p => p ? { ...p, generated_image_url: url } : p)}>
@@ -1403,7 +1403,7 @@ function GalleryTab({ gallery, onUpdate }: { gallery: GeneratedImage[]; onUpdate
                   </button>
                   {preview.product_id && !preview.wc_published_at && (
                     <button onClick={e => handlePublish(preview, e)} className="flex items-center gap-2 px-4 py-2 rounded-xl border border-neutral-200 text-neutral-600 text-[12px] hover:bg-neutral-50 transition-colors">
-                      <Globe className="h-4 w-4" />Publică
+                      <Globe className="h-4 w-4" />{t('images.publish_gallery_btn')}
                     </button>
                   )}
                   <button onClick={() => setPreview(null)} className="px-4 py-2 rounded-xl border border-neutral-200 text-neutral-500 text-[12px] hover:bg-neutral-50 transition-colors">{t('common.close_label')}</button>

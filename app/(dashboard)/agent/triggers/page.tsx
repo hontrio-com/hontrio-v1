@@ -33,7 +33,7 @@ const getPageOptions = (t: (k: string, p?: Record<string, string | number>) => s
   { value:'checkout', label:t('agent.page_checkout')        },
   { value:'home',     label:t('agent.page_home')        },
   { value:'contact',  label:t('agent.page_contact')         },
-  { value:'category', label:'Categorie'       },
+  { value:'category', label:t('agent.page_category')       },
 ]
 
 function Card({ children, className = '' }: { children: React.ReactNode; className?: string }) {
@@ -228,21 +228,21 @@ export default function TriggersPage() {
                       )}
                       {trigger.type==='scroll_depth' && (
                         <div>
-                          <p className="text-[10px] font-medium text-neutral-500 uppercase tracking-wide mb-1.5">Scroll % declanșare</p>
+                          <p className="text-[10px] font-medium text-neutral-500 uppercase tracking-wide mb-1.5">{t('agent.trigger_scroll_percent_label')}</p>
                           <input type="number" min={10} max={100} value={trigger.conditions.percent||70} onChange={e => updateCondition(trigger.id,'percent',Number(e.target.value))}
                             className="w-full text-[12px] border border-neutral-200 rounded-xl px-3 py-2 bg-white focus:outline-none focus:border-neutral-400 transition-colors" />
                         </div>
                       )}
                       {trigger.type==='cart_abandonment' && (
                         <div>
-                          <p className="text-[10px] font-medium text-neutral-500 uppercase tracking-wide mb-1.5">Minute de așteptare</p>
+                          <p className="text-[10px] font-medium text-neutral-500 uppercase tracking-wide mb-1.5">{t('agent.trigger_wait_minutes_label')}</p>
                           <input type="number" min={1} max={30} value={trigger.conditions.minutes||3} onChange={e => updateCondition(trigger.id,'minutes',Number(e.target.value))}
                             className="w-full text-[12px] border border-neutral-200 rounded-xl px-3 py-2 bg-white focus:outline-none focus:border-neutral-400 transition-colors" />
                         </div>
                       )}
                       {trigger.type==='inactivity' && (
                         <div>
-                          <p className="text-[10px] font-medium text-neutral-500 uppercase tracking-wide mb-1.5">Secunde inactivitate</p>
+                          <p className="text-[10px] font-medium text-neutral-500 uppercase tracking-wide mb-1.5">{t('agent.trigger_inactivity_seconds_label')}</p>
                           <input type="number" min={30} max={600} value={trigger.conditions.seconds||120} onChange={e => updateCondition(trigger.id,'seconds',Number(e.target.value))}
                             className="w-full text-[12px] border border-neutral-200 rounded-xl px-3 py-2 bg-white focus:outline-none focus:border-neutral-400 transition-colors" />
                         </div>

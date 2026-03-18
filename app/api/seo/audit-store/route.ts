@@ -7,14 +7,14 @@ export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user) {
-      return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const userId = (session.user as any).id
     const { url, strategy = 'mobile' } = await request.json()
 
     if (!url) {
-      return NextResponse.json({ error: 'URL lipsește' }, { status: 400 })
+      return NextResponse.json({ error: 'URL is required' }, { status: 400 })
     }
 
     // Validate URL format
@@ -22,13 +22,13 @@ export async function POST(request: Request) {
     try {
       parsedUrl = new URL(url)
     } catch {
-      return NextResponse.json({ error: 'URL invalid' }, { status: 400 })
+      return NextResponse.json({ error: 'Invalid URL' }, { status: 400 })
     }
 
     const apiKey = process.env.GOOGLE_PAGESPEED_API_KEY
     if (!apiKey) {
       return NextResponse.json(
-        { error: 'Lipsă GOOGLE_PAGESPEED_API_KEY în .env. Creează o cheie gratuită la console.cloud.google.com → APIs → PageSpeed Insights API → Credentials.' },
+        { error: 'Missing GOOGLE_PAGESPEED_API_KEY in .env. Create a free key at console.cloud.google.com → APIs → PageSpeed Insights API → Credentials.' },
         { status: 503 }
       )
     }
@@ -45,7 +45,7 @@ export async function POST(request: Request) {
       const errData = await psiRes.json().catch(() => ({}))
       console.error('[PSI] Error:', errData)
       return NextResponse.json(
-        { error: 'Eroare PageSpeed API: ' + (errData?.error?.message || psiRes.statusText) },
+        { error: 'PageSpeed API error: ' + (errData?.error?.message || psiRes.statusText) },
         { status: 502 }
       )
     }
@@ -207,8 +207,8 @@ export async function POST(request: Request) {
   } catch (err: any) {
     console.error('[PSI Audit] Error:', err)
     if (err.name === 'TimeoutError' || err.name === 'AbortError') {
-      return NextResponse.json({ error: 'Timeout — analiza a durat prea mult. Încearcă din nou.' }, { status: 504 })
+      return NextResponse.json({ error: 'Timeout — analysis took too long. Please try again.' }, { status: 504 })
     }
-    return NextResponse.json({ error: 'Eroare internă: ' + err.message }, { status: 500 })
+    return NextResponse.json({ error: 'Internal error: ' + err.message }, { status: 500 })
   }
 }

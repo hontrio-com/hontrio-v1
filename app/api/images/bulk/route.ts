@@ -11,7 +11,7 @@ const STYLE_COSTS: Record<string, number> = {
 export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user) return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
+    if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     const userId = (session.user as any).id
     const supabase = createAdminClient()
 
@@ -24,7 +24,7 @@ export async function POST(request: Request) {
       max_products = 100,
     } = await request.json()
 
-    if (!style) return NextResponse.json({ error: 'Stilul este obligatoriu' }, { status: 400 })
+    if (!style) return NextResponse.json({ error: 'Style is required' }, { status: 400 })
     const creditCost = STYLE_COSTS[style] || 3
 
     // FIX: Cap max_products server-side — clientul nu poate cere mai mult de 200
@@ -64,7 +64,7 @@ export async function POST(request: Request) {
     }
 
     if (products.length === 0) {
-      return NextResponse.json({ error: 'Niciun produs selectat pentru procesare' }, { status: 400 })
+      return NextResponse.json({ error: 'No products selected for processing' }, { status: 400 })
     }
 
     const creditsEstimated = products.length * creditCost
@@ -73,7 +73,7 @@ export async function POST(request: Request) {
     const { data: user } = await supabase.from('users').select('credits').eq('id', userId).single()
     if (!user || user.credits < creditsEstimated) {
       return NextResponse.json({
-        error: `Credite insuficiente. Estimat: ${creditsEstimated}, disponibil: ${user?.credits || 0}`,
+        error: `Insufficient credits. Estimated: ${creditsEstimated}, available: ${user?.credits || 0}`,
         credits_needed: creditsEstimated,
         credits_available: user?.credits || 0,
       }, { status: 400 })
@@ -95,7 +95,7 @@ export async function POST(request: Request) {
       .select()
       .single()
 
-    if (jobErr || !job) return NextResponse.json({ error: 'Eroare la crearea job-ului' }, { status: 500 })
+    if (jobErr || !job) return NextResponse.json({ error: 'Error creating job' }, { status: 500 })
 
     // Create items
     const items = products.map(p => ({
@@ -117,7 +117,7 @@ export async function POST(request: Request) {
     })
   } catch (err: any) {
     console.error('[BulkCreate]', err)
-    return NextResponse.json({ error: 'Eroare internă' }, { status: 500 })
+    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
   }
 }
 
@@ -125,7 +125,7 @@ export async function POST(request: Request) {
 export async function GET(request: Request) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user) return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
+    if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     const userId = (session.user as any).id
     const supabase = createAdminClient()
     const { searchParams } = new URL(request.url)
@@ -159,7 +159,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ jobs: jobs || [] })
   } catch {
-    return NextResponse.json({ error: 'Eroare internă' }, { status: 500 })
+    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
   }
 }
 
@@ -167,7 +167,7 @@ export async function GET(request: Request) {
 export async function DELETE(request: Request) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user) return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
+    if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     const userId = (session.user as any).id
     const { id } = await request.json()
     const supabase = createAdminClient()
@@ -187,6 +187,6 @@ export async function DELETE(request: Request) {
 
     return NextResponse.json({ success: true })
   } catch {
-    return NextResponse.json({ error: 'Eroare internă' }, { status: 500 })
+    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
   }
 }

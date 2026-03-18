@@ -7,18 +7,18 @@ import { safeDecrypt, wcGet, buildOrder, recalc } from '@/lib/risk/identity'
 export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user) return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
+    if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     const { customer_id } = await req.json()
-    if (!customer_id) return NextResponse.json({ error: 'customer_id obligatoriu' }, { status: 400 })
+    if (!customer_id) return NextResponse.json({ error: 'customer_id required' }, { status: 400 })
     const supabase = createAdminClient()
     const { data: customer } = await supabase.from('risk_customers')
       .select('*').eq('id', customer_id).eq('user_id', (session.user as any).id).single()
-    if (!customer) return NextResponse.json({ error: 'Client negăsit' }, { status: 404 })
+    if (!customer) return NextResponse.json({ error: 'Customer not found' }, { status: 404 })
     const { data: store } = await supabase.from('stores')
       .select('id, store_url, api_key, api_secret, user_id').eq('id', customer.store_id).single()
-    if (!store) return NextResponse.json({ error: 'Magazin negăsit' }, { status: 404 })
+    if (!store) return NextResponse.json({ error: 'Store not found' }, { status: 404 })
     const ck = safeDecrypt(store.api_key), cs = safeDecrypt(store.api_secret)
-    if (!ck || !cs) return NextResponse.json({ error: 'Credențiale lipsă' }, { status: 400 })
+    if (!ck || !cs) return NextResponse.json({ error: 'Missing credentials' }, { status: 400 })
     const base = store.store_url.replace(/\/$/, '')
     const auth = 'Basic ' + Buffer.from(`${ck}:${cs}`).toString('base64')
 

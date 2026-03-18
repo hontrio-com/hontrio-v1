@@ -42,7 +42,7 @@ Răspunde STRICT în acest format JSON (fără markdown, fără backticks):
 export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user) return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
+    if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     const userId = (session.user as any).id
     const body = await req.json().catch(() => ({}))
     const productIds: string[] | null = body.product_ids || null
@@ -50,13 +50,13 @@ export async function POST(req: Request) {
     const supabase = createAdminClient()
 
     const { data: store } = await supabase.from('stores').select('id').eq('user_id', userId).single()
-    if (!store) return NextResponse.json({ error: 'Niciun magazin' }, { status: 404 })
+    if (!store) return NextResponse.json({ error: 'No store found' }, { status: 404 })
 
     let query = supabase.from('products').select('*').eq('user_id', userId).is('parent_id', null)
     if (productIds) query = query.in('id', productIds.slice(0, 50)) // FIX: max 50 produse per cerere
     else query = query.limit(50) // FIX: cap la 50 fără product_ids explicit
     const { data: products } = await query
-    if (!products?.length) return NextResponse.json({ error: 'Niciun produs' }, { status: 404 })
+    if (!products?.length) return NextResponse.json({ error: 'No products found' }, { status: 404 })
 
     const { data: existing } = await supabase.from('product_intelligence')
       .select('product_id, content_hash').eq('user_id', userId)
@@ -90,7 +90,7 @@ export async function POST(req: Request) {
       }
       const hash = computeHash(src)
       if (!force && hashMap.get(product.id) === hash) { skipped++; continue }
-      if (credits - (generated * 2) < 2) { errors.push('Credite insuficiente'); break }
+      if (credits - (generated * 2) < 2) { errors.push('Insufficient credits'); break }
 
       try {
         await supabase.from('product_intelligence').upsert({
@@ -150,7 +150,7 @@ PRODUS: ${src.title}\nCATEGORIE: ${src.category}\nPREȚ: ${src.price ? src.price
       await supabase.from('users').update({ credits: newBal }).eq('id', userId)
       await supabase.from('credit_transactions').insert({
         user_id: userId, type: 'usage', amount: -cost, balance_after: newBal,
-        description: `Product Intelligence — ${generated} produse`, reference_type: 'product_intelligence',
+        description: `Product Intelligence — ${generated} products`, reference_type: 'product_intelligence',
       })
     }
 
@@ -161,7 +161,7 @@ PRODUS: ${src.title}\nCATEGORIE: ${src.category}\nPREȚ: ${src.price ? src.price
 export async function GET(req: Request) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user) return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
+    if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     const supabase = createAdminClient()
     const userId = (session.user as any).id
     const { searchParams } = new URL(req.url)
@@ -229,13 +229,13 @@ export async function GET(req: Request) {
 export async function PATCH(req: Request) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user) return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
+    if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     const userId = (session.user as any).id
     const body = await req.json()
     const { product_id, fields } = body
 
     if (!product_id || !fields || typeof fields !== 'object') {
-      return NextResponse.json({ error: 'product_id și fields sunt obligatorii' }, { status: 400 })
+      return NextResponse.json({ error: 'product_id and fields are required' }, { status: 400 })
     }
 
     const supabase = createAdminClient()
@@ -249,7 +249,7 @@ export async function PATCH(req: Request) {
       .single()
 
     if (!existing) {
-      return NextResponse.json({ error: 'Intelligence negăsit pentru acest produs' }, { status: 404 })
+      return NextResponse.json({ error: 'Intelligence not found for this product' }, { status: 404 })
     }
 
     // Câmpuri editabile

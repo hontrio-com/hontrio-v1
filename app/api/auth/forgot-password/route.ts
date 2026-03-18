@@ -11,7 +11,7 @@ export async function POST(request: Request) {
     const limit = rateLimit(`forgot:${ip}`, 3, 15 * 60 * 1000)
     if (!limit.success) {
       return NextResponse.json(
-        { error: 'Prea multe cereri. Incearca din nou mai tarziu.' },
+        { error: 'Too many requests. Please try again later.' },
         { status: 429 }
       )
     }
@@ -19,7 +19,7 @@ export async function POST(request: Request) {
     const { email } = await request.json()
 
     if (!email) {
-      return NextResponse.json({ error: 'Email-ul este obligatoriu' }, { status: 400 })
+      return NextResponse.json({ error: 'Email is required' }, { status: 400 })
     }
 
     const supabase = createAdminClient()
@@ -60,17 +60,17 @@ export async function POST(request: Request) {
       // Send email
       await sendEmail({
         to: cleanEmail,
-        subject: 'Reseteaza parola — Hontrio',
+        subject: 'Reset your password — Hontrio',
         html: buildResetEmail(resetUrl),
       })
     }
 
     return NextResponse.json({
       success: true,
-      message: 'Daca acest email exista in sistem, vei primi instructiunile de resetare.',
+      message: 'If this email exists in our system, you will receive reset instructions.',
     })
   } catch (err) {
     console.error('[Forgot Password]', err)
-    return NextResponse.json({ error: 'Eroare interna' }, { status: 500 })
+    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
   }
 }

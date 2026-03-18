@@ -6,7 +6,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 export async function GET() {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user) return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
+    if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     const userId = (session.user as any).id
     const supabase = createAdminClient()
 
@@ -19,17 +19,17 @@ export async function GET() {
     return NextResponse.json({ documents: docs || [] })
   } catch (err) {
     console.error('[Knowledge GET]', err)
-    return NextResponse.json({ error: 'Eroare internă' }, { status: 500 })
+    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
   }
 }
 
 export async function DELETE(request: Request) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user) return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
+    if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     const userId = (session.user as any).id
     const { id } = await request.json()
-    if (!id) return NextResponse.json({ error: 'ID lipsă' }, { status: 400 })
+    if (!id) return NextResponse.json({ error: 'Missing ID' }, { status: 400 })
 
     const supabase = createAdminClient()
     // Chunks se șterg automat prin CASCADE
@@ -38,6 +38,6 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ ok: true })
   } catch (err) {
     console.error('[Knowledge DELETE]', err)
-    return NextResponse.json({ error: 'Eroare internă' }, { status: 500 })
+    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
   }
 }

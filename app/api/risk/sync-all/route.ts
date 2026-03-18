@@ -8,17 +8,17 @@ import {
 
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions)
-  if (!session?.user) return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
+  if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const userId = (session.user as any).id
   const supabase = createAdminClient()
 
   const { data: store } = await supabase.from('stores')
     .select('id, store_url, api_key, api_secret').eq('user_id', userId).single()
-  if (!store) return NextResponse.json({ error: 'Niciun magazin' }, { status: 404 })
+  if (!store) return NextResponse.json({ error: 'No store found' }, { status: 404 })
 
   const ck = safeDecrypt(store.api_key), cs = safeDecrypt(store.api_secret)
-  if (!ck || !cs) return NextResponse.json({ error: 'Credențiale API lipsă' }, { status: 400 })
+  if (!ck || !cs) return NextResponse.json({ error: 'Missing API credentials' }, { status: 400 })
 
   const base = store.store_url.replace(/\/$/, '')
   const auth = 'Basic ' + Buffer.from(`${ck}:${cs}`).toString('base64')

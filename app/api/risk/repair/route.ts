@@ -7,11 +7,11 @@ import { recalc, getSettings } from '@/lib/risk/identity'
 export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user) return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
+    if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     const supabase = createAdminClient()
     const { data: store } = await supabase.from('stores')
       .select('id').eq('user_id', (session.user as any).id).single()
-    if (!store) return NextResponse.json({ error: 'Niciun magazin' }, { status: 404 })
+    if (!store) return NextResponse.json({ error: 'No store found' }, { status: 404 })
 
     const { data: customers } = await supabase.from('risk_customers')
       .select('id').eq('store_id', store.id)

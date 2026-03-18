@@ -10,14 +10,14 @@ const CORS = {
 }
 
 const STATUS_LABELS: Record<string, string> = {
-  pending:    'În așteptare plată',
-  processing: 'În procesare',
-  'on-hold':  'În așteptare',
-  completed:  'Finalizată',
-  cancelled:  'Anulată',
-  refunded:   'Rambursată',
-  failed:     'Eșuată',
-  shipped:    'Expediată',
+  pending:    'Awaiting payment',
+  processing: 'Processing',
+  'on-hold':  'On hold',
+  completed:  'Completed',
+  cancelled:  'Cancelled',
+  refunded:   'Refunded',
+  failed:     'Failed',
+  shipped:    'Shipped',
 }
 
 function formatOrder(order: any) {
@@ -26,7 +26,7 @@ function formatOrder(order: any) {
     number: order.number,
     status: order.status,
     status_label: STATUS_LABELS[order.status] || order.status,
-    date: new Date(order.date_created).toLocaleDateString('ro-RO', { day: 'numeric', month: 'long', year: 'numeric' }),
+    date: new Date(order.date_created).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }),
     total: `${order.total} ${order.currency}`,
     items: (order.line_items || []).slice(0, 5).map((i: any) => ({
       name: i.name,
@@ -48,7 +48,7 @@ export async function POST(request: Request) {
   try {
     const { userId, query, type = 'search' } = await request.json()
     if (!userId || !query) {
-      return NextResponse.json({ orders: [], error: 'Parametri lipsă' }, { status: 400, headers: CORS })
+      return NextResponse.json({ orders: [], error: 'Missing parameters' }, { status: 400, headers: CORS })
     }
 
     const supabase = createAdminClient()
@@ -60,7 +60,7 @@ export async function POST(request: Request) {
       .single()
 
     if (!store?.api_key || !store?.api_secret) {
-      return NextResponse.json({ orders: [], error: 'Magazin neconectat' }, { headers: CORS })
+      return NextResponse.json({ orders: [], error: 'Store not connected' }, { headers: CORS })
     }
 
     let consumerKey: string
@@ -69,7 +69,7 @@ export async function POST(request: Request) {
       consumerKey = decrypt(store.api_key)
       consumerSecret = decrypt(store.api_secret)
     } catch {
-      return NextResponse.json({ orders: [], error: 'Credențiale invalide' }, { headers: CORS })
+      return NextResponse.json({ orders: [], error: 'Invalid credentials' }, { headers: CORS })
     }
 
     const woo = new WooCommerceClient({
@@ -108,7 +108,7 @@ export async function POST(request: Request) {
 
   } catch (err) {
     console.error('[Order API]', err)
-    return NextResponse.json({ orders: [], error: 'Eroare internă' }, { status: 500, headers: CORS })
+    return NextResponse.json({ orders: [], error: 'Internal error' }, { status: 500, headers: CORS })
   }
 }
 

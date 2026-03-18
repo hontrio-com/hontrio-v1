@@ -92,7 +92,7 @@ function useAttachments() {
   async function addFiles(files: FileList) {
     const toAdd = Array.from(files).slice(0, MAX_FILES - pending.length)
     for (const file of toAdd) {
-      if (file.size > MAX_SIZE) { alert(`"${file.name}" t('support.max_size')`); continue }
+      if (file.size > MAX_SIZE) { alert(`"${file.name}" ${t('support.max_size')}`); continue }
       const localId = Math.random().toString(36).slice(2)
       const preview = isImage(file.type) ? URL.createObjectURL(file) : ''
       setPending(p => [...p, { localId, name: file.name, size: file.size, type: file.type, url: preview, uploading: true }])
@@ -170,7 +170,7 @@ function DropZone({ onFiles, disabled }: { onFiles: (f: FileList) => void; disab
       <Upload className="h-3.5 w-3.5 text-neutral-400 shrink-0" />
       <div>
         <p className="text-[12px] font-medium text-neutral-600">{t('common.add_files')} <span className="text-neutral-900 underline underline-offset-2">{t('common.or_drag')}</span></p>
-        <p className="text-[10px] text-neutral-400 mt-0.5">JPG, PNG, PDF · max 10MB · max {MAX_FILES} fișiere</p>
+        <p className="text-[10px] text-neutral-400 mt-0.5">{t('support.dropzone_hint').replace('{count}', String(MAX_FILES))}</p>
       </div>
       <input ref={ref} type="file" multiple accept={ACCEPTED} className="hidden" onChange={e => e.target.files && onFiles(e.target.files)} />
     </div>
@@ -290,7 +290,7 @@ export default function SupportPage() {
       })
       const data = await res.json()
       if (res.ok) { setReplies(p => [...p, data.reply]); setReplyText(''); replyAtts.clear() }
-      else setSendErr(data.error || 'Eroare la trimitere')
+      else setSendErr(data.error || t('support.network_error'))
     } catch { setSendErr(t('support.network_error')) }
     finally { setSending(false) }
   }
@@ -310,12 +310,12 @@ export default function SupportPage() {
   if (view === 'create') return (
     <div className="max-w-2xl space-y-5">
       <button onClick={() => setView('list')} className="flex items-center gap-1.5 text-[13px] text-neutral-400 hover:text-neutral-700 transition-colors">
-        <ArrowLeft className="h-3.5 w-3.5" />Înapoi la tichete
+        <ArrowLeft className="h-3.5 w-3.5" />{t('support.back_to_tickets')}
       </button>
 
       <div>
         <h1 className="text-[22px] font-semibold text-neutral-900 tracking-tight">{t('support.new_ticket')}</h1>
-        <p className="text-[13px] text-neutral-400 mt-0.5">Îți răspundem în maxim 24h în zilele lucrătoare</p>
+        <p className="text-[13px] text-neutral-400 mt-0.5">{t('support.reply_24h')}</p>
       </div>
 
       <AnimatePresence>
@@ -331,7 +331,7 @@ export default function SupportPage() {
       <form onSubmit={createTicket} className="space-y-4">
         <div>
           <label className="block text-[12px] font-medium text-neutral-400 uppercase tracking-wide mb-1.5">
-            Subiect <span className="text-red-400">*</span>
+            {t('support.subject')} <span className="text-red-400">*</span>
           </label>
           <input value={subject} onChange={e => setSubject(e.target.value)} required maxLength={200}
             placeholder={t('support.describe_short')}
@@ -357,7 +357,7 @@ export default function SupportPage() {
 
         <div>
           <label className="block text-[12px] font-medium text-neutral-400 uppercase tracking-wide mb-1.5">
-            Mesaj <span className="text-red-400">*</span>
+            {t('support.message')} <span className="text-red-400">*</span>
           </label>
           <textarea value={message} onChange={e => setMessage(e.target.value)} required maxLength={5000}
             placeholder={t('support.describe_detailed')}
@@ -373,7 +373,7 @@ export default function SupportPage() {
 
         <div>
           <label className="block text-[12px] font-medium text-neutral-400 uppercase tracking-wide mb-1.5">
-            Atașamente <span className="font-normal normal-case text-neutral-300">(opțional)</span>
+            {t('support.attachments_optional')}
           </label>
           <DropZone onFiles={createAtts.addFiles} disabled={createAtts.pending.length >= MAX_FILES} />
           {createAtts.pending.length > 0 && (
@@ -410,7 +410,7 @@ export default function SupportPage() {
       <div className="max-w-2xl space-y-5">
         <button onClick={() => { setView('list'); setSelected(null) }}
           className="flex items-center gap-1.5 text-[13px] text-neutral-400 hover:text-neutral-700 transition-colors">
-          <ArrowLeft className="h-3.5 w-3.5" />Înapoi la tichete
+          <ArrowLeft className="h-3.5 w-3.5" />{t('support.back_to_tickets')}
         </button>
 
         {/* Ticket header */}
@@ -434,7 +434,7 @@ export default function SupportPage() {
             <div className="h-8 w-8 rounded-full bg-neutral-200 flex items-center justify-center text-[11px] font-semibold text-neutral-600 shrink-0">{t('support.you')}</div>
             <div className="flex-1 bg-white border border-neutral-200 rounded-xl p-4 min-w-0">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-[12px] font-semibold text-neutral-700">Tu</span>
+                <span className="text-[12px] font-semibold text-neutral-700">{t('support.you')}</span>
                 <span className="text-[11px] text-neutral-400" title={formatFull(selected.created_at)}>{timeAgo(selected.created_at)}</span>
               </div>
               <p className="text-[13px] text-neutral-700 whitespace-pre-wrap leading-relaxed">{selected.message}</p>
@@ -447,12 +447,12 @@ export default function SupportPage() {
             <motion.div key={reply.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="flex gap-3">
               <div className={`h-8 w-8 rounded-full flex items-center justify-center text-[11px] font-semibold shrink-0
                 ${reply.is_admin ? 'bg-neutral-900 text-white' : 'bg-neutral-200 text-neutral-600'}`}>
-                {reply.is_admin ? 'H' : 'Tu'}
+                {reply.is_admin ? 'H' : t('support.you')}
               </div>
               <div className={`flex-1 border rounded-xl p-4 min-w-0 ${reply.is_admin ? 'bg-neutral-50 border-neutral-200' : 'bg-white border-neutral-200'}`}>
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-[12px] font-semibold text-neutral-700">
-                    {reply.is_admin ? 'Echipa Hontrio' : 'Tu'}
+                    {reply.is_admin ? t('support.hontrio_team') : t('support.you')}
                   </span>
                   <span className="text-[11px] text-neutral-400" title={formatFull(reply.created_at)}>{timeAgo(reply.created_at)}</span>
                 </div>
@@ -488,7 +488,7 @@ export default function SupportPage() {
                   disabled={sending || (!replyText.trim() && replyAtts.ready.length === 0) || replyAtts.uploading}
                   className="flex items-center gap-1.5 h-9 px-4 rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white text-[12px] font-medium transition-all disabled:opacity-50">
                   {sending || replyAtts.uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
-                  Trimite
+                  {t('support.send_btn')}
                 </button>
               </div>
             </div>
@@ -510,16 +510,16 @@ export default function SupportPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-[22px] font-semibold text-neutral-900 tracking-tight">
-            Suport
+            {t('support.title')}
             {unread > 0 && (
-              <span className="ml-2 text-[11px] font-semibold bg-neutral-900 text-white px-1.5 py-0.5 rounded-md align-middle">{unread} nou</span>
+              <span className="ml-2 text-[11px] font-semibold bg-neutral-900 text-white px-1.5 py-0.5 rounded-md align-middle">{unread} {t('support.new_badge')}</span>
             )}
           </h1>
-          <p className="text-[13px] text-neutral-400 mt-0.5">{tickets.length} {tickets.length === 1 ? 'tichet' : 'tichete'}</p>
+          <p className="text-[13px] text-neutral-400 mt-0.5">{tickets.length === 1 ? t('support.ticket_count_one').replace('{count}', String(tickets.length)) : t('support.ticket_count_other').replace('{count}', String(tickets.length))}</p>
         </div>
         <button onClick={() => setView('create')}
           className="flex items-center gap-1.5 h-9 px-4 rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white text-[13px] font-medium transition-all">
-          <Plus className="h-3.5 w-3.5" />Tichet nou
+          <Plus className="h-3.5 w-3.5" />{t('support.new_ticket_btn')}
         </button>
       </div>
 
@@ -529,12 +529,12 @@ export default function SupportPage() {
           <Headphones className="h-4 w-4 text-neutral-500" />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-[13px] font-medium text-neutral-800">Timp de răspuns: maxim 24h</p>
-          <p className="text-[11px] text-neutral-400">Luni–Vineri, 9:00–18:00</p>
+          <p className="text-[13px] font-medium text-neutral-800">{t('support.response_time')}</p>
+          <p className="text-[11px] text-neutral-400">{t('support.work_hours')}</p>
         </div>
         <div className="flex items-center gap-1 shrink-0">
           <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-          <span className="text-[11px] text-emerald-600 font-medium">Online</span>
+          <span className="text-[11px] text-emerald-600 font-medium">{t('support.online')}</span>
         </div>
       </div>
 
@@ -542,9 +542,9 @@ export default function SupportPage() {
         <div className="flex items-center gap-1">
           {[
             { value: 'all', label: t('common.all'),     count: tickets.length },
-            { value: 'open',        label: 'Deschise',  count: tickets.filter(t => t.status === 'open').length },
+            { value: 'open',        label: t('support.filter_open'),  count: tickets.filter(t => t.status === 'open').length },
             { value: 'in_progress', label: t('support.filter_in_progress'),  count: tickets.filter(t => t.status === 'in_progress').length },
-            { value: 'resolved',    label: 'Rezolvate', count: tickets.filter(t => t.status === 'resolved').length },
+            { value: 'resolved',    label: t('support.filter_resolved'), count: tickets.filter(t => t.status === 'resolved').length },
             { value: 'closed',      label: t('support.filter_closed'),   count: tickets.filter(t => t.status === 'closed').length },
           ].map(opt => (
             <button key={opt.value} onClick={() => setTabFilter(opt.value)}
@@ -569,10 +569,10 @@ export default function SupportPage() {
               <MessageCircle className="h-6 w-6 text-neutral-300" />
             </div>
             <p className="text-[15px] font-semibold text-neutral-700 mb-1">{t('support.no_tickets')}</p>
-            <p className="text-[13px] text-neutral-400 mb-5">Dacă ai o problemă, suntem aici să te ajutăm.</p>
+            <p className="text-[13px] text-neutral-400 mb-5">{t('support.help_desc')}</p>
             <button onClick={() => setView('create')}
               className="h-9 px-5 rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white text-[13px] font-medium transition-all">
-              Deschide un tichet
+              {t('support.open_ticket_btn')}
             </button>
           </div>
 
@@ -630,7 +630,7 @@ export default function SupportPage() {
           </div>
 
           <div>
-            <p className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider mb-3">Întrebări frecvente</p>
+            <p className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider mb-3">{t('support.faq')}</p>
             <div className="space-y-2">{FAQ.map((item, i) => <FaqItem key={i} q={item.q} a={item.a} />)}</div>
           </div>
         </div>

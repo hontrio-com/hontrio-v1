@@ -12,15 +12,15 @@ const CREDIT_COST = 2
 export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user) return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
+    if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const userId = (session.user as any).id
     const limit = await rateLimitExpensive(userId, 'keywords-gap')
-    if (!limit.success) return NextResponse.json({ error: 'Prea multe cereri. Așteaptă un minut.' }, { status: 429 })
+    if (!limit.success) return NextResponse.json({ error: 'Too many requests. Please wait a minute.' }, { status: 429 })
 
     const { my_url, competitor_url } = await request.json()
     if (!my_url || !competitor_url) {
-      return NextResponse.json({ error: 'URL-urile lipsesc' }, { status: 400 })
+      return NextResponse.json({ error: 'URLs are required' }, { status: 400 })
     }
 
     const supabase = createAdminClient()
@@ -34,7 +34,7 @@ export async function POST(request: Request) {
 
     if (!user || user.credits < CREDIT_COST) {
       return NextResponse.json(
-        { error: `Credite insuficiente (necesare: ${CREDIT_COST})` },
+        { error: `Insufficient credits (required: ${CREDIT_COST})` },
         { status: 400 }
       )
     }
@@ -112,7 +112,7 @@ Răspunde STRICT JSON valid, fără alte cuvinte:
         my_advantages: [],
         common_keywords: [],
         opportunities: [],
-        analysis_summary: 'Analiza nu a putut fi procesată. Încearcă din nou.',
+        analysis_summary: 'Analysis could not be processed. Please try again.',
         top_priority: '',
       }
     }
@@ -137,7 +137,7 @@ Răspunde STRICT JSON valid, fără alte cuvinte:
 
   } catch (err) {
     console.error('[Keywords Gap]', err)
-    return NextResponse.json({ error: 'Eroare internă' }, { status: 500 })
+    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
   }
 }
 

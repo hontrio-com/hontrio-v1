@@ -8,16 +8,16 @@ import { recalibrateWeights, DEFAULT_ML_WEIGHTS, type MLWeights } from '@/lib/ri
 export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user) return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
+    if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const { store_id, order_id, actual_outcome } = await req.json()
     if (!store_id || !order_id || !actual_outcome) {
-      return NextResponse.json({ error: 'store_id, order_id, actual_outcome obligatorii' }, { status: 400 })
+      return NextResponse.json({ error: 'store_id, order_id, actual_outcome are required' }, { status: 400 })
     }
 
     const VALID_OUTCOMES = ['collected', 'refused', 'returned', 'not_home', 'cancelled']
     if (!VALID_OUTCOMES.includes(actual_outcome)) {
-      return NextResponse.json({ error: 'actual_outcome invalid' }, { status: 400 })
+      return NextResponse.json({ error: 'Invalid actual_outcome' }, { status: 400 })
     }
 
     const supabase = createAdminClient()
@@ -29,7 +29,7 @@ export async function POST(req: Request) {
       .eq('id', order_id)
       .eq('user_id', (session.user as any).id)
       .single()
-    if (!order) return NextResponse.json({ error: 'Comandă negăsită' }, { status: 404 })
+    if (!order) return NextResponse.json({ error: 'Order not found' }, { status: 404 })
 
     // Ia label-ul predictit la momentul comenzii (din customer snapshot sau din flags)
     const { data: customer } = await supabase
@@ -92,11 +92,11 @@ export async function POST(req: Request) {
 export async function GET(req: Request) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user) return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
+    if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const { searchParams } = new URL(req.url)
     const store_id = searchParams.get('store_id')
-    if (!store_id) return NextResponse.json({ error: 'store_id obligatoriu' }, { status: 400 })
+    if (!store_id) return NextResponse.json({ error: 'store_id required' }, { status: 400 })
 
     const supabase = createAdminClient()
     const { data: settings } = await supabase

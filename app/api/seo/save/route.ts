@@ -21,7 +21,7 @@ export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user) {
-      return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const userId = (session.user as any).id
@@ -29,7 +29,7 @@ export async function POST(request: Request) {
     const { product_id, fields, action } = body
 
     if (!product_id) {
-      return NextResponse.json({ error: 'product_id lipsește' }, { status: 400 })
+      return NextResponse.json({ error: 'product_id is required' }, { status: 400 })
     }
 
     const supabase = createAdminClient()
@@ -43,7 +43,7 @@ export async function POST(request: Request) {
       .single()
 
     if (!product) {
-      return NextResponse.json({ error: 'Produs negăsit' }, { status: 404 })
+      return NextResponse.json({ error: 'Product not found' }, { status: 404 })
     }
 
     // ── ACTION: REVERT ─────────────────────────────────────────────────────────
@@ -51,7 +51,7 @@ export async function POST(request: Request) {
       const { field } = body
 
       if (!field || !ALLOWED_FIELDS.includes(field)) {
-        return NextResponse.json({ error: 'Câmp invalid pentru revert' }, { status: 400 })
+        return NextResponse.json({ error: 'Invalid field for revert' }, { status: 400 })
       }
 
       // Map optimized fields back to originals
@@ -83,7 +83,7 @@ export async function POST(request: Request) {
 
     // ── ACTION: SAVE FIELDS ────────────────────────────────────────────────────
     if (!fields || typeof fields !== 'object') {
-      return NextResponse.json({ error: 'fields lipsesc' }, { status: 400 })
+      return NextResponse.json({ error: 'fields are missing' }, { status: 400 })
     }
 
     // Sanitize — only allow whitelisted fields
@@ -95,7 +95,7 @@ export async function POST(request: Request) {
     }
 
     if (Object.keys(safeUpdate).length === 0) {
-      return NextResponse.json({ error: 'Niciun câmp valid de salvat' }, { status: 400 })
+      return NextResponse.json({ error: 'No valid fields to save' }, { status: 400 })
     }
 
     // Auto-update status
@@ -119,12 +119,12 @@ export async function POST(request: Request) {
       .eq('user_id', userId)
 
     if (updateError) {
-      return NextResponse.json({ error: 'Eroare la salvare: ' + updateError.message }, { status: 500 })
+      return NextResponse.json({ error: 'Save error: ' + updateError.message }, { status: 500 })
     }
 
     return NextResponse.json({ success: true, saved_fields: Object.keys(safeUpdate) })
   } catch (err) {
     console.error('[SEO Save] Error:', err)
-    return NextResponse.json({ error: 'Eroare internă' }, { status: 500 })
+    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
   }
 }

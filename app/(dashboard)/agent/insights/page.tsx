@@ -229,8 +229,8 @@ function TrainingTab() {
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0 space-y-1">
                       <p className="text-[11px] text-neutral-500">{t('agent.question_label')} <span className="font-medium text-neutral-700">"{c.original_question}"</span></p>
-                      {c.wrong_answer && <p className="text-[11px] text-orange-600">❌ Greșit: "{c.wrong_answer}"</p>}
-                      <p className="text-[11px] text-emerald-700">✅ Corect: "{c.correct_answer}"</p>
+                      {c.wrong_answer && <p className="text-[11px] text-orange-600">❌ {t('agent.wrong_answer_label')} "{c.wrong_answer}"</p>}
+                      <p className="text-[11px] text-emerald-700">✅ {t('agent.correct_answer_label')} "{c.correct_answer}"</p>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       <button onClick={() => toggle(c)}>

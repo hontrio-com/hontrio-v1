@@ -8,7 +8,7 @@ import { recalibrateWeights, DEFAULT_ML_WEIGHTS, type MLWeights } from '@/lib/ri
 export async function GET(req: Request) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user) return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
+    if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     const { searchParams } = new URL(req.url)
     const supabase = createAdminClient()
     let q = supabase.from('risk_orders').select('*', { count: 'exact' })
@@ -25,7 +25,7 @@ export async function GET(req: Request) {
 export async function PATCH(req: Request) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user) return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
+    if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     const { order_id, order_status } = await req.json()
     if (!order_id || !order_status) return NextResponse.json({ error: 'Missing fields' }, { status: 400 })
     const VALID = ['pending','processing','shipped','collected','refused','not_home','cancelled','returned']

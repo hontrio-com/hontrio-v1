@@ -15,7 +15,7 @@ export async function POST(request: Request) {
   try {
     const { userId, productIds } = await request.json()
     if (!userId || !productIds?.length) {
-      return NextResponse.json({ error: 'Parametri lipsă' }, { status: 400, headers: CORS })
+      return NextResponse.json({ error: 'Missing parameters' }, { status: 400, headers: CORS })
     }
 
     const supabase = createAdminClient()
@@ -28,7 +28,7 @@ export async function POST(request: Request) {
       .single()
 
     if (!store?.api_key || !store?.api_secret) {
-      return NextResponse.json({ stock: {}, error: 'Magazin neconectat' }, { headers: CORS })
+      return NextResponse.json({ stock: {}, error: 'Store not connected' }, { headers: CORS })
     }
 
     let consumerKey: string
@@ -37,7 +37,7 @@ export async function POST(request: Request) {
       consumerKey = decrypt(store.api_key)
       consumerSecret = decrypt(store.api_secret)
     } catch {
-      return NextResponse.json({ stock: {}, error: 'Credențiale invalide' }, { headers: CORS })
+      return NextResponse.json({ stock: {}, error: 'Invalid credentials' }, { headers: CORS })
     }
 
     const woo = new WooCommerceClient({
@@ -58,17 +58,17 @@ export async function POST(request: Request) {
         status: r.stock_status,
         quantity: r.stock_quantity ?? null,
         label: r.stock_status === 'instock'
-          ? (r.stock_quantity != null ? `${r.stock_quantity} în stoc` : 'În stoc')
+          ? (r.stock_quantity != null ? `${r.stock_quantity} in stock` : 'In stock')
           : r.stock_status === 'onbackorder'
-          ? 'Disponibil la comandă'
-          : 'Stoc epuizat',
+          ? 'Available on backorder'
+          : 'Out of stock',
       }
     }
 
     return NextResponse.json({ stock }, { headers: CORS })
   } catch (err) {
     console.error('[Stock API]', err)
-    return NextResponse.json({ stock: {}, error: 'Eroare internă' }, { status: 500, headers: CORS })
+    return NextResponse.json({ stock: {}, error: 'Internal error' }, { status: 500, headers: CORS })
   }
 }
 

@@ -11,7 +11,7 @@ export async function POST(
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user) {
-      return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const userId = (session.user as any).id
@@ -26,7 +26,7 @@ export async function POST(
       .single()
 
     if (!product) {
-      return NextResponse.json({ error: 'Produsul nu a fost găsit' }, { status: 404 })
+      return NextResponse.json({ error: 'Product not found' }, { status: 404 })
     }
 
     const { data: store } = await supabase
@@ -36,7 +36,7 @@ export async function POST(
       .single()
 
     if (!store) {
-      return NextResponse.json({ error: 'Niciun magazin conectat.' }, { status: 400 })
+      return NextResponse.json({ error: 'No store connected.' }, { status: 400 })
     }
 
     const { data: user } = await supabase
@@ -46,7 +46,7 @@ export async function POST(
       .single()
 
     if (!user || user.credits < 1) {
-      return NextResponse.json({ error: 'Credite insuficiente' }, { status: 400 })
+      return NextResponse.json({ error: 'Insufficient credits' }, { status: 400 })
     }
 
     const wooUrl = store.store_url.replace(/\/$/, '')
@@ -184,19 +184,19 @@ export async function POST(
           await supabase.from('users').update({ credits: newBalance }).eq('id', userId)
           await supabase.from('credit_transactions').insert({
             user_id: userId, type: 'usage', amount: -1, balance_after: newBalance,
-            description: `Publicare (nou): ${product.optimized_title || product.original_title}`,
+            description: `Publish (new): ${product.optimized_title || product.original_title}`,
             reference_type: 'publish',
           })
           return NextResponse.json({ success: true, external_id: postData.id })
         }
         const postErr = await postRes.json().catch(() => ({}))
         return NextResponse.json({
-          error: `Eroare WooCommerce (PUT 403 + POST ${postRes.status}): ${postErr.message || errData.message || 'Verifică permisiunile cheii API'}`
+          error: `WooCommerce error (PUT 403 + POST ${postRes.status}): ${postErr.message || errData.message || 'Check API key permissions'}`
         }, { status: 500 })
       }
 
       return NextResponse.json({
-        error: `Eroare WooCommerce ${wooRes.status}: ${errData.message || errData.code || 'Verifică conexiunea'} — ${method} id=${targetId}`
+        error: `WooCommerce error ${wooRes.status}: ${errData.message || errData.code || 'Check connection'} — ${method} id=${targetId}`
       }, { status: 500 })
     }
 
@@ -214,13 +214,13 @@ export async function POST(
       type: 'usage',
       amount: -1,
       balance_after: newBalance,
-      description: `Publicare: ${product.optimized_title || product.original_title}`,
+      description: `Publish: ${product.optimized_title || product.original_title}`,
       reference_type: 'publish',
     })
 
     return NextResponse.json({ success: true, external_id: wooData.id })
   } catch (error: any) {
     console.error('Publish error:', error)
-    return NextResponse.json({ error: 'Eroare la publicare' }, { status: 500 })
+    return NextResponse.json({ error: 'Publish error' }, { status: 500 })
   }
 }

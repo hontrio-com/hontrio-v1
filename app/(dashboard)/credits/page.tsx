@@ -62,12 +62,12 @@ const PACKS = [
 ]
 
 const getCosts = (t: (k: string, p?: Record<string, string | number>) => string) => [
-  { label: t('credits.ai_text_gen'),      cost: '5 cr.', icon: FileText  },
-  { label: t('credits.image_white'),    cost: '2 cr.', icon: ImageIcon },
-  { label: 'Imagine Lifestyle',     cost: '3 cr.', icon: ImageIcon },
-  { label: 'Imagine Premium',       cost: '3 cr.', icon: ImageIcon },
-  { label: 'Imagine Seasonal',      cost: '4 cr.', icon: ImageIcon },
-  { label: t('credits.auto_gen_3x_label'),  cost: '8 cr.', icon: Sparkles  },
+  { label: t('credits.ai_text_gen'),          cost: '5 cr.', icon: FileText  },
+  { label: t('credits.image_white'),          cost: '2 cr.', icon: ImageIcon },
+  { label: t('credits.image_lifestyle'),      cost: '3 cr.', icon: ImageIcon },
+  { label: t('credits.image_premium'),        cost: '3 cr.', icon: ImageIcon },
+  { label: t('credits.image_seasonal'),       cost: '4 cr.', icon: ImageIcon },
+  { label: t('credits.auto_gen_3x_label'),    cost: '8 cr.', icon: Sparkles  },
 ]
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -111,9 +111,9 @@ function SubscriptionPageInner() {
   const userPlan = (session?.user as any)?.plan || 'free'
 
   useEffect(() => {
-    if (searchParams.get('success') === 'true') { setMsg({ type: 'success', text: 'Abonament activat! Creditele au fost adăugate.' }); setTab('history') }
-    if (searchParams.get('credits_success') === 'true') { setMsg({ type: 'success', text: 'Credite achiziționate cu succes!' }); setTab('history') }
-    if (searchParams.get('canceled') === 'true') { setMsg({ type: 'error', text: 'Plata a fost anulată. Poți încerca din nou oricând.' }) }
+    if (searchParams.get('success') === 'true') { setMsg({ type: 'success', text: t('credits.subscription_activated') }); setTab('history') }
+    if (searchParams.get('credits_success') === 'true') { setMsg({ type: 'success', text: t('credits.credits_purchased_success') }); setTab('history') }
+    if (searchParams.get('canceled') === 'true') { setMsg({ type: 'error', text: t('credits.payment_cancelled') }) }
   }, [searchParams])
 
   useEffect(() => { fetchCredits() }, [])
@@ -142,7 +142,7 @@ function SubscriptionPageInner() {
       const d = await r.json()
       if (d.url) window.location.href = d.url
       else setMsg({ type: 'error', text: d.error || t('credits.error_payment_init') })
-    } catch { setMsg({ type: 'error', text: 'Eroare de conexiune' }) }
+    } catch { setMsg({ type: 'error', text: t('common.error_connection') }) }
     finally { setCheckoutId('') }
   }
 
@@ -151,8 +151,8 @@ function SubscriptionPageInner() {
     try {
       const r = await fetch('/api/stripe/portal', { method: 'POST' }); const d = await r.json()
       if (d.url) window.location.href = d.url
-      else setMsg({ type: 'error', text: d.error || 'Nu ai un abonament activ' })
-    } catch { setMsg({ type: 'error', text: 'Eroare de conexiune' }) }
+      else setMsg({ type: 'error', text: d.error || t('credits.no_active_subscription') })
+    } catch { setMsg({ type: 'error', text: t('common.error_connection') }) }
     finally { setPortalLoading(false) }
   }
 
@@ -232,16 +232,16 @@ function SubscriptionPageInner() {
       {/* Tab nav */}
       <div className="flex items-center gap-1 overflow-x-auto pb-0.5 scrollbar-none">
         {[
-          { value: 'plans',   label: 'Planuri',          icon: Sparkles   },
-          { value: 'credits', label: t('credits.buy_more'),  icon: CreditCard },
-          { value: 'history', label: 'Istoric & Facturi', icon: Receipt   },
-        ].map(t => {
-          const Icon = t.icon
+          { value: 'plans',   label: t('credits.tab_plans'),   icon: Sparkles   },
+          { value: 'credits', label: t('credits.buy_more'),     icon: CreditCard },
+          { value: 'history', label: t('credits.tab_history'),  icon: Receipt    },
+        ].map(tabItem => {
+          const Icon = tabItem.icon
           return (
-            <button key={t.value} onClick={() => setTab(t.value)}
+            <button key={tabItem.value} onClick={() => setTab(tabItem.value)}
               className={`flex items-center gap-1.5 h-8 px-3 rounded-xl text-[12px] font-medium transition-all whitespace-nowrap shrink-0
-                ${tab === t.value ? 'bg-neutral-900 text-white' : 'text-neutral-500 hover:bg-neutral-100 hover:text-neutral-700'}`}>
-              <Icon className="h-3.5 w-3.5 shrink-0" />{t.label}
+                ${tab === tabItem.value ? 'bg-neutral-900 text-white' : 'text-neutral-500 hover:bg-neutral-100 hover:text-neutral-700'}`}>
+              <Icon className="h-3.5 w-3.5 shrink-0" />{tabItem.label}
             </button>
           )
         })}
@@ -260,7 +260,7 @@ function SubscriptionPageInner() {
                   <div className={`relative h-full flex flex-col bg-white rounded-xl border-2 overflow-hidden transition-all
                     ${(plan as any).popular ? 'border-neutral-900' : isCurrent ? 'border-neutral-300' : 'border-neutral-200 hover:border-neutral-300'}`}>
                     {(plan as any).popular && (
-                      <div className="absolute top-0 right-0 bg-neutral-900 text-white text-[9px] font-bold px-3 py-1 rounded-bl-xl tracking-wide">RECOMANDAT</div>
+                      <div className="absolute top-0 right-0 bg-neutral-900 text-white text-[9px] font-bold px-3 py-1 rounded-bl-xl tracking-wide">{t('credits.recommended')}</div>
                     )}
                     <div className="p-5 flex flex-col flex-1">
                       <div className="flex items-center gap-3 mb-4">
@@ -278,7 +278,7 @@ function SubscriptionPageInner() {
                           ? <p className="text-[28px] font-bold text-neutral-900">{t('credits.free_trial')}</p>
                           : <p className="text-[28px] font-bold text-neutral-900">{plan.price} <span className="text-[14px] font-normal text-neutral-400">RON{plan.period}</span></p>
                         }
-                        <p className="text-[11px] text-neutral-400 mt-0.5"><span className="font-medium text-neutral-600">{plan.credits} credite</span> incluse</p>
+                        <p className="text-[11px] text-neutral-400 mt-0.5"><span className="font-medium text-neutral-600">{plan.credits} {t('credits.credits_word')}</span> {t('credits.included_word')}</p>
                       </div>
 
                       <div className="space-y-1.5 flex-1 mb-4">
@@ -298,7 +298,7 @@ function SubscriptionPageInner() {
 
                       {isCurrent ? (
                         <button disabled className="w-full h-9 rounded-xl bg-neutral-100 text-neutral-400 text-[12px] font-medium flex items-center justify-center gap-1.5">
-                          <CheckCircle className="h-3.5 w-3.5" />Plan curent
+                          <CheckCircle className="h-3.5 w-3.5" />{t('credits.current_plan_btn')}
                         </button>
                       ) : isUpgrade ? (
                         <button onClick={() => handleSubscribe(plan.id)} disabled={checkoutId === plan.id}
@@ -352,8 +352,8 @@ function SubscriptionPageInner() {
                       </div>
                       <div>
                         <div className="flex items-center gap-2">
-                          <p className="text-[14px] font-semibold text-neutral-900">{pack.credits} credite</p>
-                          {pack.popular && <span className="text-[9px] font-bold bg-neutral-900 text-white px-1.5 py-0.5 rounded-md">POPULAR</span>}
+                          <p className="text-[14px] font-semibold text-neutral-900">{pack.credits} {t('credits.credits_word')}</p>
+                          {pack.popular && <span className="text-[9px] font-bold bg-neutral-900 text-white px-1.5 py-0.5 rounded-md">{t('credits.popular').toUpperCase()}</span>}
                         </div>
                         <p className="text-[11px] text-neutral-400 tabular-nums">{pack.perCredit.toFixed(2)} RON / {t('credits.per_credit')}</p>
                       </div>
@@ -362,7 +362,7 @@ function SubscriptionPageInner() {
                       <p className="text-[15px] font-bold text-neutral-900 tabular-nums">{pack.price} RON</p>
                       <button onClick={() => handleBuyPack(pack.id)} disabled={!!checkoutId}
                         className="h-8 px-3 rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white text-[12px] font-medium disabled:opacity-50 transition-all flex items-center gap-1.5">
-                        {checkoutId === pack.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Cumpără'}
+                        {checkoutId === pack.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : t('credits.buy_btn')}
                       </button>
                     </div>
                   </div>
@@ -450,7 +450,7 @@ function SubscriptionPageInner() {
                       className="w-full mt-3 py-2 text-[12px] text-neutral-500 hover:text-neutral-700 font-medium flex items-center justify-center gap-1 transition-colors">
                       {showAll
                         ? <><ChevronUp className="h-3 w-3" />{t('credits.show_less')}</>
-                        : <><ChevronDown className="h-3 w-3" />Arată toate ({transactions.length})</>}
+                        : <><ChevronDown className="h-3 w-3" />{t('credits.show_all', { count: String(transactions.length) })}</>}
                     </button>
                   )}
                 </>
@@ -460,7 +460,7 @@ function SubscriptionPageInner() {
 
           <div className="space-y-4">
             <Card className="p-5">
-              <p className="text-[11px] font-medium text-neutral-400 uppercase tracking-wide mb-4">Sumar consum</p>
+              <p className="text-[11px] font-medium text-neutral-400 uppercase tracking-wide mb-4">{t('credits.usage_summary')}</p>
               <div className="space-y-4">
                 <div>
                   <div className="flex items-center justify-between text-[13px] mb-1.5">
@@ -473,7 +473,7 @@ function SubscriptionPageInner() {
                 </div>
                 <div>
                   <div className="flex items-center justify-between text-[13px] mb-1.5">
-                    <span className="text-neutral-500">Credite rămase</span>
+                    <span className="text-neutral-500">{t('credits.credits_remaining')}</span>
                     <span className="font-semibold text-neutral-900 tabular-nums">{balance}</span>
                   </div>
                   <div className="h-1.5 bg-neutral-100 rounded-full overflow-hidden">
@@ -483,8 +483,8 @@ function SubscriptionPageInner() {
 
                 <div className="pt-2 border-t border-neutral-100 space-y-2">
                   {[
-                    { label: 'Texte generate', icon: FileText, count: transactions.filter(t => t.reference_type === 'text_generation').length },
-                    { label: 'Imagini generate', icon: ImageIcon, count: transactions.filter(t => t.reference_type === 'image_generation').length },
+                    { label: t('credits.texts_generated'), icon: FileText, count: transactions.filter(tx => tx.reference_type === 'text_generation').length },
+                    { label: t('credits.images_generated'), icon: ImageIcon, count: transactions.filter(tx => tx.reference_type === 'image_generation').length },
                   ].map((item, i) => {
                     const Icon = item.icon
                     return (
@@ -500,13 +500,13 @@ function SubscriptionPageInner() {
 
             {userPlan !== 'free' && (
               <Card className="p-5">
-                <p className="text-[13px] font-semibold text-neutral-900 mb-1">Facturare</p>
+                <p className="text-[13px] font-semibold text-neutral-900 mb-1">{t('credits.billing')}</p>
                 <p className="text-[12px] text-neutral-400 leading-relaxed mb-3">
                   {t('credits.manage_stripe_desc')}
                 </p>
                 <Btn variant="outline" onClick={handlePortal} disabled={portalLoading} className="w-full justify-center">
                   {portalLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ExternalLink className="h-3.5 w-3.5" />}
-                  Portal de facturare
+                  {t('credits.billing_portal')}
                 </Btn>
               </Card>
             )}

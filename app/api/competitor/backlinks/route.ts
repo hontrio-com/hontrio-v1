@@ -10,10 +10,10 @@ const CDX_API = 'http://web.archive.org/cdx/search/cdx'  // Wayback CDX as fallb
 export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user) return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
+    if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const { competitor_url, my_url } = await request.json()
-    if (!competitor_url || !my_url) return NextResponse.json({ error: 'URL-urile lipsesc' }, { status: 400 })
+    if (!competitor_url || !my_url) return NextResponse.json({ error: 'URLs are required' }, { status: 400 })
 
     const myHost = hostnameOnly(normalizeUrl(my_url))
     const theirHost = hostnameOnly(normalizeUrl(competitor_url))
@@ -39,11 +39,11 @@ export async function POST(request: Request) {
       gap_domains: gapDomains,      // sites linking to competitor but not you
       exclusive_mine: exclusiveMine, // sites linking only to you
       common_domains: commonDomains,
-      note: 'Date din Common Crawl / Wayback Machine. Acoperire partiala — pentru date complete foloseste Ahrefs sau Moz.',
+      note: 'Data from Common Crawl / Wayback Machine. Partial coverage — for complete data use Ahrefs or Moz.',
     })
   } catch (err) {
     console.error('[Backlinks]', err)
-    return NextResponse.json({ error: 'Eroare internă' }, { status: 500 })
+    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
   }
 }
 

@@ -7,11 +7,11 @@ import { createAdminClient } from '@/lib/supabase/admin'
 export async function GET(request: Request) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user) return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
+    if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const { searchParams } = new URL(request.url)
     const productId = searchParams.get('product_id')
-    if (!productId) return NextResponse.json({ error: 'product_id lipsește' }, { status: 400 })
+    if (!productId) return NextResponse.json({ error: 'product_id is required' }, { status: 400 })
 
     const userId = (session.user as any).id
     const supabase = createAdminClient()
@@ -31,7 +31,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ history: data || [] })
   } catch {
-    return NextResponse.json({ error: 'Eroare internă' }, { status: 500 })
+    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
   }
 }
 
@@ -39,13 +39,13 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user) return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
+    if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const userId = (session.user as any).id
     const body = await request.json()
     const { product_id, snapshot, label } = body
 
-    if (!product_id || !snapshot) return NextResponse.json({ error: 'Date lipsă' }, { status: 400 })
+    if (!product_id || !snapshot) return NextResponse.json({ error: 'Missing data' }, { status: 400 })
 
     const supabase = createAdminClient()
 
@@ -54,7 +54,7 @@ export async function POST(request: Request) {
       .insert({
         product_id,
         user_id: userId,
-        label: label || 'Versiune salvată',
+        label: label || 'Saved version',
         optimized_title: snapshot.optimized_title || null,
         meta_description: snapshot.meta_description || null,
         optimized_short_description: snapshot.optimized_short_description || null,
@@ -87,6 +87,6 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true, version: data })
   } catch {
-    return NextResponse.json({ error: 'Eroare internă' }, { status: 500 })
+    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
   }
 }

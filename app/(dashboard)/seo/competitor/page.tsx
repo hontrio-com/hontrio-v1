@@ -270,12 +270,12 @@ function StealModal({ open, field, myCurrent, competitorValue, competitorUrl, on
           </div>
           <Card className="overflow-hidden">
             <div className="px-4 py-2.5 bg-neutral-50 border-b border-neutral-100">
-              <SectionLabel className="flex items-center gap-1.5"><Sparkles className="h-3 w-3" />Variantă AI generată</SectionLabel>
+              <SectionLabel className="flex items-center gap-1.5"><Sparkles className="h-3 w-3" />{t('seo.ai_variant_generated')}</SectionLabel>
             </div>
             <div className="p-4 min-h-[60px] flex items-center">
               {loading ? (
                 <div className="flex items-center gap-2 text-neutral-400 text-[12px]">
-                  <Loader2 className="h-4 w-4 animate-spin" />Se generează...
+                  <Loader2 className="h-4 w-4 animate-spin" />{t('seo.generating_ai')}
                 </div>
               ) : result ? (
                 <div className="space-y-2 w-full">
@@ -291,7 +291,7 @@ function StealModal({ open, field, myCurrent, competitorValue, competitorUrl, on
         </div>
         <div className="px-5 py-4 border-t border-neutral-100 flex items-center justify-between">
           <Btn variant="ghost" size="sm" onClick={generate} disabled={loading}>
-            <RefreshCw className="h-3 w-3" />Regenerează
+            <RefreshCw className="h-3 w-3" />{t('seo.regenerate_btn')}
           </Btn>
           <div className="flex gap-2">
             <Btn variant="outline" size="sm" onClick={onClose}>{t('common.cancel_label')}</Btn>
@@ -338,7 +338,7 @@ function TabOverview({ result, onSteal }: {
           <div className="flex items-center gap-4 shrink-0">
             <div className="text-center space-y-1.5">
               <ScoreCircle score={r.verdict.overall_score_you} you={true} />
-              <SectionLabel>Tu</SectionLabel>
+              <SectionLabel>{t('seo.competitor_label_you')}</SectionLabel>
             </div>
             <div className="flex flex-col items-center gap-1 pb-5">
               {draw ? <Minus className="h-4 w-4 text-neutral-300" /> : youWin ? <ArrowUp className="h-5 w-5 text-emerald-500" /> : <ArrowDown className="h-5 w-5 text-red-400" />}
@@ -348,7 +348,7 @@ function TabOverview({ result, onSteal }: {
             </div>
             <div className="text-center space-y-1.5">
               <ScoreCircle score={r.verdict.overall_score_competitor} you={false} />
-              <SectionLabel>Competitor</SectionLabel>
+              <SectionLabel>{t('seo.competitor_label_them')}</SectionLabel>
             </div>
           </div>
           <div className="flex-1 min-w-0 sm:border-l sm:border-neutral-100 sm:pl-6">
@@ -387,12 +387,12 @@ function TabOverview({ result, onSteal }: {
           <p className="text-[11px] text-neutral-400 mt-0.5">{t('seo.steal_hint')}</p>
         </div>
         <div className="p-4 space-y-3">
-          <FieldRow label="Titlu SEO" mine={r.my_store.title || ''} theirs={r.competitor.title || ''} minLen={50} maxLen={70} winner={r.verdict.winner_title}
+          <FieldRow label={t('seo.seo_title_field')} mine={r.my_store.title || ''} theirs={r.competitor.title || ''} minLen={50} maxLen={70} winner={r.verdict.winner_title}
             onSteal={(f, v) => onSteal(f, v, r.my_store.title || '')} />
           <FieldRow label="Meta Description" mine={r.my_store.meta_description || ''} theirs={r.competitor.meta_description || ''} minLen={120} maxLen={155} winner={r.verdict.winner_meta}
             onSteal={(f, v) => onSteal(f, v, r.my_store.meta_description || '')} />
           {(r.my_store.h1 || r.competitor.h1) && (
-            <FieldRow label="H1 principal" mine={r.my_store.h1 || ''} theirs={r.competitor.h1 || ''} winner="egal" />
+            <FieldRow label={t('seo.h1_principal')} mine={r.my_store.h1 || ''} theirs={r.competitor.h1 || ''} winner="egal" />
           )}
         </div>
       </Card>
@@ -438,7 +438,7 @@ function TabOverview({ result, onSteal }: {
 // ─── TAB: MONITOR ─────────────────────────────────────────────────────────────
 
 function TabMonitor({ competitorUrl }: { competitorUrl: string }) {
-  const { t } = useT()
+  const { t, locale } = useT()
   const alertLabel = getAlertLabel(t)
   const [monitors, setMonitors]   = useState<MonitorItem[]>([])
   const [alerts, setAlerts]       = useState<AlertItem[]>([])
@@ -493,7 +493,7 @@ function TabMonitor({ competitorUrl }: { competitorUrl: string }) {
 
   const unread = alerts.filter(a => !a.is_read).length
 
-  if (loading) return <Card className="p-8 flex items-center gap-3"><Loader2 className="h-5 w-5 animate-spin text-neutral-400" /><span className="text-[13px] text-neutral-500">Se încarcă...</span></Card>
+  if (loading) return <Card className="p-8 flex items-center gap-3"><Loader2 className="h-5 w-5 animate-spin text-neutral-400" /><span className="text-[13px] text-neutral-500">{t('common.loading')}</span></Card>
 
   return (
     <div className="space-y-4">
@@ -504,7 +504,7 @@ function TabMonitor({ competitorUrl }: { competitorUrl: string }) {
         <div className="flex items-center gap-3 flex-wrap">
           <div className="flex items-center gap-2 flex-1 min-w-[200px] border border-neutral-200 rounded-xl px-3.5 py-2.5">
             <Globe className="h-3.5 w-3.5 text-neutral-300 shrink-0" />
-            <span className="text-[13px] text-neutral-500 truncate">{competitorUrl || 'Introdu URL competitor mai sus'}</span>
+            <span className="text-[13px] text-neutral-500 truncate">{competitorUrl || t('seo.enter_competitor_url_hint')}</span>
           </div>
           <input value={newLabel} onChange={e => setNewLabel(e.target.value)}
             placeholder={t('seo.comp_label_placeholder')}
@@ -521,7 +521,7 @@ function TabMonitor({ competitorUrl }: { competitorUrl: string }) {
       {monitors.length > 0 && (
         <Card className="overflow-hidden">
           <div className="px-4 py-3 border-b border-neutral-100">
-            <p className="text-[13px] font-semibold text-neutral-900">Competitori monitorizați ({monitors.length}/10)</p>
+            <p className="text-[13px] font-semibold text-neutral-900">{t('seo.monitored_competitors', { count: String(monitors.length) })}</p>
           </div>
           <div className="divide-y divide-neutral-50">
             {monitors.map(m => (
@@ -536,12 +536,12 @@ function TabMonitor({ competitorUrl }: { competitorUrl: string }) {
                     </div>
                     <div className="flex items-center gap-3 text-[11px] text-neutral-400 flex-wrap">
                       <span className="flex items-center gap-1"><Globe className="h-3 w-3" />{hn(m.competitor_url)}</span>
-                      {m.last_checked_at && <span className="flex items-center gap-1"><Clock className="h-3 w-3" />Ultima: {new Date(m.last_checked_at).toLocaleDateString('ro-RO')}</span>}
+                      {m.last_checked_at && <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{t('seo.monitor_last_checked', { date: new Date(m.last_checked_at).toLocaleDateString(locale) })}</span>}
                       {m.latest_score !== null && <span className="font-semibold text-neutral-600">SEO: {m.latest_score}</span>}
                     </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    <button onClick={() => loadSnapshots(m.id)} className="text-[10px] font-medium text-neutral-500 hover:text-neutral-700 px-2 py-1 rounded-lg hover:bg-neutral-100 transition-colors">Istoric</button>
+                    <button onClick={() => loadSnapshots(m.id)} className="text-[10px] font-medium text-neutral-500 hover:text-neutral-700 px-2 py-1 rounded-lg hover:bg-neutral-100 transition-colors">{t('seo.history_label')}</button>
                     <button onClick={() => toggleMonitor(m.id, !m.is_active)}
                       className={`w-9 h-5 rounded-full transition-all relative ${m.is_active ? 'bg-neutral-900' : 'bg-neutral-200'}`}>
                       <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all ${m.is_active ? 'right-0.5' : 'left-0.5'}`} />
@@ -552,7 +552,7 @@ function TabMonitor({ competitorUrl }: { competitorUrl: string }) {
                 {snapshots[m.id] && (
                   <div className="px-4 pb-4">
                     <div className="bg-neutral-50 rounded-xl p-3">
-                      <SectionLabel className="mb-3 block">Evoluție scor SEO</SectionLabel>
+                      <SectionLabel className="mb-3 block">{t('seo.score_evolution')}</SectionLabel>
                       {snapshots[m.id].length === 0
                         ? <p className="text-[11px] text-neutral-400">{t('seo.no_snapshot')}</p>
                         : (
@@ -561,7 +561,7 @@ function TabMonitor({ competitorUrl }: { competitorUrl: string }) {
                               const pct   = (s.seo_score / 100) * 100
                               const color = s.seo_score >= 70 ? 'bg-emerald-400' : s.seo_score >= 45 ? 'bg-amber-400' : 'bg-red-400'
                               return (
-                                <div key={i} className="flex-1 flex flex-col items-center" title={`${s.seo_score} — ${new Date(s.captured_at).toLocaleDateString('ro-RO')}`}>
+                                <div key={i} className="flex-1 flex flex-col items-center" title={`${s.seo_score} — ${new Date(s.captured_at).toLocaleDateString(locale)}`}>
                                   <div className={`w-full rounded-sm ${color}`} style={{ height: `${pct}%`, minHeight: 2 }} />
                                 </div>
                               )
@@ -586,12 +586,12 @@ function TabMonitor({ competitorUrl }: { competitorUrl: string }) {
           </div>
           {unread > 0 && (
             <Btn variant="ghost" size="sm" onClick={markAllRead}>
-              <CheckSquare className="h-3 w-3" />Marchează toate citite
+              <CheckSquare className="h-3 w-3" />{t('seo.mark_all_read')}
             </Btn>
           )}
         </div>
         {alerts.length === 0
-          ? <div className="p-8 text-center"><Bell className="h-8 w-8 text-neutral-200 mx-auto mb-2" /><p className="text-[13px] text-neutral-400">{t('seo.no_change_alerts')} Monitorizările active vor trimite alerte la schimbări.</p></div>
+          ? <div className="p-8 text-center"><Bell className="h-8 w-8 text-neutral-200 mx-auto mb-2" /><p className="text-[13px] text-neutral-400">{t('seo.no_change_alerts')} {t('seo.monitors_alert_text')}</p></div>
           : (
             <div className="divide-y divide-neutral-50">
               {alerts.slice(0, 20).map(a => {
@@ -612,7 +612,7 @@ function TabMonitor({ competitorUrl }: { competitorUrl: string }) {
                         </div>
                       )}
                     </div>
-                    <span className="text-[10px] text-neutral-400 shrink-0">{new Date(a.created_at).toLocaleDateString('ro-RO')}</span>
+                    <span className="text-[10px] text-neutral-400 shrink-0">{new Date(a.created_at).toLocaleDateString(locale)}</span>
                   </div>
                 )
               })}
@@ -632,7 +632,7 @@ function TabKeywords({ myUrl, competitorUrl }: { myUrl: string; competitorUrl: s
   const [error, setError]     = useState('')
 
   async function analyze() {
-    if (!myUrl || !competitorUrl) { setError('URL-urile lipsesc'); return }
+    if (!myUrl || !competitorUrl) { setError(t('seo.urls_missing')); return }
     setLoading(true); setError(''); setResult(null)
     const res  = await fetch('/api/competitor/keywords', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ my_url: myUrl, competitor_url: competitorUrl }) })
     const data = await res.json()
@@ -705,11 +705,11 @@ function TabTechnical({ myUrl, competitorUrl }: { myUrl: string; competitorUrl: 
   const [device, setDevice]   = useState<'mobile' | 'desktop'>('mobile')
 
   async function analyze() {
-    if (!myUrl || !competitorUrl) { setError('URL-urile lipsesc'); return }
+    if (!myUrl || !competitorUrl) { setError(t('seo.urls_missing')); return }
     setLoading(true); setError(''); setData(null)
     const res  = await fetch('/api/competitor/technical', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ my_url: myUrl, competitor_url: competitorUrl }) })
     const d    = await res.json()
-    if (!res.ok) { setError(d.error || 'Eroare'); setLoading(false); return }
+    if (!res.ok) { setError(d.error || t('seo.error_label')); setLoading(false); return }
     setData(d); setLoading(false)
   }
 
@@ -748,7 +748,7 @@ function TabTechnical({ myUrl, competitorUrl }: { myUrl: string; competitorUrl: 
         {error && <p className="text-[11px] text-red-500 flex items-center gap-1.5 mt-3"><XCircle className="h-3.5 w-3.5" />{error}</p>}
       </Card>
 
-      {loading && <Card className="p-8 text-center"><Loader2 className="h-6 w-6 animate-spin text-neutral-400 mx-auto mb-2" /><p className="text-[13px] text-neutral-500">{t('seo.running_pagespeed')}</p><p className="text-[11px] text-neutral-400 mt-1">Poate dura 15-20 secunde</p></Card>}
+      {loading && <Card className="p-8 text-center"><Loader2 className="h-6 w-6 animate-spin text-neutral-400 mx-auto mb-2" /><p className="text-[13px] text-neutral-500">{t('seo.running_pagespeed')}</p><p className="text-[11px] text-neutral-400 mt-1">{t('seo.may_take_seconds')}</p></Card>}
 
       {data && (
         <div className="space-y-4">
@@ -762,7 +762,7 @@ function TabTechnical({ myUrl, competitorUrl }: { myUrl: string; competitorUrl: 
                   return (
                     <button key={d} onClick={() => setDevice(d)}
                       className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[11px] font-medium transition-all ${device === d ? 'bg-white shadow-sm text-neutral-800' : 'text-neutral-400 hover:text-neutral-600'}`}>
-                      <Icon className="h-3 w-3" />{d === 'mobile' ? 'Mobil' : 'Desktop'}
+                      <Icon className="h-3 w-3" />{d === 'mobile' ? t('seo.mobile_label') : t('seo.desktop_label')}
                     </button>
                   )
                 })}
@@ -787,7 +787,7 @@ function TabTechnical({ myUrl, competitorUrl }: { myUrl: string; competitorUrl: 
                         </div>
                       ))}
                     </div>
-                  ) : <p className="text-[11px] text-neutral-400">Date indisponibile</p>}
+                  ) : <p className="text-[11px] text-neutral-400">{t('seo.data_unavailable')}</p>}
                 </div>
               ))}
             </div>
@@ -826,7 +826,7 @@ function TabTechnical({ myUrl, competitorUrl }: { myUrl: string; competitorUrl: 
                 </div>
                 {types?.length > 0
                   ? <div className="flex flex-wrap gap-1.5">{types.map((t: string, i: number) => <span key={i} className="text-[11px] bg-neutral-100 text-neutral-600 px-2.5 py-1 rounded-lg font-medium">{t}</span>)}</div>
-                  : <p className="text-[11px] text-neutral-300">Niciun Schema.org detectat</p>}
+                  : <p className="text-[11px] text-neutral-300">{t('seo.no_schema_detected')}</p>}
               </Card>
             ))}
           </div>
@@ -845,11 +845,11 @@ function TabPricing({ myUrl, competitorUrl }: { myUrl: string; competitorUrl: st
   const [error, setError]     = useState('')
 
   async function analyze() {
-    if (!myUrl || !competitorUrl) { setError('URL-urile lipsesc'); return }
+    if (!myUrl || !competitorUrl) { setError(t('seo.urls_missing')); return }
     setLoading(true); setError(''); setData(null)
     const res  = await fetch('/api/competitor/pricing', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ my_url: myUrl, competitor_url: competitorUrl }) })
     const d    = await res.json()
-    if (!res.ok) { setError(d.error || 'Eroare'); setLoading(false); return }
+    if (!res.ok) { setError(d.error || t('seo.error_label')); setLoading(false); return }
     setData(d.result); setLoading(false)
   }
 
@@ -861,7 +861,7 @@ function TabPricing({ myUrl, competitorUrl }: { myUrl: string; competitorUrl: st
       <Card className="p-5">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-[13px] font-semibold text-neutral-900">Pricing, USP & CTA Benchmark</p>
+            <p className="text-[13px] font-semibold text-neutral-900">{t('seo.pricing_usp_title')}</p>
             <p className="text-[11px] text-neutral-400 mt-0.5">{t('seo.pricing_comparison')}</p>
             <p className="text-[10px] text-neutral-300 mt-1">{t('seo.two_credits')}</p>
           </div>
@@ -878,7 +878,7 @@ function TabPricing({ myUrl, competitorUrl }: { myUrl: string; competitorUrl: st
       {data && (
         <div className="space-y-4">
           <Card className="p-5">
-            <SectionLabel className="mb-3 block">Poziționare preț</SectionLabel>
+            <SectionLabel className="mb-3 block">{t('seo.price_positioning_label')}</SectionLabel>
             <span className={`inline-block text-[13px] font-semibold px-3 py-1.5 rounded-full ${posColors[data.price_positioning] || posColors.necunoscut}`}>
               {posLabels[data.price_positioning] || data.price_positioning}
             </span>
@@ -897,12 +897,12 @@ function TabPricing({ myUrl, competitorUrl }: { myUrl: string; competitorUrl: st
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {[{ label: 'USP-urile tale', items: data.my_usps, dot: 'bg-neutral-900' }, { label: 'USP-urile competitorului', items: data.competitor_usps, dot: 'bg-red-400' }].map(({ label, items, dot }) => (
+            {[{ label: t('seo.your_usps'), items: data.my_usps, dot: 'bg-neutral-900' }, { label: t('seo.competitor_usps'), items: data.competitor_usps, dot: 'bg-red-400' }].map(({ label, items, dot }) => (
               <Card key={label} className="p-4">
                 <div className="flex items-center gap-2 mb-3"><div className={`w-1.5 h-1.5 rounded-full ${dot}`} /><p className="text-[13px] font-semibold text-neutral-900">{label}</p></div>
                 {items?.length > 0
                   ? <div className="space-y-2">{items.map((s, i) => <div key={i} className="flex items-start gap-2 text-[12px] text-neutral-600"><CheckCircle className="h-3.5 w-3.5 text-emerald-500 shrink-0 mt-0.5" />{s}</div>)}</div>
-                  : <p className="text-[11px] text-neutral-300">Niciun USP detectat</p>}
+                  : <p className="text-[11px] text-neutral-300">{t('seo.no_usp_detected')}</p>}
               </Card>
             ))}
           </div>
@@ -943,7 +943,7 @@ function TabPricing({ myUrl, competitorUrl }: { myUrl: string; competitorUrl: st
 // ─── TAB: REPORTS ─────────────────────────────────────────────────────────────
 
 function TabReports({ myUrl, competitorUrl, result }: { myUrl: string; competitorUrl: string; result: ComparisonResult | null }) {
-  const { t } = useT()
+  const { t, locale } = useT()
   const [generating, setGenerating] = useState(false)
   const [report, setReport]         = useState<any>(null)
   const [pastReports, setPastReports] = useState<any[]>([])
@@ -965,7 +965,7 @@ function TabReports({ myUrl, competitorUrl, result }: { myUrl: string; competito
       body: JSON.stringify({ competitor_url: competitorUrl, my_analysis: result.my_store, competitor_analysis: result.competitor }),
     })
     const data = await res.json()
-    if (!res.ok) { setError(data.error || 'Eroare'); setGenerating(false); return }
+    if (!res.ok) { setError(data.error || t('seo.error_label')); setGenerating(false); return }
     setReport(data.report); await loadPast(); setGenerating(false)
   }
 
@@ -985,13 +985,15 @@ function TabReports({ myUrl, competitorUrl, result }: { myUrl: string; competito
 
   const impactColor: Record<string, string> = { mare: 'text-red-500', mediu: 'text-amber-500', mic: 'text-neutral-400' }
   const effortColor: Record<string, string> = { mic: 'text-emerald-600', mediu: 'text-amber-600', mare: 'text-red-500' }
+  const impactLabel: Record<string, string> = { mare: t('seo.comp_impact_high'), mediu: t('seo.comp_impact_medium'), mic: t('seo.comp_impact_low') }
+  const effortLabel: Record<string, string> = { mic: t('seo.comp_effort_low'), mediu: t('seo.comp_effort_medium'), mare: t('seo.comp_effort_high') }
 
   return (
     <div className="space-y-4">
       <Card className="p-5">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-[13px] font-semibold text-neutral-900">Raport SEO Battle</p>
+            <p className="text-[13px] font-semibold text-neutral-900">{t('seo.report_seo_battle')}</p>
             <p className="text-[11px] text-neutral-400 mt-0.5">{t('seo.full_report_desc')}</p>
             {!result && <p className="text-[10px] text-amber-600 mt-1">{t('seo.run_overview_first')}</p>}
             <p className="text-[10px] text-neutral-300 mt-1">{t('seo.three_credits')}</p>
@@ -1011,8 +1013,8 @@ function TabReports({ myUrl, competitorUrl, result }: { myUrl: string; competito
           <Card className="overflow-hidden">
             <div className="px-4 py-3 border-b border-neutral-100 flex items-center justify-between">
               <div>
-                <p className="text-[13px] font-semibold text-neutral-900">Sumar executiv</p>
-                <p className="text-[10px] text-neutral-400 mt-0.5">Generat: {new Date(report.generated_at).toLocaleString('ro-RO')}</p>
+                <p className="text-[13px] font-semibold text-neutral-900">{t('seo.executive_summary_label')}</p>
+                <p className="text-[10px] text-neutral-400 mt-0.5">{t('seo.generated_at_label', { date: new Date(report.generated_at).toLocaleString(locale) })}</p>
               </div>
               <Btn variant="outline" size="sm" onClick={() => downloadReport(report)}>
                 <Download className="h-3 w-3" />JSON
@@ -1022,12 +1024,12 @@ function TabReports({ myUrl, competitorUrl, result }: { myUrl: string; competito
               <div className="flex items-center gap-4 mb-4 flex-wrap">
                 <div className="flex items-center gap-3">
                   <ScoreCircle score={report.my_score || 0} you={true} size={56} />
-                  <SectionLabel>Tu</SectionLabel>
+                  <SectionLabel>{t('seo.competitor_label_you')}</SectionLabel>
                 </div>
                 <span className="text-neutral-300 font-bold">vs</span>
                 <div className="flex items-center gap-3">
                   <ScoreCircle score={report.competitor_score || 0} you={false} size={56} />
-                  <SectionLabel>Competitor</SectionLabel>
+                  <SectionLabel>{t('seo.competitor_label_them')}</SectionLabel>
                 </div>
                 <span className={`ml-2 text-[13px] font-semibold px-3 py-1.5 rounded-full
                   ${report.overall_winner === 'tu' ? 'text-emerald-700 bg-emerald-50' : report.overall_winner === 'competitor' ? 'text-red-600 bg-red-50' : 'text-neutral-600 bg-neutral-100'}`}>
@@ -1051,9 +1053,9 @@ function TabReports({ myUrl, competitorUrl, result }: { myUrl: string; competito
                     <div className="flex-1 min-w-0">
                       <p className="text-[13px] text-neutral-800 font-medium leading-snug">{a.action}</p>
                       <div className="flex items-center gap-3 mt-1.5">
-                        <span className={`text-[10px] font-semibold ${impactColor[a.impact]}`}>Impact: {a.impact}</span>
+                        <span className={`text-[10px] font-semibold ${impactColor[a.impact]}`}>{impactLabel[a.impact] || `Impact: ${a.impact}`}</span>
                         <span className="text-neutral-200">·</span>
-                        <span className={`text-[10px] font-semibold ${effortColor[a.effort]}`}>Efort: {a.effort}</span>
+                        <span className={`text-[10px] font-semibold ${effortColor[a.effort]}`}>{effortLabel[a.effort] || `Effort: ${a.effort}`}</span>
                       </div>
                     </div>
                   </div>
@@ -1064,7 +1066,7 @@ function TabReports({ myUrl, competitorUrl, result }: { myUrl: string; competito
 
           {report.long_term_strategy && (
             <div className="bg-neutral-50 rounded-xl border border-neutral-100 p-5">
-              <SectionLabel className="mb-2 block">Strategie termen lung</SectionLabel>
+              <SectionLabel className="mb-2 block">{t('seo.long_term_strategy_label')}</SectionLabel>
               <p className="text-[13px] text-neutral-700 leading-relaxed">{report.long_term_strategy}</p>
             </div>
           )}
@@ -1074,21 +1076,21 @@ function TabReports({ myUrl, competitorUrl, result }: { myUrl: string; competito
       {pastReports.length > 0 && (
         <Card className="overflow-hidden">
           <div className="px-4 py-3 border-b border-neutral-100">
-            <p className="text-[13px] font-semibold text-neutral-900">Rapoarte anterioare</p>
+            <p className="text-[13px] font-semibold text-neutral-900">{t('seo.previous_reports')}</p>
           </div>
           <div className="divide-y divide-neutral-50">
             {pastReports.map((r: any) => (
               <div key={r.id} className="flex items-center gap-4 px-4 py-3.5">
                 <div className="flex-1 min-w-0">
                   <p className="text-[12px] font-medium text-neutral-700 truncate">{hn(r.competitor_url)}</p>
-                  <p className="text-[10px] text-neutral-400 mt-0.5">{new Date(r.generated_at).toLocaleDateString('ro-RO')}{r.my_score ? ` · ${r.my_score} vs ${r.competitor_score}` : ''}</p>
+                  <p className="text-[10px] text-neutral-400 mt-0.5">{new Date(r.generated_at).toLocaleDateString(locale)}{r.my_score ? ` · ${r.my_score} vs ${r.competitor_score}` : ''}</p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full
                     ${r.overall_winner === 'tu' ? 'text-emerald-600 bg-emerald-50' : r.overall_winner === 'competitor' ? 'text-red-500 bg-red-50' : 'text-neutral-400 bg-neutral-100'}`}>
                     {r.overall_winner === 'tu' ? t('seo.comp_you') : r.overall_winner === 'competitor' ? t('seo.comp_competitor') : t('seo.comp_equal')}
                   </span>
-                  <Btn variant="ghost" size="sm" onClick={() => openReport(r.id)}>Deschide</Btn>
+                  <Btn variant="ghost" size="sm" onClick={() => openReport(r.id)}>{t('seo.open_btn')}</Btn>
                 </div>
               </div>
             ))}
@@ -1162,7 +1164,7 @@ export default function CompetitorPage() {
       const myData   = await myRes.json()
       const theirData = await theirRes.json()
       if (!myRes.ok)    { setError(myData.error || t('seo.comp_error_loading')); setLoading(false); return }
-      if (!theirRes.ok) { setError(theirData.error || 'Nu pot accesa URL-ul competitorului'); setLoading(false); return }
+      if (!theirRes.ok) { setError(theirData.error || t('common.error_generic')); setLoading(false); return }
 
       if (myData.store_url && !myUrl) setMyUrl(myData.store_url)
 
@@ -1189,7 +1191,7 @@ export default function CompetitorPage() {
       })
       saveUrl(competitorUrl)
       setActiveTab('overview')
-    } catch (e: any) { setError('Eroare: ' + e.message) } finally { setLoading(false) }
+    } catch (e: any) { setError(t('seo.error_label') + ': ' + e.message) } finally { setLoading(false) }
   }
 
   return (
@@ -1204,14 +1206,14 @@ export default function CompetitorPage() {
       {/* Input card */}
       <Card className="overflow-hidden">
         <div className="p-5">
-          <p className="text-[10px] font-medium text-neutral-400 uppercase tracking-wide mb-2">URL Competitor</p>
+          <p className="text-[10px] font-medium text-neutral-400 uppercase tracking-wide mb-2">{t('seo.url_competitor_label')}</p>
           <div className="flex items-center gap-3 flex-wrap sm:flex-nowrap">
             <div className="flex-1 flex items-center gap-2.5 border border-neutral-200 rounded-xl px-3.5 py-2.5 focus-within:border-neutral-400 transition-colors min-w-[200px]">
               <Globe className="h-3.5 w-3.5 text-neutral-300 shrink-0" />
               <input
                 value={inputVal} onChange={e => handleUrlInput(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && analyze()}
-                placeholder="competitor.ro sau https://competitor.ro"
+                placeholder={t('seo.comp_url_placeholder')}
                 className="flex-1 text-[13px] text-neutral-800 placeholder-neutral-300 focus:outline-none bg-transparent min-w-0" />
               {inputVal && competitorUrl && inputVal !== competitorUrl && (
                 <span className="text-[10px] text-neutral-400 shrink-0 bg-neutral-100 px-1.5 py-0.5 rounded font-mono">{hn(competitorUrl)}</span>
@@ -1229,13 +1231,13 @@ export default function CompetitorPage() {
           {myUrl && (
             <p className="text-[10px] text-neutral-400 mt-2 flex items-center gap-1.5">
               <CheckCircle className="h-3 w-3 text-emerald-500" />
-              Magazinul tău: <span className="font-mono text-neutral-600">{hn(myUrl)}</span>
+              {t('seo.your_store_label')}: <span className="font-mono text-neutral-600">{hn(myUrl)}</span>
             </p>
           )}
 
           {savedUrls.length > 0 && (
             <div className="flex items-center gap-2 mt-3 flex-wrap">
-              <span className="text-[9px] font-medium text-neutral-300 uppercase tracking-wide">Recenți</span>
+              <span className="text-[9px] font-medium text-neutral-300 uppercase tracking-wide">{t('seo.recent_label')}</span>
               {savedUrls.map((u, i) => (
                 <button key={i} onClick={() => { setInputVal(u); setCompetitorUrl(u) }}
                   className={`group flex items-center gap-1.5 text-[11px] px-2.5 py-1.5 rounded-lg border transition-all

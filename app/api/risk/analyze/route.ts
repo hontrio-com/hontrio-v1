@@ -9,9 +9,9 @@ import { resolveCustomer, getSettings } from '@/lib/risk/identity'
 export async function GET(req: Request) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user) return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
+    if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     const ctx = new URL(req.url).searchParams.get('customer_context')
-    if (!ctx) return NextResponse.json({ error: 'customer_context necesar' }, { status: 400 })
+    if (!ctx) return NextResponse.json({ error: 'customer_context required' }, { status: 400 })
     const c = await openai.chat.completions.create({
       model: 'gpt-4o-mini', max_tokens: 400,
       messages: [
@@ -26,7 +26,7 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user) return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
+    if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     const body = await req.json()
 
     // AI Report
@@ -66,7 +66,7 @@ export async function POST(req: Request) {
     const userId = (session.user as any).id
     const { data: store } = await supabase.from('stores')
       .select('id').eq('id', store_id).eq('user_id', userId).single()
-    if (!store) return NextResponse.json({ error: 'Store negăsit' }, { status: 404 })
+    if (!store) return NextResponse.json({ error: 'Store not found' }, { status: 404 })
 
     const settings = await getSettings(supabase, store_id)
     const { customer, isNew } = await resolveCustomer(

@@ -7,12 +7,12 @@ import { createAdminClient } from '@/lib/supabase/admin'
 export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user) return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
+    if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     const userId = (session.user as any).id
     const { image_id, rating } = await request.json()
 
     if (!image_id || !rating || rating < 1 || rating > 5) {
-      return NextResponse.json({ error: 'image_id și rating (1-5) sunt obligatorii' }, { status: 400 })
+      return NextResponse.json({ error: 'image_id and rating (1-5) are required' }, { status: 400 })
     }
 
     const supabase = createAdminClient()
@@ -25,7 +25,7 @@ export async function POST(request: Request) {
       .eq('user_id', userId)
       .single()
 
-    if (!img) return NextResponse.json({ error: 'Imaginea nu există' }, { status: 404 })
+    if (!img) return NextResponse.json({ error: 'Image not found' }, { status: 404 })
 
     // Save rating
     await supabase.from('image_ratings').upsert({
@@ -41,7 +41,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true })
   } catch {
-    return NextResponse.json({ error: 'Eroare internă' }, { status: 500 })
+    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
   }
 }
 
@@ -49,7 +49,7 @@ export async function POST(request: Request) {
 export async function GET() {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user) return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
+    if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     const userId = (session.user as any).id
     const supabase = createAdminClient()
 
@@ -80,6 +80,6 @@ export async function GET() {
 
     return NextResponse.json({ style_stats: styleStats, top_prompts: topPrompts })
   } catch {
-    return NextResponse.json({ error: 'Eroare internă' }, { status: 500 })
+    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
   }
 }

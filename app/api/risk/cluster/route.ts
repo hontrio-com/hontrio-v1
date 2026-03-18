@@ -8,12 +8,12 @@ import { findClusterMatches, extractCity, type ClusterCandidate } from '@/lib/ri
 export async function GET(req: Request) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user) return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
+    if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const { searchParams } = new URL(req.url)
     const customer_id = searchParams.get('customer_id')
     const store_id = searchParams.get('store_id')
-    if (!customer_id) return NextResponse.json({ error: 'customer_id obligatoriu' }, { status: 400 })
+    if (!customer_id) return NextResponse.json({ error: 'customer_id required' }, { status: 400 })
 
     const supabase = createAdminClient()
 
@@ -24,7 +24,7 @@ export async function GET(req: Request) {
       .eq('id', customer_id)
       .eq('user_id', (session.user as any).id)
       .single()
-    if (!target) return NextResponse.json({ error: 'Client negăsit' }, { status: 404 })
+    if (!target) return NextResponse.json({ error: 'Customer not found' }, { status: 404 })
 
     // Ia ultima adresă de livrare
     const { data: lastOrder } = await supabase
@@ -106,7 +106,7 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user) return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
+    if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const { store_id } = await req.json()
 

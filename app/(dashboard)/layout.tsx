@@ -88,13 +88,13 @@ function SearchDropdown({ results, loading, query, onNavigate }: { results: { pr
         <button onClick={() => onNavigate('/products?search=' + encodeURIComponent(query))} className="w-full flex items-center gap-2 px-4 py-2 text-xs text-neutral-500 hover:bg-neutral-50 transition-colors border-t border-neutral-50"><Search className="h-3 w-3" />{t('dashboard.view_all')} "{query}"<ArrowUpRight className="h-3 w-3 ml-auto" /></button>
       </div>)}
       {results.images.length > 0 && (<div>
-        <div className="flex items-center gap-2 px-4 py-2 bg-neutral-50 border-t border-neutral-100"><ImageIcon className="h-3.5 w-3.5 text-neutral-400" /><span className="text-[10px] font-semibold text-neutral-400 uppercase tracking-wider">Imagini AI</span></div>
+        <div className="flex items-center gap-2 px-4 py-2 bg-neutral-50 border-t border-neutral-100"><ImageIcon className="h-3.5 w-3.5 text-neutral-400" /><span className="text-[10px] font-semibold text-neutral-400 uppercase tracking-wider">{t('dashboard.ai_images_label')}</span></div>
         <div className="px-4 py-3 flex gap-2 overflow-x-auto">
           {results.images.map((img: any) => (<button key={img.id} onClick={() => onNavigate('/images')} className="shrink-0 group relative rounded-lg overflow-hidden border border-neutral-100 hover:border-neutral-300 transition-all"><img src={img.image_url} alt={img.product_title} className="h-16 w-16 object-cover" /></button>))}
         </div>
       </div>)}
       {results.pages.length > 0 && (<div>
-        <div className="flex items-center gap-2 px-4 py-2 bg-neutral-50 border-t border-neutral-100"><FileText className="h-3.5 w-3.5 text-neutral-400" /><span className="text-[10px] font-semibold text-neutral-400 uppercase tracking-wider">Pagini</span></div>
+        <div className="flex items-center gap-2 px-4 py-2 bg-neutral-50 border-t border-neutral-100"><FileText className="h-3.5 w-3.5 text-neutral-400" /><span className="text-[10px] font-semibold text-neutral-400 uppercase tracking-wider">{t('dashboard.pages_label')}</span></div>
         {results.pages.map((p: any) => { const PIcon = p.icon || FileText; return (
           <button key={p.href} onClick={() => onNavigate(p.href)} className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-neutral-50 transition-colors text-left group">
             <div className="h-7 w-7 rounded-lg bg-neutral-100 group-hover:bg-neutral-200 flex items-center justify-center shrink-0 transition-colors"><PIcon className="h-3.5 w-3.5 text-neutral-500" /></div>
@@ -238,7 +238,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 {collapsed ? (
                   <Tooltip><TooltipTrigger asChild><Link href="/admin/stats" className={`group flex items-center justify-center p-2.5 rounded-xl text-sm font-medium transition-all ${pathname.startsWith('/admin') ? 'bg-neutral-100 text-neutral-900' : 'text-neutral-400 hover:text-neutral-600 hover:bg-neutral-50'}`}><Shield className="h-[18px] w-[18px]" /></Link></TooltipTrigger><TooltipContent side="right" sideOffset={10}>Admin</TooltipContent></Tooltip>
                 ) : (
-                  <Link href="/admin/stats" onClick={() => setSidebarOpen(false)} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${pathname.startsWith('/admin') ? 'bg-neutral-100 text-neutral-900' : 'text-neutral-400 hover:text-neutral-600 hover:bg-neutral-50'}`}><Shield className="h-[18px] w-[18px]" /><span>Panou Admin</span></Link>
+                  <Link href="/admin/stats" onClick={() => setSidebarOpen(false)} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${pathname.startsWith('/admin') ? 'bg-neutral-100 text-neutral-900' : 'text-neutral-400 hover:text-neutral-600 hover:bg-neutral-50'}`}><Shield className="h-[18px] w-[18px]" /><span>{t('dashboard.admin_panel')}</span></Link>
                 )}
               </>)}
             </nav>
@@ -268,7 +268,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <div className={`border-t border-neutral-100 ${collapsed ? 'p-2' : 'p-3'}`}>
               {collapsed ? (
                 <>
-                <Tooltip><TooltipTrigger asChild><button onClick={toggleLocale} className="w-full flex items-center justify-center p-2.5 rounded-xl text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100 transition-all text-[13px] font-bold">{locale === 'ro' ? '🇷🇴' : '🇬🇧'}</button></TooltipTrigger><TooltipContent side="right" sideOffset={10}>{locale === 'ro' ? 'Switch to English' : 'Schimbă în Română'}</TooltipContent></Tooltip>
+                <Tooltip><TooltipTrigger asChild><button onClick={toggleLocale} className="w-full flex items-center justify-center p-2.5 rounded-xl text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100 transition-all text-[13px] font-bold">{locale === 'ro' ? '🇷🇴' : '🇬🇧'}</button></TooltipTrigger><TooltipContent side="right" sideOffset={10}>{locale === 'ro' ? t('common.switch_to_english') : t('dashboard.switch_to_romanian')}</TooltipContent></Tooltip>
                 <Tooltip><TooltipTrigger asChild><button onClick={() => signOut({ callbackUrl: '/login' })} className="w-full flex items-center justify-center p-2.5 rounded-xl text-neutral-400 hover:text-red-500 hover:bg-red-50 transition-all"><LogOut className="h-[18px] w-[18px]" /></button></TooltipTrigger><TooltipContent side="right" sideOffset={10}>{t('common.logout')}</TooltipContent></Tooltip>
                 </>
               ) : (
@@ -280,7 +280,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     <p className="text-[13px] font-medium text-neutral-900 truncate">{userName}</p>
                     <p className="text-[11px] text-neutral-400 truncate">{userEmail}</p>
                   </div>
-                  <button onClick={toggleLocale} className="p-1.5 rounded-lg text-neutral-300 hover:text-neutral-700 hover:bg-neutral-100 transition-all text-[12px] font-bold" title={locale === 'ro' ? 'Switch to English' : 'Schimbă în Română'}>{locale === 'ro' ? '🇷🇴' : '🇬🇧'}</button>
+                  <button onClick={toggleLocale} className="p-1.5 rounded-lg text-neutral-300 hover:text-neutral-700 hover:bg-neutral-100 transition-all text-[12px] font-bold" title={locale === 'ro' ? t('common.switch_to_english') : t('dashboard.switch_to_romanian')}>{locale === 'ro' ? '🇷🇴' : '🇬🇧'}</button>
                   <button onClick={() => signOut({ callbackUrl: '/login' })} className="p-1.5 rounded-lg text-neutral-300 hover:text-red-500 hover:bg-red-50 transition-all"><LogOut className="h-4 w-4" /></button>
                 </div>
               )}

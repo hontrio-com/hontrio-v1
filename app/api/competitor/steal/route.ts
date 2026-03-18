@@ -32,21 +32,21 @@ const FIELD_RULES: Record<string, { label: string; minLen: number; maxLen: numbe
 export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user) return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
+    if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const userId = (session.user as any).id
     const limit = await rateLimitExpensive(userId, 'steal')
-    if (!limit.success) return NextResponse.json({ error: 'Prea multe cereri.' }, { status: 429 })
+    if (!limit.success) return NextResponse.json({ error: 'Too many requests.' }, { status: 429 })
 
     const { product_id, field, my_current, competitor_value, competitor_url, apply } = await request.json()
 
     if (!field || !competitor_value) {
-      return NextResponse.json({ error: 'Câmpurile field și competitor_value sunt obligatorii' }, { status: 400 })
+      return NextResponse.json({ error: 'Fields field and competitor_value are required' }, { status: 400 })
     }
 
     const rule = FIELD_RULES[field]
     if (!rule) {
-      return NextResponse.json({ error: `Câmpul "${field}" nu este suportat` }, { status: 400 })
+      return NextResponse.json({ error: `Field "${field}" is not supported` }, { status: 400 })
     }
 
     const supabase = createAdminClient()
@@ -60,7 +60,7 @@ export async function POST(request: Request) {
 
     if (!user || user.credits < CREDIT_COST) {
       return NextResponse.json(
-        { error: `Credite insuficiente (necesare: ${CREDIT_COST})` },
+        { error: `Insufficient credits (required: ${CREDIT_COST})` },
         { status: 400 }
       )
     }
@@ -116,7 +116,7 @@ important: char_count trebuie să fie lungimea reală a improved_value în carac
     try {
       result = JSON.parse(raw)
     } catch {
-      return NextResponse.json({ error: 'Eroare la generare. Încearcă din nou.' }, { status: 500 })
+      return NextResponse.json({ error: 'Generation error. Please try again.' }, { status: 500 })
     }
 
     // Calculează char_count real (nu cel dat de GPT)
@@ -164,6 +164,6 @@ important: char_count trebuie să fie lungimea reală a improved_value în carac
 
   } catch (err) {
     console.error('[Steal]', err)
-    return NextResponse.json({ error: 'Eroare internă' }, { status: 500 })
+    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
   }
 }

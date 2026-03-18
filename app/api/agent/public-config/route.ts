@@ -14,7 +14,7 @@ export async function GET(request: Request) {
     const userId = searchParams.get('userId')
 
     if (!userId) {
-      return NextResponse.json({ error: 'userId lipsește' }, { status: 400, headers: CORS })
+      return NextResponse.json({ error: 'Missing userId' }, { status: 400, headers: CORS })
     }
 
     const supabase = createAdminClient()
@@ -68,7 +68,7 @@ export async function GET(request: Request) {
 
   } catch (err) {
     console.error('[Public Config]', err)
-    return NextResponse.json({ error: 'Eroare internă' }, { status: 500, headers: CORS })
+    return NextResponse.json({ error: 'Internal error' }, { status: 500, headers: CORS })
   }
 }
 

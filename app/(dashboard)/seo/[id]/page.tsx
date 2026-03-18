@@ -109,7 +109,7 @@ function GooglePreview({ title, description, url, mobile }: { title: string; des
   const { t } = useT()
   const maxT = mobile ? 55 : 60
   const maxD = mobile ? 120 : 155
-  const titleText = title || 'Titlu produs'
+  const titleText = title || t('seo.title_product_fallback')
   const d = description || t('seo.meta_missing_fallback')
   return (
     <Card className="p-4">
@@ -229,15 +229,15 @@ function KeywordDensity({ keyword, shortDesc, longDesc }: { keyword: string; sho
         </div>
         <div className="min-w-0">
           <p className={`text-[12px] font-semibold ${ok ? 'text-emerald-600' : 'text-red-500'}`}>{ok ? 'Ideal ✓' : low ? t('seo.too_few_label') : t('seo.too_much_label')}</p>
-          <p className="text-[10px] text-neutral-400 truncate">"{keyword}" × {count} în {words} cuv.</p>
+          <p className="text-[10px] text-neutral-400 truncate">{t('seo.mentions_in_words', { keyword, count: String(count), words: String(words) })}</p>
         </div>
       </div>
       <div className="flex gap-3 text-[11px] flex-wrap">
         <span className={`flex items-center gap-1 font-medium ${inShort ? 'text-emerald-600' : 'text-red-400'}`}>
-          {inShort ? <Check className="h-3 w-3" /> : <XCircle className="h-3 w-3" />} Desc. scurtă
+          {inShort ? <Check className="h-3 w-3" /> : <XCircle className="h-3 w-3" />} {t('seo.short_desc_label')}
         </span>
         <span className={`flex items-center gap-1 font-medium ${inLong ? 'text-emerald-600' : 'text-red-400'}`}>
-          {inLong ? <Check className="h-3 w-3" /> : <XCircle className="h-3 w-3" />} Desc. lungă
+          {inLong ? <Check className="h-3 w-3" /> : <XCircle className="h-3 w-3" />} {t('seo.long_desc_html')}
         </span>
       </div>
       {low && count > 0 && <p className="text-[10px] text-amber-600 mt-2">{t('seo.mention_more')}</p>}
@@ -271,7 +271,7 @@ function DuplicateWarning({ productId, title }: { productId: string; title: stri
     <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}
       className="flex items-start gap-2 p-3 bg-amber-50 rounded-xl border border-amber-100 text-[12px] text-amber-700 mb-2">
       <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-      <span><strong>{t('seo.duplicate_title')}:</strong> „{dup}" — Google poate penaliza duplicate content.</span>
+      <span><strong>{t('seo.duplicate_title')}:</strong> „{dup}" — {t('seo.duplicate_content_warning')}</span>
     </motion.div>
   )
 }
@@ -284,6 +284,7 @@ function SectionEditor({ label, fieldKey, value, originalValue, generating, save
   onChange: (v: string) => void; onGenerate: () => void; onSave: () => void; onRevert: () => void
   maxChars?: number; minChars?: number; isHtml?: boolean; placeholder?: string; hint?: string; creditCost: number
 }) {
+  const { t } = useT()
   const hasChanges = value !== originalValue
   return (
     <Card className="overflow-hidden">
@@ -294,10 +295,10 @@ function SectionEditor({ label, fieldKey, value, originalValue, generating, save
             {saved && !hasChanges && (
               <motion.span initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }}
                 className="flex items-center gap-1 text-[10px] text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full font-medium">
-                <CheckCircle className="h-2.5 w-2.5" />Salvat
+                <CheckCircle className="h-2.5 w-2.5" />{t('seo.saved_label')}
               </motion.span>
             )}
-            {hasChanges && !saved && <span className="text-[10px] text-neutral-500 bg-neutral-100 px-2 py-0.5 rounded-full font-medium">Modificat</span>}
+            {hasChanges && !saved && <span className="text-[10px] text-neutral-500 bg-neutral-100 px-2 py-0.5 rounded-full font-medium">{t('seo.modified_label')}</span>}
           </div>
           <div className="flex items-center gap-1.5 flex-wrap">
             {hasChanges && originalValue && (
@@ -307,12 +308,12 @@ function SectionEditor({ label, fieldKey, value, originalValue, generating, save
             )}
             <Btn variant="outline" size="sm" onClick={onGenerate} disabled={generating}>
               {generating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
-              {generating ? 'Generez...' : 'AI'}
+              {generating ? t('seo.generating_ai') : 'AI'}
               <span className="text-neutral-300 text-[9px]">{creditCost}cr</span>
             </Btn>
             {hasChanges && (
               <Btn variant="success" size="sm" onClick={onSave}>
-                <Save className="h-3 w-3" />Salvează
+                <Save className="h-3 w-3" />{t('seo.save_label')}
               </Btn>
             )}
           </div>
@@ -370,14 +371,14 @@ function SchemaWidget({ productId }: { productId: string }) {
         </div>
       </div>
       <div className="p-4">
-        {!schema && <p className="text-[12px] text-neutral-400 leading-relaxed">Generează structured data <strong>Product + Offer</strong> {t('seo.schema_helps')}</p>}
+        {!schema && <p className="text-[12px] text-neutral-400 leading-relaxed">{t('seo.generate_schema_desc')} <strong>Product + Offer</strong> {t('seo.schema_helps')}</p>}
         {schema && show && (
           <>
-            <p className="text-[11px] text-neutral-400 mb-2">Adaugă în <code className="bg-neutral-100 px-1 rounded text-neutral-600">&lt;head&gt;</code> {t('seo.schema_yoast')}</p>
+            <p className="text-[11px] text-neutral-400 mb-2">{t('seo.schema_add_head')} <code className="bg-neutral-100 px-1 rounded text-neutral-600">&lt;head&gt;</code> {t('seo.schema_yoast')}</p>
             <pre className="bg-neutral-900 text-emerald-400 text-[10px] rounded-xl p-3 overflow-x-auto leading-relaxed font-mono">{schema}</pre>
             <a href="https://search.google.com/test/rich-results" target="_blank" rel="noopener"
               className="inline-flex items-center gap-1 text-[11px] text-neutral-500 hover:text-neutral-700 mt-2 transition-colors">
-              <ExternalLink className="h-3 w-3" />Testează cu Google Rich Results
+              <ExternalLink className="h-3 w-3" />{t('seo.test_rich_results')}
             </a>
           </>
         )}
@@ -403,7 +404,7 @@ function HistoryWidget({ productId, onRestore }: { productId: string; onRestore:
       <button onClick={() => setOpen(!open)} className="w-full flex items-center justify-between px-4 py-3 hover:bg-neutral-50 transition-colors">
         <div className="flex items-center gap-2">
           <History className="h-3.5 w-3.5 text-neutral-400 shrink-0" />
-          <span className="text-[13px] font-semibold text-neutral-800">Istoric versiuni</span>
+          <span className="text-[13px] font-semibold text-neutral-800">{t('seo.history_title')}</span>
         </div>
         <ChevronDown className={`h-4 w-4 text-neutral-400 transition-transform shrink-0 ${open ? 'rotate-180' : ''}`} />
       </button>
@@ -412,9 +413,9 @@ function HistoryWidget({ productId, onRestore }: { productId: string; onRestore:
           <motion.div initial={{ height: 0 }} animate={{ height: 'auto' }} exit={{ height: 0 }} className="overflow-hidden">
             <div className="px-4 pb-4 border-t border-neutral-100">
               {loading
-                ? <div className="flex items-center gap-2 py-4 text-[12px] text-neutral-400"><Loader2 className="h-4 w-4 animate-spin" />Se încarcă...</div>
+                ? <div className="flex items-center gap-2 py-4 text-[12px] text-neutral-400"><Loader2 className="h-4 w-4 animate-spin" />{t('seo.loading_versions')}</div>
                 : history.length === 0
-                  ? <p className="text-[11px] text-neutral-400 py-3 text-center">Nicio versiune. Se creează automat la fiecare generare AI.</p>
+                  ? <p className="text-[11px] text-neutral-400 py-3 text-center">{t('seo.no_version_auto')}</p>
                   : (
                     <div className="space-y-1 pt-2">
                       {history.map(v => (
@@ -474,7 +475,7 @@ function InternalLinkSuggestions({ productId, longDesc, category }: { productId:
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <div className="flex items-center gap-2">
             <Link2 className="h-3.5 w-3.5 text-neutral-500 shrink-0" />
-            <span className="text-[13px] font-semibold text-neutral-800">Linkuri interne sugerate</span>
+            <span className="text-[13px] font-semibold text-neutral-800">{t('seo.internal_links_title')}</span>
             <span className="text-[10px] bg-neutral-100 text-neutral-500 px-2 py-0.5 rounded-full font-medium">Gratis</span>
           </div>
           <Btn variant="outline" size="sm" onClick={generate} disabled={loading}>
@@ -485,8 +486,8 @@ function InternalLinkSuggestions({ productId, longDesc, category }: { productId:
       </div>
       <div className="p-4">
         {!done && !loading && <p className="text-[12px] text-neutral-400 leading-relaxed">{t('seo.crosslink_desc')}</p>}
-        {loading && <div className="flex items-center gap-2 py-2 text-[12px] text-neutral-400"><Loader2 className="h-4 w-4 animate-spin" />Analizez...</div>}
-        {done && suggestions.length === 0 && <p className="text-[12px] text-neutral-400">Nicio sugestie. Completează descrierea lungă pentru rezultate mai bune.</p>}
+        {loading && <div className="flex items-center gap-2 py-2 text-[12px] text-neutral-400"><Loader2 className="h-4 w-4 animate-spin" />{t('seo.analyzing_label')}</div>}
+        {done && suggestions.length === 0 && <p className="text-[12px] text-neutral-400">{t('seo.no_suggestions_long_desc')}</p>}
         {done && suggestions.length > 0 && (
           <div className="space-y-2">
             {suggestions.map(s => (
@@ -498,7 +499,7 @@ function InternalLinkSuggestions({ productId, longDesc, category }: { productId:
                 </div>
                 <Link href={`/seo/${s.id}`} target="_blank"
                   className="text-[10px] font-medium text-neutral-500 hover:text-neutral-700 px-2 py-1 rounded hover:bg-neutral-200 transition-colors shrink-0">
-                  Deschide
+                  {t('seo.open_label')}
                 </Link>
               </div>
             ))}
@@ -512,12 +513,13 @@ function InternalLinkSuggestions({ productId, longDesc, category }: { productId:
 // ─── HTML Preview ─────────────────────────────────────────────────────────────
 
 function LongDescPreview({ html }: { html: string }) {
+  const { t } = useT()
   const [show, setShow] = useState(false)
   return (
     <div className="mt-2">
       <button onClick={() => setShow(!show)} className="flex items-center gap-1.5 text-[11px] text-neutral-400 hover:text-neutral-600 transition-colors px-1">
         {show ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-        {show ? 'Ascunde preview' : 'Preview HTML randat'}
+        {show ? t('seo.hide_preview') : t('seo.html_preview')}
       </button>
       <AnimatePresence>
         {show && (
@@ -599,16 +601,16 @@ export default function ProductSEOPage() {
       const map: Record<SectionKey, string> = { title: r.optimized_title || '', meta_description: r.meta_description || '', short_description: r.optimized_short_description || '', long_description: r.optimized_long_description || '', focus_keyword: r.focus_keyword || '' }
       upd(section, { current: map[section], modified: map[section], saved: false })
       if (data.credits_remaining !== undefined) setCredits(data.credits_remaining)
-    } catch { alert('Eroare la conexiune') } finally { upd(section, { generating: false }) }
+    } catch { alert(t('seo.error_connection')) } finally { upd(section, { generating: false }) }
   }
 
   async function handleGenerateAll() {
     setGeneratingAll(true)
-    await saveSnapshot('Înainte de Generare tot')
+    await saveSnapshot(t('seo.before_generate_all'))
     try {
       const res  = await fetch('/api/seo/optimize', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ product_id: productId, section: 'all' }) })
       const data = await res.json()
-      if (!res.ok) { alert(data.error || 'Eroare'); return }
+      if (!res.ok) { alert(data.error || t('seo.error_label')); return }
       const r = data.result
       setSections(prev => ({
         title:             { ...prev.title,             current: r.optimized_title || prev.title.current,                         modified: r.optimized_title,                saved: false },
@@ -618,7 +620,7 @@ export default function ProductSEOPage() {
         focus_keyword:     { ...prev.focus_keyword,     current: r.focus_keyword || prev.focus_keyword.current,                   modified: r.focus_keyword,                  saved: false },
       }))
       if (data.credits_remaining !== undefined) setCredits(data.credits_remaining)
-    } catch { alert('Eroare la conexiune') } finally { setGeneratingAll(false) }
+    } catch { alert(t('seo.error_connection')) } finally { setGeneratingAll(false) }
   }
 
   async function handleSave(section: SectionKey) {
@@ -628,7 +630,7 @@ export default function ProductSEOPage() {
       const data = await res.json()
       if (!res.ok) { alert(data.error); return }
       upd(section, { saved: true, modified: null, original: sections[section].current })
-    } catch { alert('Eroare la salvare') }
+    } catch { alert(t('seo.error_save')) }
   }
 
   async function handleSaveAll() {
@@ -640,7 +642,7 @@ export default function ProductSEOPage() {
       const data = await res.json()
       if (!res.ok) { alert(data.error); return }
       setSections(prev => { const n = { ...prev }; for (const k of Object.keys(n) as SectionKey[]) n[k] = { ...n[k], saved: true, modified: null }; return n })
-    } catch { alert('Eroare la salvare') }
+    } catch { alert(t('seo.error_save')) }
   }
 
   async function handleRevert(section: SectionKey) {
@@ -649,7 +651,7 @@ export default function ProductSEOPage() {
     try {
       await fetch('/api/seo/save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ product_id: productId, action: 'revert', field: fieldMap[section] }) })
       upd(section, { current: origMap[section], modified: null, saved: false })
-    } catch { alert('Eroare la revert') }
+    } catch { alert(t('seo.error_revert')) }
   }
 
   async function handlePublish() {
@@ -690,7 +692,7 @@ export default function ProductSEOPage() {
       {/* Header */}
       <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}>
         <Link href="/seo" className="inline-flex items-center gap-1.5 text-[12px] text-neutral-400 hover:text-neutral-700 transition-colors mb-3">
-          <ChevronLeft className="h-3.5 w-3.5" />Înapoi la SEO
+          <ChevronLeft className="h-3.5 w-3.5" />{t('seo.back_to_seo')}
         </Link>
 
         <div className="flex flex-col sm:flex-row sm:items-start gap-3">
@@ -706,7 +708,7 @@ export default function ProductSEOPage() {
           <div className="flex items-center gap-2 flex-wrap shrink-0">
             {anyUnsaved && (
               <Btn variant="success" size="sm" onClick={handleSaveAll}>
-                <Save className="h-3.5 w-3.5" />Salvează tot
+                <Save className="h-3.5 w-3.5" />{t('seo.save_all_label')}
               </Btn>
             )}
             <Btn variant="outline" size="sm" onClick={handleGenerateAll} disabled={generatingAll}>
@@ -752,7 +754,7 @@ export default function ProductSEOPage() {
                   )
                 })}
               </div>
-              <span className="text-[11px] text-neutral-400">Preview {previewMode === 'mobile' ? 'mobil (55/120 car.)' : 'desktop (60/155 car.)'}</span>
+              <span className="text-[11px] text-neutral-400">Preview {previewMode === 'mobile' ? t('seo.preview_mobile_chars') : t('seo.preview_desktop_chars')}</span>
             </div>
             <GooglePreview title={sections.title.current} description={sections.meta_description.current} url={previewUrl} mobile={previewMode === 'mobile'} />
           </motion.div>
@@ -773,11 +775,11 @@ export default function ProductSEOPage() {
 
           {/* Sections */}
           {([
-            { key: 'title',             label: t('seo.title_tag'),     maxChars: 70,  minChars: 50,  placeholder: 'Titlu optimizat — 50-70 caractere',                hint: 'Apare în Google și tab browser. Include keyword-ul principal în primele cuvinte.', creditCost: 1 },
-            { key: 'meta_description',  label: 'Meta Description',          maxChars: 155, minChars: 120, placeholder: t('seo.meta_placeholder_text'),      hint: t('seo.meta_hint_text'),           creditCost: 1 },
-            { key: 'focus_keyword',     label: 'Focus Keyword',             maxChars: 60,                 placeholder: t('seo.kw_placeholder_text'),          hint: t('seo.kw_hint_text'),       creditCost: 1 },
-            { key: 'short_description', label: t('seo.short_desc_label'),          maxChars: 350, minChars: 80,  placeholder: 'Descriere scurtă — apare înainte de Adaugă în coș', hint: '2-4 propoziții care conving clientul.',                                          creditCost: 2, isHtml: /<[a-z][\s\S]*>/i.test(sections.short_description.current) },
-            { key: 'long_description',  label: t('seo.long_desc_html'),                                  placeholder: '<h3>Titlu</h3><p>Conținut...</p>',                  hint: 'Editor HTML. Structura existentă e PĂSTRATĂ — AI optimizează textul, nu tagurile.', creditCost: 2, isHtml: true },
+            { key: 'title',             label: t('seo.title_tag'),        maxChars: 70,  minChars: 50,  placeholder: t('seo.title_placeholder'),        hint: t('seo.title_hint'),          creditCost: 1 },
+            { key: 'meta_description',  label: 'Meta Description',        maxChars: 155, minChars: 120, placeholder: t('seo.meta_placeholder_text'),    hint: t('seo.meta_hint_text'),      creditCost: 1 },
+            { key: 'focus_keyword',     label: 'Focus Keyword',           maxChars: 60,                 placeholder: t('seo.kw_placeholder_text'),      hint: t('seo.kw_hint_text'),        creditCost: 1 },
+            { key: 'short_description', label: t('seo.short_desc_label'), maxChars: 350, minChars: 80,  placeholder: t('seo.short_desc_placeholder'),   hint: t('seo.short_desc_hint'),     creditCost: 2, isHtml: /<[a-z][\s\S]*>/i.test(sections.short_description.current) },
+            { key: 'long_description',  label: t('seo.long_desc_html'),                                 placeholder: t('seo.long_desc_placeholder'),    hint: t('seo.long_desc_hint'),      creditCost: 2, isHtml: true },
           ] as any[]).map((cfg, i) => (
             <motion.div key={cfg.key} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 + i * 0.04 }}>
               {cfg.key === 'title' && <DuplicateWarning productId={productId} title={sections.title.current} />}
@@ -830,13 +832,13 @@ export default function ProductSEOPage() {
         <div className="text-[12px] min-w-0">
           {anyUnsaved
             ? <span className="text-neutral-600 font-medium">{t('seo.unsaved_changes')}</span>
-            : <span className="text-emerald-600 font-medium flex items-center gap-1.5"><CheckCircle className="h-3.5 w-3.5 shrink-0" />Totul salvat</span>}
+            : <span className="text-emerald-600 font-medium flex items-center gap-1.5"><CheckCircle className="h-3.5 w-3.5 shrink-0" />{t('seo.all_saved')}</span>}
           {credits !== null && <span className="text-neutral-400 ml-2 tabular-nums">{t('seo.credits_remaining')}: {credits}</span>}
         </div>
         <div className="flex gap-2 shrink-0">
           {anyUnsaved && (
             <Btn variant="success" size="sm" onClick={handleSaveAll}>
-              <Save className="h-3.5 w-3.5" />Salvează tot
+              <Save className="h-3.5 w-3.5" />{t('seo.save_all_label')}
             </Btn>
           )}
           <Btn size="sm" onClick={handlePublish} disabled={publishing}>

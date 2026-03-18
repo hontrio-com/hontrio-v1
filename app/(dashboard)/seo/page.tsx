@@ -72,7 +72,7 @@ function FieldDot({ has, label }: { has: boolean; label: string }) {
 function ImpactBadge({ impact }: { impact: string }) {
   const { t } = useT()
   if (impact === 'passed')   return <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100"><CheckCircle className="h-3 w-3" />OK</span>
-  if (impact === 'critical') return <span className="inline-flex items-center gap-1 text-[11px] font-medium text-red-600 bg-red-50 px-2 py-0.5 rounded-full border border-red-100"><XCircle className="h-3 w-3" />Critic</span>
+  if (impact === 'critical') return <span className="inline-flex items-center gap-1 text-[11px] font-medium text-red-600 bg-red-50 px-2 py-0.5 rounded-full border border-red-100"><XCircle className="h-3 w-3" />{t('seo.audit_impact_critical')}</span>
   return <span className="inline-flex items-center gap-1 text-[11px] font-medium text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-100"><AlertTriangle className="h-3 w-3" />{t('seo.attention')}</span>
 }
 
@@ -253,10 +253,10 @@ export default function SEOPage() {
           {/* Stats */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {[
-              { key: 'all',          label: 'Total',        value: products.length, color: 'text-neutral-700' },
-              { key: 'good',         label: 'seo.optimized_filter',   value: optimized,       color: 'text-emerald-600' },
-              { key: 'partial',      label: 'seo.partial_filter',      value: partial,         color: 'text-amber-600'   },
-              { key: 'unoptimized',  label: 'seo.unoptimized_filter', value: unoptimized,     color: 'text-red-500'     },
+              { key: 'all',          label: t('seo.total_label'),             value: products.length, color: 'text-neutral-700' },
+              { key: 'good',         label: t('seo.optimized_filter'),         value: optimized,       color: 'text-emerald-600' },
+              { key: 'partial',      label: t('seo.partial_filter'),           value: partial,         color: 'text-amber-600'   },
+              { key: 'unoptimized',  label: t('seo.unoptimized_filter'),       value: unoptimized,     color: 'text-red-500'     },
             ].map(s => (
               <button key={s.key} onClick={() => setFilterStatus(filterStatus === s.key as any ? 'all' : s.key as any)}
                 className={`p-4 rounded-xl border-2 text-center transition-all bg-white
@@ -278,17 +278,17 @@ export default function SEOPage() {
             {selected.size === 0 ? (
               unoptimizedIds.length > 0 && (
                 <Btn variant="ghost" onClick={() => setSelected(new Set(unoptimizedIds))}>
-                  <CheckSquare className="h-3.5 w-3.5" />Selectează neoptimizate ({unoptimizedIds.length})
+                  <CheckSquare className="h-3.5 w-3.5" />{t('seo.select_unoptimized')} ({unoptimizedIds.length})
                 </Btn>
               )
             ) : (
               <div className="flex items-center gap-2">
-                <span className="text-[12px] font-medium text-neutral-700 bg-neutral-100 px-3 py-1.5 rounded-xl">{selected.size} selectate</span>
+                <span className="text-[12px] font-medium text-neutral-700 bg-neutral-100 px-3 py-1.5 rounded-xl">{selected.size} {t('seo.selected_label')}</span>
                 <button onClick={() => setSelected(new Set())} className="p-1.5 text-neutral-400 hover:text-neutral-600 rounded-lg hover:bg-neutral-100"><X className="h-4 w-4" /></button>
                 <Btn onClick={runBulk} disabled={bulkRunning}>
                   {bulkRunning
-                    ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />Procesez...</>
-                    : <><Sparkles className="h-3.5 w-3.5" />Optimizează ({selected.size * 5} cr.)</>}
+                    ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />{t('seo.audit_analyzing')}</>
+                    : <><Sparkles className="h-3.5 w-3.5" />{t('seo.optimize_cr')} ({selected.size * 5} cr.)</>}
                 </Btn>
               </div>
             )}
@@ -450,7 +450,7 @@ export default function SEOPage() {
             {auditing && (
               <div className="mt-4 pt-4 border-t border-white/10 text-center">
                 <Loader2 className="h-6 w-6 animate-spin text-white/40 mx-auto mb-2" />
-                <p className="text-[12px] text-neutral-400">Analizez cu Google PageSpeed Insights...</p>
+                <p className="text-[12px] text-neutral-400">{t('seo.audit_analyzing_msg')}</p>
                 <p className="text-[11px] text-neutral-600 mt-0.5">{t('seo.audit_wait')}</p>
               </div>
             )}
@@ -473,7 +473,7 @@ export default function SEOPage() {
               <div className="bg-neutral-900 rounded-xl p-5">
                 <div className="flex items-center justify-between mb-4">
                   <div>
-                    <p className="text-[13px] font-semibold text-white">Rezultate</p>
+                    <p className="text-[13px] font-semibold text-white">{t('seo.audit_results_label')}</p>
                     <a href={auditResult.url} target="_blank" rel="noopener"
                       className="text-neutral-400 text-[11px] hover:text-white flex items-center gap-1 transition-colors mt-0.5">
                       {auditResult.url}<ExternalLink className="h-2.5 w-2.5" />
@@ -505,12 +505,12 @@ export default function SEOPage() {
                 <div className="flex items-center gap-3">
                   {criticalIssues > 0 && (
                     <span className="flex items-center gap-1.5 text-[12px] text-red-600 bg-red-50 border border-red-100 px-3 py-1.5 rounded-full font-medium">
-                      <XCircle className="h-3.5 w-3.5" />{criticalIssues} critice
+                      <XCircle className="h-3.5 w-3.5" />{t('seo.audit_critical_count', { count: String(criticalIssues) })}
                     </span>
                   )}
                   {warningIssues > 0 && (
                     <span className="flex items-center gap-1.5 text-[12px] text-amber-600 bg-amber-50 border border-amber-100 px-3 py-1.5 rounded-full font-medium">
-                      <AlertTriangle className="h-3.5 w-3.5" />{warningIssues} avertismente
+                      <AlertTriangle className="h-3.5 w-3.5" />{t('seo.audit_warnings_count', { count: String(warningIssues) })}
                     </span>
                   )}
                 </div>
@@ -521,7 +521,7 @@ export default function SEOPage() {
                 <Card className="overflow-hidden">
                   <div className="px-4 py-3 border-b border-neutral-100 flex items-center gap-2">
                     <Search className="h-3.5 w-3.5 text-neutral-400" />
-                    <p className="text-[13px] font-semibold text-neutral-900">Audit SEO — {auditResult.seo_issues.length} verificări</p>
+                    <p className="text-[13px] font-semibold text-neutral-900">{t('seo.audit_seo_checks', { count: String(auditResult.seo_issues.length) })}</p>
                   </div>
                   <div className="divide-y divide-neutral-50">
                     {[...auditResult.seo_issues]
@@ -564,7 +564,7 @@ export default function SEOPage() {
                 <Card className="overflow-hidden">
                   <div className="px-4 py-3 border-b border-neutral-100 flex items-center gap-2">
                     <Zap className="h-3.5 w-3.5 text-amber-500" />
-                    <p className="text-[13px] font-semibold text-neutral-900">Performanță — {auditResult.perf_issues.length} oportunități</p>
+                    <p className="text-[13px] font-semibold text-neutral-900">{t('seo.audit_perf_opps', { count: String(auditResult.perf_issues.length) })}</p>
                   </div>
                   <div className="divide-y divide-neutral-50">
                     {auditResult.perf_issues.map(issue => (
@@ -584,7 +584,7 @@ export default function SEOPage() {
                               exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden">
                               <div className="px-4 pb-4">
                                 <div className="bg-amber-50 rounded-xl p-3 border border-amber-100">
-                                  <p className="text-[11px] font-semibold text-amber-700 mb-1">✦ Cum rezolvi:</p>
+                                  <p className="text-[11px] font-semibold text-amber-700 mb-1">{t('seo.audit_how_to_fix')}</p>
                                   <p className="text-[12px] text-amber-600 leading-relaxed">{issue.fix}</p>
                                 </div>
                               </div>

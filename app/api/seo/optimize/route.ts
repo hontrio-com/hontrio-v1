@@ -317,25 +317,25 @@ export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user) {
-      return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const userId = (session.user as any).id
 
     const limit = await rateLimitExpensive(userId, 'seo-optimize')
     if (!limit.success) {
-      return NextResponse.json({ error: 'Prea multe cereri. Așteaptă un minut.' }, { status: 429 })
+      return NextResponse.json({ error: 'Too many requests. Please wait a minute.' }, { status: 429 })
     }
 
     const { product_id, section = 'all' } = await request.json()
 
     if (!product_id) {
-      return NextResponse.json({ error: 'product_id lipsește' }, { status: 400 })
+      return NextResponse.json({ error: 'product_id is required' }, { status: 400 })
     }
 
     const validSections = Object.keys(CREDIT_COSTS)
     if (!validSections.includes(section)) {
-      return NextResponse.json({ error: 'Secțiune invalidă' }, { status: 400 })
+      return NextResponse.json({ error: 'Invalid section' }, { status: 400 })
     }
 
     const supabase = createAdminClient()
@@ -350,7 +350,7 @@ export async function POST(request: Request) {
 
     if (!user || user.credits < creditCost) {
       return NextResponse.json(
-        { error: `Credite insuficiente. Necesare: ${creditCost} credite.` },
+        { error: `Insufficient credits. Required: ${creditCost} credits.` },
         { status: 400 }
       )
     }
@@ -370,13 +370,13 @@ export async function POST(request: Request) {
       .single()
 
     if (!product) {
-      return NextResponse.json({ error: 'Produs negăsit' }, { status: 404 })
+      return NextResponse.json({ error: 'Product not found' }, { status: 404 })
     }
 
     // Build prompt
     const userPrompt = buildSectionPrompt(section, product)
     if (!userPrompt) {
-      return NextResponse.json({ error: 'Secțiune invalidă' }, { status: 400 })
+      return NextResponse.json({ error: 'Invalid section' }, { status: 400 })
     }
 
     // Inject brand context + language into system prompt
@@ -406,7 +406,7 @@ export async function POST(request: Request) {
       result = JSON.parse(cleaned)
     } catch {
       console.error('[SEO Optimize] Parse error:', cleaned.substring(0, 300))
-      return NextResponse.json({ error: 'Eroare la procesarea răspunsului AI' }, { status: 500 })
+      return NextResponse.json({ error: 'Error processing AI response' }, { status: 500 })
     }
 
     // Deduct credits
@@ -417,7 +417,7 @@ export async function POST(request: Request) {
       type: 'usage',
       amount: -creditCost,
       balance_after: newBalance,
-      description: `SEO optimizare "${section}" — ${product.original_title?.substring(0, 40)}`,
+      description: `SEO optimization "${section}" — ${product.original_title?.substring(0, 40)}`,
       reference_type: 'seo_optimization',
       reference_id: product_id,
     })
@@ -444,6 +444,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true, result, credits_remaining: newBalance })
   } catch (err) {
     console.error('[SEO Optimize] Error:', err)
-    return NextResponse.json({ error: 'Eroare internă' }, { status: 500 })
+    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
   }
 }

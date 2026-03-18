@@ -8,7 +8,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 export async function GET() {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user) return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
+    if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const userId = (session.user as any).id
     const supabase = createAdminClient()
@@ -108,6 +108,6 @@ export async function GET() {
 
   } catch (err) {
     console.error('[My Store Analysis]', err)
-    return NextResponse.json({ error: 'Eroare interna' }, { status: 500 })
+    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
   }
 }

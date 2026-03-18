@@ -240,9 +240,9 @@ function Timeline({ orders, onUpdateStatus, updatingOrder }: {
                 {isActive && (
                   <div className="flex gap-1.5 mt-2 flex-wrap">
                     {[
-                      { status: 'collected', label: '✓ Ridicat',  cls: 'bg-emerald-600 hover:bg-emerald-700 text-white' },
+                      { status: 'collected', label: t('risk.collected_btn'),  cls: 'bg-emerald-600 hover:bg-emerald-700 text-white' },
                       { status: 'refused',   label: t('risk.refused_btn'),  cls: 'bg-red-600 hover:bg-red-700 text-white' },
-                      { status: 'not_home',  label: '○ Absent',   cls: 'bg-amber-100 hover:bg-amber-200 text-amber-800' },
+                      { status: 'not_home',  label: t('risk.absent_btn'),   cls: 'bg-amber-100 hover:bg-amber-200 text-amber-800' },
                       { status: 'cancelled', label: t('risk.cancelled_btn'),   cls: 'bg-neutral-200 hover:bg-neutral-300 text-neutral-700' },
                     ].map(btn => (
                       <button key={btn.status} onClick={() => onUpdateStatus(order.id, btn.status)} disabled={updatingOrder === order.id}
@@ -275,7 +275,7 @@ function AddressMap({ orders }: { orders: Order[] }) {
   }, {})
   const addresses = Object.entries(addressCounts).sort((a, b) => b[1].count - a[1].count).slice(0, 6)
   if (addresses.length === 0) return (
-    <div className="text-center py-8"><MapPin className="h-6 w-6 text-neutral-200 mx-auto mb-2" /><p className="text-[12px] text-neutral-400">{t('risk.no_address')} înregistrată</p></div>
+    <div className="text-center py-8"><MapPin className="h-6 w-6 text-neutral-200 mx-auto mb-2" /><p className="text-[12px] text-neutral-400">{t('risk.no_address_registered')}</p></div>
   )
   return (
     <div className="space-y-2">
@@ -287,7 +287,7 @@ function AddressMap({ orders }: { orders: Order[] }) {
           <div className="flex-1 min-w-0">
             <p className="text-[12px] text-neutral-700 font-medium">{addr}</p>
             <p className="text-[11px] text-neutral-400 mt-0.5">
-              {data.count} comenzi · {data.bad > 0 ? <span className="text-red-500">{data.bad} problematice</span> : <span className="text-emerald-600">{t('risk.no_issues')}</span>}
+              {t('risk.orders_count_label', { count: String(data.count) })} · {data.bad > 0 ? <span className="text-red-500">{t('risk.refusals_count', { count: String(data.bad) })}</span> : <span className="text-emerald-600">{t('risk.no_issues')}</span>}
             </p>
           </div>
           <div className={`text-[10px] font-mono px-1.5 py-0.5 rounded-full ${data.bad > 0 ? 'bg-red-100 text-red-600' : 'bg-emerald-100 text-emerald-600'}`}>×{data.count}</div>
@@ -300,6 +300,7 @@ function AddressMap({ orders }: { orders: Order[] }) {
 // ─── Loss Calculator ──────────────────────────────────────────────────────────
 
 function LossCalculator({ customer, orders }: { customer: Customer; orders: Order[] }) {
+  const { t } = useT()
   const refused = orders.filter(o => o.order_status === 'refused')
   const totalLost = refused.reduce((s, o) => s + (o.total_value || 0), 0)
   const shippingCost = 15
@@ -310,12 +311,12 @@ function LossCalculator({ customer, orders }: { customer: Customer; orders: Orde
     <Card className="p-4 bg-red-50 border-red-100">
       <div className="flex items-center gap-2 mb-3">
         <DollarSign className="h-3.5 w-3.5 text-red-500" />
-        <span className="text-[12px] font-semibold text-red-700">Estimare Pierderi Generate</span>
+        <span className="text-[12px] font-semibold text-red-700">{t('risk.estimated_losses_title')}</span>
       </div>
       <div className="grid grid-cols-3 gap-2 text-center">
-        <div><p className="text-xl font-black text-red-600">{totalLost.toFixed(0)}</p><p className="text-[10px] text-red-400">RON refuzate</p></div>
-        <div><p className="text-xl font-black text-orange-600">{totalShipping}</p><p className="text-[10px] text-orange-400">RON transport</p></div>
-        <div><p className="text-xl font-black text-neutral-900">{totalDamage.toFixed(0)}</p><p className="text-[10px] text-neutral-500">RON total</p></div>
+        <div><p className="text-xl font-black text-red-600">{totalLost.toFixed(0)}</p><p className="text-[10px] text-red-400">{t('risk.ron_refused')}</p></div>
+        <div><p className="text-xl font-black text-orange-600">{totalShipping}</p><p className="text-[10px] text-orange-400">{t('risk.ron_shipping')}</p></div>
+        <div><p className="text-xl font-black text-neutral-900">{totalDamage.toFixed(0)}</p><p className="text-[10px] text-neutral-500">{t('risk.ron_total')}</p></div>
       </div>
     </Card>
   )
@@ -396,7 +397,7 @@ function ClusterTab({ storeId, customers, onOpenProfile }: {
       {loading && (
         <div className="flex flex-col items-center py-16 gap-3">
           <div className="h-7 w-7 border-2 border-neutral-900 border-t-transparent rounded-full animate-spin" />
-          <p className="text-[12px] text-neutral-400">Procesez {customers.length} clienți...</p>
+          <p className="text-[12px] text-neutral-400">{t('risk.processing_customers_count', { count: String(customers.length) })}</p>
         </div>
       )}
 
@@ -410,16 +411,16 @@ function ClusterTab({ storeId, customers, onOpenProfile }: {
 
       {clusters.length > 0 && (
         <div className="space-y-3">
-          <p className="text-[11px] text-neutral-400">{clusters.length} grupuri de identități similare detectate</p>
+          <p className="text-[11px] text-neutral-400">{t('risk.similar_groups_detected', { count: String(clusters.length) })}</p>
           {clusters.map((cluster, i) => (
             <Card key={i} className={`p-4 ${cluster.riskLevel === 'high' ? 'border-red-200' : 'border-amber-200'}`}>
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
                   <span className={`h-2 w-2 rounded-full ${cluster.riskLevel === 'high' ? 'bg-red-500' : 'bg-amber-400'}`} />
-                  <span className="text-[13px] font-semibold text-neutral-900">{cluster.memberCount} identități similare</span>
+                  <span className="text-[13px] font-semibold text-neutral-900">{t('risk.similar_identities_count', { count: String(cluster.memberCount) })}</span>
                 </div>
                 <div className="flex items-center gap-2 text-[11px] text-neutral-400">
-                  <span className="text-red-600 font-semibold">{cluster.combinedRefusals} refuzuri</span>
+                  <span className="text-red-600 font-semibold">{t('risk.refusals_count', { count: String(cluster.combinedRefusals) })}</span>
                   <span>·</span><span>{t('risk.score_max')}: {cluster.maxRiskScore}</span>
                 </div>
               </div>
@@ -514,7 +515,7 @@ function SettingsTab({ settings, mlAccuracy, mlTotalPredictions, savingSettings,
         <SectionLabel>{t('risk.risk_thresholds')}</SectionLabel>
         <div className="space-y-4 mt-3">
           {[
-            { key: 'score_watch_threshold',        label: 'Prag Watch',        color: 'text-amber-600' },
+            { key: 'score_watch_threshold',        label: t('risk.watch_threshold'),        color: 'text-amber-600' },
             { key: 'score_problematic_threshold',  label: t('risk.threshold_problematic'),  color: 'text-orange-600' },
             { key: 'score_blocked_threshold',      label: t('risk.threshold_blocked'),       color: 'text-red-600' },
           ].map(item => (
@@ -536,10 +537,10 @@ function SettingsTab({ settings, mlAccuracy, mlTotalPredictions, savingSettings,
         <div className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
             {[
-              { k: 'max_orders_per_day',       label: 'Max comenzi/zi',              type: 'number', min: 1, max: 20 },
+              { k: 'max_orders_per_day',       label: t('risk.max_orders_per_day'),              type: 'number', min: 1, max: 20 },
               { k: 'min_collection_rate_pct',  label: t('risk.min_collection_rate'),        type: 'number', min: 10, max: 100 },
-              { k: 'flag_high_value_cod_ron',  label: 'Prag COD valoare mare (RON)',  type: 'number', min: 100 },
-              { k: 'flag_new_account_days',    label: 'Cont nou (zile)',              type: 'number', min: 0, max: 30 },
+              { k: 'flag_high_value_cod_ron',  label: t('risk.high_cod_threshold'),  type: 'number', min: 100 },
+              { k: 'flag_new_account_days',    label: t('risk.new_account_days'),              type: 'number', min: 0, max: 30 },
             ].map(f => (
               <div key={f.k}>
                 <label className="text-[11px] text-neutral-400 mb-1 block">{f.label}</label>
@@ -562,14 +563,14 @@ function SettingsTab({ settings, mlAccuracy, mlTotalPredictions, savingSettings,
 
       {/* ML Model */}
       <Card className="p-5">
-        <SectionLabel>Scoring Adaptiv (ML)</SectionLabel>
+        <SectionLabel>{t('risk.adaptive_scoring_ml')}</SectionLabel>
         <div className="flex items-center gap-4 p-4 bg-neutral-50 rounded-xl mb-3">
           <div className="h-14 w-14 rounded-xl bg-neutral-900 flex items-center justify-center shrink-0">
             <span className="text-white text-lg font-black tabular-nums">{mlAccuracy !== null ? `${mlAccuracy}%` : '—'}</span>
           </div>
           <div>
             <p className="text-[13px] font-semibold text-neutral-900">{t('risk.model_accuracy')}</p>
-            <p className="text-[12px] text-neutral-400 mt-0.5">{mlTotalPredictions} predicții procesate</p>
+            <p className="text-[12px] text-neutral-400 mt-0.5">{t('risk.predictions_processed', { count: String(mlTotalPredictions) })}</p>
             {mlTotalPredictions < 20 && (
               <p className="text-[11px] text-amber-500 mt-1">{t('risk.model_calibrating')}</p>
             )}
@@ -582,14 +583,14 @@ function SettingsTab({ settings, mlAccuracy, mlTotalPredictions, savingSettings,
 
       {/* Costuri transport */}
       <Card className="p-5">
-        <SectionLabel>Costuri Transport (pentru calcul pierderi)</SectionLabel>
+        <SectionLabel>{t('risk.transport_costs_title')}</SectionLabel>
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="text-[11px] text-neutral-400 mb-1 block">Cost livrare (RON)</label>
+            <label className="text-[11px] text-neutral-400 mb-1 block">{t('risk.delivery_cost_ron')}</label>
             <Inp k="shipping_cost_ron" type="number" min={0} />
           </div>
           <div>
-            <label className="text-[11px] text-neutral-400 mb-1 block">Cost retur (RON)</label>
+            <label className="text-[11px] text-neutral-400 mb-1 block">{t('risk.return_cost_ron')}</label>
             <Inp k="return_shipping_cost_ron" type="number" min={0} />
           </div>
         </div>
@@ -712,7 +713,7 @@ export default function RiskShieldPage() {
 
   async function syncAll() {
     if (syncingAll) return
-    setSyncingAll(true); setSyncProgress({ stage: 'init', message: 'Conectare la WooCommerce...' })
+    setSyncingAll(true); setSyncProgress({ stage: 'init', message: t('risk.connecting_woocommerce') })
     try {
       const evtSource = new EventSource('/api/risk/sync-all')
       evtSource.onmessage = (event) => {
@@ -756,9 +757,9 @@ export default function RiskShieldPage() {
         const ordersRes = await fetch(`/api/risk/orders?store_id=${selectedStore}&customer_id=${selectedCustomer.id}&limit=100`)
         const ordersData = await ordersRes.json(); setCustomerOrders(ordersData.orders || [])
         setCustomers(prev => prev.map(c => c.id === selectedCustomer.id ? { ...c, risk_score: data.new_score, risk_label: data.new_label, total_orders: ordersData.orders?.length || c.total_orders } : c))
-        alert(`✓ Import complet: ${data.total_in_woocommerce} comenzi găsite, ${data.imported} noi importate.`)
-      } else { alert('Eroare: ' + (data.error || 'necunoscută')) }
-    } catch { alert('Eroare la import') } finally { setImportingHistory(false) }
+        alert(t('risk.import_complete', { found: String(data.total_in_woocommerce), imported: String(data.imported) }))
+      } else { alert(t('risk.import_error', { error: data.error || '?' })) }
+    } catch { alert(t('risk.import_error_generic')) } finally { setImportingHistory(false) }
   }
 
   async function overrideLabel(customerId: string, label: string | null) {
@@ -869,10 +870,10 @@ export default function RiskShieldPage() {
             </select>
           )}
           <Btn variant="outline" onClick={() => { fetchCustomers(); fetchAlerts() }}>
-            <RefreshCw className="h-3.5 w-3.5" />Refresh
+            <RefreshCw className="h-3.5 w-3.5" />{t('risk.refresh_btn')}
           </Btn>
           <Btn variant="outline" onClick={() => window.location.href = '/settings?tab=plugin'}>
-            <Download className="h-3.5 w-3.5" />Plugin WooCommerce
+            <Download className="h-3.5 w-3.5" />{t('risk.woo_plugin_btn')}
           </Btn>
           <Btn onClick={syncAll} disabled={syncingAll}>
             <RefreshCw className={`h-3.5 w-3.5 ${syncingAll ? 'animate-spin' : ''}`} />
@@ -906,7 +907,7 @@ export default function RiskShieldPage() {
           )}
           <div className="flex flex-wrap gap-3 text-[11px] text-neutral-400 mt-1.5">
             {syncProgress.custCreated !== undefined && <span>{syncProgress.custCreated} {t('risk.new_customers')}</span>}
-            {syncProgress.ordInserted !== undefined && <span>{syncProgress.ordInserted} comenzi importate</span>}
+            {syncProgress.ordInserted !== undefined && <span>{t('risk.orders_imported', { count: String(syncProgress.ordInserted) })}</span>}
           </div>
         </motion.div>
       )}
@@ -914,12 +915,12 @@ export default function RiskShieldPage() {
       {/* Stats Row */}
       <div className="grid grid-cols-3 lg:grid-cols-6 gap-2">
         {[
-          { key: 'all',          label: 'Total',        value: totalCustomers,       color: 'text-neutral-900' },
+          { key: 'all',          label: t('risk.tab_total'),        value: totalCustomers,       color: 'text-neutral-900' },
           { key: 'blocked',      label: t('risk.blocked_label'),      value: stats.blocked || 0,   color: 'text-red-600' },
-          { key: 'problematic',  label: 'Problematici', value: stats.problematic||0, color: 'text-orange-600' },
-          { key: 'watch',        label: 'Watch',        value: stats.watch || 0,     color: 'text-amber-600' },
-          { key: 'new',          label: 'Noi',          value: stats.new || 0,       color: 'text-neutral-600' },
-          { key: 'trusted',      label: 'Trusted',      value: stats.trusted || 0,   color: 'text-emerald-600' },
+          { key: 'problematic',  label: t('risk.tab_problematic'), value: stats.problematic||0, color: 'text-orange-600' },
+          { key: 'watch',        label: t('risk.tab_watch'),        value: stats.watch || 0,     color: 'text-amber-600' },
+          { key: 'new',          label: t('risk.tab_new'),          value: stats.new || 0,       color: 'text-neutral-600' },
+          { key: 'trusted',      label: t('risk.tab_trusted'),      value: stats.trusted || 0,   color: 'text-emerald-600' },
         ].map((s, i) => {
           const isActive = labelFilter === s.key && activeTab === 'customers'
           return (
@@ -939,10 +940,10 @@ export default function RiskShieldPage() {
         {[
           { key: 'customers',  label: t('risk.customers_tab'),   icon: Users      },
           { key: 'alerts',     label: t('risk.alerts'),    icon: Bell,  badge: unreadAlerts },
-          { key: 'financial',  label: 'Financiar', icon: DollarSign },
-          { key: 'heatmap',    label: 'Heatmap',   icon: MapPin     },
-          { key: 'clusters',   label: 'Clustere',  icon: Network    },
-          { key: 'analytics',  label: 'Analytics', icon: BarChart3  },
+          { key: 'financial',  label: t('risk.tab_financial'), icon: DollarSign },
+          { key: 'heatmap',    label: t('risk.tab_heatmap'),   icon: MapPin     },
+          { key: 'clusters',   label: t('risk.tab_clusters'),  icon: Network    },
+          { key: 'analytics',  label: t('risk.tab_analytics'), icon: BarChart3  },
           { key: 'settings',   label: t('risk.settings_tab_label'),    icon: Settings   },
         ].map(tab => {
           const Icon = tab.icon
@@ -982,9 +983,9 @@ export default function RiskShieldPage() {
               <div className="divide-y divide-neutral-50">
                 {/* Header - hidden on mobile */}
                 <div className="hidden sm:grid px-4 py-2.5 grid-cols-12 gap-3 text-[10px] font-medium text-neutral-400 uppercase tracking-wide bg-neutral-50">
-                  <div className="col-span-5">Client</div>
-                  <div className="col-span-3">Risc</div>
-                  <div className="col-span-2 hidden lg:block">Scor</div>
+                  <div className="col-span-5">{t('risk.col_customer')}</div>
+                  <div className="col-span-3">{t('risk.col_risk')}</div>
+                  <div className="col-span-2 hidden lg:block">{t('risk.col_score')}</div>
                   <div className="col-span-2">{t('risk.orders')}</div>
                 </div>
                 {customers.map((customer, i) => {
@@ -1059,10 +1060,10 @@ export default function RiskShieldPage() {
       {activeTab === 'alerts' && (
         <div className="space-y-3">
           <div className="flex justify-between items-center">
-            <p className="text-[12px] text-neutral-400">{alerts.length} alerte · {unreadAlerts} necitite</p>
+            <p className="text-[12px] text-neutral-400">{t('risk.alerts_count', { total: String(alerts.length), unread: String(unreadAlerts) })}</p>
             {unreadAlerts > 0 && (
               <Btn variant="outline" size="sm" onClick={markAllAlertsRead}>
-                <Check className="h-3 w-3" />Marchează toate citite
+                <Check className="h-3 w-3" />{t('risk.mark_all_read_btn')}
               </Btn>
             )}
           </div>
@@ -1107,7 +1108,7 @@ export default function RiskShieldPage() {
       {activeTab === 'financial' && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <p className="text-[13px] font-semibold text-neutral-900">Raport Financiar Pierderi</p>
+            <p className="text-[13px] font-semibold text-neutral-900">{t('risk.financial_report_title')}</p>
             <div className="flex items-center gap-1">
               {[7, 30, 90].map(p => (
                 <button key={p} onClick={() => { setFinancialPeriod(p); fetchFinancial(p) }}
@@ -1127,7 +1128,7 @@ export default function RiskShieldPage() {
             <>
               {/* Hero pierderi */}
               <Card className="p-5 bg-neutral-900 border-neutral-900">
-                <p className="text-[10px] text-neutral-500 uppercase tracking-wide mb-1">Pierderi totale ({financialData.period} zile)</p>
+                <p className="text-[10px] text-neutral-500 uppercase tracking-wide mb-1">{t('risk.total_losses_period', { period: String(financialData.period) })}</p>
                 <div className="flex items-end gap-3 mb-4">
                   <p className="text-4xl font-black text-white tabular-nums">{financialData.loss.totalLoss.toLocaleString()} RON</p>
                   {financialData.refusalRateChange !== 0 && (
@@ -1140,9 +1141,9 @@ export default function RiskShieldPage() {
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   {[
                     { label: t('risk.product_value'),       val: financialData.loss.productLoss },
-                    { label: 'Transport dus',        val: financialData.loss.shippingLoss },
+                    { label: t('risk.shipping_forward'),        val: financialData.loss.shippingLoss },
                     { label: t('risk.return_shipping'),     val: financialData.loss.returnShippingLoss },
-                    { label: 'Reimpachetare',        val: financialData.loss.repackagingLoss },
+                    { label: t('risk.repackaging'),        val: financialData.loss.repackagingLoss },
                   ].map(item => (
                     <div key={item.label} className="bg-white/10 rounded-xl p-3">
                       <p className="text-xl font-bold text-white tabular-nums">{item.val.toLocaleString()}</p>
@@ -1161,14 +1162,14 @@ export default function RiskShieldPage() {
               <Card className="p-4 bg-amber-50 border-amber-200 flex items-center gap-3">
                 <AlertOctagon className="h-7 w-7 text-amber-500 shrink-0" />
                 <div>
-                  <p className="text-[13px] font-semibold text-amber-900">Proiecție lunară: {financialData.projectedMonthlyLoss.toLocaleString()} RON pierderi</p>
+                  <p className="text-[13px] font-semibold text-amber-900">{t('risk.monthly_projection', { amount: financialData.projectedMonthlyLoss.toLocaleString() })}</p>
                   <p className="text-[11px] text-amber-600 mt-0.5">{t('risk.calculated_from')}</p>
                 </div>
               </Card>
 
               {financialData.daily.length > 0 && (
                 <Card className="p-4">
-                  <p className="text-[11px] font-medium text-neutral-400 uppercase tracking-wide mb-3">Refuzuri zilnice</p>
+                  <p className="text-[11px] font-medium text-neutral-400 uppercase tracking-wide mb-3">{t('risk.daily_refusals')}</p>
                   <div className="flex items-end gap-0.5 h-16">
                     {financialData.daily.slice(-30).map((d, i) => {
                       const maxVal = Math.max(...financialData.daily.slice(-30).map(x => x.refused), 1)
@@ -1177,7 +1178,7 @@ export default function RiskShieldPage() {
                         <div key={i} className="flex-1 flex flex-col items-center gap-0 group relative">
                           <div className={`w-full rounded-t transition-all ${d.refused > 0 ? 'bg-neutral-400 group-hover:bg-neutral-600' : 'bg-neutral-100'}`} style={{ height: `${h}%` }} />
                           <div className="absolute bottom-full mb-1 hidden group-hover:block bg-neutral-900 text-white text-[9px] px-2 py-1 rounded whitespace-nowrap z-10">
-                            {d.date.slice(5)}: {d.refused} refuzuri
+                            {t('risk.daily_refused_tooltip', { date: d.date.slice(5), count: String(d.refused) })}
                           </div>
                         </div>
                       )
@@ -1196,7 +1197,7 @@ export default function RiskShieldPage() {
                         <span className="text-2xl font-black text-neutral-100 w-6 text-center tabular-nums">{i+1}</span>
                         <div className="flex-1 min-w-0">
                           <p className="text-[13px] font-medium text-neutral-900 truncate">{c.name || c.phone || '—'}</p>
-                          <p className="text-[11px] text-neutral-400">{c.lossOrders} colete refuzate</p>
+                          <p className="text-[11px] text-neutral-400">{t('risk.refused_parcels', { count: String(c.lossOrders) })}</p>
                         </div>
                         <div className="text-right">
                           <p className="text-[13px] font-bold text-red-600 tabular-nums">{c.totalLoss.toLocaleString()} RON</p>
@@ -1222,11 +1223,11 @@ export default function RiskShieldPage() {
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-[13px] font-semibold text-neutral-900">Heatmap Geografic Risc</p>
+              <p className="text-[13px] font-semibold text-neutral-900">{t('risk.geo_heatmap_title')}</p>
               <p className="text-[12px] text-neutral-400 mt-0.5">{t('risk.refusal_by_county')}</p>
             </div>
             <Btn variant="outline" size="sm" onClick={fetchHeatmap} disabled={loadingHeatmap}>
-              <RefreshCw className={`h-3 w-3 ${loadingHeatmap ? 'animate-spin' : ''}`} />Actualizează
+              <RefreshCw className={`h-3 w-3 ${loadingHeatmap ? 'animate-spin' : ''}`} />{t('risk.update_btn')}
             </Btn>
           </div>
 
@@ -1237,15 +1238,15 @@ export default function RiskShieldPage() {
           ) : heatmapData.length > 0 ? (
             <>
               <div className="flex items-center gap-4 text-[11px] text-neutral-400">
-                <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded bg-emerald-400 inline-block" />Scăzut (&lt;15%)</span>
-                <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded bg-amber-400 inline-block" />Mediu (15–30%)</span>
-                <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded bg-red-500 inline-block" />Ridicat (&gt;30%)</span>
-                <span className="ml-auto">Media națională: <strong className="text-neutral-700">{nationalRefusalRate}%</strong></span>
+                <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded bg-emerald-400 inline-block" />{t('risk.low_risk')}</span>
+                <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded bg-amber-400 inline-block" />{t('risk.medium_risk')}</span>
+                <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded bg-red-500 inline-block" />{t('risk.high_risk')}</span>
+                <span className="ml-auto">{t('risk.national_avg')} <strong className="text-neutral-700">{nationalRefusalRate}%</strong></span>
               </div>
 
               <Card className="overflow-hidden">
                 <div className="grid grid-cols-[1fr_auto_auto_auto] text-[10px] font-medium text-neutral-400 uppercase tracking-wide px-4 py-2 bg-neutral-50 border-b border-neutral-100">
-                  <span>{t('risk.county')}</span><span className="text-right pr-4">Comenzi</span><span className="text-right pr-4">Refuzuri</span><span className="text-right">{t('risk.rate')}</span>
+                  <span>{t('risk.county')}</span><span className="text-right pr-4">{t('risk.orders_col')}</span><span className="text-right pr-4">{t('risk.refusals_col')}</span><span className="text-right">{t('risk.rate')}</span>
                 </div>
                 <div className="divide-y divide-neutral-50 max-h-96 overflow-y-auto">
                   {heatmapData.map(point => (
@@ -1271,10 +1272,10 @@ export default function RiskShieldPage() {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {heatmapData.slice(0, 3).map((p, i) => (
                   <Card key={p.county} className={`p-4 ${p.riskLevel === 'high' ? 'bg-red-50 border-red-100' : 'bg-amber-50 border-amber-100'}`}>
-                    <p className="text-[10px] text-neutral-400 mb-1">#{i+1} risc maxim</p>
+                    <p className="text-[10px] text-neutral-400 mb-1">{t('risk.max_risk_label', { n: String(i + 1) })}</p>
                     <p className="text-[13px] font-semibold text-neutral-900">{p.name}</p>
                     <p className={`text-2xl font-black mt-1 tabular-nums ${p.riskLevel === 'high' ? 'text-red-600' : 'text-amber-600'}`}>{p.refusalRate}%</p>
-                    <p className="text-[10px] text-neutral-400 mt-0.5 tabular-nums">{p.refused}/{p.total} comenzi</p>
+                    <p className="text-[10px] text-neutral-400 mt-0.5 tabular-nums">{t('risk.county_orders_count', { refused: String(p.refused), total: String(p.total) })}</p>
                   </Card>
                 ))}
               </div>
@@ -1303,7 +1304,7 @@ export default function RiskShieldPage() {
               { label: t('risk.high_risk_rate'), value: `${riskRate}%`, sub: `${(stats.blocked||0) + (stats.problematic||0)} ${t('risk.high_risk_customers')}`, color: riskRate > 20 ? 'text-red-600' : 'text-neutral-900' },
               { label: t('risk.collection_rate_label'), value: `${globalCollectionRate}%`, sub: `${totalCollected} ${t('common.of')} ${totalOrders}`, color: globalCollectionRate < 60 ? 'text-orange-600' : 'text-emerald-600' },
               { label: t('risk.refusal_rate_label'), value: `${globalRefusalRate}%`, sub: `${totalRefused} ${t('risk.refused')} · ${totalNotHome} ${t('risk.status_not_home')}`, color: globalRefusalRate > 20 ? 'text-red-600' : 'text-neutral-900' },
-              { label: 'Alerte active', value: activeAlerts, sub: `${unreadAlerts} necitite`, color: activeAlerts > 0 ? 'text-red-600' : 'text-neutral-900' },
+              { label: t('risk.active_alerts_label'), value: activeAlerts, sub: t('risk.unread_label', { count: String(unreadAlerts) }), color: activeAlerts > 0 ? 'text-red-600' : 'text-neutral-900' },
             ].map((item, i) => (
               <Card key={i} className="p-4">
                 <p className={`text-2xl font-black tabular-nums ${item.color}`}>{item.value}</p>
@@ -1317,11 +1318,11 @@ export default function RiskShieldPage() {
             <p className="text-[11px] font-medium text-neutral-400 uppercase tracking-wide mb-4">{t('risk.risk_distribution')}</p>
             <div className="space-y-3">
               {[
-                { key: 'blocked',     label: 'Blocat',      color: 'bg-red-500',     text: 'text-red-600' },
-                { key: 'problematic', label: 'Problematic', color: 'bg-orange-400',  text: 'text-orange-600' },
-                { key: 'watch',       label: 'Watch',       color: 'bg-amber-400',   text: 'text-amber-600' },
-                { key: 'new',         label: 'Nou',         color: 'bg-neutral-300', text: 'text-neutral-600' },
-                { key: 'trusted',     label: 'Trusted',     color: 'bg-emerald-400', text: 'text-emerald-600' },
+                { key: 'blocked',     label: t('risk.blocked_label'),      color: 'bg-red-500',     text: 'text-red-600' },
+                { key: 'problematic', label: t('risk.problematic_label'), color: 'bg-orange-400',  text: 'text-orange-600' },
+                { key: 'watch',       label: t('risk.watch_label'),       color: 'bg-amber-400',   text: 'text-amber-600' },
+                { key: 'new',         label: t('risk.label_new'),         color: 'bg-neutral-300', text: 'text-neutral-600' },
+                { key: 'trusted',     label: t('risk.tab_trusted'),     color: 'bg-emerald-400', text: 'text-emerald-600' },
               ].map(item => {
                 const val = stats[item.key] || 0
                 const pct = totalCustomers > 0 ? (val / totalCustomers) * 100 : 0
@@ -1347,7 +1348,7 @@ export default function RiskShieldPage() {
             {customers.filter(c => c.risk_label === 'blocked' || c.risk_label === 'problematic').length === 0 ? (
               <div className="text-center py-6">
                 <CheckCircle2 className="h-7 w-7 text-neutral-200 mx-auto mb-2" />
-                <p className="text-[13px] text-neutral-400">Niciun client cu risc ridicat</p>
+                <p className="text-[13px] text-neutral-400">{t('risk.no_high_risk')}</p>
               </div>
             ) : (
               <div className="space-y-1.5">
@@ -1402,14 +1403,14 @@ export default function RiskShieldPage() {
                     {(selectedCustomer.name || selectedCustomer.email || '?')[0].toUpperCase()}
                   </div>
                   <div>
-                    <p className="text-[14px] font-semibold text-neutral-900">{selectedCustomer.name || 'Client necunoscut'}</p>
+                    <p className="text-[14px] font-semibold text-neutral-900">{selectedCustomer.name || t('risk.unknown_customer')}</p>
                     <div className="flex items-center gap-2 mt-1 flex-wrap">
                       <RiskBadge label={selectedCustomer.risk_label} score={selectedCustomer.risk_score} />
                       {selectedCustomer.in_global_blacklist && (
                         <span className="inline-flex items-center gap-1 text-[10px] bg-red-600 text-white px-1.5 py-0.5 rounded-full"><Globe className="h-2.5 w-2.5" />Global BL</span>
                       )}
                       {selectedCustomer.in_local_blacklist && (
-                        <span className="inline-flex items-center gap-1 text-[10px] bg-neutral-900 text-white px-1.5 py-0.5 rounded-full"><Ban className="h-2.5 w-2.5" />Blacklist local</span>
+                        <span className="inline-flex items-center gap-1 text-[10px] bg-neutral-900 text-white px-1.5 py-0.5 rounded-full"><Ban className="h-2.5 w-2.5" />{t('risk.local_blacklist_badge')}</span>
                       )}
                     </div>
                   </div>
@@ -1422,9 +1423,9 @@ export default function RiskShieldPage() {
               {/* Profile Sub-tabs */}
               <div className="flex border-b border-neutral-100 px-5 shrink-0 overflow-x-auto">
                 {[
-                  { key: 'overview',   label: 'Profil'   },
-                  { key: 'timeline',   label: 'Istoric'  },
-                  { key: 'addresses',  label: 'Adrese'   },
+                  { key: 'overview',   label: t('risk.profile_tab')   },
+                  { key: 'timeline',   label: t('risk.history_tab')  },
+                  { key: 'addresses',  label: t('risk.addresses_tab')   },
                   { key: '360',        label: '360°'     },
                 ].map(tab => (
                   <button key={tab.key}
@@ -1458,7 +1459,7 @@ export default function RiskShieldPage() {
                         {selectedCustomer.first_order_at && (
                           <div className="flex items-center gap-2 text-[11px] text-neutral-400">
                             <Calendar className="h-3.5 w-3.5 shrink-0" />
-                            Client din {new Date(selectedCustomer.first_order_at).toLocaleDateString('ro-RO', { month: 'long', year: 'numeric' })}
+                            {t('risk.customer_since', { date: new Date(selectedCustomer.first_order_at).toLocaleDateString('ro-RO', { month: 'long', year: 'numeric' }) })}
                           </div>
                         )}
                         {selectedCustomer.last_order_at && (
@@ -1473,13 +1474,13 @@ export default function RiskShieldPage() {
                     <CustomerBadges customer={selectedCustomer} />
 
                     <div className="bg-neutral-50 rounded-xl p-4 space-y-3">
-                      <SectionLabel>Comportament Comenzi</SectionLabel>
-                      <BehaviorBar label="Ridicate"         value={selectedCustomer.orders_collected} max={selectedCustomer.total_orders} color="bg-emerald-500" />
-                      <BehaviorBar label="Refuzate"         value={selectedCustomer.orders_refused}   max={selectedCustomer.total_orders} color="bg-red-500" />
-                      <BehaviorBar label="Absent la livrare" value={selectedCustomer.orders_not_home} max={selectedCustomer.total_orders} color="bg-amber-400" />
-                      <BehaviorBar label="Anulate"          value={selectedCustomer.orders_cancelled} max={selectedCustomer.total_orders} color="bg-neutral-300" />
+                      <SectionLabel>{t('risk.order_behavior')}</SectionLabel>
+                      <BehaviorBar label={t('risk.collected_label')}         value={selectedCustomer.orders_collected} max={selectedCustomer.total_orders} color="bg-emerald-500" />
+                      <BehaviorBar label={t('risk.refused_label')}         value={selectedCustomer.orders_refused}   max={selectedCustomer.total_orders} color="bg-red-500" />
+                      <BehaviorBar label={t('risk.absent_label')} value={selectedCustomer.orders_not_home} max={selectedCustomer.total_orders} color="bg-amber-400" />
+                      <BehaviorBar label={t('risk.cancelled_label')}          value={selectedCustomer.orders_cancelled} max={selectedCustomer.total_orders} color="bg-neutral-300" />
                       <div className="pt-2 border-t border-neutral-200 flex justify-between items-center">
-                        <span className="text-[12px] text-neutral-500">Rată ridicare globală</span>
+                        <span className="text-[12px] text-neutral-500">{t('risk.global_pickup_label')}</span>
                         <span className={`text-xl font-black tabular-nums
                           ${(collectionRate(selectedCustomer) ?? 100) >= 70 ? 'text-emerald-600' :
                             (collectionRate(selectedCustomer) ?? 100) >= 50 ? 'text-amber-600'  : 'text-red-600'}`}>
@@ -1512,10 +1513,10 @@ export default function RiskShieldPage() {
                       </div>
                       {selectedCustomer.manual_label_override && (
                         <div className="flex items-center justify-between mt-2">
-                          <p className="text-[10px] text-amber-500 flex items-center gap-1"><Pencil className="h-2.5 w-2.5" />Override manual activ</p>
+                          <p className="text-[10px] text-amber-500 flex items-center gap-1"><Pencil className="h-2.5 w-2.5" />{t('risk.manual_override_active')}</p>
                           <button onClick={() => overrideLabel(selectedCustomer.id, null as any)}
                             className="text-[10px] text-neutral-400 hover:text-red-500 flex items-center gap-1 transition-colors">
-                            <X className="h-2.5 w-2.5" />Șterge eticheta
+                            <X className="h-2.5 w-2.5" />{t('risk.delete_label_btn')}
                           </button>
                         </div>
                       )}
@@ -1523,14 +1524,14 @@ export default function RiskShieldPage() {
 
                     {/* Note operator */}
                     <div>
-                      <SectionLabel>Note Operator</SectionLabel>
+                      <SectionLabel>{t('risk.operator_notes')}</SectionLabel>
                       <textarea value={editNote} onChange={e => setEditNote(e.target.value)}
                         placeholder={t('risk.add_internal_notes')} rows={3}
                         className="w-full px-3 py-2.5 rounded-xl border border-neutral-200 text-[13px] focus:outline-none focus:border-neutral-400 resize-none text-neutral-700 bg-neutral-50" />
                       <Btn onClick={saveNote} disabled={savingNote} className="mt-2"
                         variant={noteSaved ? 'outline' : 'primary'}>
-                        {savingNote ? <><RefreshCw className="h-3 w-3 animate-spin" />Salvare...</> :
-                         noteSaved  ? <><CheckCircle2 className="h-3 w-3" />Salvat!</> :
+                        {savingNote ? <><RefreshCw className="h-3 w-3 animate-spin" />{t('risk.saving')}</> :
+                         noteSaved  ? <><CheckCircle2 className="h-3 w-3" />{t('risk.saved')}</> :
                          t('risk.save_note')}
                       </Btn>
                     </div>
@@ -1553,12 +1554,12 @@ export default function RiskShieldPage() {
                 {profileTab === 'timeline' && (
                   <div className="p-5 space-y-4">
                     <div className="flex items-center justify-between">
-                      <p className="text-[13px] font-semibold text-neutral-900">Istoricul Comenzilor</p>
+                      <p className="text-[13px] font-semibold text-neutral-900">{t('risk.order_history_title')}</p>
                       <div className="flex items-center gap-2">
-                        <span className="text-[11px] text-neutral-400 bg-neutral-100 px-2 py-0.5 rounded-full tabular-nums">{customerOrders.length} comenzi</span>
+                        <span className="text-[11px] text-neutral-400 bg-neutral-100 px-2 py-0.5 rounded-full tabular-nums">{t('risk.orders_count', { count: String(customerOrders.length) })}</span>
                         <Btn variant="outline" size="sm" onClick={importHistory} disabled={importingHistory}>
                           <RefreshCw className={`h-3 w-3 ${importingHistory ? 'animate-spin' : ''}`} />
-                          {importingHistory ? 'Se importă...' : 'Sincronizează'}
+                          {importingHistory ? t('risk.importing') : t('risk.sync_btn')}
                         </Btn>
                       </div>
                     </div>
@@ -1568,7 +1569,7 @@ export default function RiskShieldPage() {
                         <p className="text-[13px] text-neutral-400 mb-3">{t('risk.no_orders_recorded')}</p>
                         <Btn onClick={importHistory} disabled={importingHistory}>
                           <RefreshCw className={`h-3.5 w-3.5 ${importingHistory ? 'animate-spin' : ''}`} />
-                          {importingHistory ? 'Se importă...' : 'Importă din WooCommerce'}
+                          {importingHistory ? t('risk.importing') : t('risk.import_woo_btn')}
                         </Btn>
                       </div>
                     ) : (
@@ -1580,10 +1581,10 @@ export default function RiskShieldPage() {
                 {/* ── ADDRESSES ── */}
                 {profileTab === 'addresses' && (
                   <div className="p-5 space-y-4">
-                    <p className="text-[13px] font-semibold text-neutral-900">Adrese de Livrare Utilizate</p>
+                    <p className="text-[13px] font-semibold text-neutral-900">{t('risk.delivery_addresses_title')}</p>
                     <Card className="p-3.5 bg-amber-50 border-amber-100 flex items-start gap-2.5">
                       <AlertCircle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
-                      <p className="text-[12px] text-amber-700 leading-relaxed">Adresele multiple sau problematice pot indica comportament de testare sau fraudă la livrare.</p>
+                      <p className="text-[12px] text-amber-700 leading-relaxed">{t('risk.multi_address_warning')}</p>
                     </Card>
                     <AddressMap orders={customerOrders} />
                   </div>
@@ -1593,9 +1594,9 @@ export default function RiskShieldPage() {
                 {profileTab === '360' && (
                   <div className="p-5 space-y-4">
                     <div className="flex items-center justify-between">
-                      <p className="text-[13px] font-semibold text-neutral-900">Identități Similare Detectate</p>
+                      <p className="text-[13px] font-semibold text-neutral-900">{t('risk.similar_identities_title')}</p>
                       <Btn variant="outline" size="sm" onClick={() => selectedCustomer && fetchClusterForCustomer(selectedCustomer.id)} disabled={loadingCluster}>
-                        <RefreshCw className={`h-3 w-3 ${loadingCluster ? 'animate-spin' : ''}`} />Reanalizeaza
+                        <RefreshCw className={`h-3 w-3 ${loadingCluster ? 'animate-spin' : ''}`} />{t('risk.reanalyze_btn')}
                       </Btn>
                     </div>
 
@@ -1608,8 +1609,8 @@ export default function RiskShieldPage() {
                         <div className="h-11 w-11 rounded-xl bg-emerald-50 flex items-center justify-center mx-auto mb-3">
                           <CheckCircle2 className="h-5 w-5 text-emerald-500" />
                         </div>
-                        <p className="text-[13px] font-medium text-neutral-700">Nicio identitate similară</p>
-                        <p className="text-[12px] text-neutral-400 mt-1">Clientul nu pare să aibă conturi duplicate.</p>
+                        <p className="text-[13px] font-medium text-neutral-700">{t('risk.no_similar_identity')}</p>
+                        <p className="text-[12px] text-neutral-400 mt-1">{t('risk.no_duplicate_accounts')}</p>
                       </div>
                     ) : (
                       <div className="space-y-3">
@@ -1624,7 +1625,7 @@ export default function RiskShieldPage() {
                             <div className="flex items-center justify-between mb-3">
                               <div className="flex items-center gap-2">
                                 <span className={`h-2 w-2 rounded-full ${match.similarity >= 0.9 ? 'bg-red-500' : 'bg-amber-400'}`} />
-                                <span className="text-[13px] font-medium text-neutral-900">{match.customer?.name || 'Client necunoscut'}</span>
+                                <span className="text-[13px] font-medium text-neutral-900">{match.customer?.name || t('risk.unknown_customer')}</span>
                               </div>
                               <span className="text-[11px] bg-neutral-100 text-neutral-600 px-2 py-0.5 rounded-full tabular-nums">
                                 {Math.round((match.similarity || 0) * 100)}% similar
@@ -1648,7 +1649,7 @@ export default function RiskShieldPage() {
                             )}
                             <button onClick={() => { const c = match.customer; if (c) openProfile({ ...c, store_id: selectedCustomer?.store_id || '', in_local_blacklist: false, in_global_blacklist: false, manually_reviewed: false, operator_notes: null, manual_label_override: null, last_order_at: null, first_order_at: null }) }}
                               className="text-[12px] text-neutral-600 hover:text-neutral-900 font-medium flex items-center gap-1 transition-colors">
-                              <ArrowUpRight className="h-3 w-3" />Deschide profil
+                              <ArrowUpRight className="h-3 w-3" />{t('risk.open_profile_btn')}
                             </button>
                           </Card>
                         ))}

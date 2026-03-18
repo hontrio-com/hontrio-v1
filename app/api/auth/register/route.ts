@@ -10,7 +10,7 @@ export async function POST(request: Request) {
     const limit = await rateLimitRegister(ip)
     if (!limit.success) {
       return NextResponse.json(
-        { error: 'Prea multe încercări. Încearcă din nou mai târziu.' },
+        { error: 'Too many attempts. Please try again later.' },
         { status: 429 }
       )
     }
@@ -19,14 +19,14 @@ export async function POST(request: Request) {
 
     if (!email || !password || !name) {
       return NextResponse.json(
-        { error: 'Toate câmpurile sunt obligatorii' },
+        { error: 'All fields are required' },
         { status: 400 }
       )
     }
 
     if (password.length < 6) {
       return NextResponse.json(
-        { error: 'Parola trebuie să aibă minim 6 caractere' },
+        { error: 'Password must be at least 6 characters' },
         { status: 400 }
       )
     }
@@ -44,12 +44,12 @@ export async function POST(request: Request) {
       // Anti user enumeration: generic message for duplicate email
       if (authError.message.includes('already been registered') || authError.message.includes('already exists')) {
         return NextResponse.json(
-          { error: 'Există deja un cont cu această adresă de email.' },
+          { error: 'An account with this email already exists.' },
           { status: 400 }
         )
       }
       return NextResponse.json(
-        { error: 'Eroare la crearea contului: ' + authError.message },
+        { error: 'Error creating account: ' + authError.message },
         { status: 500 }
       )
     }
@@ -70,7 +70,7 @@ export async function POST(request: Request) {
       console.error('Profile insert error:', profileError.message, profileError.code, profileError.details)
       await supabase.auth.admin.deleteUser(authData.user.id)
       return NextResponse.json(
-        { error: 'Eroare la crearea profilului: ' + profileError.message },
+        { error: 'Error creating profile: ' + profileError.message },
         { status: 500 }
       )
     }
@@ -78,18 +78,18 @@ export async function POST(request: Request) {
     // Send welcome email (async — don't block response)
     sendEmail({
       to: email,
-      subject: 'Bine ai venit pe Hontrio!',
+      subject: 'Welcome to Hontrio!',
       html: buildWelcomeEmail(name),
     }).catch(err => console.error('[Register] Welcome email error:', err))
 
     return NextResponse.json(
-      { message: 'Cont creat cu succes' },
+      { message: 'Account created successfully' },
       { status: 201 }
     )
   } catch (err) {
     console.error('Unexpected error:', err)
     return NextResponse.json(
-      { error: 'Eroare internă de server' },
+      { error: 'Internal server error' },
       { status: 500 }
     )
   }

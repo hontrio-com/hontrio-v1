@@ -10,7 +10,7 @@ export async function GET(
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user) {
-      return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const { id } = await params
@@ -31,7 +31,7 @@ export async function GET(
     console.log('Error:', error)
 
     if (error || !product) {
-      return NextResponse.json({ error: 'Produs negăsit' }, { status: 404 })
+      return NextResponse.json({ error: 'Product not found' }, { status: 404 })
     }
 
     // Ia imaginile generate
@@ -48,6 +48,6 @@ export async function GET(
     })
   } catch (err) {
     console.error('Unexpected error:', err)
-    return NextResponse.json({ error: 'Eroare internă' }, { status: 500 })
+    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
   }
 }

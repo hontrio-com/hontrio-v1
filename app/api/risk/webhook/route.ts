@@ -95,8 +95,8 @@ export async function POST(req: Request) {
           customer_id: existing.customer_id, order_id: existing.id,
           alert_type: 'delivery_failed',
           severity: status === 'refused' ? 'warning' : 'info',
-          title: `Livrare eșuată — ${name || phone || email}`,
-          description: `#${orderNr || extId} → ${status}. Scor: ${result.score}/100`,
+          title: `Delivery failed — ${name || phone || email}`,
+          description: `#${orderNr || extId} → ${status}. Score: ${result.score}/100`,
         })
       }
     }
@@ -156,8 +156,8 @@ export async function POST(req: Request) {
       store_id: storeId, user_id: userId, customer_id: cid, order_id: riskOrder?.id,
       alert_type: result.label === 'blocked' ? 'blocked_customer' : 'new_problematic_order',
       severity: result.label === 'blocked' ? 'critical' : result.label === 'problematic' ? 'warning' : 'info',
-      title: `Comandă nouă — client ${result.label}: ${name || phone || email}`,
-      description: `Scor: ${result.score}/100. ${topFlags ? 'Motive: ' + topFlags : ''}`,
+      title: `New order — ${result.label} customer: ${name || phone || email}`,
+      description: `Score: ${result.score}/100. ${topFlags ? 'Reasons: ' + topFlags : ''}`,
     })
     if (settings.alert_email && settings.email_alerts_enabled !== false) {
       sendRiskAlert({

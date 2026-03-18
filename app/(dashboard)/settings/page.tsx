@@ -200,21 +200,21 @@ export default function SettingsPage() {
     try {
       const fd = new FormData(); fd.append('avatar', file)
       const r = await fetch('/api/user/avatar', { method: 'POST', body: fd }); const d = await r.json()
-      if (!r.ok) { toast('error', d.error || 'Eroare la încărcare'); return }
-      setProfile(p => p ? { ...p, avatar_url: d.avatar_url } : p); toast('success', 'Avatar actualizat!')
-    } catch { toast('error', 'Eroare la încărcarea avatarului') }
+      if (!r.ok) { toast('error', d.error || t('settings.error_upload_avatar')); return }
+      setProfile(p => p ? { ...p, avatar_url: d.avatar_url } : p); toast('success', t('settings.avatar_updated'))
+    } catch { toast('error', t('settings.error_avatar')) }
     finally { setUploadingAvatar(false); if (avatarRef.current) avatarRef.current.value = '' }
   }
 
   async function handleSaveProfile() {
-    if (!profileForm.name.trim()) { toast('error', 'Numele nu poate fi gol'); return }
+    if (!profileForm.name.trim()) { toast('error', t('settings.name_required')); return }
     setSaving(true)
     try {
       const r = await fetch('/api/user/profile', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: profileForm.name.trim() }) })
       const d = await r.json()
-      if (!r.ok) { toast('error', d.error || 'Eroare la salvare'); return }
-      setProfile(p => p ? { ...p, name: d.user.name } : p); toast('success', 'Profil salvat!')
-    } catch { toast('error', 'Eroare la salvare') } finally { setSaving(false) }
+      if (!r.ok) { toast('error', d.error || t('settings.error_save')); return }
+      setProfile(p => p ? { ...p, name: d.user.name } : p); toast('success', t('settings.profile_saved'))
+    } catch { toast('error', t('settings.error_save')) } finally { setSaving(false) }
   }
 
   async function handleSaveBrand() {
@@ -222,22 +222,22 @@ export default function SettingsPage() {
     try {
       const r = await fetch('/api/user/profile', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ business_name: brandForm.businessName.trim(), website: brandForm.website.trim(), brand_tone: brandForm.tone, brand_language: brandForm.language, niche: brandForm.niche.trim() }) })
       const d = await r.json()
-      if (!r.ok) { toast('error', d.error || 'Eroare la salvare'); return }
-      toast('success', 'Setări brand salvate!')
-    } catch { toast('error', 'Eroare la salvare') } finally { setSavingBrand(false) }
+      if (!r.ok) { toast('error', d.error || t('settings.error_save')); return }
+      toast('success', t('settings.brand_saved'))
+    } catch { toast('error', t('settings.error_save')) } finally { setSavingBrand(false) }
   }
 
   async function handleChangePw() {
-    if (!pwForm.current || !pwForm.new || !pwForm.confirm) { toast('error', 'Completează toate câmpurile'); return }
-    if (pwForm.new.length < 6) { toast('error', 'Parola trebuie să aibă minim 6 caractere'); return }
-    if (pwForm.new !== pwForm.confirm) { toast('error', 'Parolele nu se potrivesc'); return }
+    if (!pwForm.current || !pwForm.new || !pwForm.confirm) { toast('error', t('settings.pw_fill_all')); return }
+    if (pwForm.new.length < 6) { toast('error', t('settings.pw_min_6')); return }
+    if (pwForm.new !== pwForm.confirm) { toast('error', t('settings.pw_mismatch')); return }
     setSavingPw(true)
     try {
       const r = await fetch('/api/user/change-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ currentPassword: pwForm.current, newPassword: pwForm.new }) })
       const d = await r.json()
-      if (!r.ok) { toast('error', d.error || 'Eroare'); return }
-      toast('success', 'Parola schimbată!'); setPwForm({ current: '', new: '', confirm: '' })
-    } catch { toast('error', 'Eroare de rețea') } finally { setSavingPw(false) }
+      if (!r.ok) { toast('error', d.error || t('common.error')); return }
+      toast('success', t('settings.pw_changed')); setPwForm({ current: '', new: '', confirm: '' })
+    } catch { toast('error', t('settings.error_network')) } finally { setSavingPw(false) }
   }
 
   async function handleSavePrefs() {
@@ -246,30 +246,30 @@ export default function SettingsPage() {
       const r = await fetch('/api/user/profile', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ preferences: prefs }) })
       const d = await r.json()
       if (!r.ok) { toast('error', d.error); return }
-      toast('success', 'Preferințe salvate!')
-    } catch { toast('error', 'Eroare la salvare') } finally { setSavingPrefs(false) }
+      toast('success', t('settings.prefs_saved'))
+    } catch { toast('error', t('settings.error_save')) } finally { setSavingPrefs(false) }
   }
 
   async function handleTestConn() {
-    if (!storeForm.store_url || !storeForm.consumer_key || !storeForm.consumer_secret) { setConnTest({ ok: false, msg: 'Completează toate câmpurile' }); return }
+    if (!storeForm.store_url || !storeForm.consumer_key || !storeForm.consumer_secret) { setConnTest({ ok: false, msg: t('settings.pw_fill_all') }); return }
     setTestingConn(true); setConnTest(null)
     try {
       const url = storeForm.store_url.replace(/\/$/, '')
       const r = await fetch(`${url}/wp-json/wc/v3/products?per_page=1&consumer_key=${storeForm.consumer_key}&consumer_secret=${storeForm.consumer_secret}`)
-      setConnTest(r.ok ? { ok: true, msg: 'Conexiune reușită! Magazinul este accesibil.' } : { ok: false, msg: `Eroare ${r.status} — verifică URL-ul și cheile API` })
-    } catch { setConnTest({ ok: false, msg: 'Nu se poate conecta — verifică URL-ul și dacă site-ul e online' }) }
+      setConnTest(r.ok ? { ok: true, msg: t('settings.conn_ok_full') } : { ok: false, msg: t('settings.conn_err_status', { status: String(r.status) }) })
+    } catch { setConnTest({ ok: false, msg: t('settings.conn_cant_connect') }) }
     finally { setTestingConn(false) }
   }
 
   async function handleConnect() {
-    if (!storeForm.store_url || !storeForm.consumer_key || !storeForm.consumer_secret) { toast('error', 'Completează toate câmpurile'); return }
+    if (!storeForm.store_url || !storeForm.consumer_key || !storeForm.consumer_secret) { toast('error', t('settings.pw_fill_all')); return }
     setConnecting(true)
     try {
       const r = await fetch('/api/stores/connect', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(storeForm) })
       const d = await r.json()
       if (!r.ok) { toast('error', d.error); return }
-      toast('success', 'Magazin conectat!'); setStore(d.store); setStoreForm({ store_url: '', consumer_key: '', consumer_secret: '' }); setConnTest(null)
-    } catch { toast('error', 'Eroare la conectare') } finally { setConnecting(false) }
+      toast('success', t('settings.store_connected_msg')); setStore(d.store); setStoreForm({ store_url: '', consumer_key: '', consumer_secret: '' }); setConnTest(null)
+    } catch { toast('error', t('settings.error_connect')) } finally { setConnecting(false) }
   }
 
   async function handleSync() {
@@ -277,15 +277,15 @@ export default function SettingsPage() {
     try {
       const r = await fetch(`/api/stores/${store.id}/sync`, { method: 'POST' }); const d = await r.json()
       if (!r.ok) { toast('error', d.error); return }
-      toast('success', `Sincronizare completă! ${d.synced} produse.`); fetchStore()
-    } catch { toast('error', 'Eroare la sincronizare') } finally { setSyncing(false) }
+      toast('success', t('settings.sync_complete', { count: d.synced })); fetchStore()
+    } catch { toast('error', t('settings.error_sync')) } finally { setSyncing(false) }
   }
 
   async function handleDisconnect() {
     if (!store || !confirm(t('settings.disconnect_confirm'))) return
     setDisconnecting(true)
-    try { await fetch(`/api/stores/${store.id}`, { method: 'DELETE' }); setStore(null); toast('success', 'Magazin deconectat.') }
-    catch { toast('error', 'Eroare la deconectare') } finally { setDisconnecting(false) }
+    try { await fetch(`/api/stores/${store.id}`, { method: 'DELETE' }); setStore(null); toast('success', t('settings.store_disconnected')) }
+    catch { toast('error', t('settings.error_disconnect')) } finally { setDisconnecting(false) }
   }
 
   async function handleBuyPack(packId: string) {
@@ -294,29 +294,29 @@ export default function SettingsPage() {
       const r = await fetch('/api/stripe/credits', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pack: packId }) })
       const d = await r.json()
       if (r.ok && d.url) window.location.href = d.url
-      else toast('error', d.error || 'Eroare la procesare')
-    } catch { toast('error', 'Eroare de rețea') } finally { setBuyingPack(null) }
+      else toast('error', d.error || t('settings.error_processing'))
+    } catch { toast('error', t('settings.error_network')) } finally { setBuyingPack(null) }
   }
 
   async function handleManageSub() {
     try {
       const r = await fetch('/api/stripe/portal', { method: 'POST' }); const d = await r.json()
       if (r.ok && d.url) window.location.href = d.url
-      else toast('error', d.error || 'Eroare la accesarea portalului')
-    } catch { toast('error', 'Eroare de rețea') }
+      else toast('error', d.error || t('settings.error_portal'))
+    } catch { toast('error', t('settings.error_network')) }
   }
 
   async function handleDownloadPlugin() {
     setDownloadingPlugin(true)
     try {
       const r = await fetch('/api/plugin/download', { credentials: 'include' })
-      if (!r.ok) { toast('error', 'Eroare la generarea pluginului'); return }
+      if (!r.ok) { toast('error', t('settings.error_plugin_gen')); return }
       const blob = await r.blob(); const url = URL.createObjectURL(blob)
       const a = document.createElement('a'); a.href = url; a.download = 'hontrio.zip'; a.click(); URL.revokeObjectURL(url)
-    } catch { toast('error', 'Eroare la descărcare') } finally { setDownloadingPlugin(false) }
+    } catch { toast('error', t('settings.error_download')) } finally { setDownloadingPlugin(false) }
   }
 
-  const userName   = profile?.name || session?.user?.name || 'Utilizator'
+  const userName   = profile?.name || session?.user?.name || t('settings.default_user')
   const userEmail  = profile?.email || session?.user?.email || ''
   const userPlan   = profile?.plan || (session?.user as any)?.plan || 'free'
   const memberSince = profile?.created_at ? new Date(profile.created_at).toLocaleDateString('ro-RO', { year: 'numeric', month: 'long' }) : ''
@@ -335,7 +335,7 @@ export default function SettingsPage() {
       {/* Header */}
       <div>
         <h1 className="text-[22px] font-semibold text-neutral-900 tracking-tight">{t('settings.title')}</h1>
-        <p className="text-[13px] text-neutral-400 mt-0.5">Administrează contul, brandul și integrările</p>
+        <p className="text-[13px] text-neutral-400 mt-0.5">{t('settings.admin_settings_desc')}</p>
       </div>
 
       <AnimatePresence>
@@ -361,7 +361,7 @@ export default function SettingsPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
           <div className="lg:col-span-2">
             <Card className="p-5">
-              <p className="text-[11px] font-medium text-neutral-400 uppercase tracking-wide mb-4">Informații profil</p>
+              <p className="text-[11px] font-medium text-neutral-400 uppercase tracking-wide mb-4">{t('settings.profile_info')}</p>
               {/* Avatar */}
               <div className="flex items-center gap-4 mb-5">
                 <div className="relative group">
@@ -404,7 +404,7 @@ export default function SettingsPage() {
 
           <div className="space-y-4">
             <Card className="p-5">
-              <p className="text-[11px] font-medium text-neutral-400 uppercase tracking-wide mb-3">Detalii cont</p>
+              <p className="text-[11px] font-medium text-neutral-400 uppercase tracking-wide mb-3">{t('settings.account_details')}</p>
               <div className="space-y-2.5">
                 <div className="flex items-center justify-between">
                   <span className="text-[13px] text-neutral-500">{t('common.plan')}</span>
@@ -416,7 +416,7 @@ export default function SettingsPage() {
                 </div>
                 {memberSince && (
                   <div className="flex items-center justify-between">
-                    <span className="text-[13px] text-neutral-500">Membru din</span>
+                    <span className="text-[13px] text-neutral-500">{t('settings.member_since')}</span>
                     <span className="text-[13px] text-neutral-700">{memberSince}</span>
                   </div>
                 )}
@@ -424,10 +424,10 @@ export default function SettingsPage() {
             </Card>
 
             <Card className="p-5">
-              <p className="text-[11px] font-medium text-red-500 uppercase tracking-wide mb-2">Zonă periculoasă</p>
-              <p className="text-[12px] text-neutral-400 mb-3">Acțiunile de mai jos sunt permanente și nu pot fi anulate.</p>
+              <p className="text-[11px] font-medium text-red-500 uppercase tracking-wide mb-2">{t('settings.danger_zone')}</p>
+              <p className="text-[12px] text-neutral-400 mb-3">{t('settings.danger_zone_desc')}</p>
               <Btn variant="danger" className="w-full justify-center">
-                <Trash2 className="h-3.5 w-3.5" />Șterge contul
+                <Trash2 className="h-3.5 w-3.5" />{t('settings.delete_account')}
               </Btn>
             </Card>
           </div>
@@ -444,8 +444,8 @@ export default function SettingsPage() {
                   <Sparkles className="h-4 w-4 text-neutral-500" />
                 </div>
                 <div>
-                  <p className="text-[13px] font-semibold text-neutral-900">Identitate brand</p>
-                  <p className="text-[11px] text-neutral-400">AI-ul va folosi aceste setări la generarea oricărui conținut</p>
+                  <p className="text-[13px] font-semibold text-neutral-900">{t('settings.brand_identity')}</p>
+                  <p className="text-[11px] text-neutral-400">{t('settings.brand_identity_desc')}</p>
                 </div>
               </div>
 
@@ -461,17 +461,17 @@ export default function SettingsPage() {
 
                 <Field label={t('settings.niche_label')}>
                   <Inp value={brandForm.niche} onChange={e => setBrandForm(p => ({ ...p, niche: e.target.value }))} placeholder="ex: Fashion feminin, Electronice, Cosmetice..." />
-                  <p className="text-[11px] text-neutral-400 mt-1">Ajută AI-ul să folosească terminologia corectă</p>
+                  <p className="text-[11px] text-neutral-400 mt-1">{t('settings.niche_help')}</p>
                 </Field>
 
                 <div>
-                  <label className="block text-[11px] font-medium text-neutral-400 uppercase tracking-wide mb-2">Ton comunicare</label>
+                  <label className="block text-[11px] font-medium text-neutral-400 uppercase tracking-wide mb-2">{t('settings.tone_label')}</label>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                     {[
-                      { value: 'professional', label: 'Profesional', emoji: '👔' },
-                      { value: 'friendly',     label: t('settings.tone_friendly_label'),   emoji: '😊' },
-                      { value: 'luxury',       label: t('settings.tone_premium_label'),     emoji: '💎' },
-                      { value: 'casual',       label: 'Casual',      emoji: '✌️' },
+                      { value: 'professional', label: t('settings.tone_professional_label'), emoji: '👔' },
+                      { value: 'friendly',     label: t('settings.tone_friendly_label'),     emoji: '😊' },
+                      { value: 'luxury',       label: t('settings.tone_premium_label'),       emoji: '💎' },
+                      { value: 'casual',       label: t('settings.tone_casual_label'),        emoji: '✌️' },
                     ].map(t => (
                       <button key={t.value} onClick={() => setBrandForm(p => ({ ...p, tone: t.value }))}
                         className={`p-3 rounded-xl border-2 text-left transition-all
@@ -484,7 +484,7 @@ export default function SettingsPage() {
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-medium text-neutral-400 uppercase tracking-wide mb-2">Limbă conținut</label>
+                  <label className="block text-[11px] font-medium text-neutral-400 uppercase tracking-wide mb-2">{t('settings.language_label')}</label>
                   <div className="flex gap-2">
                     {[{ value: 'ro', label: t('settings.lang_ro') }, { value: 'en', label: t('settings.lang_en') }].map(l => (
                       <button key={l.value} onClick={() => setBrandForm(p => ({ ...p, language: l.value }))}
@@ -506,19 +506,19 @@ export default function SettingsPage() {
 
           <div className="space-y-4">
             <Card className="p-5">
-              <p className="text-[11px] font-medium text-neutral-400 uppercase tracking-wide mb-3">Preview ton selectat</p>
+              <p className="text-[11px] font-medium text-neutral-400 uppercase tracking-wide mb-3">{t('settings.tone_preview_label')}</p>
               <p className="text-[13px] text-neutral-600 leading-relaxed italic">
                 {brandForm.tone === 'professional' && t('settings.tone_pro_example')}
-                {brandForm.tone === 'friendly'     && '"Exact ce ai nevoie! Super simplu de folosit — vei adora rezultatele."'}
+                {brandForm.tone === 'friendly'     && t('settings.tone_friendly_example')}
                 {brandForm.tone === 'luxury'       && t('settings.tone_luxury_example')}
                 {brandForm.tone === 'casual'       && t('settings.tone_casual_example')}
               </p>
             </Card>
 
             <Card className="p-5 bg-neutral-50">
-              <p className="text-[12px] font-semibold text-neutral-700 mb-2">Cum influențează AI-ul</p>
+              <p className="text-[12px] font-semibold text-neutral-700 mb-2">{t('settings.how_ai_influences')}</p>
               <div className="space-y-2 text-[12px] text-neutral-500">
-                {['Titlurile și descrierile reflectă tonul ales', 'Terminologie și keywords din nișa ta', 'Tot conținutul generat în limba aleasă', 'AI-ul poate referenția brandul natural'].map((item, i) => (
+                {t('settings.brand_affects_list').split(',').map((item: string, i: number) => (
                   <div key={i} className="flex items-start gap-2">
                     <CheckCircle2 className="h-3.5 w-3.5 mt-0.5 shrink-0 text-neutral-400" />
                     <span>{item}</span>
@@ -542,10 +542,10 @@ export default function SettingsPage() {
                   </div>
                   <div className="flex-1">
                     <p className="text-[13px] font-semibold text-neutral-900">{t('settings.store_connected')}</p>
-                    <p className="text-[11px] text-neutral-400">WooCommerce activ</p>
+                    <p className="text-[11px] text-neutral-400">{t('settings.woo_active')}</p>
                   </div>
                   <span className="flex items-center gap-1 text-[11px] font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md">
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />Conectat
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />{t('settings.connected')}
                   </span>
                 </div>
 
@@ -553,7 +553,7 @@ export default function SettingsPage() {
                   {[
                     { icon: Globe,     label: t('settings.store_url_label'),          value: <a href={store.store_url} target="_blank" rel="noopener" className="text-[13px] text-neutral-600 flex items-center gap-1 hover:text-neutral-900">{store.store_url.replace(/^https?:\/\//, '')}<ExternalLink className="h-3 w-3" /></a> },
                     { icon: Package,   label: t('settings.products_synced'), value: <span className="text-[13px] font-semibold text-neutral-900">{store.products_count}</span> },
-                    { icon: RefreshCw, label: t('settings.last_sync'),  value: <span className="text-[13px] text-neutral-600">{store.last_sync_at ? new Date(store.last_sync_at).toLocaleString('ro-RO') : 'Niciodată'}</span> },
+                    { icon: RefreshCw, label: t('settings.last_sync'),  value: <span className="text-[13px] text-neutral-600">{store.last_sync_at ? new Date(store.last_sync_at).toLocaleString('ro-RO') : t('settings.never_synced')}</span> },
                   ].map((row, i) => (
                     <div key={i} className="flex items-center justify-between px-3 py-2.5 bg-neutral-50 rounded-xl">
                       <div className="flex items-center gap-2">
@@ -584,7 +584,7 @@ export default function SettingsPage() {
                   </div>
                   <div>
                     <p className="text-[13px] font-semibold text-neutral-900">{t('settings.connect_store_label')}</p>
-                    <p className="text-[11px] text-neutral-400">Introdu datele WooCommerce</p>
+                    <p className="text-[11px] text-neutral-400">{t('settings.enter_woo_data')}</p>
                   </div>
                 </div>
 
@@ -593,7 +593,7 @@ export default function SettingsPage() {
                     <Inp value={storeForm.store_url} onChange={e => { setStoreForm(p => ({ ...p, store_url: e.target.value })); setConnTest(null) }} placeholder="https://magazin.ro" />
                   </Field>
 
-                  <Field label="Consumer Key">
+                  <Field label={t('settings.consumer_key')}>
                     <div className="relative">
                       <Inp type={showKeys ? 'text' : 'password'} value={storeForm.consumer_key}
                         onChange={e => { setStoreForm(p => ({ ...p, consumer_key: e.target.value })); setConnTest(null) }}
@@ -604,7 +604,7 @@ export default function SettingsPage() {
                     </div>
                   </Field>
 
-                  <Field label="Consumer Secret">
+                  <Field label={t('settings.consumer_secret')}>
                     <Inp type={showKeys ? 'text' : 'password'} value={storeForm.consumer_secret}
                       onChange={e => { setStoreForm(p => ({ ...p, consumer_secret: e.target.value })); setConnTest(null) }}
                       placeholder="cs_..." />
@@ -639,7 +639,7 @@ export default function SettingsPage() {
             <Card className="p-5 bg-neutral-50">
               <div className="flex items-center gap-2 mb-3">
                 <Key className="h-3.5 w-3.5 text-neutral-500" />
-                <p className="text-[12px] font-semibold text-neutral-700">Cum obțin cheile API?</p>
+                <p className="text-[12px] font-semibold text-neutral-700">{t('settings.how_get_api_keys')}</p>
               </div>
               <div className="space-y-1.5 text-[12px] text-neutral-500 leading-relaxed">
                 {t('settings.tutorial_wp_steps').split(',').map((s: string, i: number) => (
@@ -660,9 +660,9 @@ export default function SettingsPage() {
             <Card className="p-5">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-[11px] font-medium text-neutral-400 uppercase tracking-wide mb-1">Credite disponibile</p>
+                  <p className="text-[11px] font-medium text-neutral-400 uppercase tracking-wide mb-1">{t('settings.credits_available')}</p>
                   <p className="text-4xl font-bold text-neutral-900 tabular-nums">{credits}</p>
-                  <p className="text-[12px] text-neutral-400 mt-1">Plan: <span className="text-neutral-700 font-medium capitalize">{userPlan}</span></p>
+                  <p className="text-[12px] text-neutral-400 mt-1">{t('settings.plan_label')} <span className="text-neutral-700 font-medium capitalize">{userPlan}</span></p>
                 </div>
                 <div className="h-14 w-14 rounded-xl bg-neutral-100 flex items-center justify-center">
                   <Zap className="h-7 w-7 text-neutral-400" />
@@ -670,26 +670,26 @@ export default function SettingsPage() {
               </div>
               <div className="mt-4 pt-4 border-t border-neutral-100">
                 <Btn variant="outline" onClick={handleManageSub}>
-                  <CreditCard className="h-3.5 w-3.5" />Gestionează abonament
+                  <CreditCard className="h-3.5 w-3.5" />{t('settings.manage_subscription')}
                 </Btn>
               </div>
             </Card>
 
             {/* Packs */}
             <Card className="p-5">
-              <p className="text-[13px] font-semibold text-neutral-900 mb-0.5">Cumpără credite extra</p>
-              <p className="text-[12px] text-neutral-400 mb-4">Creditele nu expiră și se adaugă la balanța curentă</p>
+              <p className="text-[13px] font-semibold text-neutral-900 mb-0.5">{t('settings.buy_extra_credits')}</p>
+              <p className="text-[12px] text-neutral-400 mb-4">{t('settings.credits_no_expire')}</p>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 {CREDIT_PACKS.map(pack => (
                   <button key={pack.id} onClick={() => handleBuyPack(pack.id)} disabled={!!buyingPack}
                     className={`relative p-3.5 rounded-xl border-2 text-left transition-all hover:border-neutral-400 hover:shadow-sm disabled:opacity-50
                       ${pack.popular ? 'border-neutral-900' : 'border-neutral-200'}`}>
                     {pack.popular && (
-                      <span className="absolute -top-2.5 left-3 text-[9px] font-bold bg-neutral-900 text-white px-2 py-0.5 rounded-full">Popular</span>
+                      <span className="absolute -top-2.5 left-3 text-[9px] font-bold bg-neutral-900 text-white px-2 py-0.5 rounded-full">{t('settings.popular')}</span>
                     )}
                     <p className="text-[16px] font-bold text-neutral-900">{pack.credits} <span className="text-[13px] font-normal text-neutral-400">cr.</span></p>
                     <p className="text-[13px] font-semibold text-neutral-700 mt-0.5">{pack.price} RON</p>
-                    <p className="text-[10px] text-neutral-400 mt-1">{(pack.price / pack.credits * 100).toFixed(0)} bani/credit</p>
+                    <p className="text-[10px] text-neutral-400 mt-1">{(pack.price / pack.credits * 100).toFixed(0)} {t('settings.bani_per_credit')}</p>
                     {buyingPack === pack.id && (
                       <div className="absolute inset-0 flex items-center justify-center bg-white/70 rounded-xl">
                         <Loader2 className="h-5 w-5 animate-spin text-neutral-500" />
@@ -702,11 +702,11 @@ export default function SettingsPage() {
 
             {/* Transactions */}
             <Card className="p-5">
-              <p className="text-[13px] font-semibold text-neutral-900 mb-4">Istoric tranzacții</p>
+              <p className="text-[13px] font-semibold text-neutral-900 mb-4">{t('settings.transaction_history')}</p>
               {transactions.length === 0 ? (
                 <div className="text-center py-8">
                   <CreditCard className="h-8 w-8 text-neutral-200 mx-auto mb-2" />
-                  <p className="text-[13px] text-neutral-400">Nicio tranzacție încă</p>
+                  <p className="text-[13px] text-neutral-400">{t('settings.no_transactions')}</p>
                 </div>
               ) : (
                 <div className="divide-y divide-neutral-50">
@@ -723,7 +723,7 @@ export default function SettingsPage() {
                         <p className={`text-[13px] font-semibold tabular-nums ${tx.amount > 0 ? 'text-emerald-600' : 'text-neutral-700'}`}>
                           {tx.amount > 0 ? '+' : ''}{tx.amount}
                         </p>
-                        <p className="text-[10px] text-neutral-400">sold: {tx.balance_after}</p>
+                        <p className="text-[10px] text-neutral-400">{t('settings.balance_label')} {tx.balance_after}</p>
                       </div>
                     </div>
                   ))}
@@ -734,13 +734,13 @@ export default function SettingsPage() {
 
           <div className="space-y-4">
             <Card className="p-5">
-              <p className="text-[11px] font-medium text-neutral-400 uppercase tracking-wide mb-3">Cost acțiuni AI</p>
+              <p className="text-[11px] font-medium text-neutral-400 uppercase tracking-wide mb-3">{t('settings.ai_action_costs')}</p>
               <div className="space-y-2">
                 {[
-                  { label: 'Generare text complet', cost: '5', icon: '📝' },
-                  { label: 'SEO complet produs',    cost: '5', icon: '🔍' },
-                  { label: 'Regenerare secțiune',   cost: '1–2', icon: '✏️' },
-                  { label: 'Generare imagine AI',   cost: '2–4', icon: '🖼️' },
+                  { label: t('settings.action_full_text'),    cost: '5',   icon: '📝' },
+                  { label: t('settings.action_full_seo'),     cost: '5',   icon: '🔍' },
+                  { label: t('settings.action_regen_section'), cost: '1–2', icon: '✏️' },
+                  { label: t('settings.action_ai_image'),     cost: '2–4', icon: '🖼️' },
                 ].map((item, i) => (
                   <div key={i} className="flex items-center justify-between py-1.5">
                     <span className="text-[13px] text-neutral-600 flex items-center gap-2"><span>{item.icon}</span>{item.label}</span>
@@ -751,7 +751,7 @@ export default function SettingsPage() {
             </Card>
 
             <Card className="p-5 bg-neutral-50">
-              <p className="text-[12px] font-semibold text-neutral-700 mb-2">Planuri disponibile</p>
+              <p className="text-[12px] font-semibold text-neutral-700 mb-2">{t('settings.available_plans')}</p>
               <div className="space-y-1.5">
                 {PLANS.map(plan => (
                   <div key={plan.id} className={`flex items-center justify-between text-[12px] px-2 py-1.5 rounded-lg
@@ -777,12 +777,12 @@ export default function SettingsPage() {
                 </div>
                 <div>
                   <p className="text-[13px] font-semibold text-neutral-900">{t('settings.change_password')}</p>
-                  <p className="text-[11px] text-neutral-400">Actualizează parola contului tău</p>
+                  <p className="text-[11px] text-neutral-400">{t('settings.update_pw_desc')}</p>
                 </div>
               </div>
 
               <div className="space-y-4">
-                <Field label="Parola curentă">
+                <Field label={t('settings.current_pw_label')}>
                   <div className="relative">
                     <Inp type={showPw.current ? 'text' : 'password'} value={pwForm.current}
                       onChange={e => setPwForm(p => ({ ...p, current: e.target.value }))} placeholder="••••••••" className="pr-10" />
@@ -793,10 +793,10 @@ export default function SettingsPage() {
                 </Field>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <Field label="Parola nouă">
+                  <Field label={t('settings.new_pw_label')}>
                     <div className="relative">
                       <Inp type={showPw.new ? 'text' : 'password'} value={pwForm.new}
-                        onChange={e => setPwForm(p => ({ ...p, new: e.target.value }))} placeholder="Minim 6 caractere" className="pr-10" />
+                        onChange={e => setPwForm(p => ({ ...p, new: e.target.value }))} placeholder={t('settings.pw_min_placeholder')} className="pr-10" />
                       <button onClick={() => setShowPw(p => ({ ...p, new: !p.new }))} className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600">
                         {showPw.new ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </button>
@@ -811,10 +811,10 @@ export default function SettingsPage() {
                     )}
                   </Field>
 
-                  <Field label="Confirmă parola">
+                  <Field label={t('settings.confirm_pw_label')}>
                     <div className="relative">
                       <Inp type={showPw.confirm ? 'text' : 'password'} value={pwForm.confirm}
-                        onChange={e => setPwForm(p => ({ ...p, confirm: e.target.value }))} placeholder="Repetă parola" className="pr-10" />
+                        onChange={e => setPwForm(p => ({ ...p, confirm: e.target.value }))} placeholder={t('settings.pw_repeat_placeholder')} className="pr-10" />
                       <button onClick={() => setShowPw(p => ({ ...p, confirm: !p.confirm }))} className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600">
                         {showPw.confirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </button>
@@ -822,8 +822,8 @@ export default function SettingsPage() {
                     {pwForm.confirm && pwForm.new && (
                       <p className={`text-[11px] mt-1 flex items-center gap-1 font-medium ${pwForm.new === pwForm.confirm ? 'text-emerald-600' : 'text-red-500'}`}>
                         {pwForm.new === pwForm.confirm
-                          ? <><CheckCircle2 className="h-3 w-3" />Se potrivesc</>
-                          : <><XCircle className="h-3 w-3" />Nu se potrivesc</>}
+                          ? <><CheckCircle2 className="h-3 w-3" />{t('settings.pw_match')}</>
+                          : <><XCircle className="h-3 w-3" />{t('settings.pw_no_match')}</>}
                       </p>
                     )}
                   </Field>
@@ -831,22 +831,22 @@ export default function SettingsPage() {
 
                 <Btn onClick={handleChangePw} disabled={savingPw}>
                   {savingPw ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Lock className="h-3.5 w-3.5" />}
-                  {savingPw ? 'Se actualizează...' : 'Actualizează parola'}
+                  {savingPw ? t('settings.updating_pw') : t('settings.update_pw_btn')}
                 </Btn>
               </div>
             </Card>
 
             <Card className="p-5">
-              <p className="text-[11px] font-medium text-neutral-400 uppercase tracking-wide mb-3">Sesiuni active</p>
+              <p className="text-[11px] font-medium text-neutral-400 uppercase tracking-wide mb-3">{t('settings.active_sessions')}</p>
               <div className="flex items-center justify-between px-3 py-2.5 bg-neutral-50 rounded-xl">
                 <div className="flex items-center gap-3">
                   <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
                   <div>
-                    <p className="text-[13px] font-medium text-neutral-900">Sesiunea curentă</p>
-                    <p className="text-[11px] text-neutral-400">Activ acum — browser web</p>
+                    <p className="text-[13px] font-medium text-neutral-900">{t('settings.current_session')}</p>
+                    <p className="text-[11px] text-neutral-400">{t('settings.active_now_browser')}</p>
                   </div>
                 </div>
-                <span className="text-[10px] font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md">Activ</span>
+                <span className="text-[10px] font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md">{t('settings.active_badge')}</span>
               </div>
             </Card>
           </div>
@@ -855,10 +855,10 @@ export default function SettingsPage() {
             <Card className="p-5 bg-neutral-50">
               <div className="flex items-center gap-2 mb-2">
                 <Shield className="h-3.5 w-3.5 text-neutral-500" />
-                <p className="text-[12px] font-semibold text-neutral-700">Securitate cont</p>
+                <p className="text-[12px] font-semibold text-neutral-700">{t('settings.account_security_title')}</p>
               </div>
               <p className="text-[12px] text-neutral-500 leading-relaxed">
-                Contul tău este protejat cu criptare. Cheile API ale magazinului sunt stocate securizat. Recomandăm o parolă puternică cu litere mari, cifre și simboluri.
+                {t('settings.security_desc')}
               </p>
             </Card>
           </div>
@@ -870,7 +870,7 @@ export default function SettingsPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
           <div className="lg:col-span-2 space-y-4">
             <Card className="p-5">
-              <p className="text-[11px] font-medium text-neutral-400 uppercase tracking-wide mb-4">Notificări & Automatizări</p>
+              <p className="text-[11px] font-medium text-neutral-400 uppercase tracking-wide mb-4">{t('settings.notif_automations')}</p>
               <div className="space-y-3">
                 {[
                   { key: 'emailNotifications', icon: Mail,     title: t('settings.pref_email_notifs'), desc: t('settings.pref_email_desc') },
@@ -903,10 +903,10 @@ export default function SettingsPage() {
             <Card className="p-5 bg-neutral-50">
               <div className="flex items-center gap-2 mb-2">
                 <SlidersHorizontal className="h-3.5 w-3.5 text-neutral-500" />
-                <p className="text-[12px] font-semibold text-neutral-700">Despre preferințe</p>
+                <p className="text-[12px] font-semibold text-neutral-700">{t('settings.about_prefs')}</p>
               </div>
               <p className="text-[12px] text-neutral-500 leading-relaxed">
-                Optimizarea automată va folosi credite la fiecare sincronizare. Asigură-te că ai credite suficiente dacă activezi această opțiune.
+                {t('settings.auto_optimize_warning')}
               </p>
             </Card>
           </div>
@@ -923,17 +923,17 @@ export default function SettingsPage() {
                   <Download className="h-5 w-5 text-white" />
                 </div>
                 <div>
-                  <p className="text-[14px] font-semibold text-neutral-900">Plugin Hontrio pentru WordPress</p>
-                  <p className="text-[12px] text-neutral-400">Un singur plugin — AI Agent + Risk Shield</p>
+                  <p className="text-[14px] font-semibold text-neutral-900">{t('settings.plugin_wp_title')}</p>
+                  <p className="text-[12px] text-neutral-400">{t('settings.plugin_subtitle')}</p>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
                 {[
-                  { icon: Bot,        title: 'AI Agent',        desc: 'Widget conversațional injectat automat în frontend' },
-                  { icon: Shield,     title: 'Risk Shield',     desc: 'Webhooks order.created + order.updated înregistrate automat' },
-                  { icon: RefreshCcw, title: 'Auto-update',     desc: 'Butonul „Actualizează" apare direct în WordPress → Plugins' },
-                  { icon: Zap,        title: 'Instalare 1-click', desc: 'Upload ZIP, activează, gata — fără configurare manuală' },
+                  { icon: Bot,        title: t('settings.plugin_ai_agent'),    desc: t('settings.plugin_ai_agent_desc') },
+                  { icon: Shield,     title: t('settings.plugin_risk_shield'), desc: t('settings.plugin_risk_shield_desc') },
+                  { icon: RefreshCcw, title: t('settings.plugin_auto_update'), desc: t('settings.plugin_auto_update_desc') },
+                  { icon: Zap,        title: t('settings.plugin_one_click'),   desc: t('settings.plugin_one_click_desc') },
                 ].map((item, i) => (
                   <div key={i} className="flex items-start gap-3 p-3 bg-neutral-50 rounded-xl">
                     <div className="h-8 w-8 rounded-xl bg-white border border-neutral-200 flex items-center justify-center shrink-0">
@@ -949,22 +949,22 @@ export default function SettingsPage() {
 
               <Btn onClick={handleDownloadPlugin} disabled={downloadingPlugin || !store} className="h-10 px-6">
                 {downloadingPlugin ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-                {downloadingPlugin ? 'Se generează...' : 'Descarcă hontrio.zip'}
+                {downloadingPlugin ? t('settings.generating_plugin') : t('settings.download_hontrio_zip')}
               </Btn>
               {!store && (
-                <p className="text-[12px] text-amber-600 mt-2">⚠️ Conectează mai întâi un magazin din tab-ul Integrări</p>
+                <p className="text-[12px] text-amber-600 mt-2">{t('settings.connect_store_first')}</p>
               )}
             </Card>
 
             <Card className="p-5">
-              <p className="text-[13px] font-semibold text-neutral-900 mb-4">Cum instalezi pluginul</p>
+              <p className="text-[13px] font-semibold text-neutral-900 mb-4">{t('settings.how_install_plugin')}</p>
               <div className="space-y-3">
                 {[
-                  'Descarcă fișierul hontrio.zip de mai sus',
-                  'WordPress Admin → Plugins → Adaugă nou → Încarcă plugin',
-                  'Selectează hontrio.zip și apasă „Instalează acum"',
-                  'Activează pluginul — webhooks și widget-ul se configurează automat',
-                  'Viitoarele actualizări apar direct în WordPress → Plugins',
+                  t('settings.install_step_1'),
+                  t('settings.install_step_2'),
+                  t('settings.install_step_3'),
+                  t('settings.install_step_4'),
+                  t('settings.install_step_5'),
                 ].map((step, i) => (
                   <div key={i} className="flex items-start gap-3">
                     <span className="h-5 w-5 rounded-full bg-neutral-900 text-white text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">{i + 1}</span>
@@ -979,17 +979,23 @@ export default function SettingsPage() {
             <Card className="p-5 bg-neutral-50">
               <div className="flex items-center gap-2 mb-2">
                 <RefreshCcw className="h-3.5 w-3.5 text-neutral-500" />
-                <p className="text-[12px] font-semibold text-neutral-700">Cum funcționează auto-update</p>
+                <p className="text-[12px] font-semibold text-neutral-700">{t('settings.how_autoupdate_works')}</p>
               </div>
               <p className="text-[12px] text-neutral-500 leading-relaxed">
-                WordPress verifică zilnic dacă există o versiune nouă. Când lansăm o actualizare, apare butonul <strong className="text-neutral-700">„Actualizează"</strong> în Plugins — exact ca orice alt plugin. Nu trebuie să descarci manual niciodată din nou.
+                {t('settings.autoupdate_desc')}
               </p>
             </Card>
 
             <Card className="p-5">
-              <p className="text-[12px] font-semibold text-neutral-700 mb-3">Ce se configurează automat</p>
+              <p className="text-[12px] font-semibold text-neutral-700 mb-3">{t('settings.auto_configured_title')}</p>
               <div className="space-y-2">
-                {['User ID și Store ID embedduite', 'Webhook secret unic per magazin', 'Webhook URL setat la hontrio.com', 'Culoare și poziție widget AI Agent', 'Pagină admin Hontrio în WordPress'].map((item, i) => (
+                {[
+                  t('settings.auto_config_item_1'),
+                  t('settings.auto_config_item_2'),
+                  t('settings.auto_config_item_3'),
+                  t('settings.auto_config_item_4'),
+                  t('settings.auto_config_item_5'),
+                ].map((item, i) => (
                   <div key={i} className="flex items-center gap-2 text-[12px] text-neutral-500">
                     <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />{item}
                   </div>

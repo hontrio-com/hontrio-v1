@@ -10,7 +10,7 @@ export async function GET(
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user) {
-      return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const { id } = await params
@@ -25,7 +25,7 @@ export async function GET(
       .order('variant_name', { ascending: true })
 
     if (error) {
-      return NextResponse.json({ error: 'Eroare' }, { status: 500 })
+      return NextResponse.json({ error: 'Error' }, { status: 500 })
     }
 
     // Get generated images for variations
@@ -58,6 +58,6 @@ export async function GET(
 
     return NextResponse.json({ variations: enriched })
   } catch {
-    return NextResponse.json({ error: 'Eroare internă' }, { status: 500 })
+    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
   }
 }

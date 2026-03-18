@@ -52,11 +52,11 @@ export default function RegisterPage() {
     e.preventDefault()
     const trimName = name.trim()
     const trimEmail = email.trim().toLowerCase()
-    if (!trimName) { showToast(t('auth.full_name') + ' lipsește', 'error'); return }
-    if (trimName.length < 2 || trimName.length > 100) { showToast('Name must be 2-100 characters', 'error'); return }
-    if (!trimEmail) { showToast(t('auth.email') + ' lipsește', 'error'); return }
-    if (password.length < 6) { showToast('Password must be at least 6 characters', 'error'); return }
-    if (password.length > 128) { showToast('Password too long', 'error'); return }
+    if (!trimName) { showToast(t('auth.name_required'), 'error'); return }
+    if (trimName.length < 2 || trimName.length > 100) { showToast(t('auth.name_length'), 'error'); return }
+    if (!trimEmail) { showToast(t('auth.email_required'), 'error'); return }
+    if (password.length < 6) { showToast(t('auth.password_min_error'), 'error'); return }
+    if (password.length > 128) { showToast(t('auth.password_too_long'), 'error'); return }
     setLoading(true)
     try {
       const res = await fetch('/api/auth/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: trimName, email: trimEmail, password }) })
@@ -107,7 +107,7 @@ export default function RegisterPage() {
         <div>
           <button onClick={handleGoogle} disabled={gLoading}
             className="w-full flex items-center justify-center gap-3 h-[46px] rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 active:scale-[0.985] transition-all text-[14px] font-medium text-neutral-700 disabled:opacity-50 cursor-pointer">
-            {gLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <GoogleIcon />} Continua cu Google
+            {gLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <GoogleIcon />} {t('auth.continue_google')}
           </button>
         </div>
 

@@ -52,8 +52,8 @@ function LoginContent() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!email.trim()) { showToast(t('auth.email') + ' lipsește', 'error'); return }
-    if (!password.trim()) { showToast(t('auth.password') + ' lipsește', 'error'); return }
+    if (!email.trim()) { showToast(t('auth.email_required'), 'error'); return }
+    if (!password.trim()) { showToast(t('auth.password_required'), 'error'); return }
     setLoading(true)
     const res = await signIn('credentials', { email: email.trim().toLowerCase(), password, redirect: false })
     if (res?.error) { showToast(t('auth.invalid_credentials'), 'error'); setLoading(false); return }
@@ -95,7 +95,7 @@ function LoginContent() {
         <div>
           <button onClick={handleGoogle} disabled={gLoading}
             className="w-full flex items-center justify-center gap-3 h-[48px] rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 active:scale-[0.985] transition-all text-[14px] font-medium text-neutral-700 disabled:opacity-50 cursor-pointer">
-            {gLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <GoogleIcon />} Continua cu Google
+            {gLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <GoogleIcon />} {t('auth.continue_google')}
           </button>
         </div>
 

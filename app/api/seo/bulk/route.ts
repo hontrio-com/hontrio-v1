@@ -72,19 +72,19 @@ export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user) {
-      return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const userId = (session.user as any).id
     const limit = await rateLimitExpensive(userId, 'seo-bulk')
     if (!limit.success) {
-      return NextResponse.json({ error: 'Prea multe cereri. Asteapta un minut.' }, { status: 429 })
+      return NextResponse.json({ error: 'Too many requests. Please wait a minute.' }, { status: 429 })
     }
 
     const { product_ids } = await request.json()
 
     if (!Array.isArray(product_ids) || product_ids.length === 0) {
-      return NextResponse.json({ error: 'product_ids lipsesc sau gol' }, { status: 400 })
+      return NextResponse.json({ error: 'product_ids missing or empty' }, { status: 400 })
     }
 
     const ids = product_ids.slice(0, 20)
@@ -100,7 +100,7 @@ export async function POST(request: Request) {
 
     if (!user || user.credits < totalCost) {
       return NextResponse.json(
-        { error: `Credite insuficiente. Necesare: ${totalCost} (${ids.length} produse x ${CREDIT_COST_PER_PRODUCT} cr.)` },
+        { error: `Insufficient credits. Required: ${totalCost} (${ids.length} products x ${CREDIT_COST_PER_PRODUCT} cr.)` },
         { status: 400 }
       )
     }
@@ -113,7 +113,7 @@ export async function POST(request: Request) {
       type: 'usage',
       amount: -totalCost,
       balance_after: upfrontBalance,
-      description: `SEO Bulk — ${ids.length} produse (rezervare)`,
+      description: `SEO Bulk — ${ids.length} products (reservation)`,
       reference_type: 'seo_bulk',
     })
 
@@ -124,7 +124,7 @@ export async function POST(request: Request) {
       .eq('user_id', userId)
 
     if (!products || products.length === 0) {
-      return NextResponse.json({ error: 'Niciun produs valid' }, { status: 404 })
+      return NextResponse.json({ error: 'No valid products found' }, { status: 404 })
     }
 
     let succeeded = 0
@@ -210,7 +210,7 @@ export async function POST(request: Request) {
           type: 'refund',
           amount: refundAmount,
           balance_after: newBal,
-          description: `SEO Bulk refund — ${failed} produse eșuate`,
+          description: `SEO Bulk refund — ${failed} failed products`,
           reference_type: 'seo_bulk_refund',
         })
       }
@@ -227,6 +227,6 @@ export async function POST(request: Request) {
 
   } catch (err: any) {
     console.error('[SEO Bulk] Error:', err)
-    return NextResponse.json({ error: 'Eroare interna' }, { status: 500 })
+    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
   }
 }

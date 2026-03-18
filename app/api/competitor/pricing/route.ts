@@ -10,17 +10,17 @@ const CREDIT_COST = 2
 export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user) return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
+    if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     const userId = (session.user as any).id
     const supabase = createAdminClient()
 
     const { competitor_url, my_url } = await request.json()
-    if (!competitor_url || !my_url) return NextResponse.json({ error: 'URL-urile lipsesc' }, { status: 400 })
+    if (!competitor_url || !my_url) return NextResponse.json({ error: 'URLs are required' }, { status: 400 })
 
     // Check credits
     const { data: user } = await supabase.from('users').select('credits').eq('id', userId).single()
     if (!user || user.credits < CREDIT_COST) {
-      return NextResponse.json({ error: `Credite insuficiente (necesare: ${CREDIT_COST})` }, { status: 400 })
+      return NextResponse.json({ error: `Insufficient credits (required: ${CREDIT_COST})` }, { status: 400 })
     }
 
     const [myHtml, theirHtml] = await Promise.all([
@@ -98,14 +98,14 @@ Analizează și răspunde STRICT JSON valid:
     await supabase.from('users').update({ credits: newBalance }).eq('id', userId)
     await supabase.from('credit_transactions').insert({
       user_id: userId, type: 'usage', amount: -CREDIT_COST, balance_after: newBalance,
-      description: 'Analiză pricing & USP competitor',
+      description: 'Competitor pricing & USP analysis',
       reference_type: 'competitor_pricing',
     })
 
     return NextResponse.json({ success: true, result, credits_remaining: newBalance })
   } catch (err) {
     console.error('[Pricing]', err)
-    return NextResponse.json({ error: 'Eroare internă' }, { status: 500 })
+    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
   }
 }
 

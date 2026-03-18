@@ -24,20 +24,20 @@ export async function GET(request: Request) {
       return NextResponse.json({ triggers: triggers || [] }, { headers: CORS })
     }
     const session = await getServerSession(authOptions)
-    if (!session?.user) return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
+    if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     const userId = (session.user as any).id
     const { data: triggers } = await supabase
       .from('agent_triggers').select('*').eq('user_id', userId).order('priority', { ascending: false })
     return NextResponse.json({ triggers: triggers || [] })
   } catch (err) {
-    return NextResponse.json({ error: 'Eroare' }, { status: 500, headers: CORS })
+    return NextResponse.json({ error: 'Error' }, { status: 500, headers: CORS })
   }
 }
 
 export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user) return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
+    if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     const userId = (session.user as any).id
     const body = await request.json()
     const supabase = createAdminClient()
@@ -49,14 +49,14 @@ export async function POST(request: Request) {
     if (error) throw error
     return NextResponse.json({ trigger: data })
   } catch (err) {
-    return NextResponse.json({ error: 'Eroare' }, { status: 500 })
+    return NextResponse.json({ error: 'Error' }, { status: 500 })
   }
 }
 
 export async function PUT(request: Request) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user) return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
+    if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     const userId = (session.user as any).id
     const body = await request.json()
     const { id, ...updates } = body
@@ -66,23 +66,23 @@ export async function PUT(request: Request) {
     if (error) throw error
     return NextResponse.json({ trigger: data })
   } catch (err) {
-    return NextResponse.json({ error: 'Eroare' }, { status: 500 })
+    return NextResponse.json({ error: 'Error' }, { status: 500 })
   }
 }
 
 export async function DELETE(request: Request) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user) return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
+    if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     const userId = (session.user as any).id
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
-    if (!id) return NextResponse.json({ error: 'ID lipsește' }, { status: 400 })
+    if (!id) return NextResponse.json({ error: 'Missing ID' }, { status: 400 })
     const supabase = createAdminClient()
     await supabase.from('agent_triggers').delete().eq('id', id).eq('user_id', userId)
     return NextResponse.json({ success: true })
   } catch (err) {
-    return NextResponse.json({ error: 'Eroare' }, { status: 500 })
+    return NextResponse.json({ error: 'Error' }, { status: 500 })
   }
 }
 

@@ -54,9 +54,9 @@ function ResetContent() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (password.length < 6) { showToast('Parola trebuie sa aiba minim 6 caractere', 'error'); return }
-    if (password !== confirm) { showToast('Parolele nu se potrivesc', 'error'); return }
-    if (!token || !email) { showToast('Link invalid — solicita un nou link de resetare', 'error'); return }
+    if (password.length < 6) { showToast(t('auth.password_min_error'), 'error'); return }
+    if (password !== confirm) { showToast(t('auth.passwords_no_match'), 'error'); return }
+    if (!token || !email) { showToast(t('auth.invalid_reset_link'), 'error'); return }
     setLoading(true)
     try {
       const res = await fetch('/api/auth/reset-password', {
@@ -66,7 +66,7 @@ function ResetContent() {
       const data = await res.json()
       if (!res.ok) { showToast(data.error || t('common.error_generic'), 'error'); setLoading(false); return }
       setDone(true)
-    } catch { showToast('Eroare de conexiune', 'error') } finally { setLoading(false) }
+    } catch { showToast(t('auth.connection_error'), 'error') } finally { setLoading(false) }
   }
 
   const ic = (n: string) => `relative rounded-xl border transition-all duration-200 ${focused === n ? 'border-neutral-900 ring-1 ring-neutral-900/5' : 'border-neutral-200 hover:border-neutral-300'}`
@@ -80,11 +80,11 @@ function ResetContent() {
           <div className="h-16 w-16 rounded-2xl bg-red-50 flex items-center justify-center mx-auto mb-6">
             <AlertCircle className="h-7 w-7 text-red-500" />
           </div>
-          <h1 className="text-[22px] font-semibold text-neutral-900 mb-3">Link invalid</h1>
-          <p className="text-neutral-400 text-[14px] mb-8">Linkul de resetare este invalid sau a expirat.</p>
+          <h1 className="text-[22px] font-semibold text-neutral-900 mb-3">{t('auth.invalid_link_title')}</h1>
+          <p className="text-neutral-400 text-[14px] mb-8">{t('auth.invalid_link_desc')}</p>
           <Link href="/forgot-password">
             <button className="w-full h-[46px] rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white text-[14px] font-medium flex items-center justify-center gap-2 transition-all cursor-pointer">
-              Solicita un nou link
+              {t('auth.request_new_link')}
             </button>
           </Link>
         </div>
@@ -112,7 +112,7 @@ function ResetContent() {
             <Link href="/login">
               <motion.button whileTap={{ scale: 0.985 }}
                 className="w-full h-[46px] rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white text-[14px] font-medium flex items-center justify-center gap-2 transition-all cursor-pointer">
-                Mergi la conectare <ArrowRight className="h-4 w-4" />
+                {t('auth.go_to_login')} <ArrowRight className="h-4 w-4" />
               </motion.button>
             </Link>
           </motion.div>
@@ -122,7 +122,7 @@ function ResetContent() {
               <KeyRound className="h-7 w-7 text-neutral-700" />
             </div>
             <h1 className="text-[26px] font-semibold text-neutral-900 tracking-tight mb-2">{t('auth.new_password')}</h1>
-            <p className="text-neutral-400 text-[14px] mb-8 font-light">Seteaza o parola noua pentru contul tau</p>
+            <p className="text-neutral-400 text-[14px] mb-8 font-light">{t('auth.set_new_password_desc')}</p>
 
             <form onSubmit={handleSubmit} className="space-y-3.5 text-left">
               <div>
@@ -130,7 +130,7 @@ function ResetContent() {
                 <div className={ic('password')}>
                   <Lock className={`absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 transition-colors duration-200 ${focused === 'password' ? 'text-neutral-900' : 'text-neutral-300'}`} />
                   <input type={showPw ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} onFocus={() => setFocused('password')} onBlur={() => setFocused(null)}
-                    placeholder="Minim 6 caractere" required minLength={6} maxLength={128} autoComplete="new-password"
+                    placeholder={t('auth.password_min')} required minLength={6} maxLength={128} autoComplete="new-password"
                     className="w-full pl-11 pr-12 h-[46px] bg-transparent rounded-xl text-[14px] text-neutral-900 placeholder:text-neutral-300 outline-none" />
                   <button type="button" onClick={() => setShowPw(!showPw)} tabIndex={-1} className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-300 hover:text-neutral-600 transition-colors">
                     {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -148,12 +148,12 @@ function ResetContent() {
                 <div className={ic('confirm')}>
                   <Lock className={`absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 transition-colors duration-200 ${focused === 'confirm' ? 'text-neutral-900' : 'text-neutral-300'}`} />
                   <input type="password" value={confirm} onChange={e => setConfirm(e.target.value)} onFocus={() => setFocused('confirm')} onBlur={() => setFocused(null)}
-                    placeholder="Repeta parola" required autoComplete="new-password"
+                    placeholder={t('auth.repeat_password_placeholder')} required autoComplete="new-password"
                     className="w-full pl-11 pr-4 h-[46px] bg-transparent rounded-xl text-[14px] text-neutral-900 placeholder:text-neutral-300 outline-none" />
                 </div>
                 {confirm && password && (
                   <p className={`text-[11px] mt-1.5 px-1 font-medium ${password === confirm ? 'text-neutral-500' : 'text-red-400'}`}>
-                    {password === confirm ? 'Parolele se potrivesc' : 'Parolele nu se potrivesc'}
+                    {password === confirm ? t('auth.passwords_match') : t('auth.passwords_no_match')}
                   </p>
                 )}
               </div>

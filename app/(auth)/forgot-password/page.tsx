@@ -46,14 +46,14 @@ export default function ForgotPasswordPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!email.trim()) { showToast('Introdu adresa de email', 'error'); return }
+    if (!email.trim()) { showToast(t('auth.email_required'), 'error'); return }
     setLoading(true)
     try {
       const res = await fetch('/api/auth/forgot-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: email.trim().toLowerCase() }) })
       const data = await res.json()
       if (!res.ok) { showToast(data.error || t('common.error_generic'), 'error'); setLoading(false); return }
       setSent(true)
-    } catch { showToast('Eroare de conexiune', 'error') } finally { setLoading(false) }
+    } catch { showToast(t('auth.connection_error'), 'error') } finally { setLoading(false) }
   }
 
   return (
@@ -75,12 +75,12 @@ export default function ForgotPasswordPage() {
             </div>
             <h1 className="text-[26px] font-semibold text-neutral-900 tracking-tight mb-3">{t('auth.reset_success')}</h1>
             <p className="text-neutral-400 text-[14px] leading-relaxed mb-8 font-light">
-              Am trimis instructiunile de resetare la <span className="text-neutral-700 font-medium">{email}</span>. Verifica-ti inbox-ul si folderul spam.
+              {t('auth.reset_email_sent', { email })}
             </p>
             <Link href="/login">
               <motion.button whileTap={{ scale: 0.985 }}
                 className="w-full h-[46px] rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 text-neutral-700 text-[14px] font-medium flex items-center justify-center gap-2 transition-all cursor-pointer">
-                <ArrowLeft className="h-4 w-4" /> Inapoi la conectare
+                <ArrowLeft className="h-4 w-4" /> {t('auth.back_to_login')}
               </motion.button>
             </Link>
           </motion.div>
@@ -90,8 +90,8 @@ export default function ForgotPasswordPage() {
               <div className="h-16 w-16 rounded-2xl bg-neutral-100 flex items-center justify-center mx-auto mb-6">
                 <KeyRound className="h-7 w-7 text-neutral-700" />
               </div>
-              <h1 className="text-[26px] font-semibold text-neutral-900 tracking-tight">Reseteaza parola</h1>
-              <p className="text-neutral-400 text-[14px] mt-2 font-light">Introdu emailul asociat contului tau</p>
+              <h1 className="text-[26px] font-semibold text-neutral-900 tracking-tight">{t('auth.reset_title')}</h1>
+              <p className="text-neutral-400 text-[14px] mt-2 font-light">{t('auth.forgot_desc')}</p>
             </motion.div>
 
             <motion.form initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }} onSubmit={handleSubmit} className="space-y-4 text-left">
@@ -100,7 +100,7 @@ export default function ForgotPasswordPage() {
                 <div className={`relative rounded-xl border transition-all duration-200 ${focused ? 'border-neutral-900 ring-1 ring-neutral-900/5' : 'border-neutral-200 hover:border-neutral-300'}`}>
                   <Mail className={`absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 transition-colors duration-200 ${focused ? 'text-neutral-900' : 'text-neutral-300'}`} />
                   <input type="email" value={email} onChange={e => setEmail(e.target.value)} onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}
-                    placeholder="email@exemplu.ro" required autoComplete="email" className="w-full pl-11 pr-4 h-[46px] bg-transparent rounded-xl text-[14px] text-neutral-900 placeholder:text-neutral-300 outline-none" />
+                    placeholder={t('auth.email_placeholder')} required autoComplete="email" className="w-full pl-11 pr-4 h-[46px] bg-transparent rounded-xl text-[14px] text-neutral-900 placeholder:text-neutral-300 outline-none" />
                 </div>
               </div>
               <motion.div whileTap={{ scale: 0.985 }}>
@@ -113,7 +113,7 @@ export default function ForgotPasswordPage() {
 
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }} className="mt-7">
               <Link href="/login" className="text-[14px] text-neutral-400 hover:text-neutral-900 font-medium inline-flex items-center gap-1.5 transition-colors">
-                <ArrowLeft className="h-3.5 w-3.5" /> Inapoi la conectare
+                <ArrowLeft className="h-3.5 w-3.5" /> {t('auth.back_to_login')}
               </Link>
             </motion.div>
           </>

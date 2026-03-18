@@ -7,7 +7,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 export async function GET() {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user) return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
+    if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     const userId = (session.user as any).id
     const supabase = createAdminClient()
 
@@ -19,7 +19,7 @@ export async function GET() {
 
     return NextResponse.json({ templates: templates || [] })
   } catch {
-    return NextResponse.json({ error: 'Eroare internă' }, { status: 500 })
+    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
   }
 }
 
@@ -27,12 +27,12 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user) return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
+    if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     const userId = (session.user as any).id
     const supabase = createAdminClient()
 
     const { name, style, manual_description, thumbnail_url } = await request.json()
-    if (!name || !style) return NextResponse.json({ error: 'name și style sunt obligatorii' }, { status: 400 })
+    if (!name || !style) return NextResponse.json({ error: 'name and style are required' }, { status: 400 })
 
     const { data, error } = await supabase
       .from('image_style_templates')
@@ -40,10 +40,10 @@ export async function POST(request: Request) {
       .select()
       .single()
 
-    if (error) return NextResponse.json({ error: 'Eroare la salvare' }, { status: 500 })
+    if (error) return NextResponse.json({ error: 'Save error' }, { status: 500 })
     return NextResponse.json({ template: data })
   } catch {
-    return NextResponse.json({ error: 'Eroare internă' }, { status: 500 })
+    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
   }
 }
 
@@ -51,7 +51,7 @@ export async function POST(request: Request) {
 export async function PATCH(request: Request) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user) return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
+    if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     const userId = (session.user as any).id
     const { id } = await request.json()
     const supabase = createAdminClient()
@@ -59,7 +59,7 @@ export async function PATCH(request: Request) {
     await supabase.rpc('increment_template_usage', { template_id: id, p_user_id: userId })
     return NextResponse.json({ success: true })
   } catch {
-    return NextResponse.json({ error: 'Eroare internă' }, { status: 500 })
+    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
   }
 }
 
@@ -67,7 +67,7 @@ export async function PATCH(request: Request) {
 export async function DELETE(request: Request) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user) return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
+    if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     const userId = (session.user as any).id
     const { id } = await request.json()
     const supabase = createAdminClient()
@@ -75,6 +75,6 @@ export async function DELETE(request: Request) {
     await supabase.from('image_style_templates').delete().eq('id', id).eq('user_id', userId)
     return NextResponse.json({ success: true })
   } catch {
-    return NextResponse.json({ error: 'Eroare internă' }, { status: 500 })
+    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
   }
 }

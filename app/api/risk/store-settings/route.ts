@@ -7,18 +7,18 @@ import { DEFAULT_ML_WEIGHTS } from '@/lib/risk/engine'
 export async function GET(req: Request) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user) return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
+    if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const { searchParams } = new URL(req.url)
     const store_id = searchParams.get('store_id')
-    if (!store_id) return NextResponse.json({ error: 'store_id obligatoriu' }, { status: 400 })
+    if (!store_id) return NextResponse.json({ error: 'store_id required' }, { status: 400 })
 
     const supabase = createAdminClient()
 
     // Verifică ownership store
     const { data: store } = await supabase.from('stores')
       .select('id, store_url').eq('id', store_id).eq('user_id', (session.user as any).id).single()
-    if (!store) return NextResponse.json({ error: 'Store negăsit' }, { status: 404 })
+    if (!store) return NextResponse.json({ error: 'Store not found' }, { status: 404 })
 
     const { data: settings } = await supabase
       .from('risk_store_settings')
@@ -68,18 +68,18 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user) return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
+    if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const body = await req.json()
     const { store_id, ...updates } = body
-    if (!store_id) return NextResponse.json({ error: 'store_id obligatoriu' }, { status: 400 })
+    if (!store_id) return NextResponse.json({ error: 'store_id required' }, { status: 400 })
 
     const supabase = createAdminClient()
 
     // Verifică ownership
     const { data: store } = await supabase.from('stores')
       .select('id').eq('id', store_id).eq('user_id', (session.user as any).id).single()
-    if (!store) return NextResponse.json({ error: 'Store negăsit' }, { status: 404 })
+    if (!store) return NextResponse.json({ error: 'Store not found' }, { status: 404 })
 
     // Câmpuri permise de actualizat
     const ALLOWED = [

@@ -6,12 +6,12 @@ import { createAdminClient } from '@/lib/supabase/admin'
 export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user) return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
+    if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const userId = (session.user as any).id
     const { product_id } = await request.json()
 
-    if (!product_id) return NextResponse.json({ error: 'product_id lipsește' }, { status: 400 })
+    if (!product_id) return NextResponse.json({ error: 'product_id is required' }, { status: 400 })
 
     const supabase = createAdminClient()
 
@@ -22,7 +22,7 @@ export async function POST(request: Request) {
       .eq('user_id', userId)
       .single()
 
-    if (!product) return NextResponse.json({ error: 'Produs negăsit' }, { status: 404 })
+    if (!product) return NextResponse.json({ error: 'Product not found' }, { status: 404 })
 
     const { data: store } = await supabase
       .from('stores')
@@ -68,6 +68,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true, schema: cleanSchema, json_ld: jsonLd })
   } catch (err) {
     console.error('[Schema]', err)
-    return NextResponse.json({ error: 'Eroare internă' }, { status: 500 })
+    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
   }
 }

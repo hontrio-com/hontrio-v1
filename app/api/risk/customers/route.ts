@@ -6,7 +6,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 export async function GET(req: Request) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user) return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
+    if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const { searchParams } = new URL(req.url)
     const store_id = searchParams.get('store_id')
@@ -69,10 +69,10 @@ export async function GET(req: Request) {
 export async function PATCH(req: Request) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user) return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
+    if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const { customer_id, label_override, operator_notes, in_local_blacklist } = await req.json()
-    if (!customer_id) return NextResponse.json({ error: 'customer_id obligatoriu' }, { status: 400 })
+    if (!customer_id) return NextResponse.json({ error: 'customer_id required' }, { status: 400 })
 
     const supabase = createAdminClient()
 
@@ -82,7 +82,7 @@ export async function PATCH(req: Request) {
       .eq('id', customer_id)
       .eq('user_id', (session.user as any).id)
       .single()
-    if (!customer) return NextResponse.json({ error: 'Client negăsit' }, { status: 404 })
+    if (!customer) return NextResponse.json({ error: 'Customer not found' }, { status: 404 })
 
     const updates: any = { manually_reviewed: true, updated_at: new Date().toISOString() }
     if (label_override !== undefined) {

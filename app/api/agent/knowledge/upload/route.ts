@@ -58,7 +58,7 @@ async function extractTextFromUrl(url: string): Promise<string> {
 export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user) return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
+    if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     const userId = (session.user as any).id
     const supabase = createAdminClient()
 
@@ -79,7 +79,7 @@ export async function POST(request: Request) {
       if (file) {
         docName = name || file.name
         sizeBytes = file.size
-        if (sizeBytes > 5 * 1024 * 1024) return NextResponse.json({ error: 'Fișierul e prea mare (max 5MB)' }, { status: 400 })
+        if (sizeBytes > 5 * 1024 * 1024) return NextResponse.json({ error: 'File too large (max 5MB)' }, { status: 400 })
 
         const ext = file.name.split('.').pop()?.toLowerCase() || ''
         if (ext === 'pdf') {
@@ -101,7 +101,7 @@ export async function POST(request: Request) {
           docType = 'txt'
           rawText = await file.text()
         } else {
-          return NextResponse.json({ error: 'Tip fișier nesuportat. Acceptăm PDF, TXT, MD.' }, { status: 400 })
+          return NextResponse.json({ error: 'Unsupported file type. We accept PDF, TXT, MD.' }, { status: 400 })
         }
       } else if (url) {
         docType = 'url'
@@ -115,7 +115,7 @@ export async function POST(request: Request) {
         rawText = text
         sizeBytes = text.length
       } else {
-        return NextResponse.json({ error: 'Niciun conținut furnizat' }, { status: 400 })
+        return NextResponse.json({ error: 'No content provided' }, { status: 400 })
       }
     } else {
       // JSON body for manual text
@@ -127,7 +127,7 @@ export async function POST(request: Request) {
     }
 
     if (!rawText || rawText.trim().length < 20) {
-      return NextResponse.json({ error: 'Conținut prea scurt sau nu s-a putut extrage text.' }, { status: 400 })
+      return NextResponse.json({ error: 'Content too short or text could not be extracted.' }, { status: 400 })
     }
 
     // Crează documentul cu status processing
@@ -136,13 +136,13 @@ export async function POST(request: Request) {
       .insert({ user_id: userId, name: docName, type: docType, source_url: sourceUrl || null, size_bytes: sizeBytes, status: 'processing' })
       .select('id').single()
 
-    if (docErr || !doc) return NextResponse.json({ error: 'Eroare la salvare document' }, { status: 500 })
+    if (docErr || !doc) return NextResponse.json({ error: 'Error saving document' }, { status: 500 })
 
     // Chunking
     const chunks = chunkText(rawText)
     if (chunks.length === 0) {
-      await supabase.from('knowledge_documents').update({ status: 'error', error_msg: 'Nu s-a putut extrage text' }).eq('id', doc.id)
-      return NextResponse.json({ error: 'Nu s-a putut extrage text din document' }, { status: 400 })
+      await supabase.from('knowledge_documents').update({ status: 'error', error_msg: 'Could not extract text' }).eq('id', doc.id)
+      return NextResponse.json({ error: 'Could not extract text from document' }, { status: 400 })
     }
 
     // Embeddings în batch-uri de 50
@@ -166,7 +166,7 @@ export async function POST(request: Request) {
     const { error: chunkErr } = await supabase.from('knowledge_chunks').insert(chunkRows)
     if (chunkErr) {
       await supabase.from('knowledge_documents').update({ status: 'error', error_msg: chunkErr.message }).eq('id', doc.id)
-      return NextResponse.json({ error: 'Eroare la salvare chunks' }, { status: 500 })
+      return NextResponse.json({ error: 'Error saving chunks' }, { status: 500 })
     }
 
     // Marchează ca ready
@@ -175,6 +175,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, document_id: doc.id, chunks: chunks.length })
   } catch (err: any) {
     console.error('[Knowledge Upload]', err)
-    return NextResponse.json({ error: err.message || 'Eroare internă' }, { status: 500 })
+    return NextResponse.json({ error: err.message || 'Internal error' }, { status: 500 })
   }
 }

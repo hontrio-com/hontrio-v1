@@ -10,17 +10,17 @@ const CREDIT_COST = 3
 export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user) return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
+    if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     const userId = (session.user as any).id
     const supabase = createAdminClient()
 
     const { competitor_url, my_analysis, competitor_analysis } = await request.json()
-    if (!competitor_url) return NextResponse.json({ error: 'URL competitor lipsește' }, { status: 400 })
+    if (!competitor_url) return NextResponse.json({ error: 'Competitor URL is required' }, { status: 400 })
 
     // Check credits
     const { data: user } = await supabase.from('users').select('credits, name, email').eq('id', userId).single()
     if (!user || user.credits < CREDIT_COST) {
-      return NextResponse.json({ error: `Credite insuficiente (necesare: ${CREDIT_COST})` }, { status: 400 })
+      return NextResponse.json({ error: `Insufficient credits (required: ${CREDIT_COST})` }, { status: 400 })
     }
 
     // Get store info
@@ -105,7 +105,7 @@ Răspunde STRICT JSON valid cu raportul complet:
     await supabase.from('users').update({ credits: newBalance }).eq('id', userId)
     await supabase.from('credit_transactions').insert({
       user_id: userId, type: 'usage', amount: -CREDIT_COST, balance_after: newBalance,
-      description: `Raport SEO Battle: ${competitor_url}`,
+      description: `SEO Battle Report: ${competitor_url}`,
       reference_type: 'competitor_report',
     })
 
@@ -117,7 +117,7 @@ Răspunde STRICT JSON valid cu raportul complet:
     })
   } catch (err) {
     console.error('[Reports]', err)
-    return NextResponse.json({ error: 'Eroare internă' }, { status: 500 })
+    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
   }
 }
 
@@ -125,7 +125,7 @@ Răspunde STRICT JSON valid cu raportul complet:
 export async function GET(request: Request) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user) return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
+    if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     const userId = (session.user as any).id
     const supabase = createAdminClient()
 
@@ -141,7 +141,7 @@ export async function GET(request: Request) {
         .eq('user_id', userId)
         .single()
 
-      if (error || !data) return NextResponse.json({ error: 'Raport negasit' }, { status: 404 })
+      if (error || !data) return NextResponse.json({ error: 'Report not found' }, { status: 404 })
       return NextResponse.json({ report: data.report_data })
     }
 
@@ -167,6 +167,6 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ reports })
   } catch {
-    return NextResponse.json({ error: 'Eroare interna' }, { status: 500 })
+    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
   }
 }

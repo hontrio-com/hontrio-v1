@@ -7,7 +7,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 export async function GET(request: Request) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user) return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
+    if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     const userId = (session.user as any).id
     const { searchParams } = new URL(request.url)
     const unreadOnly = searchParams.get('unread') === 'true'
@@ -26,7 +26,7 @@ export async function GET(request: Request) {
     if (error) return NextResponse.json({ alerts: [] })
     return NextResponse.json({ alerts: data || [] })
   } catch {
-    return NextResponse.json({ error: 'Eroare internă' }, { status: 500 })
+    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
   }
 }
 
@@ -34,7 +34,7 @@ export async function GET(request: Request) {
 export async function PATCH(request: Request) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user) return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
+    if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     const userId = (session.user as any).id
     const { ids, all } = await request.json()
     const supabase = createAdminClient()
@@ -47,6 +47,6 @@ export async function PATCH(request: Request) {
 
     return NextResponse.json({ success: true })
   } catch {
-    return NextResponse.json({ error: 'Eroare internă' }, { status: 500 })
+    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
   }
 }

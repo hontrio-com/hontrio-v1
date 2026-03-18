@@ -8,7 +8,7 @@ export async function GET(request: Request) {
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user) {
-      return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const supabase = createAdminClient()
@@ -66,7 +66,7 @@ export async function GET(request: Request) {
 
     if (error) {
       console.error('Products fetch error:', error)
-      return NextResponse.json({ error: 'Eroare la încărcarea produselor' }, { status: 500 })
+      return NextResponse.json({ error: 'Error loading products' }, { status: 500 })
     }
 
     const productIds = (products || []).map(p => p.id)
@@ -135,6 +135,6 @@ export async function GET(request: Request) {
       status_counts: statusCounts,
     })
   } catch {
-    return NextResponse.json({ error: 'Eroare internă' }, { status: 500 })
+    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
   }
 }

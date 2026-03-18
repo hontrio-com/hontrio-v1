@@ -47,16 +47,16 @@ type Analytics = {
   hourCounts: number[]
 }
 
-const defaultConfig: Config = {
-  is_active: false, agent_name: 'Asistent',
-  welcome_message: 'Bună! Sunt asistentul tău virtual. Cu ce te pot ajuta astăzi?',
-  whatsapp_number: '', whatsapp_message: 'Bună ziua! Am o întrebare despre produsele voastre.',
+const makeDefaultConfig = (t: (k: string) => string): Config => ({
+  is_active: false, agent_name: t('agent.default_assistant_name'),
+  welcome_message: t('agent.default_welcome_msg'),
+  whatsapp_number: '', whatsapp_message: t('agent.default_whatsapp_msg'),
   widget_position: 'bottom-right', widget_color: '#2563eb', widget_size: 'medium',
-  widget_bottom_offset: 20, widget_button_shape: 'circle', widget_button_label: 'Ajutor?',
+  widget_bottom_offset: 20, widget_button_shape: 'circle', widget_button_label: t('agent.default_help_label'),
   widget_avatar_url: '', widget_intro_animation: true, widget_custom_css: '',
-  quick_replies: ['Caut un produs', 'Am o întrebare', 'Livrare & retur'],
+  quick_replies: [t('agent.default_quick_reply_1'), t('agent.default_quick_reply_2'), t('agent.default_quick_reply_3')],
   notify_email: '', notify_on_escalation: true, notify_on_problem: true,
-}
+})
 
 // ─── Primitives ───────────────────────────────────────────────────────────────
 
@@ -129,7 +129,7 @@ function WidgetPreview({ config, messages, onSend, loading, onToggle, isOpen }: 
                 ? <img src={config.widget_avatar_url} alt="" className="w-8 h-8 rounded-full object-cover border-2 border-white/30" />
                 : <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center border-2 border-white/30"><Bot className="w-4 h-4 text-white" /></div>}
               <div>
-                <p className="text-white text-xs font-semibold">{config.agent_name||'Asistent'}</p>
+                <p className="text-white text-xs font-semibold">{config.agent_name||t('agent.default_assistant_name')}</p>
                 <div className="flex items-center gap-1 mt-0.5"><div className="w-1.5 h-1.5 rounded-full bg-emerald-400" /><p className="text-white/80 text-[10px]">Online</p></div>
               </div>
               <button onClick={onToggle} className="ml-auto w-6 h-6 rounded-full bg-white/15 flex items-center justify-center hover:bg-white/25 transition-colors">
@@ -206,7 +206,7 @@ function WidgetPreview({ config, messages, onSend, loading, onToggle, isOpen }: 
         {config.widget_avatar_url && !isOpen
           ? <img src={config.widget_avatar_url} alt="" className="w-7 h-7 rounded-full object-cover" />
           : <MessageCircle style={{ width:config.widget_size==='small'?18:config.widget_size==='large'?26:22, height:'auto' }} />}
-        {isRect && <span className="text-sm font-semibold whitespace-nowrap">{config.widget_button_label||'Ajutor?'}</span>}
+        {isRect && <span className="text-sm font-semibold whitespace-nowrap">{config.widget_button_label||t('agent.default_help_label')}</span>}
       </motion.button>
     </div>
   )
@@ -217,7 +217,7 @@ function WidgetPreview({ config, messages, onSend, loading, onToggle, isOpen }: 
 export default function AgentPage() {
   const { t } = useT()
   const INTENT_LABELS = getIntentLabels(t)
-  const [config, setConfig]       = useState<Config>(defaultConfig)
+  const [config, setConfig]       = useState<Config>(() => makeDefaultConfig(t))
   const [stats, setStats]         = useState<Stats | null>(null)
   const [analytics, setAnalytics] = useState<Analytics | null>(null)
   const [knowledgeDocs, setKnowledgeDocs] = useState<KnowledgeDoc[]>([])
@@ -339,7 +339,7 @@ export default function AgentPage() {
     try {
       const [configRes, statsRes, meRes] = await Promise.all([fetch('/api/agent/config'), fetch('/api/agent/conversations'), fetch('/api/user/me')])
       const configData = await configRes.json(); const statsData = await statsRes.json(); const meData = await meRes.json()
-      if (configData.config) setConfig({ ...defaultConfig, ...configData.config })
+      if (configData.config) setConfig({ ...makeDefaultConfig(t), ...configData.config })
       if (meData.user?.id) setStoreUserId(meData.user.id)
       if (statsData.stats) setStats(statsData.stats)
     } catch {} finally { setLoading(false) }
@@ -610,7 +610,7 @@ export default function AgentPage() {
               <Card className="p-5 space-y-4">
                 {/* Avatar */}
                 <div>
-                  <SectionLabel className="mb-2 block">Avatar agent</SectionLabel>
+                  <SectionLabel className="mb-2 block">{t('agent.agent_avatar')}</SectionLabel>
                   <div className="flex items-center gap-3">
                     <div className="w-14 h-14 rounded-xl overflow-hidden border-2 border-neutral-100 bg-neutral-50 flex items-center justify-center shrink-0">
                       {config.widget_avatar_url ? <img src={config.widget_avatar_url} alt="" className="w-full h-full object-cover" /> : <Bot className="w-6 h-6 text-neutral-300" />}
@@ -716,7 +716,7 @@ export default function AgentPage() {
                 </div>
                 {/* Offset */}
                 <div>
-                  <SectionLabel className="mb-2 block">Distanță față de jos — <span className="text-neutral-700 font-semibold">{config.widget_bottom_offset}px</span></SectionLabel>
+                  <SectionLabel className="mb-2 block">{t('agent.distance_from_bottom', { px: String(config.widget_bottom_offset) })}</SectionLabel>
                   <input type="range" min={16} max={120} value={config.widget_bottom_offset} onChange={e => setConfig(c => ({ ...c, widget_bottom_offset:Number(e.target.value) }))} className="w-full accent-blue-500" />
                 </div>
                 {/* Animație */}
@@ -826,7 +826,7 @@ export default function AgentPage() {
             {intelResult && (
               <div className="p-3 bg-emerald-50 border border-emerald-100 rounded-xl flex items-start gap-2 mb-3">
                 <CheckCircle2 className="h-4 w-4 text-emerald-600 mt-0.5 shrink-0" />
-                <p className="text-[11px] text-emerald-600">{intelResult.generated} generate · {intelResult.skipped} ignorate · {intelResult.failed} eșuate · {intelResult.credits_used} credite</p>
+                <p className="text-[11px] text-emerald-600">{t('agent.intel_result_summary', { generated: String(intelResult.generated), skipped: String(intelResult.skipped), failed: String(intelResult.failed), credits: String(intelResult.credits_used) })}</p>
               </div>
             )}
             {intelError && (
@@ -918,7 +918,7 @@ export default function AgentPage() {
                         ) : (
                           <>
                             <button onClick={() => setIntelEditing({})} className="text-[11px] font-medium text-neutral-400 hover:text-neutral-600">{t('agent.intel_cancel')}</button>
-                            <button onClick={saveEditIntel} disabled={intelSaving} className="text-[11px] font-semibold text-white bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded-lg flex items-center gap-1 disabled:opacity-50">{intelSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}Salvează</button>
+                            <button onClick={saveEditIntel} disabled={intelSaving} className="text-[11px] font-semibold text-white bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded-lg flex items-center gap-1 disabled:opacity-50">{intelSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}{t('agent.trigger_save')}</button>
                           </>
                         )}
                       </div>
@@ -1002,7 +1002,7 @@ export default function AgentPage() {
                                     <input value={f.q||''} onChange={e => { const arr = [...(ed?.faq_candidates||[])]; arr[i] = {...arr[i], q: e.target.value}; setField('faq_candidates', arr) }} placeholder={t('agent.question_placeholder')} className="flex-1 text-[11px] font-semibold bg-transparent outline-none" />
                                     <button onClick={() => { const arr = [...(ed?.faq_candidates||[])]; arr.splice(i,1); setField('faq_candidates', arr) }} className="text-red-400 hover:text-red-600"><X className="h-3 w-3" /></button>
                                   </div>
-                                  <textarea value={f.a||''} onChange={e => { const arr = [...(ed?.faq_candidates||[])]; arr[i] = {...arr[i], a: e.target.value}; setField('faq_candidates', arr) }} placeholder="Răspuns" className="w-full text-[11px] text-neutral-600 bg-transparent outline-none resize-y min-h-[30px]" />
+                                  <textarea value={f.a||''} onChange={e => { const arr = [...(ed?.faq_candidates||[])]; arr[i] = {...arr[i], a: e.target.value}; setField('faq_candidates', arr) }} placeholder={t('agent.faq_answer_placeholder')} className="w-full text-[11px] text-neutral-600 bg-transparent outline-none resize-y min-h-[30px]" />
                                 </div>
                               ))}
                               <button onClick={() => setField('faq_candidates', [...(ed?.faq_candidates||[]), {q:'',a:''}])} className="text-[11px] text-blue-600 hover:text-blue-800 font-medium">{t('agent.intel_add_faq')}</button>
@@ -1065,7 +1065,7 @@ export default function AgentPage() {
             </div>
             {!config.notify_email
               ? <div className="flex items-center gap-2 p-3 bg-amber-50 border border-amber-100 rounded-xl"><AlertCircle className="h-4 w-4 text-amber-500 shrink-0" /><p className="text-[11px] text-amber-700">{t('agent.notif_add_email')}</p></div>
-              : <div className="flex items-center gap-2 p-3 bg-emerald-50 border border-emerald-100 rounded-xl"><Check className="h-4 w-4 text-emerald-600 shrink-0" /><p className="text-[11px] text-emerald-700">Notificările vor fi trimise la <strong>{config.notify_email}</strong></p></div>}
+              : <div className="flex items-center gap-2 p-3 bg-emerald-50 border border-emerald-100 rounded-xl"><Check className="h-4 w-4 text-emerald-600 shrink-0" /><p className="text-[11px] text-emerald-700" dangerouslySetInnerHTML={{ __html: t('agent.notif_email_active', { email: `<strong>${config.notify_email}</strong>` }) }} /></div>}
             <Btn onClick={handleSave} disabled={saving} variant={saved?'success':'primary'} className="w-full justify-center h-10">
               {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : saved ? <Check className="h-3.5 w-3.5" /> : <Save className="h-3.5 w-3.5" />}
               {saving ? t('common.saving') : saved ? t('common.saved') : t('common.save')}
@@ -1146,7 +1146,7 @@ export default function AgentPage() {
           </Card>
           <div className="flex gap-2 p-4 bg-blue-50 border border-blue-100 rounded-xl">
             <BookOpen className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" />
-            <p className="text-[11px] text-blue-700">{t('agent.knowledge_hint')} Agentul va cita informațiile relevante automat.</p>
+            <p className="text-[11px] text-blue-700">{t('agent.knowledge_hint')} {t('agent.knowledge_auto_cite')}</p>
           </div>
         </div>
       )}

@@ -6,7 +6,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 export async function GET(request: Request) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user) return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
+    if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const userId = (session.user as any).id
     const { searchParams } = new URL(request.url)
@@ -162,6 +162,6 @@ export async function GET(request: Request) {
     })
   } catch (err) {
     console.error('[Analytics]', err)
-    return NextResponse.json({ error: 'Eroare internă' }, { status: 500 })
+    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
   }
 }

@@ -8,7 +8,7 @@ import { normalizeUrl } from '@/lib/competitor/url-utils'
 export async function GET() {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user) return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
+    if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     const userId = (session.user as any).id
     const supabase = createAdminClient()
 
@@ -39,7 +39,7 @@ export async function GET() {
 
     return NextResponse.json({ monitors })
   } catch (err) {
-    return NextResponse.json({ error: 'Eroare internă' }, { status: 500 })
+    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
   }
 }
 
@@ -47,12 +47,12 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user) return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
+    if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     const userId = (session.user as any).id
     const supabase = createAdminClient()
 
     const { competitor_url, competitor_label, check_frequency_hours = 24 } = await request.json()
-    if (!competitor_url) return NextResponse.json({ error: 'URL lipsește' }, { status: 400 })
+    if (!competitor_url) return NextResponse.json({ error: 'URL is required' }, { status: 400 })
 
     const normalizedUrl = normalizeUrl(competitor_url)
 
@@ -62,7 +62,7 @@ export async function POST(request: Request) {
       .select('id', { count: 'exact', head: true })
       .eq('user_id', userId)
     if ((count || 0) >= 10) {
-      return NextResponse.json({ error: 'Limită de 10 competitori monitorizați' }, { status: 400 })
+      return NextResponse.json({ error: 'Limit of 10 monitored competitors reached' }, { status: 400 })
     }
 
     const { data, error } = await supabase
@@ -77,10 +77,10 @@ export async function POST(request: Request) {
       .select()
       .single()
 
-    if (error) return NextResponse.json({ error: 'Eroare la salvare' }, { status: 500 })
+    if (error) return NextResponse.json({ error: 'Save error' }, { status: 500 })
     return NextResponse.json({ monitor: data })
   } catch (err) {
-    return NextResponse.json({ error: 'Eroare internă' }, { status: 500 })
+    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
   }
 }
 
@@ -88,17 +88,17 @@ export async function POST(request: Request) {
 export async function DELETE(request: Request) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user) return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
+    if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     const userId = (session.user as any).id
     const supabase = createAdminClient()
 
     const { id } = await request.json()
-    if (!id) return NextResponse.json({ error: 'ID lipsește' }, { status: 400 })
+    if (!id) return NextResponse.json({ error: 'ID is required' }, { status: 400 })
 
     await supabase.from('competitor_monitors').delete().eq('id', id).eq('user_id', userId)
     return NextResponse.json({ success: true })
   } catch (err) {
-    return NextResponse.json({ error: 'Eroare internă' }, { status: 500 })
+    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
   }
 }
 
@@ -106,12 +106,12 @@ export async function DELETE(request: Request) {
 export async function PATCH(request: Request) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user) return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
+    if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     const userId = (session.user as any).id
     const supabase = createAdminClient()
 
     const { id, is_active, check_frequency_hours, competitor_label } = await request.json()
-    if (!id) return NextResponse.json({ error: 'ID lipsește' }, { status: 400 })
+    if (!id) return NextResponse.json({ error: 'ID is required' }, { status: 400 })
 
     const updates: any = {}
     if (is_active !== undefined) updates.is_active = is_active
@@ -126,9 +126,9 @@ export async function PATCH(request: Request) {
       .select()
       .single()
 
-    if (error) return NextResponse.json({ error: 'Eroare la update' }, { status: 500 })
+    if (error) return NextResponse.json({ error: 'Update error' }, { status: 500 })
     return NextResponse.json({ monitor: data })
   } catch (err) {
-    return NextResponse.json({ error: 'Eroare internă' }, { status: 500 })
+    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
   }
 }

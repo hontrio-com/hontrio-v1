@@ -141,7 +141,7 @@ function generatePluginPhp(params: {
 export async function GET() {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user) return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
+    if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const userId = (session.user as any).id
     const supabase = createAdminClient()
@@ -153,7 +153,7 @@ export async function GET() {
       .eq('user_id', userId)
       .single()
 
-    if (!store) return NextResponse.json({ error: 'Niciun magazin conectat' }, { status: 404 })
+    if (!store) return NextResponse.json({ error: 'No store connected' }, { status: 404 })
 
     let webhookSecret = store.webhook_secret
     if (!webhookSecret) {

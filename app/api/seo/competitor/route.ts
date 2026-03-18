@@ -10,19 +10,19 @@ const CREDIT_COST = 3
 export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user) return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
+    if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const userId = (session.user as any).id
     const limit = await rateLimitExpensive(userId, 'competitor')
-    if (!limit.success) return NextResponse.json({ error: 'Prea multe cereri.' }, { status: 429 })
+    if (!limit.success) return NextResponse.json({ error: 'Too many requests.' }, { status: 429 })
 
     const { competitor_url, product_id } = await request.json()
-    if (!competitor_url) return NextResponse.json({ error: 'URL competitor lipsește' }, { status: 400 })
+    if (!competitor_url) return NextResponse.json({ error: 'Competitor URL is required' }, { status: 400 })
 
     // Validate URL
     let parsed: URL
     try { parsed = new URL(competitor_url) } catch {
-      return NextResponse.json({ error: 'URL invalid' }, { status: 400 })
+      return NextResponse.json({ error: 'Invalid URL' }, { status: 400 })
     }
 
     const supabase = createAdminClient()
@@ -32,7 +32,7 @@ export async function POST(request: Request) {
       .from('users').select('credits').eq('id', userId).single()
 
     if (!user || user.credits < CREDIT_COST) {
-      return NextResponse.json({ error: `Credite insuficiente. Necesare: ${CREDIT_COST}` }, { status: 400 })
+      return NextResponse.json({ error: `Insufficient credits. Required: ${CREDIT_COST}` }, { status: 400 })
     }
 
     // Fetch competitor page
@@ -42,10 +42,10 @@ export async function POST(request: Request) {
         headers: { 'User-Agent': 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)' },
         signal: AbortSignal.timeout(10000),
       })
-      if (!res.ok) return NextResponse.json({ error: `Pagina competitorului returnează ${res.status}` }, { status: 400 })
+      if (!res.ok) return NextResponse.json({ error: `Competitor page returned ${res.status}` }, { status: 400 })
       html = await res.text()
     } catch {
-      return NextResponse.json({ error: 'Nu se poate accesa URL-ul competitorului' }, { status: 400 })
+      return NextResponse.json({ error: 'Cannot access competitor URL' }, { status: 400 })
     }
 
     // Extract key SEO elements from HTML
@@ -122,7 +122,7 @@ Răspunde STRICT în JSON valid:
     await supabase.from('users').update({ credits: newBalance }).eq('id', userId)
     await supabase.from('credit_transactions').insert({
       user_id: userId, type: 'usage', amount: -CREDIT_COST, balance_after: newBalance,
-      description: `Analiză competitor: ${parsed.hostname}`,
+      description: `Competitor analysis: ${parsed.hostname}`,
       reference_type: 'competitor_analysis',
       reference_id: product_id || null,
     })
@@ -135,6 +135,6 @@ Răspunde STRICT în JSON valid:
     })
   } catch (err) {
     console.error('[Competitor]', err)
-    return NextResponse.json({ error: 'Eroare internă' }, { status: 500 })
+    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
   }
 }
