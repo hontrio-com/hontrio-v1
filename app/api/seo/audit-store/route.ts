@@ -11,7 +11,7 @@ export async function POST(request: Request) {
     }
 
     const userId = (session.user as any).id
-    const { url, strategy = 'mobile' } = await request.json()
+    const { url, strategy = 'mobile', lang = 'ro' } = await request.json()
 
     if (!url) {
       return NextResponse.json({ error: 'URL is required' }, { status: 400 })
@@ -102,22 +102,43 @@ export async function POST(request: Request) {
       fix: string
     }> = []
 
-    // Extended fix instructions for each audit type
-    const fixInstructions: Record<string, string> = {
-      'document-title': 'Adaugă tag <title> unic și descriptiv (50-70 caractere) care include cuvântul cheie principal. Evită titluri generice sau duplicate între pagini.',
-      'meta-description': 'Adaugă meta description pentru fiecare pagină (max 155 caractere). Include beneficiul principal și un CTA. Evită duplicate — fiecare pagină trebuie să aibă meta description unică.',
-      'link-text': 'Înlocuiește link-urile generice ("click aici", "află mai mult") cu text descriptiv care explică destinația (ex: "Vezi pantofi sport Nike Air Max").',
-      'crawlable-anchors': 'Asigură-te că toate link-urile folosesc <a href="URL"> valid și crawlabil. Evită navigația JavaScript-only — Google nu poate urmări link-urile fără href.',
-      'is-crawlable': 'Verifică că pagina nu are meta robots cu "noindex" accidental și că robots.txt nu blochează Googlebot de la crawlarea paginilor importante.',
-      'robots-txt': 'Creează sau corectează fișierul robots.txt. Nu bloca accesul la resurse CSS/JS care sunt necesare pentru randarea paginii.',
-      'image-alt': 'Adaugă text alt descriptiv la toate imaginile importante (nu decorative). Descrie imaginea natural — nu repeta cuvinte cheie. Ex: alt="Pantofi sport Nike Air Max 90 albi, vedere laterală".',
-      'hreflang': 'Dacă ai versiuni în limbi diferite, implementează atributul hreflang corect și reciproc pe toate paginile. Include și x-default.',
-      'canonical': 'Adaugă tag canonical self-referential pe fiecare pagină. Asigură-te că canonical-ul este consistent cu URL-ul din sitemap și linkurile interne.',
-      'font-size': 'Asigură dimensiune minimă de 16px pentru textul body pe mobile. Evită texte mai mici de 12px oriunde pe pagină.',
-      'tap-targets': 'Butoanele și link-urile trebuie să fie minim 48x48px pe mobile și să aibă spațiu de minim 8px între ele pentru a evita click-urile greșite.',
-      'structured-data': 'Implementează JSON-LD cu schema Product + Offer pentru produse. Include: name, image, description, price, priceCurrency, availability. Validează cu Google Rich Results Test.',
-      'http-status-code': 'Asigură-te că toate paginile returnează status code 200. Paginile șterse permanent trebuie să returneze 404 sau 410, nu 200 cu mesaj de eroare (soft 404).',
+    // Extended fix instructions for each audit type — language-aware
+    function getFixInstructions(language: string): Record<string, string> {
+      if (language === 'en') {
+        return {
+          'document-title': 'Add a unique, descriptive title between 50-70 characters that includes your main keyword.',
+          'meta-description': 'Write a meta description between 120-155 characters with a clear CTA and main keyword.',
+          'link-text': "Replace 'click here' or 'read more' links with descriptive anchor text.",
+          'crawlable-anchors': 'Ensure all links use href attributes and are not blocked by JavaScript.',
+          'is-crawlable': "Remove 'noindex' meta tags or X-Robots-Tag headers that block search engines.",
+          'robots-txt': 'Create or fix your robots.txt file to allow search engine crawlers.',
+          'image-alt': 'Add descriptive alt text to all images (max 125 chars, include keyword where relevant).',
+          'hreflang': 'Add hreflang tags for multilingual sites or fix existing hreflang attribute errors.',
+          'canonical': 'Add a canonical tag pointing to the preferred URL to avoid duplicate content.',
+          'font-size': 'Ensure all text is at least 12px on mobile to avoid readability issues.',
+          'tap-targets': 'Ensure interactive elements are at least 48×48px and have 8px spacing on mobile.',
+          'structured-data': 'Add Product schema with JSON-LD including name, price, availability, and brand.',
+          'http-status-code': 'Fix pages returning 4xx or 5xx HTTP status codes.',
+        }
+      }
+      // Romanian (default fallback)
+      return {
+        'document-title': 'Adaugă tag <title> unic și descriptiv (50-70 caractere) care include cuvântul cheie principal. Evită titluri generice sau duplicate între pagini.',
+        'meta-description': 'Adaugă meta description pentru fiecare pagină (max 155 caractere). Include beneficiul principal și un CTA. Evită duplicate — fiecare pagină trebuie să aibă meta description unică.',
+        'link-text': 'Înlocuiește link-urile generice ("click aici", "află mai mult") cu text descriptiv care explică destinația (ex: "Vezi pantofi sport Nike Air Max").',
+        'crawlable-anchors': 'Asigură-te că toate link-urile folosesc <a href="URL"> valid și crawlabil. Evită navigația JavaScript-only — Google nu poate urmări link-urile fără href.',
+        'is-crawlable': 'Verifică că pagina nu are meta robots cu "noindex" accidental și că robots.txt nu blochează Googlebot de la crawlarea paginilor importante.',
+        'robots-txt': 'Creează sau corectează fișierul robots.txt. Nu bloca accesul la resurse CSS/JS care sunt necesare pentru randarea paginii.',
+        'image-alt': 'Adaugă text alt descriptiv la toate imaginile importante (nu decorative). Descrie imaginea natural — nu repeta cuvinte cheie. Ex: alt="Pantofi sport Nike Air Max 90 albi, vedere laterală".',
+        'hreflang': 'Dacă ai versiuni în limbi diferite, implementează atributul hreflang corect și reciproc pe toate paginile. Include și x-default.',
+        'canonical': 'Adaugă tag canonical self-referential pe fiecare pagină. Asigură-te că canonical-ul este consistent cu URL-ul din sitemap și linkurile interne.',
+        'font-size': 'Asigură dimensiune minimă de 16px pentru textul body pe mobile. Evită texte mai mici de 12px oriunde pe pagină.',
+        'tap-targets': 'Butoanele și link-urile trebuie să fie minim 48x48px pe mobile și să aibă spațiu de minim 8px între ele pentru a evita click-urile greșite.',
+        'structured-data': 'Implementează JSON-LD cu schema Product + Offer pentru produse. Include: name, image, description, price, priceCurrency, availability. Validează cu Google Rich Results Test.',
+        'http-status-code': 'Asigură-te că toate paginile returnează status code 200. Paginile șterse permanent trebuie să returneze 404 sau 410, nu 200 cu mesaj de eroare (soft 404).',
+      }
     }
+    const fixInstructions = getFixInstructions(lang)
 
     for (const auditId of seoAudits) {
       const audit = audits[auditId]

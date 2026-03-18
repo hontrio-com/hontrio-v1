@@ -15,9 +15,23 @@ function buildBulkSeoPrompt(lang: string): string {
   return `${L.seoExpertRole}
 You generate complete, quality SEO content for eCommerce products.
 ${L.seoLanguageInstruction}
+
+STRICT REQUIREMENTS — follow exactly or the output is invalid:
+- optimized_title: EXACTLY 50-70 characters (count carefully). Must contain the focus_keyword.
+- meta_description: EXACTLY 120-155 characters (count carefully). Must contain the focus_keyword.
+- optimized_short_description: plain text, minimum 80 characters, no HTML.
+- optimized_long_description: HTML with h3/ul/li, minimum 200 words (count carefully).
+- focus_keyword: 2-4 words, the main keyword phrase for this product.
+- keyword density in short+long description: 0.5-2.5% (focus_keyword occurrences / total words).
+
+Self-verify before responding:
+1. Count characters in optimized_title — must be 50-70.
+2. Count characters in meta_description — must be 120-155.
+3. Count words in optimized_long_description — must be 200+.
+4. Confirm focus_keyword appears in both title and meta_description.
+
 ALWAYS respond STRICTLY with valid JSON, no markdown, no backticks, no text outside JSON.`
 }
-const SEO_BULK_SYSTEM_PROMPT = buildBulkSeoPrompt('ro')
 
 function buildBulkPrompt(product: any): string {
   const title = product.original_title || ''
@@ -26,45 +40,44 @@ function buildBulkPrompt(product: any): string {
   const category = product.category || 'Nespecificata'
   const price = product.price ? `${product.price} RON` : ''
 
-  return `PRODUS:\nTitlu: "${title}"\nCategorie: ${category}${price ? `\nPret: ${price}` : ''}\n${shortDesc ? `Descriere scurta: ${shortDesc}` : ''}\n${description ? `Descriere: ${description}` : ''}\n\nGenereaza toate campurile SEO pentru acest produs. Returneaza STRICT JSON:\n{\n  "optimized_title": "titlu 50-70 caractere, natural si persuasiv",\n  "meta_description": "meta max 155 caractere cu CTA",\n  "optimized_short_description": "2-4 propozitii care conving la cumparare",\n  "optimized_long_description": "HTML structurat cu h3/ul/li, min 200 cuvinte",\n  "focus_keyword": "2-4 cuvinte cheie principale",\n  "secondary_keywords": ["keyword1", "keyword2", "keyword3"],\n  "seo_suggestions": ["sugestie practica 1", "sugestie practica 2"]\n}`
+  return `PRODUCT:
+Title: "${title}"
+Category: ${category}${price ? `\nPrice: ${price}` : ''}${shortDesc ? `\nShort description: ${shortDesc}` : ''}${description ? `\nDescription: ${description}` : ''}
+
+Generate all SEO fields for this product. Self-verify character counts before responding. Return STRICT JSON only:
+{
+  "optimized_title": "title EXACTLY 50-70 chars, must contain focus_keyword",
+  "meta_description": "meta EXACTLY 120-155 chars with CTA, must contain focus_keyword",
+  "optimized_short_description": "plain text min 80 chars, 2-4 sentences that convince to buy",
+  "optimized_long_description": "HTML with h3/ul/li, minimum 200 words",
+  "focus_keyword": "2-4 main keyword words",
+  "secondary_keywords": ["keyword1", "keyword2", "keyword3"],
+  "seo_suggestions": ["practical suggestion 1", "practical suggestion 2"]
+}`
 }
 
 
-// Post-procesare: ajustează dimensiuni pentru scor maxim
+// Post-procesare minimală: trim dacă depășesc limitele, fără adăugiri de text generic
 function postProcessSeo(r: Record<string, any>): Record<string, any> {
-  const kw = (r.focus_keyword || '').trim().toLowerCase()
-  
-  // Title: 50-70 chars + keyword
+  // Title: trim if over limit only
   if (r.optimized_title) {
     let t = r.optimized_title.trim()
-    if (kw && !t.toLowerCase().includes(kw)) t = kw.charAt(0).toUpperCase() + kw.slice(1) + ' — ' + t
     if (t.length > 70) t = t.substring(0, 67).replace(/\s+\S*$/, '') + '...'
-    if (t.length < 50) t += ' | Calitate Premium Online'
-    if (t.length > 70) t = t.substring(0, 70)
     r.optimized_title = t
   }
-  
-  // Meta: 120-155 chars + keyword
+
+  // Meta: trim if over limit only
   if (r.meta_description) {
     let m = r.meta_description.trim()
-    if (kw && !m.toLowerCase().includes(kw)) m = kw.charAt(0).toUpperCase() + kw.slice(1) + ' — ' + m
     if (m.length > 155) m = m.substring(0, 152).replace(/\s+\S*$/, '') + '...'
-    if (m.length < 120) { if (!m.endsWith('.')) m += '.'; m += ' Comandă acum! Livrare rapidă.' }
-    if (m.length > 155) m = m.substring(0, 155)
     r.meta_description = m
   }
-  
-  // Short desc: >= 80 chars
-  if (r.optimized_short_description) {
-    const plain = r.optimized_short_description.replace(/<[^>]*>/g, ' ').trim()
-    if (plain.length < 80) r.optimized_short_description += ' Produs de calitate, ideal pentru nevoile tale.'
-  }
-  
-  // Focus keyword: ensure set
+
+  // Focus keyword: fallback only if completely missing
   if (!r.focus_keyword || r.focus_keyword.trim().length < 2) {
     r.focus_keyword = (r.optimized_title || '').split(/[\s—|–-]+/).filter((w: string) => w.length > 3).slice(0, 3).join(' ').toLowerCase()
   }
-  
+
   return r
 }
 
@@ -136,13 +149,13 @@ export async function POST(request: Request) {
         const prompt = buildBulkPrompt(product)
 
         const completion = await openai.chat.completions.create({
-          model: 'gpt-4o-mini',
+          model: 'gpt-4o',
           messages: [
             { role: 'system', content: buildBulkSeoPrompt(user?.brand_language || 'ro') },
             { role: 'user', content: prompt },
           ],
-          temperature: 0.5,
-          max_tokens: 2000,
+          temperature: 0.4,
+          max_tokens: 2500,
         })
 
         const raw = completion.choices[0].message.content?.trim() || '{}'

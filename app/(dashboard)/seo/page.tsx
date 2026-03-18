@@ -112,7 +112,7 @@ function CWVBadge({ score, value, label }: { score: number; value: string; label
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function SEOPage() {
-  const { t } = useT()
+  const { t, locale } = useT()
   const [activeTab, setActiveTab]         = useState<'products' | 'store'>('products')
   const [storeUrl, setStoreUrl]           = useState('')
   const [strategy, setStrategy]           = useState<'mobile' | 'desktop'>('mobile')
@@ -154,7 +154,7 @@ export default function SEOPage() {
     try {
       const res = await fetch('/api/seo/audit-store', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: storeUrl.trim(), strategy }),
+        body: JSON.stringify({ url: storeUrl.trim(), strategy, lang: locale }),
       })
       if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || t('common.error_generic')) }
       setAuditResult(await res.json())

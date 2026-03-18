@@ -90,14 +90,15 @@ Meta description curentă: "${currentMeta}"`
 TASK: Generează un titlu SEO optimizat pentru această pagină de produs eCommerce.
 
 REGULI STRICTE (conform Google Search Quality Guidelines):
-- Lungime OBLIGATORIE: 55-65 caractere (STRICT — sub 50 sau peste 70 e INACCEPTABIL)
+- Lungime OBLIGATORIE: EXACT 50-70 caractere (numără fiecare caracter inclusiv spațiile). Sub 50 sau peste 70 este INACCEPTABIL. VERIFICĂ numărul de caractere înainte de a răspunde.
+- TREBUIE să conțină focus_keyword-ul ales
 - Include: tip produs + atribut diferențiator principal + brand (dacă relevant)
 - Folosește cuvintele pe care CUMPĂRĂTORII le folosesc în căutări, nu jargon tehnic
 - NU include prețul sau stocul (se schimbă frecvent)
 - NU repeta cuvinte inutil — fiecare cuvânt trebuie să aibă scop
 - NU keyword stuffing — titlul trebuie să sune natural și persuasiv
-- Structură recomandată: [Tip Produs] [Atribut Cheie] – [Beneficiu/Diferențiator] | [Brand dacă există]
-- Variante acceptabile: cu sau fără „|", cu „–" sau „-" ca separator
+- Structură recomandată: [Focus Keyword] [Diferențiator] – [Brand/Beneficiu]
+- VERIFICĂ: numără caracterele înainte de a răspunde
 
 Returnează DOAR JSON:
 {"optimized_title": "titlul generat"}`
@@ -108,14 +109,15 @@ Returnează DOAR JSON:
 TASK: Generează o meta description optimizată SEO pentru această pagină de produs.
 
 REGULI STRICTE (conform Google Search Guidelines pentru snippets):
-- Lungime OBLIGATORIE: 130-150 caractere (sub 120 = penalizare, peste 155 = trunchiat)
+- Lungime OBLIGATORIE: EXACT 120-155 caractere (numără fiecare caracter). Sub 120 sau peste 155 este INACCEPTABIL. VERIFICĂ numărul de caractere înainte de a răspunde.
+- TREBUIE să conțină focus_keyword-ul ales în mod natural
 - NU este un factor direct de ranking, dar influențează CTR (click-through rate)
 - Trebuie să descrie pagina MAI BINE decât textul vizibil — altfel Google o ignoră
-- Include: beneficiul principal + un diferențiator unic + call-to-action clar
-- Exemple de CTA bune: "Comandă acum", "Livrare rapidă", "Garanție inclus", "Vezi oferta"
+- Include: beneficiul principal + un diferențiator unic + call-to-action clar relevant pentru produs
 - Evita: keyword stuffing, propoziții generice identice cu alte produse
 - Trebuie să fie orientat pe INTENȚIA de căutare (cumpărătorul vrea să cumpere, nu să se informeze)
 - Ideal să menționezi un element de încredere: garanție, livrare, retur, autenticitate
+- VERIFICĂ: numără caracterele înainte de a răspunde
 
 Returnează DOAR JSON:
 {"meta_description": "meta description generată"}`
@@ -126,13 +128,16 @@ Returnează DOAR JSON:
 TASK: Generează o descriere scurtă optimizată pentru produs (apare sub titlu în WooCommerce, înainte de butonul "Adaugă în coș").
 
 REGULI STRICTE:
-- Lungime: 2-4 propoziții, 50-120 cuvinte
+- Lungime OBLIGATORIE: minimum 80 caractere text simplu (excluzând tagurile HTML). VERIFICĂ lungimea textului plain (fără HTML) înainte de a răspunde.
 - Aceasta este descrierea care CONVINGE cumpărătorul să adauge în coș
 - Structură ideală: (1) Ce este + beneficiul principal → (2) Pentru cine este ideal → (3) 1-2 caracteristici diferențiatoare → (4) CTA sau element de încredere
 - Folosește vocea activă și limbajul direct ("Tu primești...", "Ideal dacă...")
 - PĂSTREAZĂ HTML-ul dacă originalul are formatare — optimizează doar textul, nu structura
-- Include cuvântul cheie principal natural în primele 1-2 propoziții
+- Include focus_keyword natural în primele 1-2 propoziții
+- Focus_keyword-ul TREBUIE să apară în această descriere (1-2 ocurențe naturale)
+- Densitatea combinată a focus_keyword în (short + long description) trebuie să fie 0.5-2.5%
 - Evita clișee: "Produsul perfect", "Calitate superioară" fără substanță
+- VERIFICĂ: lungimea textului plain (fără HTML) trebuie să fie ≥ 80 caractere
 
 IMPORTANT DESPRE HTML: Dacă scurtă descriere originală conține HTML (bold, liste, etc.), returnează HTML valid optimizat.
 
@@ -152,18 +157,21 @@ ${htmlNote}
 TASK: ${hasHtml ? 'Optimizează SEO textul din HTML-ul existent' : 'Generează descriere lungă HTML structurată'}.
 
 REGULI STRICTE (conform Google E-E-A-T și People-First Content):
+- Lungime OBLIGATORIE: minimum 200 cuvinte text simplu (excluzând tagurile HTML). VERIFICĂ numărul de cuvinte înainte de a răspunde.
 - Structură ideală pentru descriere lungă (dacă creezi de la zero):
   → <h3> sau <h2>: Introducere + ce este produsul + pentru cine
   → <h3>: Caracteristici principale (în <ul><li>)
   → <h3>: Beneficii pentru utilizator (din perspectiva clientului)
   → <h3>: Mod de utilizare / instrucțiuni (dacă relevant)
   → <p>: Element de încredere + CTA final
-- Minimum 200 cuvinte, ideal 300-500 pentru produse complexe
-- Include cuvântul cheie principal în primul paragraf natural
+- Include focus_keyword natural în primul paragraf și de 3-4 ori total în text
+- Focus_keyword-ul TREBUIE să apară în această descriere (3-4 ocurențe naturale)
+- Densitatea combinată a focus_keyword în (short + long description) trebuie să fie 0.5-2.5%
 - Include sinonime și variații naturale (nu stuffing)
 - Evita conținut duplicat de la producător — adaugă "information gain" real
 - Fiecare secțiune H3 trebuie să răspundă la o întrebare reală a cumpărătorului
 - NU include prețuri (se schimbă) și NU face promisiuni false
+- VERIFICĂ: numărul de cuvinte plain text (fără HTML) trebuie să fie ≥ 200
 
 Returnează DOAR JSON:
 {"optimized_long_description": "HTML-ul complet optimizat"}`
@@ -189,43 +197,50 @@ Returnează DOAR JSON:
       return `${context}
 Descriere lungă originală HTML: ${(product.original_description || '').substring(0, 1000)}
 
-TASK: Generează TOATE secțiunile SEO optimizate pentru acest produs eCommerce.
+SCORING ALGORITHM — YOUR CONTENT MUST ACHIEVE 100/100:
 
-ATENȚIE CRITICĂ — DIMENSIUNI OBLIGATORII (Algoritmul nostru de scoring penalizează sever abaterile):
+FIELD 1 — optimized_title (25 POINTS):
+• Length: EXACTLY 50-70 characters (count every char including spaces)
+• Must contain: the focus_keyword you choose
+• Formula: [Focus Keyword] [Differentiator] – [Brand/Benefit]
+• VERIFY: count characters before responding
 
-TITLU (optimized_title):
-- OBLIGATORIU între 55-65 caractere (nu mai puțin de 50, nu mai mult de 70)
-- Numără caracterele înainte de a răspunde — dacă are sub 50 sau peste 70, RESCRIE
-- Include: tip produs + atribut diferențiator + brand (dacă există)
-- TREBUIE să conțină focus_keyword-ul pe care îl alegi
+FIELD 2 — meta_description (25 POINTS):
+• Length: EXACTLY 120-155 characters (count every char)
+• Must contain: the focus_keyword naturally
+• Must end with a clear CTA relevant to the product
+• VERIFY: count characters before responding
 
-META DESCRIPTION (meta_description):
-- OBLIGATORIU între 130-150 caractere (nu mai puțin de 120, nu mai mult de 155)
-- Numără caracterele — dacă are sub 120, adaugă detalii; dacă are peste 155, prescurtează
-- Include beneficiu principal + CTA clar ("Comandă acum", "Vezi oferta", "Livrare rapidă")
-- TREBUIE să conțină focus_keyword-ul
+FIELD 3 — optimized_short_description (15 POINTS):
+• Minimum 80 characters of PLAIN TEXT (excluding HTML tags)
+• 2-4 convincing sentences that convert visitors to buyers
+• Include focus_keyword naturally in first sentence
 
-DESCRIERE SCURTĂ (optimized_short_description):
-- OBLIGATORIU minimum 80 caractere text (fără HTML tags)
-- 2-4 propoziții convingătoare, orientate pe vânzare
-- Dacă originalul are HTML, returnează HTML optimizat cu textul îmbunătățit
+FIELD 4 — optimized_long_description (20 POINTS):
+• Minimum 200 WORDS of plain text (count words excluding HTML)
+• Format: <h3> sections + <ul><li> features + <p> paragraphs
+• Include focus_keyword naturally 3-5 times across the text
 
-DESCRIERE LUNGĂ (optimized_long_description):
-- OBLIGATORIU minimum 250 cuvinte (numără!)
-- HTML structurat: h3 + p + ul/li
-- Include focus_keyword-ul natural de 3-5 ori (density 0.5-2.5%)
-- Secțiuni: ce este produsul, pentru cine, caracteristici, beneficii, mod utilizare
+FIELD 5 — focus_keyword (8 POINTS):
+• 2-4 words, the primary search query buyers use
+• Must appear in title, meta, short description, and long description
 
-FOCUS KEYWORD (focus_keyword):
-- 2-4 cuvinte, query-ul principal de căutare al cumpărătorilor
-- Acest keyword TREBUIE să apară în: titlu, meta description, descriere scurtă, descriere lungă
+FIELD 6 — keyword_density (7 POINTS):
+• focus_keyword density in combined (short_description + long_description): 0.5% to 2.5%
+• Calculate: (keyword occurrences / total words) × 100
+• Target ~1.5% density
+• focus_keyword MUST appear in BOTH short description AND long description
+• Approximately 1-2 occurrences in short description and 3-4 in long description
 
-CUVINTE CHEIE SECUNDARE (secondary_keywords):
-- Array de 3-5 variații long-tail
+SELF-VERIFY before responding:
+□ Title length: ___ chars (must be 50-70)
+□ Meta length: ___ chars (must be 120-155)
+□ Short desc plain text length: ___ chars (must be ≥80)
+□ Long desc word count: ___ words (must be ≥200)
+□ Focus keyword appears in all 4 fields: YES/NO
+□ Keyword density: ___% (must be 0.5-2.5%)
 
-SEO SUGGESTIONS (seo_suggestions): array de 2-3 sugestii practice
-
-Returnează DOAR JSON valid:
+Return ONLY valid JSON:
 {
   "optimized_title": "...",
   "meta_description": "...",
@@ -233,7 +248,6 @@ Returnează DOAR JSON valid:
   "optimized_long_description": "...",
   "focus_keyword": "...",
   "secondary_keywords": ["...", "..."],
-  "seo_score": 85,
   "seo_suggestions": ["...", "..."]
 }`
 
@@ -243,68 +257,30 @@ Returnează DOAR JSON valid:
 }
 
 
-// ─── POST-PROCESS: Ajustează automat conținutul AI să maximizeze scorul ──────
+// ─── POST-PROCESS: Minimal — only trims if AI exceeded limits, never pads ────
 function postProcessSeoResult(result: Record<string, any>, focusKeyword: string): Record<string, any> {
-  const kw = (focusKeyword || result.focus_keyword || '').trim().toLowerCase()
-
-  // 1. TITLE: Ensure 50-70 chars + contains keyword
+  // 1. TITLE: Trim to 70 chars only if AI went over — no keyword prepending
   if (result.optimized_title) {
     let title = result.optimized_title.trim()
-    // If keyword not in title, prepend it
-    if (kw && !title.toLowerCase().includes(kw)) {
-      const kwCapitalized = kw.charAt(0).toUpperCase() + kw.slice(1)
-      title = `${kwCapitalized} — ${title}`
-    }
-    // Trim to 70 chars if too long (cut at last space)
     if (title.length > 70) {
       title = title.substring(0, 67).replace(/\s+\S*$/, '') + '...'
       if (title.length > 70) title = title.substring(0, 70)
     }
-    // Pad if too short (under 50)
-    if (title.length < 50 && kw) {
-      title = title + ' | Calitate Premium'
-      if (title.length < 50) title = title + ' Online'
-    }
     result.optimized_title = title
   }
 
-  // 2. META DESCRIPTION: Ensure 120-155 chars + contains keyword
+  // 2. META DESCRIPTION: Trim to 155 chars only if AI went over — no padding
   if (result.meta_description) {
     let meta = result.meta_description.trim()
-    // If keyword not in meta, prepend
-    if (kw && !meta.toLowerCase().includes(kw)) {
-      const kwCap = kw.charAt(0).toUpperCase() + kw.slice(1)
-      meta = `${kwCap} — ${meta}`
-    }
-    // Trim to 155
     if (meta.length > 155) {
       meta = meta.substring(0, 152).replace(/\s+\S*$/, '') + '...'
-      if (meta.length > 155) meta = meta.substring(0, 155)
-    }
-    // Pad if under 120
-    if (meta.length < 120) {
-      if (!meta.endsWith('.')) meta += '.'
-      const pads = [' Comandă acum!', ' Livrare rapidă.', ' Calitate garantată.', ' Vezi oferta!']
-      for (const pad of pads) {
-        if (meta.length < 120) meta += pad
-      }
       if (meta.length > 155) meta = meta.substring(0, 155)
     }
     result.meta_description = meta
   }
 
-  // 3. SHORT DESCRIPTION: Ensure >= 80 chars
-  if (result.optimized_short_description) {
-    const shortPlain = result.optimized_short_description.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
-    if (shortPlain.length < 80) {
-      // Short desc is too short — the AI should have generated more but pad as fallback
-      result.optimized_short_description += ' Produs de calitate superioară, ideal pentru nevoile dumneavoastră.'
-    }
-  }
-
-  // 4. FOCUS KEYWORD: Ensure it's set
+  // 3. FOCUS KEYWORD: If empty, extract from title as fallback
   if (!result.focus_keyword || result.focus_keyword.trim().length < 2) {
-    // Extract from title as fallback
     const titleWords = (result.optimized_title || '').split(/[\s—|–-]+/).filter((w: string) => w.length > 3)
     result.focus_keyword = titleWords.slice(0, 3).join(' ').toLowerCase()
   }

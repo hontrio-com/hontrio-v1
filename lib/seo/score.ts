@@ -27,6 +27,15 @@ export function stripHtml(html: string): string {
   return html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
 }
 
+function countKeywordOccurrences(text: string, keyword: string): number {
+  if (!keyword || !text) return 0
+  // Escape special regex chars in keyword
+  const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  // Match whole word or phrase (word boundary aware, including Romanian diacritics)
+  const regex = new RegExp(`(?<![a-zA-ZăâîșțĂÂÎȘȚ])${escaped}(?![a-zA-ZăâîșțĂÂÎȘȚ])`, 'gi')
+  return (text.match(regex) || []).length
+}
+
 export function calculateSeoScore(input: SeoScoreInput): SeoScoreResult {
   const title  = (input.title || '').trim()
   const meta   = (input.metaDescription || '').trim()
@@ -39,7 +48,7 @@ export function calculateSeoScore(input: SeoScoreInput): SeoScoreResult {
   const longWords  = long.split(/\s+/).filter(Boolean).length
   const allText    = (short + ' ' + long).toLowerCase()
   const totalWords = allText.split(/\s+/).filter(Boolean).length || 1
-  const kwCount    = kw ? allText.split(kw).length - 1 : 0
+  const kwCount    = kw ? countKeywordOccurrences(allText, kw) : 0
   const density    = kw ? (kwCount / totalWords) * 100 : 0
 
   const breakdown: SeoScoreBreakdown[] = [
