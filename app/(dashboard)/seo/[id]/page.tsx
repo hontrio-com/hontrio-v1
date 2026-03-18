@@ -464,7 +464,7 @@ function InternalLinkSuggestions({ productId, longDesc, category }: { productId:
         const matches = words.filter((w: string) => text.includes(w)).length
         return { id: p.id, title: p.optimized_title || p.original_title, score: matches }
       }).sort((a: any, b: any) => b.score - a.score).slice(0, 5)
-        .map((p: any) => ({ id: p.id, title: p.title, reason: p.score > 0 ? t('seo.reason_common_words') : t('seo.reason_same_category', { cat: category }) }))
+        .map((p: any) => ({ id: p.id, title: p.title, reason: p.score > 0 ? t('seo.reason_common_words') : t('seo.reason_same_category', { cat: category || '' }) }))
       setSuggestions(scored); setDone(true)
     } catch {} finally { setLoading(false) }
   }
