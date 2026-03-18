@@ -1092,7 +1092,17 @@
     "review_email_history": "Istoric emailuri",
     "default_bubble_short": "Cu ce te pot ajuta?",
     "no_category": "Fără categorie",
-    "selected_count": "selectate"
+    "selected_count": "selectate",
+    "trigger_saved_toast": "Trigger salvat!",
+    "trigger_save_error": "Eroare la salvare",
+    "trigger_deleted_toast": "Trigger șters",
+    "trigger_added_toast": "Trigger adăugat!",
+    "doc_segments": "segmente",
+    "doc_processing": "Se procesează...",
+    "doc_error": "Eroare",
+    "intel_failed_msg": "Generarea a eșuat. Selectează produsul și regenerează.",
+    "intel_processing_msg": "Se procesează...",
+    "intel_not_generated_msg": "Intelligence-ul nu a fost generat încă. Selectează produsul și apasă Generează."
   },
   "risk": {
     "title": "Risk Shield",

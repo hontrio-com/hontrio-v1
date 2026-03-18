@@ -1022,7 +1022,7 @@ export default function AgentPage() {
                   })()}
                   {intelExpanded === p.id && p.intel_status !== 'ready' && (
                     <div className="border-t border-neutral-100 bg-neutral-50/50 p-4 text-center">
-                      <p className="text-[12px] text-neutral-400">{p.intel_status === 'failed' ? 'Generarea a eșuat. Selectează produsul și regenerează.' : p.intel_status === 'processing' ? 'Se procesează...' : 'Intelligence-ul nu a fost generat încă. Selectează produsul și apasă Generează.'}</p>
+                      <p className="text-[12px] text-neutral-400">{p.intel_status === 'failed' ? t('agent.intel_failed_msg') : p.intel_status === 'processing' ? t('agent.intel_processing_msg') : t('agent.intel_not_generated_msg')}</p>
                     </div>
                   )}
                 </div>
@@ -1130,7 +1130,7 @@ export default function AgentPage() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-[12px] font-medium text-neutral-800 truncate">{doc.name}</p>
-                        <p className="text-[10px] text-neutral-400">{doc.status==='ready'?`${doc.chunk_count} segmente`:doc.status==='processing'?'Se procesează...':doc.error_msg||'Eroare'}</p>
+                        <p className="text-[10px] text-neutral-400">{doc.status==='ready'?`${doc.chunk_count} ${t('agent.doc_segments')}`:doc.status==='processing'?t('agent.doc_processing'):doc.error_msg||t('agent.doc_error')}</p>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
                         {doc.status==='ready' && <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />}

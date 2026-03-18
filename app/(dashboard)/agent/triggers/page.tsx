@@ -66,8 +66,8 @@ export default function TriggersPage() {
     try {
       const r = await fetch('/api/agent/triggers', { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(trigger) })
       if (!r.ok) throw new Error()
-      showToast('Trigger salvat!')
-    } catch { showToast('Eroare la salvare', false) } finally { setSaving(null) }
+      showToast(t('agent.trigger_saved_toast'))
+    } catch { showToast(t('agent.trigger_save_error'), false) } finally { setSaving(null) }
   }
 
   const toggleActive = async (trigger: Trigger) => {
@@ -80,7 +80,7 @@ export default function TriggersPage() {
     if (!confirm(t('agent.confirm_delete_trigger'))) return
     await fetch('/api/agent/triggers?id='+id, { method:'DELETE' })
     setTriggers(ts => ts.filter(t => t.id!==id))
-    showToast('Trigger șters')
+    showToast(t('agent.trigger_deleted_toast'))
   }
 
   const addTrigger = async () => {
@@ -95,7 +95,7 @@ export default function TriggersPage() {
     const d    = defaults[newType]
     const r    = await fetch('/api/agent/triggers', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ name:TRIGGER_META[newType].label, type:newType, ...d }) })
     const data = await r.json()
-    if (data.trigger) { setTriggers(ts=>[...ts,data.trigger]); setShowAdd(false); setExpanded(data.trigger.id); showToast('Trigger adăugat!') }
+    if (data.trigger) { setTriggers(ts=>[...ts,data.trigger]); setShowAdd(false); setExpanded(data.trigger.id); showToast(t('agent.trigger_added_toast')) }
   }
 
   if (loading) return <div className="flex items-center justify-center min-h-[400px]"><div className="animate-spin rounded-full h-8 w-8 border-2 border-neutral-200 border-t-neutral-800" /></div>

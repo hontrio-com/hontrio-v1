@@ -1092,7 +1092,17 @@
     "review_email_history": "Email history",
     "default_bubble_short": "How can I help?",
     "no_category": "No category",
-    "selected_count": "selected"
+    "selected_count": "selected",
+    "trigger_saved_toast": "Trigger saved!",
+    "trigger_save_error": "Error saving",
+    "trigger_deleted_toast": "Trigger deleted",
+    "trigger_added_toast": "Trigger added!",
+    "doc_segments": "segments",
+    "doc_processing": "Processing...",
+    "doc_error": "Error",
+    "intel_failed_msg": "Generation failed. Select the product and regenerate.",
+    "intel_processing_msg": "Processing...",
+    "intel_not_generated_msg": "Intelligence not generated yet. Select the product and press Generate."
   },
   "risk": {
     "title": "Risk Shield",
