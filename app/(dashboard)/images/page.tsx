@@ -1413,15 +1413,15 @@ function GalleryTab({ gallery, onUpdate }: { gallery: GeneratedImage[]; onUpdate
 
 // ─── MAIN PAGE ────────────────────────────────────────────────────────────────
 
-const MAIN_TABS: { value: MainTab; label: string; icon: any }[] = [
-  { value: 'generator', label: 'Generator', icon: Wand2     },
-  { value: 'bulk',      label: t('images.tab_bulk'),      icon: Layers    },
-  { value: 'brand',     label: 'Brand Kit', icon: Palette   },
-  { value: 'gallery',   label: 'Galerie',   icon: ImageIcon },
-]
-
 export default function ImagesPage() {
   const { t } = useT()
+
+  const MAIN_TABS: { value: MainTab; label: string; icon: any }[] = [
+    { value: 'generator', label: 'Generator', icon: Wand2     },
+    { value: 'bulk',      label: t('images.tab_bulk'),      icon: Layers    },
+    { value: 'brand',     label: 'Brand Kit', icon: Palette   },
+    { value: 'gallery',   label: 'Galerie',   icon: ImageIcon },
+  ]
   const { credits }     = useCredits()
   const [mainTab, setMainTab] = useState<MainTab>('generator')
   const [genTab, setGenTab]   = useState<GenTab>('product')
