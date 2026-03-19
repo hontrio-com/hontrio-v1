@@ -120,7 +120,7 @@ export default function DashboardPage() {
                 <Link key={s.id} href={s.href}>
                   <div className={`flex items-center gap-2 px-2.5 py-2 rounded-lg text-sm transition-all cursor-pointer ${s.done ? 'bg-white/10' : 'bg-white/5 hover:bg-white/10'}`}>
                     {s.done ? <CheckCircle className="h-3.5 w-3.5 text-emerald-400 shrink-0" /> : <Circle className="h-3.5 w-3.5 text-white/30 shrink-0" />}
-                    <span className={`text-[12px] truncate ${s.done ? 'text-white/80' : 'text-white/40'}`}>{s.label}</span>
+                    <span className={`text-[12px] truncate ${s.done ? 'text-white/80' : 'text-white/40'}`}>{t(s.label)}</span>
                   </div>
                 </Link>
               ))}

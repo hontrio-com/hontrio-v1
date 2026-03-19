@@ -331,7 +331,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           )}</AnimatePresence>
 
           <main className="p-4 lg:p-8 max-w-7xl mx-auto">
-            <motion.div key={pathname} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>{children}</motion.div>
+            {children}
           </main>
         </div>
       </div>
