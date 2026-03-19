@@ -14,7 +14,7 @@
     },
     {
       "path": "/api/cron/risk-sync-orders",
-      "schedule": "0 */6 * * *"
+      "schedule": "*/15 * * * *"
     },
     {
       "path": "/api/cron/image-cleanup",

@@ -1,19 +1,21 @@
 /**
- * lib/risk/identity.ts — v2
- * 
- * PRINCIPIU FUNDAMENTAL:
- *   Identitatea clientului = external_customer_id din WooCommerce
- *   Phone/email sunt doar atribute de contact, NU chei de identitate
+ * lib/risk/identity.ts — v3
  *
- * REGULI:
- *   1. Dacă order are customer_id > 0 → caută/creează prin external_customer_id
- *   2. Dacă order e guest (customer_id = 0) → creează client guest separat
- *   3. Doi clienți Woo diferiți cu același email/telefon = DOI clienți separați
- *   4. Phone/email sunt doar pentru search, clustering, și fraud detection
+ * STRATEGIE IDENTITY RESOLUTION:
+ *   1. Registered (WC customer_id > 0):
+ *      a. Caută prin external_customer_id (sursa unică de adevăr)
+ *      b. Dacă nu există, caută prin phone_normalized sau email — poate fi același client cu cont nou
+ *      c. Dacă nu există deloc, creează client nou
+ *   2. Guest (WC customer_id = 0):
+ *      a. Caută prin phone_normalized (cel mai fiabil — același telefon = aceeași persoană)
+ *      b. Caută prin email normalizat
+ *      c. Dacă nu există, creează client nou
+ *   3. La creare client nou: detectează potențiali duplicați și salvează în risk_identity_candidates
  */
 
-import { calculateRiskScore, type CustomerHistory, type OrderContext } from './engine'
+import { calculateRiskScore } from './engine'
 import { decrypt } from '@/lib/security/encryption'
+import { normalizePhone, normalizeEmail, computeIdentityConfidence } from './utils'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -38,41 +40,107 @@ export function mapStatus(s: string): string {
   return SM[n] || SM[s.toLowerCase()] || 'pending'
 }
 
+// ─── Detectare candidați duplicați ────────────────────────────────────────────
+
+async function detectAndSaveDuplicateCandidates(
+  supabase: any, storeId: string, userId: string, newCustomer: any
+): Promise<void> {
+  try {
+    const phonN = normalizePhone(newCustomer.phone)
+    const emailN = normalizeEmail(newCustomer.email)
+    if (!phonN && !emailN && !newCustomer.name) return
+
+    // Caută clienți similari (limitează la 100 pentru performance)
+    const { data: pool } = await supabase.from('risk_customers')
+      .select('id, external_customer_id, phone, phone_normalized, email, name, is_merged')
+      .eq('store_id', storeId)
+      .eq('is_merged', false)
+      .neq('id', newCustomer.id)
+      .limit(200)
+
+    if (!pool?.length) return
+
+    for (const existing of pool) {
+      const { confidence, reasons, method } = computeIdentityConfidence(
+        { externalId: newCustomer.external_customer_id, phone: phonN, email: emailN, name: newCustomer.name },
+        { externalId: existing.external_customer_id, phone: existing.phone_normalized || existing.phone, email: existing.email, name: existing.name }
+      )
+
+      // Ignoră match-urile slabe și exact matches (deja handled în resolveCustomer)
+      if (confidence < 0.70 || confidence >= 0.95) continue
+
+      // Salvează candidat dacă nu există deja
+      const [a, b] = [newCustomer.id, existing.id].sort()
+      await supabase.from('risk_identity_candidates').upsert({
+        store_id: storeId, user_id: userId,
+        customer_a_id: a, customer_b_id: b,
+        confidence, match_reasons: reasons,
+        status: 'pending',
+      }, { onConflict: 'customer_a_id,customer_b_id', ignoreDuplicates: true })
+    }
+  } catch (err: any) {
+    console.warn('[identity] detectDuplicates error:', err.message)
+  }
+}
+
 // ─── Resolve Customer Identity ────────────────────────────────────────────────
-//
-// REGULA: Identitatea se bazează pe external_customer_id din WooCommerce.
-// NICIODATĂ pe phone/email.
-//
 
 export async function resolveCustomer(
   supabase: any, storeId: string, userId: string,
-  externalCustomerId: string | null, // WooCommerce customer_id (null/0 = guest)
+  externalCustomerId: string | null,
   phone: string | null, email: string | null, name: string | null,
   orderedAt: string,
 ): Promise<{ customer: any; isNew: boolean }> {
 
   const isGuest = !externalCustomerId || externalCustomerId === '0'
   const extId = isGuest ? null : externalCustomerId
+  const phonN = normalizePhone(phone)
+  const emailN = normalizeEmail(email)
 
-  // ── REGISTERED CUSTOMER (external_customer_id > 0) ──────────────────────
+  // ── REGISTERED CUSTOMER ──────────────────────────────────────────────────
   if (extId) {
-    // Caută prin external_customer_id — sursa unică de adevăr
-    const { data: existing } = await supabase.from('risk_customers')
-      .select('*')
-      .eq('store_id', storeId)
-      .eq('external_customer_id', extId)
-      .single()
+    // 1. Prima căutare: external_customer_id
+    const { data: byWcId } = await supabase.from('risk_customers')
+      .select('*').eq('store_id', storeId).eq('external_customer_id', extId)
+      .eq('is_merged', false).single()
 
-    if (existing) {
-      return { customer: existing, isNew: false }
+    if (byWcId) return { customer: byWcId, isNew: false }
+
+    // 2. Secundar: același telefon normalizat (clientul și-a schimbat WC account-ul)
+    if (phonN) {
+      const { data: byPhone } = await supabase.from('risk_customers')
+        .select('*').eq('store_id', storeId).eq('phone_normalized', phonN)
+        .eq('is_merged', false).limit(1)
+      if (byPhone?.[0]) {
+        // Link the new WC ID to existing record
+        await supabase.from('risk_customers')
+          .update({ external_customer_id: extId, updated_at: new Date().toISOString() })
+          .eq('id', byPhone[0].id)
+        return { customer: { ...byPhone[0], external_customer_id: extId }, isNew: false }
+      }
+    }
+
+    // 3. Terțiar: același email
+    if (emailN) {
+      const { data: byEmail } = await supabase.from('risk_customers')
+        .select('*').eq('store_id', storeId).ilike('email', emailN)
+        .eq('is_merged', false).limit(1)
+      if (byEmail?.[0]) {
+        await supabase.from('risk_customers')
+          .update({ external_customer_id: extId, updated_at: new Date().toISOString() })
+          .eq('id', byEmail[0].id)
+        return { customer: { ...byEmail[0], external_customer_id: extId }, isNew: false }
+      }
     }
 
     // Nu există — creează client NOU
     const { data: newC, error } = await supabase.from('risk_customers').insert({
       store_id: storeId, user_id: userId,
       external_customer_id: extId,
-      phone: phone || null, email: email?.toLowerCase().trim() || null,
-      name: name || null, is_guest: false,
+      phone: phonN || phone || null,
+      phone_normalized: phonN,
+      email: emailN || null,
+      name: name || null, is_guest: false, is_merged: false,
       risk_score: 0, risk_label: 'new',
       total_orders: 0, orders_collected: 0, orders_refused: 0,
       orders_not_home: 0, orders_cancelled: 0,
@@ -82,71 +150,43 @@ export async function resolveCustomer(
     }).select('*').single()
 
     if (error) {
-      // Race condition — retry lookup
       const { data: retry } = await supabase.from('risk_customers')
         .select('*').eq('store_id', storeId).eq('external_customer_id', extId).single()
       if (retry) return { customer: retry, isNew: false }
       throw new Error('Cannot create customer: ' + error.message)
     }
 
+    void detectAndSaveDuplicateCandidates(supabase, storeId, userId, newC)
     return { customer: newC, isNew: true }
   }
 
-  // ── GUEST ORDER (no customer_id) ────────────────────────────────────────
-  // Deduplication priority:
-  // 1. Existing guest with same email (exact match)
-  // 2. Any customer (registered or guest) with same phone — same person, different email
-  // 3. Existing guest with same name (fallback for phone-less orders)
-  // If no match → create new guest
-  const em = email?.toLowerCase().trim() || null
-  const ph = phone?.replace(/\s/g, '') || null
+  // ── GUEST ORDER ──────────────────────────────────────────────────────────
+  // Prioritate: phone_normalized > email > create new
 
-  // 1. Match by email (most reliable)
-  if (em) {
-    const { data: existingGuest } = await supabase.from('risk_customers')
-      .select('*')
-      .eq('store_id', storeId)
-      .ilike('email', em)
-      .limit(1)
-
-    if (existingGuest?.[0]) {
-      return { customer: existingGuest[0], isNew: false }
-    }
-  }
-
-  // 2. Match by phone — same phone = same person even if different email
-  if (ph && ph.length >= 8) {
+  // 1. Caută prin telefon normalizat (cel mai fiabil)
+  if (phonN) {
     const { data: byPhone } = await supabase.from('risk_customers')
-      .select('*')
-      .eq('store_id', storeId)
-      .eq('phone', ph)
-      .limit(1)
-
-    if (byPhone?.[0]) {
-      return { customer: byPhone[0], isNew: false }
-    }
+      .select('*').eq('store_id', storeId).eq('phone_normalized', phonN)
+      .eq('is_merged', false).limit(1)
+    if (byPhone?.[0]) return { customer: byPhone[0], isNew: false }
   }
 
-  // 3. Match by exact name (only for nameless-email orders — rare fallback)
-  if (!em && !ph && name && name.length > 3) {
-    const { data: byName } = await supabase.from('risk_customers')
-      .select('*')
-      .eq('store_id', storeId)
-      .eq('is_guest', true)
-      .ilike('name', name.trim())
-      .limit(1)
-
-    if (byName?.[0]) {
-      return { customer: byName[0], isNew: false }
-    }
+  // 2. Caută prin email (fallback dacă nu are telefon)
+  if (emailN) {
+    const { data: byEmail } = await supabase.from('risk_customers')
+      .select('*').eq('store_id', storeId).ilike('email', emailN)
+      .eq('is_merged', false).limit(1)
+    if (byEmail?.[0]) return { customer: byEmail[0], isNew: false }
   }
 
-  // No match — create new guest
+  // 3. Nicio potrivire → creează guest nou
   const { data: guest, error } = await supabase.from('risk_customers').insert({
     store_id: storeId, user_id: userId,
     external_customer_id: null,
-    phone: phone || null, email: email?.toLowerCase().trim() || null,
-    name: name || null, is_guest: true,
+    phone: phonN || phone || null,
+    phone_normalized: phonN,
+    email: emailN || null,
+    name: name || null, is_guest: true, is_merged: false,
     risk_score: 0, risk_label: 'new',
     total_orders: 0, orders_collected: 0, orders_refused: 0,
     orders_not_home: 0, orders_cancelled: 0,
@@ -156,6 +196,8 @@ export async function resolveCustomer(
   }).select('*').single()
 
   if (error) throw new Error('Cannot create guest: ' + error.message)
+
+  void detectAndSaveDuplicateCandidates(supabase, storeId, userId, guest)
   return { customer: guest, isNew: true }
 }
 
@@ -173,8 +215,8 @@ export async function recalc(
   const addrs = new Set<string>()
   const today = new Date().toISOString().slice(0, 10)
   let ordersToday = 0
-  // Use the most recent order's context for risk calculation
-  let lastPm: string = 'cod', lastVal = 0, lastCurr = 'RON', lastAddr = ''
+  let lastPm = 'cod', lastVal = 0, lastCurr = 'RON', lastAddr = ''
+
   for (const o of all) {
     if (o.order_status === 'collected') tc++
     else if (['refused', 'returned'].includes(o.order_status)) tr++
@@ -183,7 +225,6 @@ export async function recalc(
     if (o.shipping_address) addrs.add(o.shipping_address.trim().toLowerCase())
     if (o.ordered_at?.slice(0, 10) === today) ordersToday++
   }
-  // Last order for context
   if (all.length > 0) {
     const last = all[all.length - 1]
     lastPm = last.payment_method || 'cod'
@@ -200,7 +241,7 @@ export async function recalc(
     ordersNotHome: tn, ordersCancelled: tcan, ordersToday,
     lastOrderAt: cust?.last_order_at, firstOrderAt: cust?.first_order_at,
     accountCreatedAt: null,
-    phoneValidated: !!(cust?.phone?.match(/^(07\d{8}|02\d{8}|03\d{8})$/)),
+    phoneValidated: !!(cust?.phone_normalized || cust?.phone?.match(/^0[23-9]\d{8}$/)),
     isNewAccount: all.length <= 1, addressChanges: addrs.size,
   }, {
     paymentMethod: lastPm as 'cod' | 'card' | 'bank_transfer',
@@ -219,7 +260,11 @@ export async function recalc(
     updated_at: new Date().toISOString(),
   }).eq('id', customerId)
 
-  return { score: result.score, label, flags: result.flags, recommendation: result.recommendation, refusalProbability: result.refusalProbability }
+  return {
+    score: result.score, label, flags: result.flags,
+    recommendation: result.recommendation,
+    refusalProbability: result.refusalProbability,
+  }
 }
 
 // ─── WooCommerce API helper ───────────────────────────────────────────────────

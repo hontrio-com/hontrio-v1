@@ -16,7 +16,7 @@ import {
   TriangleAlert, UserX, Award,
   Layers, Settings, Cpu,
   Network, AlertOctagon, Wallet, ArrowDown, ArrowUp,
-  ImageIcon, Plus,
+  ImageIcon, Plus, GitMerge, Link2,
 } from 'lucide-react'
 import { LABEL_CONFIG } from '@/lib/risk/engine'
 
@@ -355,9 +355,21 @@ function ClusterTab({ storeId, customers, onOpenProfile }: {
   onOpenProfile: (id: string) => void
 }) {
   const { t } = useT()
-  const [loading, setLoading] = useState(false)
-  const [clusters, setClusters] = useState<any[]>([])
-  const [ran, setRan] = useState(false)
+  const [loading, setLoading]         = useState(false)
+  const [clusters, setClusters]       = useState<any[]>([])
+  const [ran, setRan]                 = useState(false)
+  const [candidates, setCandidates]   = useState<any[]>([])
+  const [loadingCandidates, setLoadingCandidates] = useState(true)
+  const [merging, setMerging]         = useState<string | null>(null)
+  const [dismissing, setDismissing]   = useState<string | null>(null)
+
+  useEffect(() => {
+    fetch('/api/risk/identity-candidates')
+      .then(r => r.json())
+      .then(d => setCandidates(d.candidates || []))
+      .catch(() => {})
+      .finally(() => setLoadingCandidates(false))
+  }, [])
 
   const run = async () => {
     setLoading(true)
@@ -370,8 +382,122 @@ function ClusterTab({ storeId, customers, onOpenProfile }: {
     setLoading(false)
   }
 
+  const mergeCustomers = async (targetId: string, sourceId: string, candidateId: string) => {
+    setMerging(candidateId)
+    try {
+      const res = await fetch('/api/risk/customers/merge', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ target_id: targetId, source_id: sourceId }),
+      })
+      if (res.ok) setCandidates(prev => prev.filter(c => c.id !== candidateId))
+    } catch {}
+    setMerging(null)
+  }
+
+  const dismissCandidate = async (candidateId: string) => {
+    setDismissing(candidateId)
+    try {
+      await fetch('/api/risk/identity-candidates', {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: candidateId, status: 'not_duplicate' }),
+      })
+      setCandidates(prev => prev.filter(c => c.id !== candidateId))
+    } catch {}
+    setDismissing(null)
+  }
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
+
+      {/* ── Possible Duplicates ──────────────────────────────────────────── */}
+      <div>
+        <div className="flex items-center gap-2 mb-3">
+          <Link2 className="h-4 w-4 text-amber-500" />
+          <p className="text-[13px] font-semibold text-neutral-900">{t('risk.possible_duplicates')}</p>
+          {candidates.length > 0 && (
+            <span className="h-5 min-w-[20px] px-1.5 rounded-full bg-amber-100 text-amber-700 text-[10px] font-bold flex items-center justify-center">
+              {candidates.length}
+            </span>
+          )}
+        </div>
+        <p className="text-[12px] text-neutral-400 mb-3">{t('risk.possible_duplicates_desc')}</p>
+
+        {loadingCandidates && (
+          <div className="flex items-center gap-2 py-4 text-[12px] text-neutral-400">
+            <div className="h-4 w-4 border-2 border-neutral-200 border-t-neutral-500 rounded-full animate-spin" />
+            {t('common.loading')}
+          </div>
+        )}
+
+        {!loadingCandidates && candidates.length === 0 && (
+          <div className="border border-neutral-100 rounded-xl p-4 text-center bg-neutral-50">
+            <CheckCircle2 className="h-5 w-5 text-neutral-300 mx-auto mb-1.5" />
+            <p className="text-[12px] text-neutral-400">{t('risk.no_duplicates_pending')}</p>
+          </div>
+        )}
+
+        {candidates.length > 0 && (
+          <div className="space-y-3">
+            {candidates.map((c: any) => {
+              const a = c.customer_a, b = c.customer_b
+              const pct = Math.round(c.confidence * 100)
+              const isBusy = merging === c.id || dismissing === c.id
+              return (
+                <Card key={c.id} className="p-4 border-amber-200">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">
+                        {pct}% {t('risk.similarity')}
+                      </span>
+                      {c.match_reasons?.length > 0 && (
+                        <span className="text-[11px] text-neutral-400">
+                          {c.match_reasons.slice(0, 2).join(', ')}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 mb-3">
+                    {[a, b].map((cust: any, idx: number) => cust ? (
+                      <button key={idx} onClick={() => onOpenProfile(cust.id)}
+                        className="text-left p-2.5 rounded-xl bg-neutral-50 hover:bg-neutral-100 transition-colors">
+                        <p className="text-[12px] font-medium text-neutral-900 truncate">{cust.name || '—'}</p>
+                        <p className="text-[11px] text-neutral-400 truncate">{cust.phone || cust.email || '—'}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-[11px] text-neutral-500">{t('risk.orders_label')}: {cust.total_orders}</span>
+                          {cust.orders_refused > 0 && (
+                            <span className="text-[11px] text-red-500">{cust.orders_refused} {t('risk.refused')}</span>
+                          )}
+                        </div>
+                      </button>
+                    ) : null)}
+                  </div>
+
+                  <div className="flex gap-2">
+                    <Btn size="sm" onClick={() => mergeCustomers(a.id, b.id, c.id)} disabled={isBusy}>
+                      {merging === c.id
+                        ? <RefreshCw className="h-3 w-3 animate-spin" />
+                        : <GitMerge className="h-3 w-3" />}
+                      {t('risk.merge_into_first')}
+                    </Btn>
+                    <Btn size="sm" variant="outline" onClick={() => dismissCandidate(c.id)} disabled={isBusy}>
+                      {dismissing === c.id
+                        ? <RefreshCw className="h-3 w-3 animate-spin" />
+                        : <X className="h-3 w-3" />}
+                      {t('risk.not_same_person')}
+                    </Btn>
+                  </div>
+                </Card>
+              )
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Divider */}
+      <div className="h-px bg-neutral-100" />
+
+      {/* ── Multi-Identity Cluster Analysis ──────────────────────────────── */}
       <div className="flex items-center justify-between">
         <div>
           <p className="text-[13px] font-semibold text-neutral-900">{t('risk.multi_identity')}</p>

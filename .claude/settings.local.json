@@ -32,7 +32,11 @@
       "Bash(grep -v \"^\\\\s*//\")",
       "Bash(git restore:*)",
       "Bash(xargs grep:*)",
-      "Bash(grep -n \"postProcess\\\\|kwCount\\\\|density\\\\|200\\\\|word\\\\|180\\\\|keyword\" /c/Users/iorda/Desktop/Hontrio.com/v1/hontrio/app/\\\\\\(dashboard\\\\\\)/seo/[id]/page.tsx)"
+      "Bash(grep -n \"postProcess\\\\|kwCount\\\\|density\\\\|200\\\\|word\\\\|180\\\\|keyword\" /c/Users/iorda/Desktop/Hontrio.com/v1/hontrio/app/\\\\\\(dashboard\\\\\\)/seo/[id]/page.tsx)",
+      "Bash(grep -r \"risk_customers\\\\|risk_orders\\\\|risk_alerts\" /c/Users/iorda/Desktop/Hontrio.com/v1/hontrio/types --include=*.ts -l)",
+      "Bash(grep -r 'CREATE TABLE.*risk_' /c/Users/iorda/Desktop/Hontrio.com/v1/hontrio --include=*.sql --include=*.ts -n)",
+      "mcp__claude_ai_Supabase__list_projects",
+      "mcp__claude_ai_Supabase__apply_migration"
     ]
   }
 }
