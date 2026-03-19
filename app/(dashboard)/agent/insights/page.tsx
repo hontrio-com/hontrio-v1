@@ -6,6 +6,7 @@ import { useState, useEffect } from 'react'
 import {
   AlertCircle, BookOpen, Plus, Trash2, ToggleLeft, ToggleRight,
   Star, TrendingUp, CheckCircle2, Loader2, Save, RefreshCw, MessageCircle,
+  Eye, MousePointer2, Scale, ShoppingCart, AlertTriangle, XCircle,
 } from 'lucide-react'
 
 // ─── Primitives ───────────────────────────────────────────────────────────────
@@ -149,11 +150,11 @@ function HeatmapTab() {
                     <div className="h-full bg-gradient-to-r from-blue-400 to-blue-600 rounded-full transition-all" style={{ width:`${Math.round((p.score/maxScore)*100)}%` }} />
                   </div>
                   <div className="flex gap-3 text-[11px] text-neutral-400 flex-wrap">
-                    <span>👁️ {p.shown} {t('agent.requests_label')}</span>
-                    {p.clicked  > 0 && <span>🖱️ {p.clicked} click-uri</span>}
-                    {p.compared > 0 && <span>⚖️ {p.compared} {t('agent.comparisons')}</span>}
-                    {p.carted   > 0 && <span className="text-emerald-600 font-medium">🛒 {p.carted} {t('agent.in_cart')}</span>}
-                    {p.escalated> 0 && <span className="text-red-500">⚠️ {p.escalated} {t('agent.escalations_count')}</span>}
+                    <span className="inline-flex items-center gap-1"><Eye className="w-3 h-3" /> {p.shown} {t('agent.requests_label')}</span>
+                    {p.clicked  > 0 && <span className="inline-flex items-center gap-1"><MousePointer2 className="w-3 h-3" /> {p.clicked} click-uri</span>}
+                    {p.compared > 0 && <span className="inline-flex items-center gap-1"><Scale className="w-3 h-3" /> {p.compared} {t('agent.comparisons')}</span>}
+                    {p.carted   > 0 && <span className="inline-flex items-center gap-1 text-emerald-600 font-medium"><ShoppingCart className="w-3 h-3" /> {p.carted} {t('agent.in_cart')}</span>}
+                    {p.escalated> 0 && <span className="inline-flex items-center gap-1 text-red-500"><AlertTriangle className="w-3 h-3" /> {p.escalated} {t('agent.escalations_count')}</span>}
                   </div>
                 </div>
               ))}
@@ -229,8 +230,8 @@ function TrainingTab() {
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0 space-y-1">
                       <p className="text-[11px] text-neutral-500">{t('agent.question_label')} <span className="font-medium text-neutral-700">"{c.original_question}"</span></p>
-                      {c.wrong_answer && <p className="text-[11px] text-orange-600">❌ {t('agent.wrong_answer_label')} "{c.wrong_answer}"</p>}
-                      <p className="text-[11px] text-emerald-700">✅ {t('agent.correct_answer_label')} "{c.correct_answer}"</p>
+                      {c.wrong_answer && <p className="inline-flex items-center gap-1 text-[11px] text-orange-600"><XCircle className="w-3 h-3 shrink-0" /> {t('agent.wrong_answer_label')} "{c.wrong_answer}"</p>}
+                      <p className="inline-flex items-center gap-1 text-[11px] text-emerald-700"><CheckCircle2 className="w-3 h-3 shrink-0" /> {t('agent.correct_answer_label')} "{c.correct_answer}"</p>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       <button onClick={() => toggle(c)}>

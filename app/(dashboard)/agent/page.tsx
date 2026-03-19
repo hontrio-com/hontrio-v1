@@ -195,7 +195,7 @@ function WidgetPreview({ config, messages, onSend, loading, onToggle, isOpen }: 
             className="absolute rounded-xl px-3 py-2.5 shadow-lg text-[11px] text-neutral-700 font-medium max-w-[170px] cursor-pointer hover:shadow-xl transition-shadow"
             style={{ background:'#fff', bottom:config.widget_bottom_offset+btnSize+14, [config.widget_position==='bottom-right'?'right':'left']:12, boxShadow:'0 4px 20px rgba(0,0,0,.12),0 0 0 1px rgba(0,0,0,.06)', borderBottomRightRadius:config.widget_position==='bottom-right'?4:16, borderBottomLeftRadius:config.widget_position==='bottom-left'?4:16 }}
             onClick={onToggle}>
-            👋 {(config.welcome_message||t('agent.default_bubble_short')).slice(0,55)}
+            {(config.welcome_message||t('agent.default_bubble_short')).slice(0,55)}
           </motion.div>
         )}
       </AnimatePresence>

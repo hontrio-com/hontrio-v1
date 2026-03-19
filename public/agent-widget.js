@@ -767,27 +767,58 @@ fetch(BASE+'/api/agent/memory?userId='+UID+'&visitorId='+vid)
 
 // Removed: misleading 25s fallback badge — triggers handle notifications now
 
-// ── CONFIG POLLING (actualizare din dashboard la fiecare 30s) ─────────────────
+// ── CONFIG REAL-TIME (SSE + polling fallback) ────────────────────────────────
 var _lastConfigHash='';
+function handleConfigUpdate(d){
+  if(!d)return;
+  var hash=JSON.stringify([d.agent_name,d.welcome_message,d.widget_color,d.quick_replies,d.widget_avatar_url,d.widget_position,d.is_active]);
+  if(hash!==_lastConfigHash){
+    if(_lastConfigHash!==''){
+      // Config changed — clear cached session so fresh welcome/quick_replies show
+      try{sessionStorage.removeItem(_SESS_KEY);msgs=[];_extras=[];welcomed=false;}catch(e){}
+    }
+    _lastConfigHash=hash;
+    applyConfig(d);
+    window._hCfg=d;
+  }
+}
 function pollConfig(){
   fetch(BASE+'/api/agent/public-config?userId='+UID)
     .then(function(r){return r.ok?r.json():null;})
-    .then(function(d){
-      if(!d)return;
-      // Compară cu config-ul curent — aplică doar dacă s-a schimbat
-      var hash=JSON.stringify([d.agent_name,d.welcome_message,d.widget_color,d.quick_replies,d.widget_avatar_url,d.widget_position,d.is_active]);
-      if(hash!==_lastConfigHash){
-        if(_lastConfigHash!==''){
-          // Config changed — clear cached session so fresh welcome/quick_replies show
-          try{sessionStorage.removeItem(_SESS_KEY);msgs=[];_extras=[];welcomed=false;}catch(e){}
-        }
-        _lastConfigHash=hash;
-        applyConfig(d);
-        window._hCfg=d;
-      }
-    })
+    .then(handleConfigUpdate)
     .catch(function(){});
 }
-// Polling la fiecare 30 secunde
-setInterval(pollConfig,30000);
+// SSE — primește actualizări instantaneu din dashboard
+var _sseActive=false;
+if(typeof EventSource!=='undefined'&&UID){
+  try{
+    var _sse=new EventSource(BASE+'/api/agent/config-stream?userId='+UID);
+    _sse.onopen=function(){_sseActive=true;};
+    _sse.onmessage=function(e){
+      try{var d=JSON.parse(e.data);handleConfigUpdate(d);}catch(err){}
+    };
+    _sse.onerror=function(){
+      _sseActive=false;
+      // SSE failed — fall back to polling
+      try{_sse.close();}catch(err){}
+      setInterval(pollConfig,30000);
+    };
+    // Reconnect SSE after 30min timeout event
+    _sse.addEventListener('timeout',function(){
+      _sseActive=false;
+      try{_sse.close();}catch(err){}
+      // Restart SSE after a short delay
+      setTimeout(function(){
+        var _sse2=new EventSource(BASE+'/api/agent/config-stream?userId='+UID);
+        _sse2.onmessage=function(e){try{var d=JSON.parse(e.data);handleConfigUpdate(d);}catch(err){}};
+      },2000);
+    });
+  }catch(err){
+    // SSE not available — use polling
+    setInterval(pollConfig,30000);
+  }
+} else {
+  // Polling la fiecare 30 secunde (fallback)
+  setInterval(pollConfig,30000);
+}
 })();

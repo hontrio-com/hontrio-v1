@@ -33,7 +33,46 @@ type VisitorMemory = {
   return_count: number
 }
 
-function buildSystemPrompt(config: any, storeName: string, catalog: string, memory: VisitorMemory | null, ragContext = '', trainingContext = '', lang: string = 'ro'): string {
+// Detect visitor's language from their messages using character patterns + common words
+function detectVisitorLanguage(message: string, history: any[] = []): string | null {
+  const recentUserMessages = [
+    ...history.filter((m: any) => m.role === 'user').slice(-3).map((m: any) => m.content || ''),
+    message,
+  ].join(' ')
+  const m = recentUserMessages.toLowerCase()
+
+  // Non-Latin scripts (most reliable)
+  if (/[\u0400-\u04FF]/.test(m)) return 'bg'  // Cyrillic → Bulgarian
+  if (/[\u0370-\u03FF]/.test(m)) return 'el'  // Greek
+  // Spanish — unique chars or unambiguous words
+  if (/[¿¡ñ]/.test(m) || /\b(hola|gracias|quiero|hablas|espanol|nécessito|busco|envio|cuanto|cuando|puedo|tengo|tienes|donde|cómo|como)\b/.test(m)) return 'es'
+  // French
+  if (/\b(bonjour|merci|bonsoir|je|vous|produit|livraison|quel|quelle|est-ce|comment|combien|puis-je)\b/.test(m)) return 'fr'
+  // German — ß or unambiguous words
+  if (/[ß]/.test(m) || /\b(ich|danke|bitte|kaufen|lieferung|preis|welches|günstig|bestellen)\b/.test(m)) return 'de'
+  // Italian
+  if (/\b(ciao|buongiorno|grazie|quanto|vorrei|prodotto|spedizione|questo|questa)\b/.test(m)) return 'it'
+  // Portuguese — ã/õ or clear words
+  if (/[ãõ]/.test(m) || /\b(olá|ola|obrigado|quanto|produto|envio|posso|tenho)\b/.test(m)) return 'pt'
+  // Polish — unique chars
+  if (/[ąćęłńśźż]/.test(m)) return 'pl'
+  // Hungarian
+  if (/\b(szia|köszönöm|termék|szállítás|mennyibe|kérdésem)\b/.test(m)) return 'hu'
+  // Czech — ř is unique to Czech
+  if (/[řů]/.test(m) || /\b(ahoj|děkuji|produkt|doprava|kolik|prosím)\b/.test(m)) return 'cs'
+  // Turkish
+  if (/\b(merhaba|teşekkür|ürün|kargo|fiyat|nasıl|sipariş)\b/.test(m)) return 'tr'
+  // Romanian — diacritics or clear words
+  if (/[ăâîșț]/.test(m) || /\b(buna|salut|vreau|caut|livrare|retur|pret|aveti|multumesc)\b/.test(m)) return 'ro'
+  // Dutch
+  if (/\b(hallo|hoi|bedankt|product|levering|prijs|welk)\b/.test(m)) return 'nl'
+  // English — common words last (many overlap with other languages)
+  if (/\b(hello|hi|thanks|what|where|when|product|shipping|price|buy|cart|order|help|do you|can you|how much)\b/.test(m)) return 'en'
+
+  return null  // Unknown — caller falls back to store language
+}
+
+function buildSystemPrompt(config: any, storeName: string, catalog: string, memory: VisitorMemory | null, ragContext = '', trainingContext = '', lang: string = 'ro', visitorLang: string | null = null): string {
   const L = getAILanguage(lang)
   const isReturningVisitor = memory && memory.total_sessions > 0
 
@@ -61,8 +100,12 @@ MEMORY INSTRUCTIONS:
 - Mention new products from their preferred categories if available`
   }
 
+  const langInstruction = visitorLang
+    ? `Detect the visitor's language from their message and ALWAYS respond in that same language. The visitor is writing in ${getAILanguage(visitorLang).nativeName} — respond in ${getAILanguage(visitorLang).nativeName}. If the visitor switches language, switch with them.`
+    : `Detect the visitor's language from their message and ALWAYS respond in that same language. If they write in Spanish → respond in Spanish. French → French. English → English. Only default to ${L.nativeName} when the message is too short to detect (1-2 words).`
+
   return `You are ${config.agent_name || 'Assistant'} from ${storeName}.
-LANGUAGE: You MUST respond ONLY in ${L.nativeName} (${L.name}). Every word of your response must be in ${L.nativeName}.
+LANGUAGE: ${langInstruction}
 
 FULL CATALOG (these are ALL available products — do not invent others):
 ${catalog}
@@ -822,7 +865,9 @@ export async function POST(request:Request) {
     ])
     console.log('[Chat] RAG context length:', ragContext.length, 'chars')
 
-    const systemPrompt = buildSystemPrompt(config, storeName, catalog, memory, ragContext, trainingContext, config?.language || 'ro')
+    const detectedLang = detectVisitorLanguage(safeMessage, history)
+    const systemPrompt = buildSystemPrompt(config, storeName, catalog, memory, ragContext, trainingContext, config?.language || 'ro', detectedLang)
+    const LV = getAILanguage(detectedLang || config?.language || 'ro')
 
     const gpt=await openai.chat.completions.create({
       model:'gpt-4o-mini',
@@ -952,12 +997,12 @@ export async function POST(request:Request) {
         parsed.message = `Comanda #${ord.number} din ${ord.date} — ${ord.status_label}.${trackingInfo} Produse: ${itemsList}.`
         parsed.quick_replies = ord.status === 'processing' ? ['Când ajunge?', 'Modific comanda', 'Anulare'] : ['Mai am o întrebare', 'Vorbesc cu echipa']
       } else if(parsed.order_query) {
-        parsed.message = `Nu am găsit comanda după "${parsed.order_query}". Încearcă cu numărul exact al comenzii sau emailul folosit la comandă.`
-        parsed.quick_replies = ['Număr comandă', 'Email comandă', 'Vorbesc cu echipa']
+        parsed.message = LV.orderNotFound.replace('%s', parsed.order_query)
+        parsed.quick_replies = [LV.defaultQuickReplies[0], LV.defaultQuickReplies[1], LV.talkToTeam]
       }
     } else if(parsed.search_query){
-      parsed.message=`Nu am găsit "${parsed.search_query}" în catalog. Cum altfel ai descrie ce cauți?`
-      parsed.quick_replies=['Descriu altfel','Arată tot','Vorbesc cu echipa']
+      parsed.message = LV.productNotFound.replace('%s', parsed.search_query)
+      parsed.quick_replies = [LV.defaultQuickReplies[0], LV.tryAgain, LV.talkToTeam]
     }
 
     const allProducts=[...products,...crossProducts].slice(0,config.max_products_shown||3)
@@ -967,7 +1012,7 @@ export async function POST(request:Request) {
     if(parsed.intent==='escalate'||parsed.intent==='problem')parsed.show_whatsapp=true
 
     const response:AgentResponse={
-      message:parsed.message||'Cum te pot ajuta?',
+      message:parsed.message||LV.agentGreeting,
       intent:parsed.intent||'browsing',
       confidence:parsed.confidence||0.7,
       quick_replies:parsed.quick_replies||[],
