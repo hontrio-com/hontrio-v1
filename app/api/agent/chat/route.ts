@@ -1121,7 +1121,7 @@ async function sendEscalationNotification(p: {
     }
 
     const html = buildEscalationEmail({
-      agentName: p.config.agent_name || 'Asistent',
+      agentName: p.config.agent_name || 'Assistant',
       storeName: p.storeName,
       visitorMessage: p.message,
       intent: p.intent,
@@ -1131,8 +1131,8 @@ async function sendEscalationNotification(p: {
     const sent = await sendEmail({
       to: p.config.notify_email,
       subject: p.intent === 'escalate'
-        ? `🔴 Client solicită ajutor uman — ${p.storeName}`
-        : `⚠️ Problemă raportată de client — ${p.storeName}`,
+        ? `🔴 Customer requesting human support — ${p.storeName}`
+        : `⚠️ Issue reported by customer — ${p.storeName}`,
       html,
     })
 

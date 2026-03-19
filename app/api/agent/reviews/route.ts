@@ -83,8 +83,8 @@ async function sendPendingReviews() {
       const cfg = (req as any).agent_configs
       if (!cfg?.review_enabled) continue
 
-      const subject = cfg.review_email_subject || `Cum a fost experiența ta? Lasă un review!`
-      const googleLink = cfg.review_google_url ? `<a href="${cfg.review_google_url}" style="...">⭐ Review pe Google</a>` : ''
+      const subject = cfg.review_email_subject || `How was your experience? Leave a review!`
+      const googleLink = cfg.review_google_url ? `<a href="${cfg.review_google_url}" style="...">⭐ Review on Google</a>` : ''
       const productList = (req.product_names || []).join(', ')
 
       const html = buildReviewEmail({
@@ -92,7 +92,7 @@ async function sendPendingReviews() {
         productNames: productList,
         googleUrl: cfg.review_google_url,
         reviewSiteEnabled: cfg.review_site_enabled,
-        agentName: cfg.agent_name || 'Echipa noastră',
+        agentName: cfg.agent_name || 'Our Team',
         customBody: cfg.review_email_body,
       })
 
@@ -115,23 +115,23 @@ function buildReviewEmail(opts: { customerName: string; productNames: string; go
   <div style="max-width:540px;margin:0 auto;background:white;border-radius:16px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.1)">
     <div style="background:linear-gradient(135deg,#1e40af,#2563eb);padding:28px;text-align:center">
       <p style="color:white;font-size:28px;margin:0">⭐</p>
-      <h1 style="color:white;font-size:18px;margin:8px 0 0;font-weight:700">Cum ți s-a părut comanda?</h1>
+      <h1 style="color:white;font-size:18px;margin:8px 0 0;font-weight:700">How did you like your order?</h1>
     </div>
     <div style="padding:28px">
-      <p style="color:#374151;font-size:15px;margin:0 0 12px">Bună${customerName ? ` ${customerName}` : ''}!</p>
+      <p style="color:#374151;font-size:15px;margin:0 0 12px">Hi${customerName ? ` ${customerName}` : ''}!</p>
       ${customBody ? `<p style="color:#4b5563;font-size:14px">${customBody}</p>` : `
-      <p style="color:#4b5563;font-size:14px;line-height:1.6">Sperăm că ești mulțumit de ${productNames ? `<strong>${productNames}</strong>` : 'comanda ta'}. Părea ta contează enorm pentru noi și pentru alți clienți!</p>
+      <p style="color:#4b5563;font-size:14px;line-height:1.6">We hope you're satisfied with ${productNames ? `<strong>${productNames}</strong>` : 'your order'}. Your opinion matters enormously to us and to other customers!</p>
       `}
       <div style="margin:24px 0;display:flex;flex-direction:column;gap:10px">
         ${googleUrl ? `
         <a href="${googleUrl}" style="display:block;text-align:center;background:#4285f4;color:white;text-decoration:none;padding:13px 20px;border-radius:12px;font-weight:600;font-size:14px">
-          ⭐ Lasă un review pe Google
+          ⭐ Leave a review on Google
         </a>` : ''}
       </div>
-      <p style="color:#9ca3af;font-size:12px;margin:20px 0 0">Cu drag, ${agentName}</p>
+      <p style="color:#9ca3af;font-size:12px;margin:20px 0 0">With love, ${agentName}</p>
     </div>
     <div style="background:#f9fafb;padding:14px 28px;border-top:1px solid #f3f4f6;text-align:center">
-      <p style="margin:0;font-size:11px;color:#9ca3af">Email automat trimis prin Hontrio · <a href="https://hontrio.com" style="color:#2563eb;text-decoration:none">hontrio.com</a></p>
+      <p style="margin:0;font-size:11px;color:#9ca3af">Automated email sent via Hontrio · <a href="https://hontrio.com" style="color:#2563eb;text-decoration:none">hontrio.com</a></p>
     </div>
   </div>
 </body></html>`
