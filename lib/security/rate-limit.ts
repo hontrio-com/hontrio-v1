@@ -19,14 +19,18 @@ function getRedis(): Redis | null {
 type RateLimitEntry = { count: number; resetAt: number }
 const memStore = new Map<string, RateLimitEntry>()
 
-// Cleanup every 60s
+// Cleanup every 60s — guarded to prevent multiple intervals on hot-reload
 if (typeof setInterval !== 'undefined') {
-  setInterval(() => {
-    const now = Date.now()
-    for (const [key, entry] of memStore.entries()) {
-      if (now > entry.resetAt) memStore.delete(key)
-    }
-  }, 60000)
+  const g = global as any
+  if (!g._rateLimitCleanupInit) {
+    g._rateLimitCleanupInit = true
+    setInterval(() => {
+      const now = Date.now()
+      for (const [key, entry] of memStore.entries()) {
+        if (now > entry.resetAt) memStore.delete(key)
+      }
+    }, 60000)
+  }
 }
 
 function memoryRateLimit(

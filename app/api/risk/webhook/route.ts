@@ -58,6 +58,7 @@ export async function POST(req: Request) {
       }
       // Fallback: URL match only when no signature present (dev / unsigned webhooks)
       if (!store && !sig && src) {
+        console.warn('[Risk Webhook] Unsigned request matched by URL only — consider adding webhook secret:', src)
         store = stores.find((s: any) => s.store_url && src.replace(/\/$/, '')
           .includes(s.store_url.replace(/^https?:\/\//, '').replace(/\/$/, '')))
       }

@@ -9,6 +9,20 @@ const CORS = {
   'Access-Control-Allow-Headers': 'Content-Type',
 }
 
+async function isValidWidgetOrigin(request: Request, userId: string, supabase: any): Promise<boolean> {
+  const origin = request.headers.get('origin') || request.headers.get('referer') || ''
+  if (!origin) return true // same-origin or server-to-server
+
+  const { data: store } = await supabase.from('stores').select('store_url').eq('user_id', userId).single()
+  if (!store?.store_url) return true // no store configured yet — allow
+
+  try {
+    const storeHost = new URL(store.store_url).hostname
+    const reqHost = new URL(origin).hostname
+    return reqHost === storeHost || origin.includes('hontrio.com') || origin.includes('localhost')
+  } catch { return true }
+}
+
 // POST /api/agent/stock
 // Body: { userId, productIds: string[] }
 export async function POST(request: Request) {
@@ -19,6 +33,9 @@ export async function POST(request: Request) {
     }
 
     const supabase = createAdminClient()
+
+    const valid = await isValidWidgetOrigin(request, userId, supabase)
+    if (!valid) return NextResponse.json({ stock: {}, error: 'Forbidden' }, { status: 403, headers: CORS })
 
     // Obține credențialele magazinului
     const { data: store } = await supabase

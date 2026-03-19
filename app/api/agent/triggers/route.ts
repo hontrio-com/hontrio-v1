@@ -15,6 +15,9 @@ export async function GET(request: Request) {
   try {
     const supabase = createAdminClient()
     if (publicUserId) {
+      // Verify agent is active before exposing triggers publicly
+      const { data: cfg } = await supabase.from('agent_configs').select('is_active').eq('user_id', publicUserId).single()
+      if (!cfg?.is_active) return NextResponse.json({ triggers: [] }, { headers: CORS })
       const { data: triggers } = await supabase
         .from('agent_triggers')
         .select('id, type, message, conditions, cooldown_hours, priority')

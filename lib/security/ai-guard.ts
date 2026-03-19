@@ -25,14 +25,18 @@ async function getRedis() {
 // ─── In-memory fallback with strict TTL ──────────────────────────────────────
 const runningJobs = new Map<string, number>()
 
-// Cleanup vechi la 60s
+// Cleanup stale jobs every 60s — guarded to prevent multiple intervals on hot-reload
 if (typeof setInterval !== 'undefined') {
-  setInterval(() => {
-    const now = Date.now()
-    for (const [key, startedAt] of runningJobs.entries()) {
-      if (now - startedAt > 5 * 60 * 1000) runningJobs.delete(key)
-    }
-  }, 60 * 1000)
+  const g = global as any
+  if (!g._aiGuardCleanupInit) {
+    g._aiGuardCleanupInit = true
+    setInterval(() => {
+      const now = Date.now()
+      for (const [key, startedAt] of runningJobs.entries()) {
+        if (now - startedAt > 5 * 60 * 1000) runningJobs.delete(key)
+      }
+    }, 60 * 1000)
+  }
 }
 
 export async function markJobRunningAsync(key: string): Promise<boolean> {

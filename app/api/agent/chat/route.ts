@@ -1103,6 +1103,23 @@ async function sendEscalationNotification(p: {
       .select('id').eq('session_id', p.sessionId).eq('trigger_intent', p.intent).limit(1)
     if (existing?.length) return
 
+    // Per-visitor rate limit: do not send more than one escalation email per visitor in 30 minutes
+    if (p.visitorId) {
+      const thirtyMinAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString()
+      const { data: recentEscalation } = await p.supabase
+        .from('escalation_notifications')
+        .select('id')
+        .eq('user_id', p.userId)
+        .eq('visitor_id', p.visitorId)
+        .gte('created_at', thirtyMinAgo)
+        .limit(1)
+        .single()
+      if (recentEscalation) {
+        console.log('[Notification] Escalation suppressed — already sent for this visitor in last 30 min')
+        return
+      }
+    }
+
     const html = buildEscalationEmail({
       agentName: p.config.agent_name || 'Asistent',
       storeName: p.storeName,

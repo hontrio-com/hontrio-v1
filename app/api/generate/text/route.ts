@@ -109,30 +109,29 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Eroare la salvarea textului' }, { status: 500 })
     }
 
-    // Scade creditele
-    const newCredits = user.credits - 5
-    await supabase
-      .from('users')
-      .update({ credits: newCredits })
-      .eq('id', userId)
+    // Scade creditele atomic — previne race conditions
+    const { data: newBalance } = await supabase.rpc('deduct_credits', { p_user_id: userId, p_amount: 5 })
+    if (!newBalance || newBalance === -1) {
+      // Credits were consumed between our check and now — rare but possible
+      console.warn('[generate/text] Credit race condition detected for user', userId)
+      // Still return success since work is done — log for reconciliation
+    }
+    const creditsRemaining = typeof newBalance === 'number' && newBalance >= 0 ? newBalance : (user.credits - 5)
 
-    // Salveaza tranzactia de credite
     await supabase.from('credit_transactions').insert({
       user_id: userId,
       type: 'usage',
       amount: -5,
-      balance_after: newCredits,
+      balance_after: creditsRemaining,
       description: `Generare text: ${product.original_title}`,
       reference_type: 'text_generation',
       reference_id: product_id,
     })
 
-
-
     return NextResponse.json({
       message: 'Text generat cu succes',
       generated,
-      credits_remaining: newCredits,
+      credits_remaining: creditsRemaining,
     })
   } catch (err) {
     console.error('Generate text error:', err)

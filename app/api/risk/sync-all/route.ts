@@ -31,7 +31,11 @@ export async function GET(req: Request) {
         try { controller.enqueue(encoder.encode(`data: ${JSON.stringify(d)}\n\n`)) } catch {}
       }
 
+      let aborted = false
+      req.signal.addEventListener('abort', () => { aborted = true })
+
       try {
+        if (aborted) { try { controller.close() } catch {} return }
         // ═══════════════════════════════════════════════════════════════
         // ETAPA 1: Importă CLIENȚI din /wc/v3/customers?role=all
         // Fiecare WooCommerce customer → un risk_customer bazat pe customer.id
@@ -80,6 +84,7 @@ export async function GET(req: Request) {
           send({ stage: 'customers', page: 1, totalPages: custPages, custCreated, custUpdated })
 
           for (let p = 2; p <= custPages; p++) {
+            if (aborted) { try { controller.close() } catch {} return }
             try {
               const { data } = await wcGet(base, auth, 'customers', {
                 per_page: '100', page: String(p), role: 'all',
@@ -181,6 +186,7 @@ export async function GET(req: Request) {
           send({ stage: 'orders', page: 1, totalPages: ordPages, ordInserted, ordSkipped, total: ordTotal })
 
           for (let p = 2; p <= ordPages; p++) {
+            if (aborted) { try { controller.close() } catch {} return }
             try {
               const { data } = await wcGet(base, auth, 'orders', {
                 per_page: '100', page: String(p), orderby: 'date', order: 'asc',
@@ -206,6 +212,7 @@ export async function GET(req: Request) {
           send({ stage: 'recalc', total: ids.length, done: 0 })
           const settings = await getSettings(supabase, storeId)
           for (let i = 0; i < ids.length; i++) {
+            if (aborted) { try { controller.close() } catch {} return }
             try { await recalc(supabase, ids[i], storeId, settings) } catch {}
             if ((i + 1) % 10 === 0 || i === ids.length - 1) {
               send({ stage: 'recalc', total: ids.length, done: i + 1 })

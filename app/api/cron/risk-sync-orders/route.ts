@@ -16,9 +16,8 @@ import { normalizePhone } from '@/lib/risk/utils'
 export async function GET(req: Request) {
   const authH  = req.headers.get('authorization')
   const secret = process.env.CRON_SECRET
-  const manual = new URL(req.url).searchParams.get('manual') === 'true'
 
-  if (!manual && secret && authH !== `Bearer ${secret}`) {
+  if (secret && authH !== `Bearer ${secret}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

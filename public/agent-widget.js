@@ -31,7 +31,30 @@ function persistSession(){
 }
 
 var vid;try{vid=localStorage.getItem('_hv')||'v'+Date.now().toString(36);localStorage.setItem('_hv',vid);}catch(e){vid='v'+Date.now().toString(36);}
-var unread=0,welcomed=false,agentName='Asistent';
+
+var _hT={
+  yes:'Da, ajută-mă!', no:'Nu, mulțumesc',
+  placeholder:'Scrie un mesaj...',
+  online:'Online', name:'Asistent',
+  error:'Ceva n-a mers, încearcă din nou!',
+  tryAgain:'Încearcă din nou',
+};
+function _hApplyLang(cfg){
+  if(!cfg)return;
+  var lang=(cfg.widget_lang||'ro').toLowerCase().slice(0,2);
+  var map={
+    en:{yes:'Yes, help me!',no:'No thanks',placeholder:'Type a message...',online:'Online',name:'Assistant',error:'Something went wrong, try again.',tryAgain:'Try again'},
+    es:{yes:'Sí, ayúdame',no:'No, gracias',placeholder:'Escribe un mensaje...',online:'En línea',name:'Asistente',error:'Algo salió mal, inténtalo de nuevo.',tryAgain:'Intentar de nuevo'},
+    fr:{yes:'Oui, aidez-moi',no:'Non merci',placeholder:'Écrivez un message...',online:'En ligne',name:'Assistant',error:'Quelque chose s\'est mal passé, réessayez.',tryAgain:'Réessayer'},
+    de:{yes:'Ja, hilf mir',no:'Nein danke',placeholder:'Nachricht schreiben...',online:'Online',name:'Assistent',error:'Etwas ist schiefgelaufen, versuche es erneut.',tryAgain:'Erneut versuchen'},
+    it:{yes:'Sì, aiutami',no:'No grazie',placeholder:'Scrivi un messaggio...',online:'Online',name:'Assistente',error:'Qualcosa è andato storto, riprova.',tryAgain:'Riprova'},
+    pt:{yes:'Sim, ajude-me',no:'Não, obrigado',placeholder:'Escreva uma mensagem...',online:'Online',name:'Assistente',error:'Algo correu mal, tente novamente.',tryAgain:'Tentar novamente'},
+    ro:{yes:'Da, ajută-mă!',no:'Nu, mulțumesc',placeholder:'Scrie un mesaj...',online:'Online',name:'Asistent',error:'Ceva n-a mers, încearcă din nou!',tryAgain:'Încearcă din nou'},
+  };
+  _hT=map[lang]||map.ro;
+}
+
+var unread=0,welcomed=false,agentName=_hT.name;
 var triggerFired=false; // max 1 trigger per sesiune
 
 function rgb(h){h=h.replace('#','');return parseInt(h.slice(0,2),16)+','+parseInt(h.slice(2,4),16)+','+parseInt(h.slice(4,6),16);}
@@ -166,21 +189,21 @@ bubble.innerHTML=
   '<button id="_h_bl_x" aria-label="Închide">'+iX(10)+'</button>'+
   '<div id="_h_bl_t"></div>'+
   '<div id="_h_bl_a">'+
-    '<button class="_h_bl_y" id="_h_bl_y">Da, ajută-mă!</button>'+
-    '<button class="_h_bl_n" id="_h_bl_n">Nu, mulțumesc</button>'+
+    '<button class="_h_bl_y" id="_h_bl_y">'+_hT.yes+'</button>'+
+    '<button class="_h_bl_n" id="_h_bl_n">'+_hT.no+'</button>'+
   '</div>';
 
 var win=document.createElement('div');win.id='_h_w';
 win.innerHTML=
   '<div id="_h_hd">'+
     '<div id="_h_av">'+iBot()+'</div>'+
-    '<div><div class="_h_hn" id="_h_an">Asistent</div><div class="_h_hs"><div class="_h_hd"></div><span>Online</span></div></div>'+
+    '<div><div class="_h_hn" id="_h_an">'+_hT.name+'</div><div class="_h_hs"><div class="_h_hd"></div><span id="_h_online">'+_hT.online+'</span></div></div>'+
     '<button id="_h_cl" aria-label="Închide">'+iX()+'</button>'+
   '</div>'+
   '<div id="_h_ms" role="log" aria-live="polite"></div>'+
   '<div id="_h_ft">'+
     '<div id="_h_fm">'+
-      '<textarea id="_h_in" placeholder="Scrie un mesaj..." rows="1"></textarea>'+
+      '<textarea id="_h_in" placeholder="'+_hT.placeholder+'" rows="1"></textarea>'+
       '<button id="_h_sn" aria-label="Trimite">'+iSend()+'</button>'+
     '</div>'+
     '<div class="_h_br">Powered by <a href="https://hontrio.com" target="_blank" rel="noopener">Hontrio</a></div>'+
@@ -422,6 +445,14 @@ function siteBase(){return(window.HontrioAgent&&window.HontrioAgent.storeUrl)||w
 function applyConfig(d){
   if(!d)return;
 
+  // Apply language translations first
+  _hApplyLang(d);
+  // Update UI strings that depend on language
+  var blY=document.getElementById('_h_bl_y');if(blY)blY.textContent=_hT.yes;
+  var blN=document.getElementById('_h_bl_n');if(blN)blN.textContent=_hT.no;
+  var onlineEl=document.getElementById('_h_online');if(onlineEl)onlineEl.textContent=_hT.online;
+  var inpEl=document.getElementById('_h_in');if(inpEl)inpEl.setAttribute('placeholder',_hT.placeholder);
+
   // Ascunde widget-ul dacă agentul e inactiv
   var container=document.getElementById('_h');
   if(container){
@@ -434,6 +465,8 @@ function applyConfig(d){
     var an=document.getElementById('_h_an');
     if(an)an.textContent=d.agent_name;
     agentName=d.agent_name;
+  } else {
+    agentName=_hT.name;
   }
 
   // Color
@@ -500,7 +533,7 @@ function applyConfig(d){
     var lbl=document.getElementById('_h_blbl');
     if(shape==='rectangle'){
       if(!lbl){lbl=document.createElement('span');lbl.id='_h_blbl';lbl.style.cssText='font-size:14px;font-weight:600;white-space:nowrap;margin-left:6px;';b5.appendChild(lbl);}
-      lbl.textContent=label||'Ajutor?';
+      lbl.textContent=label||'Help?';
     } else {
       if(lbl)lbl.remove();
     }
@@ -745,7 +778,7 @@ function doSend(ov){
   .catch(function(err){
     console.error('[Hontrio]',err);
     hideTyping();
-    renderMsg('assistant','Ceva n-a mers, încearcă din nou!',{quick_replies:['Încearcă din nou']});
+    renderMsg('assistant',_hT.error,{quick_replies:[_hT.tryAgain]});
   })
   .finally(function(){isLoading=false;document.getElementById('_h_sn').disabled=false;inp.disabled=false;inp.focus();});
 }

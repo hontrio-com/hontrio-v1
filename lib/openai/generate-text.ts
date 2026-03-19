@@ -47,38 +47,38 @@ export async function generateProductText(product: ProductInput): Promise<Genera
     ? 'Write ALL content in English.'
     : 'Scrie TOT conținutul în limba română.'
 
-  const prompt = `Ești un expert în eCommerce, SEO și copywriting pentru magazine online.
+  const prompt = `You are an expert in eCommerce, SEO and copywriting for online stores.
 
-IDENTITATE BRAND:
+BRAND IDENTITY:
 ${brandContext}
 
 ${langInstruction}
 
-PRODUS:
-- Titlu: ${product.title}
-- Categorie: ${product.category || 'Nespecificată'}
-- Preț: ${product.price ? product.price + ' RON' : 'Nespecificat'}
-- Descriere originală: ${product.description ? product.description.replace(/<[^>]*>/g, '').substring(0, 1500) : 'Lipsă'}
+PRODUCT:
+- Title: ${product.title}
+- Category: ${product.category || 'Unspecified'}
+- Price: ${product.price ? product.price + ' RON' : 'Unspecified'}
+- Original description: ${product.description ? product.description.replace(/<[^>]*>/g, '').substring(0, 1500) : 'None'}
 
-CERINȚE:
-Răspunde STRICT în format JSON valid, fără markdown, fără backticks, exact în acest format:
+REQUIREMENTS:
+Respond STRICTLY in valid JSON format, no markdown, no backticks, exactly in this format:
 
 {
-  "optimized_title": "Titlu optimizat SEO (50-70 caractere, include cuvinte cheie relevante)",
-  "meta_description": "Meta description optimizată (maxim 155 caractere, include call-to-action)",
-  "optimized_short_description": "Descriere scurtă orientată pe conversie (2-3 propoziții, cu beneficiul principal și call-to-action)",
-  "optimized_long_description": "Descriere lungă HTML structurată cu secțiuni. Folosește taguri <h3>, <p>, <ul>, <li>. Minimum 200 cuvinte.",
-  "benefits": ["Beneficiu 1 clar formulat din perspectiva clientului", "Beneficiu 2", "Beneficiu 3", "Beneficiu 4", "Beneficiu 5"],
+  "optimized_title": "SEO-optimized title (50-70 characters, include relevant keywords)",
+  "meta_description": "Optimized meta description (max 155 characters, include call-to-action)",
+  "optimized_short_description": "Short conversion-focused description (2-3 sentences, main benefit and call-to-action)",
+  "optimized_long_description": "Long structured HTML description with sections. Use <h3>, <p>, <ul>, <li> tags. Minimum 200 words.",
+  "benefits": ["Benefit 1 clearly stated from the customer's perspective", "Benefit 2", "Benefit 3", "Benefit 4", "Benefit 5"],
   "seo_score": 85,
-  "seo_suggestions": ["Sugestie 1 pentru îmbunătățire SEO", "Sugestie 2"]
+  "seo_suggestions": ["SEO improvement suggestion 1", "Suggestion 2"]
 }
 
 IMPORTANT:
-- Respectă STRICT tonul brandului specificat mai sus
-- Titlul trebuie să conțină cuvinte cheie relevante pentru căutări
-- Descrierea scurtă trebuie să convingă clientul să cumpere
-- Beneficiile trebuie formulate din perspectiva clientului (ce câștigă el)
-- Răspunde DOAR cu JSON valid, nimic altceva`
+- Strictly follow the brand tone specified above
+- The title must include relevant search keywords
+- The short description must convince the customer to buy
+- Benefits must be stated from the customer's perspective (what they gain)
+- Respond ONLY with valid JSON, nothing else`
 
   const response = await openai.chat.completions.create({
     model: 'gpt-4o-mini',

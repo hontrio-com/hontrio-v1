@@ -1,3 +1,12 @@
+function escHtml(str: string): string {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
 const RESEND_API_KEY = process.env.RESEND_API_KEY || ''
 const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'noreply@hontrio.com'
 const APP_URL = process.env.NEXTAUTH_URL || 'https://hontrio.com'
@@ -110,8 +119,8 @@ export function buildEscalationEmail(opts: {
 
   const historyHtml = conversationHistory.slice(-6).map(m => `
     <div style="margin:6px 0;padding:8px 12px;border-radius:8px;background:${m.role === 'user' ? '#f3f4f6' : '#eff6ff'};font-size:13px;">
-      <span style="font-weight:600;color:${m.role === 'user' ? '#374151' : '#2563eb'}">${m.role === 'user' ? '👤 Client' : `🤖 ${agentName}`}:</span>
-      <span style="color:#4b5563;margin-left:6px">${m.content}</span>
+      <span style="font-weight:600;color:${m.role === 'user' ? '#374151' : '#2563eb'}">${m.role === 'user' ? '👤 Client' : `🤖 ${escHtml(agentName)}`}:</span>
+      <span style="color:#4b5563;margin-left:6px">${escHtml(m.content)}</span>
     </div>
   `).join('')
 
@@ -132,7 +141,7 @@ export function buildEscalationEmail(opts: {
     <div style="padding:24px">
       <div style="background:#fef3c7;border:1px solid #f59e0b;border-radius:10px;padding:12px 16px;margin-bottom:20px">
         <p style="margin:0;font-size:13px;color:#92400e;font-weight:600">Ultimul mesaj al clientului:</p>
-        <p style="margin:8px 0 0;font-size:14px;color:#78350f">"${visitorMessage}"</p>
+        <p style="margin:8px 0 0;font-size:14px;color:#78350f">"${escHtml(visitorMessage)}"</p>
       </div>
 
       ${conversationHistory.length > 0 ? `

@@ -3,7 +3,13 @@ import { createAdminClient } from '@/lib/supabase/admin'
 
 // Cron: verifică imagini stuck în 'processing' mai vechi de 10 minute
 // Le marchează failed și returnează creditele
-export async function GET() {
+export async function GET(request: Request) {
+  const cronSecret = process.env.CRON_SECRET
+  const authHeader = request.headers.get('authorization')
+  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
   try {
     const supabase = createAdminClient()
     const tenMinAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString()
@@ -27,20 +33,16 @@ export async function GET() {
         .eq('id', img.id)
 
       if (img.credits_used > 0) {
-        const { data: user } = await supabase
-          .from('users')
-          .select('credits')
-          .eq('id', img.user_id)
-          .single()
-
-        if (user) {
-          const newBal = user.credits + img.credits_used
-          await supabase.from('users').update({ credits: newBal }).eq('id', img.user_id)
+        const { data: newBalance } = await supabase.rpc('refund_credits', {
+          p_user_id: img.user_id,
+          p_amount: img.credits_used
+        })
+        if (typeof newBalance === 'number' && newBalance >= 0) {
           await supabase.from('credit_transactions').insert({
             user_id: img.user_id,
             type: 'refund',
             amount: img.credits_used,
-            balance_after: newBal,
+            balance_after: newBalance,
             description: 'Refund automat — generare imagine timeout',
             reference_type: 'image_generation_timeout',
             reference_id: img.id,

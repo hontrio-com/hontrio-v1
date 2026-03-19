@@ -191,13 +191,13 @@ export async function POST(request: Request) {
         const prompt = buildBulkPrompt(product)
 
         const completion = await openai.chat.completions.create({
-          model: 'gpt-4o',
+          model: 'gpt-4o-mini',
           messages: [
             { role: 'system', content: buildBulkSeoPrompt(user?.brand_language || 'ro') },
             { role: 'user', content: prompt },
           ],
           temperature: 0.4,
-          max_tokens: 2500,
+          max_tokens: 1500,
         })
 
         const raw = completion.choices[0].message.content?.trim() || '{}'

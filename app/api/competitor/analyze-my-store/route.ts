@@ -32,9 +32,9 @@ export async function GET() {
         analysis: {
           title: '', meta_description: '', h1: '', headings: [],
           focus_keywords: [], keyword_density: {}, content_length_estimate: 0,
-          strengths: ['Magazin nou — adauga produse pentru analiza completa'],
-          weaknesses: ['Niciun produs optimizat inca'],
-          opportunities: ['Optimizeaza produsele cu AI pentru a creste scorul SEO'],
+          strengths: ['New store — add products for a complete analysis'],
+          weaknesses: ['No optimized products yet'],
+          opportunities: ['Optimize products with AI to increase your SEO score'],
         },
         store_url: store?.store_url || '',
       })
@@ -65,23 +65,23 @@ export async function GET() {
     const weaknesses: string[] = []
     const opportunities: string[] = []
 
-    if (optimizedCount > products.length * 0.5) strengths.push(`${optimizedCount}/${products.length} produse bine optimizate SEO`)
-    if (uniqueKeywords.length >= 5) strengths.push(`Vocabular SEO divers — ${uniqueKeywords.length} keywords unice`)
-    if (withMeta > products.length * 0.7) strengths.push(`${withMeta} produse au meta description completa`)
-    if (categories.size > 0) strengths.push(`Catalog structurat pe ${categories.size} categorii`)
-    if (avgScore >= 70) strengths.push(`Scor SEO mediu bun: ${avgScore}/100`)
+    if (optimizedCount > products.length * 0.5) strengths.push(`${optimizedCount}/${products.length} products well optimized for SEO`)
+    if (uniqueKeywords.length >= 5) strengths.push(`Diverse SEO vocabulary — ${uniqueKeywords.length} unique keywords`)
+    if (withMeta > products.length * 0.7) strengths.push(`${withMeta} products have a complete meta description`)
+    if (categories.size > 0) strengths.push(`Catalog structured across ${categories.size} categories`)
+    if (avgScore >= 70) strengths.push(`Good average SEO score: ${avgScore}/100`)
 
-    if (optimizedCount < products.length * 0.5) weaknesses.push(`${products.length - optimizedCount} produse neoptimizate`)
-    if (withMeta < products.length * 0.5) weaknesses.push(`${products.length - withMeta} produse fara meta description`)
-    if (withKeyword < products.length * 0.5) weaknesses.push(`${products.length - withKeyword} produse fara focus keyword`)
-    if (avgScore < 60) weaknesses.push(`Scor SEO mediu scazut: ${avgScore}/100`)
+    if (optimizedCount < products.length * 0.5) weaknesses.push(`${products.length - optimizedCount} unoptimized products`)
+    if (withMeta < products.length * 0.5) weaknesses.push(`${products.length - withMeta} products missing meta description`)
+    if (withKeyword < products.length * 0.5) weaknesses.push(`${products.length - withKeyword} products missing focus keyword`)
+    if (avgScore < 60) weaknesses.push(`Low average SEO score: ${avgScore}/100`)
 
     if (weaknesses.length === 0) {
-      opportunities.push('Continua sa publici continut nou regulat')
-      opportunities.push('Adauga schema markup pentru produse')
+      opportunities.push('Keep publishing new content regularly')
+      opportunities.push('Add schema markup for products')
     } else {
-      opportunities.push('Foloseste bulk optimization pentru a optimiza rapid toate produsele')
-      opportunities.push('Adauga focus keyword la fiecare produs')
+      opportunities.push('Use bulk optimization to quickly optimize all products')
+      opportunities.push('Add a focus keyword to each product')
     }
 
     return NextResponse.json({

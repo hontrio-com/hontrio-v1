@@ -23,27 +23,27 @@ function cleanHtml(html: string | null): string {
     .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/\s+/g, ' ').trim()
 }
 
-const INTEL_PROMPT = `Analizezi un produs dintr-un magazin online. Pe baza datelor primite, generează un profil complet de cunoștințe.
+const INTEL_PROMPT = `You are analyzing a product for an eCommerce store. Based on the provided product data, generate a complete knowledge profile. Generate the output in the store's language (default: Romanian if not specified).
 
-REGULI STRICTE:
-- Folosește DOAR informația din datele produsului. Nu inventa specificații.
-- Dacă nu ai o informație, scrie "Informație nedisponibilă" — NU presupune.
-- Scrie în română, natural, concis dar util.
+STRICT RULES:
+- Use ONLY information present in the product data. Do not invent specifications.
+- If a piece of information is unavailable, write "Information not available" — do NOT assume.
+- Write naturally, concisely but usefully, in the store owner's language.
 
-Răspunde STRICT în acest format JSON (fără markdown, fără backticks):
+Respond STRICTLY in this JSON format (no markdown, no backticks):
 {
-  "technical_summary": "Rezumat tehnic 2-3 propoziții",
-  "sales_summary": "De ce ar cumpăra cineva — 2-3 propoziții",
-  "best_for": "Pentru cine e ideal — 1-2 propoziții",
-  "not_ideal_for": "Pentru cine NU e recomandat — 1 propoziție",
-  "top_benefits": ["beneficiu 1", "beneficiu 2", "beneficiu 3"],
-  "key_specs": {"spec1": "valoare1"},
-  "faq_candidates": [{"q": "întrebare", "a": "răspuns"}],
-  "common_objections": [{"objection": "obiecție", "response": "răspuns"}],
-  "comparison_points": ["punct 1"],
-  "compatibility_notes": "Cu ce e compatibil",
-  "care_instructions": "Cum se folosește/întreține",
-  "confidence_notes": "Ce știm sigur vs ce nu"
+  "technical_summary": "Technical summary in 2-3 sentences",
+  "sales_summary": "Why someone would buy this — 2-3 sentences",
+  "best_for": "Who this is ideal for — 1-2 sentences",
+  "not_ideal_for": "Who this is NOT recommended for — 1 sentence",
+  "top_benefits": ["benefit 1", "benefit 2", "benefit 3"],
+  "key_specs": {"spec1": "value1"},
+  "faq_candidates": [{"q": "question", "a": "answer"}],
+  "common_objections": [{"objection": "objection", "response": "response"}],
+  "comparison_points": ["point 1"],
+  "compatibility_notes": "What it is compatible with",
+  "care_instructions": "How to use/maintain",
+  "confidence_notes": "What we know for certain vs what is uncertain"
 }`
 
 // ─── Generate intelligence for a single product ──────────────────────────────
@@ -158,10 +158,11 @@ export async function POST(req: Request) {
   }
 
   // Verify HMAC signature
-  if (store.webhook_secret && sig) {
-    if (!verifyHmac(raw, sig, store.webhook_secret)) {
-      console.error('[product-webhook] Invalid HMAC signature')
-      return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
+  if (store.webhook_secret) {
+    // If store has a secret configured, sig MUST be present and valid
+    if (!sig || !verifyHmac(raw, sig, store.webhook_secret)) {
+      console.error('[product-webhook] Invalid or missing HMAC signature')
+      return new Response('Invalid signature', { status: 200 }) // always 200 for WooCommerce
     }
   }
 

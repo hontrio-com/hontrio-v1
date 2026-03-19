@@ -32,8 +32,11 @@ export async function GET(request: Request) {
       controller.enqueue(send({ type: 'start', taskId, timestamp: Date.now() }))
 
       let lastState = ''
+      let aborted = false
+      request.signal.addEventListener('abort', () => { aborted = true })
 
       while (true) {
+        if (aborted) { try { controller.close() } catch {} return }
         const elapsed = Date.now() - startTime
         if (elapsed > maxWait) {
           controller.enqueue(send({ type: 'timeout', message: 'Generarea durează prea mult. Revino în câteva minute.' }))
@@ -109,13 +112,14 @@ export async function GET(request: Request) {
                 .single()
               
               if (failedImg?.credits_used) {
-                const { data: currentUser } = await supabase.from('users').select('credits').eq('id', userId).single()
-                if (currentUser) {
-                  const refundedCredits = currentUser.credits + failedImg.credits_used
-                  await supabase.from('users').update({ credits: refundedCredits }).eq('id', userId)
+                const { data: newBalance } = await supabase.rpc('refund_credits', {
+                  p_user_id: userId,
+                  p_amount: failedImg.credits_used,
+                })
+                if (typeof newBalance === 'number' && newBalance >= 0) {
                   await supabase.from('credit_transactions').insert({
                     user_id: userId, type: 'refund', amount: failedImg.credits_used,
-                    balance_after: refundedCredits,
+                    balance_after: newBalance,
                     description: 'Refund — generare imagine eșuată',
                     reference_type: 'image_generation_refund', reference_id: imageRecordId,
                   })
@@ -134,6 +138,7 @@ export async function GET(request: Request) {
         }
 
         const interval = elapsed < 20000 ? 2500 : elapsed < 60000 ? 4000 : 7000
+        if (aborted) { try { controller.close() } catch {} return }
         await new Promise(r => setTimeout(r, interval))
       }
     },

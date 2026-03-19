@@ -128,7 +128,7 @@ export async function middleware(request: NextRequest) {
   if (pathname.startsWith('/admin') || pathname.startsWith('/api/admin')) {
     if (token.role !== 'admin') {
       if (pathname.startsWith('/api/')) {
-        return NextResponse.json({ error: 'Acces interzis' }, { status: 403 })
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
       }
       return NextResponse.redirect(new URL('/dashboard', request.url))
     }

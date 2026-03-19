@@ -30,14 +30,14 @@ export async function GET(request: Request) {
     // Ca widgetul să funcționeze chiar dacă agentul nu e configurat complet
     if (!config) {
       return NextResponse.json({
-        agent_name: 'Asistent',
-        welcome_message: 'Bună! Cu ce te pot ajuta?',
+        agent_name: 'Assistant',
+        welcome_message: 'Hi! How can I help you?',
         widget_color: '#2563eb',
         widget_position: 'bottom-right',
         widget_size: 'medium',
         widget_bottom_offset: 20,
         has_whatsapp: false,
-        quick_replies: ['Caut un produs', 'Am o întrebare', 'Livrare & retur'],
+        quick_replies: ['Looking for a product', 'I have a question', 'Shipping & returns'],
       }, { headers: CORS })
     }
 
@@ -57,11 +57,11 @@ export async function GET(request: Request) {
       widget_size: config.widget_size || 'medium',
       widget_bottom_offset: config.widget_bottom_offset ?? 20,
       widget_button_shape: config.widget_button_shape || 'circle',
-      widget_button_label: config.widget_button_label || 'Ajutor?',
+      widget_button_label: config.widget_button_label || 'Help?',
       widget_avatar_url: config.widget_avatar_url || '',
       widget_intro_animation: config.widget_intro_animation ?? true,
       widget_custom_css: config.widget_custom_css || '',
-      quick_replies: config.quick_replies || ['Caut un produs', 'Am o întrebare', 'Livrare & retur'],
+      quick_replies: config.quick_replies || ['Looking for a product', 'I have a question', 'Shipping & returns'],
       is_active: config.is_active,
       has_whatsapp: !!config.whatsapp_number,
     }, { headers: CORS })

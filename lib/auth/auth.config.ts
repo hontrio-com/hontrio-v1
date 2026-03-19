@@ -123,12 +123,17 @@ export const authOptions: NextAuthOptions = {
 
         // Garantăm că profilul există
         if (user.id) {
-          await ensureUserProfile({
-            id: user.id,
-            email: user.email,
-            name: user.name,
-            avatar_url: user.image,
-          })
+          try {
+            await ensureUserProfile({
+              id: user.id,
+              email: user.email,
+              name: user.name,
+              avatar_url: user.image,
+            })
+          } catch (err) {
+            console.error('[Auth] ensureUserProfile failed:', err)
+            return false
+          }
         }
       }
       return true

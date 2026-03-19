@@ -20,6 +20,20 @@ const STATUS_LABELS: Record<string, string> = {
   shipped:    'Shipped',
 }
 
+async function isValidWidgetOrigin(request: Request, userId: string, supabase: any): Promise<boolean> {
+  const origin = request.headers.get('origin') || request.headers.get('referer') || ''
+  if (!origin) return true // same-origin or server-to-server
+
+  const { data: store } = await supabase.from('stores').select('store_url').eq('user_id', userId).single()
+  if (!store?.store_url) return true // no store configured yet — allow
+
+  try {
+    const storeHost = new URL(store.store_url).hostname
+    const reqHost = new URL(origin).hostname
+    return reqHost === storeHost || origin.includes('hontrio.com') || origin.includes('localhost')
+  } catch { return true }
+}
+
 function formatOrder(order: any) {
   return {
     id: order.id,
@@ -52,6 +66,9 @@ export async function POST(request: Request) {
     }
 
     const supabase = createAdminClient()
+
+    const valid = await isValidWidgetOrigin(request, userId, supabase)
+    if (!valid) return NextResponse.json({ orders: [], error: 'Forbidden' }, { status: 403, headers: CORS })
 
     const { data: store } = await supabase
       .from('stores')

@@ -19,8 +19,9 @@ export async function GET(request: Request) {
   const weekStart = new Date(weekEnd)
   weekStart.setDate(weekStart.getDate() - 6)
   const prevWeekEnd = new Date(weekStart)
-  const prevWeekStart = new Date(weekStart)
-  prevWeekStart.setDate(prevWeekStart.getDate() - 7)
+  prevWeekEnd.setDate(prevWeekEnd.getDate() - 1)
+  const prevWeekStart = new Date(prevWeekEnd)
+  prevWeekStart.setDate(prevWeekStart.getDate() - 6)
 
   const weekStartLabel = weekStart.toLocaleDateString('ro-RO', { day: 'numeric', month: 'long' })
   const weekEndLabel = weekEnd.toLocaleDateString('ro-RO', { day: 'numeric', month: 'long', year: 'numeric' })

@@ -2,6 +2,20 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { openai } from '@/lib/openai/client'
 
+async function isValidWidgetOrigin(request: Request, userId: string, supabase: any): Promise<boolean> {
+  const origin = request.headers.get('origin') || request.headers.get('referer') || ''
+  if (!origin) return true // same-origin or server-to-server
+
+  const { data: store } = await supabase.from('stores').select('store_url').eq('user_id', userId).single()
+  if (!store?.store_url) return true // no store configured yet — allow
+
+  try {
+    const storeHost = new URL(store.store_url).hostname
+    const reqHost = new URL(origin).hostname
+    return reqHost === storeHost || origin.includes('hontrio.com') || origin.includes('localhost')
+  } catch { return true }
+}
+
 // GET /api/agent/memory?userId=X&visitorId=Y
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
@@ -16,6 +30,10 @@ export async function GET(request: Request) {
 
   try {
     const supabase = createAdminClient()
+
+    const valid = await isValidWidgetOrigin(request, userId, supabase)
+    if (!valid) return NextResponse.json({ memory: null }, { status: 403, headers: { 'Access-Control-Allow-Origin': '*' } })
+
     const { data: memory } = await supabase
       .from('visitor_memory')
       .select('*')
@@ -50,6 +68,12 @@ export async function POST(request: Request) {
 
     const supabase = createAdminClient()
 
+    const valid = await isValidWidgetOrigin(request, userId, supabase)
+    if (!valid) return NextResponse.json({ ok: false }, { status: 403 })
+
+    // Cap messages to prevent cost abuse
+    const safeMsgs = (messages || []).slice(0, 20)
+
     // 1. Obține memoria existentă
     const { data: existing } = await supabase
       .from('visitor_memory')
@@ -62,7 +86,7 @@ export async function POST(request: Request) {
     let newSummary = existing?.conversation_summary || null
     let newKeyFacts: any[] = existing?.key_facts || []
 
-    if (messages && messages.length >= 4) {
+    if (safeMsgs.length >= 4) {
       try {
         const summaryRes = await openai.chat.completions.create({
           model: 'gpt-4o-mini',
@@ -88,7 +112,7 @@ Răspunde DOAR JSON:
             },
             {
               role: 'user',
-              content: `Conversație:\n${messages.map((m: any) => `${m.role}: ${m.content}`).join('\n')}`
+              content: `Conversație:\n${safeMsgs.map((m: any) => `${m.role}: ${m.content}`).join('\n')}`
             }
           ],
           temperature: 0.3,
@@ -133,7 +157,7 @@ Răspunde DOAR JSON:
         user_id: userId,
         visitor_id: visitorId,
         total_sessions: (existing?.total_sessions || 0) + 1,
-        total_messages: (existing?.total_messages || 0) + (messages?.length || 0),
+        total_messages: (existing?.total_messages || 0) + safeMsgs.length,
         last_seen_at: new Date().toISOString(),
         first_seen_at: existing?.first_seen_at || new Date().toISOString(),
         preferred_categories: updatedCategories,
@@ -153,11 +177,11 @@ Răspunde DOAR JSON:
         user_id: userId,
         visitor_id: visitorId,
         session_id: sessionId,
-        messages_count: messages?.length || 0,
+        messages_count: safeMsgs.length,
         intents: intent ? [intent] : [],
         products_shown: productsShown || [],
         search_queries: searchQueries || [],
-        messages_log: messages || [],
+        messages_log: safeMsgs,
         ended_at: new Date().toISOString(),
       }, { onConflict: 'session_id' })
     }
