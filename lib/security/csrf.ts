@@ -1,6 +1,11 @@
 // CSRF protection via Origin/Referer header validation
 // Applied to all POST/PUT/DELETE/PATCH requests
 
+// CSRF protection is handled by:
+// 1. HttpOnly cookies with SameSite=Lax/Strict (prevents cross-site cookie submission)
+// 2. JWT Bearer tokens in Authorization header (not automatically sent cross-site)
+// This module is kept for reference or future stateful session use.
+
 const ALLOWED_ORIGINS = [
   process.env.NEXTAUTH_URL || 'http://localhost:3000',
   process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',

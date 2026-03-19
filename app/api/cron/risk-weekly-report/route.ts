@@ -23,8 +23,8 @@ export async function GET(request: Request) {
   const prevWeekStart = new Date(prevWeekEnd)
   prevWeekStart.setDate(prevWeekStart.getDate() - 6)
 
-  const weekStartLabel = weekStart.toLocaleDateString('ro-RO', { day: 'numeric', month: 'long' })
-  const weekEndLabel = weekEnd.toLocaleDateString('ro-RO', { day: 'numeric', month: 'long', year: 'numeric' })
+  const weekStartLabel = weekStart.toISOString().split('T')[0]
+  const weekEndLabel = weekEnd.toISOString().split('T')[0]
 
   const { data: settingsList } = await supabase
     .from('risk_store_settings')

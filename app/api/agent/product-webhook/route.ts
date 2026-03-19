@@ -93,7 +93,13 @@ async function generateIntelForProduct(
     messages: [{ role: 'system', content: INTEL_PROMPT }, { role: 'user', content: ctx }],
     temperature: 0.3, max_tokens: 1500, response_format: { type: 'json_object' },
   })
-  const intel = JSON.parse(gpt.choices[0].message.content || '{}')
+  let intel: Record<string, any>
+  try {
+    intel = JSON.parse(gpt.choices[0].message.content || '{}')
+  } catch (e) {
+    console.error('[product-webhook] Failed to parse intel JSON:', e)
+    intel = {}
+  }
 
   // Build full text for embedding
   const fullText = [

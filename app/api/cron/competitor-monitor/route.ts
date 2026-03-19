@@ -144,6 +144,10 @@ async function fetchHtml(url: string): Promise<string | null> {
   } catch { return null }
 }
 
+function sanitizeForPrompt(s: string): string {
+  return s.replace(/[\r\n]+/g, ' ').replace(/\[|\]|\{|\}/g, '').substring(0, 500)
+}
+
 async function analyzeWithAI(html: string, url: string): Promise<any> {
   const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i)
   const metaMatch = html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']+)["']/i) ||
@@ -158,15 +162,21 @@ async function analyzeWithAI(html: string, url: string): Promise<any> {
     .trim()
     .substring(0, 2000)
 
-  const prompt = `Analizează această pagină competitor eCommerce și extrage date SEO.
-Titlu: "${titleMatch?.[1]?.trim()}"
-Meta: "${metaMatch?.[1]?.trim()}"
-H1: "${h1Match?.[1]?.trim()}"
-H2s: ${JSON.stringify(h2s)}
-Text: "${bodyText.substring(0, 1000)}"
+  const safeTitle = sanitizeForPrompt(titleMatch?.[1]?.trim() || '')
+  const safeMeta = sanitizeForPrompt(metaMatch?.[1]?.trim() || '')
+  const safeH1 = sanitizeForPrompt(h1Match?.[1]?.trim() || '')
+  const safeH2s = h2s.map(h => sanitizeForPrompt(h))
+  const safeBodyText = sanitizeForPrompt(bodyText.substring(0, 1000))
 
-Răspunde STRICT JSON:
-{"title":"...","meta_description":"...","h1":"...","headings":[...],"focus_keywords":[...],"content_length_estimate":400,"strengths":[...],"weaknesses":[...],"opportunities":[...]}`
+  const prompt = `Analyze this eCommerce competitor page and extract SEO data.
+Title: "${safeTitle}"
+Meta: "${safeMeta}"
+H1: "${safeH1}"
+H2s: ${JSON.stringify(safeH2s)}
+Text: "${safeBodyText}"
+
+Respond STRICT JSON only:
+{"title":"...","meta_description":"...","h1":"...","headings":[...],"focus_keywords":[...],"content_length_estimate":400,"strengths":[...],"weaknesses":[...],"opportunities":[]}`
 
   try {
     const completion = await openai.chat.completions.create({

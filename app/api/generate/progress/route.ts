@@ -39,7 +39,7 @@ export async function GET(request: Request) {
         if (aborted) { try { controller.close() } catch {} return }
         const elapsed = Date.now() - startTime
         if (elapsed > maxWait) {
-          controller.enqueue(send({ type: 'timeout', message: 'Generarea durează prea mult. Revino în câteva minute.' }))
+          controller.enqueue(send({ type: 'timeout', message: 'Generation is taking too long. Come back in a few minutes.' }))
           controller.close()
           return
         }
@@ -49,14 +49,14 @@ export async function GET(request: Request) {
 
           if (task.state !== lastState) {
             const labels: Record<string, string> = {
-              waiting: 'Se așază în coadă...',
-              queuing: 'Se pregătește generarea...',
-              generating: 'AI construiește imaginea...',
+              waiting: 'Queuing...',
+              queuing: 'Preparing generation...',
+              generating: 'AI is building the image...',
             }
             controller.enqueue(send({
               type: 'progress',
               state: task.state,
-              label: labels[task.state] || 'Se procesează...',
+              label: labels[task.state] || 'Processing...',
             }))
             lastState = task.state
           }
@@ -66,7 +66,7 @@ export async function GET(request: Request) {
             const urls: string[] = result.resultUrls || []
 
             if (imageRecordId && urls[0]) {
-              // Load image record — FIX: verificăm ownership cu user_id
+              // Load image record — FIX: verify ownership with user_id
               const { data: imgRecord } = await supabase
                 .from('generated_images')
                 .select('credits_used, product_id, user_id')
@@ -85,8 +85,8 @@ export async function GET(request: Request) {
                 })
                 .eq('id', imageRecordId)
 
-              // Creditele au fost deduse la crearea taskului (/api/generate/image)
-              // Aici doar salvăm rezultatul
+              // Credits were deducted at task creation (/api/generate/image)
+              // Here we only save the result
             }
 
             controller.enqueue(send({
@@ -103,7 +103,7 @@ export async function GET(request: Request) {
             if (imageRecordId) {
               await supabase.from('generated_images').update({ status: 'failed' }).eq('id', imageRecordId)
               
-              // FIX: Refund creditele deduse la creare — generarea a eșuat
+              // FIX: Refund credits deducted at creation — generation failed
               const { data: failedImg } = await supabase
                 .from('generated_images')
                 .select('credits_used')
@@ -120,19 +120,19 @@ export async function GET(request: Request) {
                   await supabase.from('credit_transactions').insert({
                     user_id: userId, type: 'refund', amount: failedImg.credits_used,
                     balance_after: newBalance,
-                    description: 'Refund — generare imagine eșuată',
+                    description: 'Refund — failed image generation',
                     reference_type: 'image_generation_refund', reference_id: imageRecordId,
                   })
                 }
               }
             }
-            controller.enqueue(send({ type: 'error', message: task.failMsg || 'Generarea a eșuat' }))
+            controller.enqueue(send({ type: 'error', message: task.failMsg || 'Generation failed' }))
             controller.close()
             return
           }
 
         } catch (err: any) {
-          controller.enqueue(send({ type: 'error', message: err.message || 'Eroare la verificarea statusului' }))
+          controller.enqueue(send({ type: 'error', message: err.message || 'Error checking task status' }))
           controller.close()
           return
         }

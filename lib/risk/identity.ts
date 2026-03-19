@@ -43,7 +43,10 @@ export function mapStatus(s: string): string {
 // ─── Detectare candidați duplicați ────────────────────────────────────────────
 
 async function detectAndSaveDuplicateCandidates(
-  supabase: any, storeId: string, userId: string, newCustomer: any
+  supabase: ReturnType<typeof import('@/lib/supabase/admin').createAdminClient>,
+  storeId: string,
+  userId: string,
+  newCustomer: Record<string, any>
 ): Promise<void> {
   try {
     const phonN = normalizePhone(newCustomer.phone)
@@ -78,19 +81,23 @@ async function detectAndSaveDuplicateCandidates(
         status: 'pending',
       }, { onConflict: 'customer_a_id,customer_b_id', ignoreDuplicates: true })
     }
-  } catch (err: any) {
-    console.warn('[identity] detectDuplicates error:', err.message)
+  } catch (err: unknown) {
+    console.warn('[identity] detectDuplicates error:', err instanceof Error ? err.message : err)
   }
 }
 
 // ─── Resolve Customer Identity ────────────────────────────────────────────────
 
 export async function resolveCustomer(
-  supabase: any, storeId: string, userId: string,
+  supabase: ReturnType<typeof import('@/lib/supabase/admin').createAdminClient>,
+  storeId: string,
+  userId: string,
   externalCustomerId: string | null,
-  phone: string | null, email: string | null, name: string | null,
+  phone: string | null,
+  email: string | null,
+  name: string | null,
   orderedAt: string,
-): Promise<{ customer: any; isNew: boolean }> {
+): Promise<{ customer: Record<string, any>; isNew: boolean }> {
 
   const isGuest = !externalCustomerId || externalCustomerId === '0'
   const extId = isGuest ? null : externalCustomerId
@@ -204,8 +211,11 @@ export async function resolveCustomer(
 // ─── Recalculare completă din DB ──────────────────────────────────────────────
 
 export async function recalc(
-  supabase: any, customerId: string, storeId: string, settings: any = {}
-): Promise<{ score: number; label: string; flags: any[]; recommendation: string; refusalProbability: number }> {
+  supabase: ReturnType<typeof import('@/lib/supabase/admin').createAdminClient>,
+  customerId: string,
+  storeId: string,
+  settings: Partial<import('./engine').StoreRules> = {}
+): Promise<{ score: number; label: string; flags: import('./engine').RiskFlag[]; recommendation: string; refusalProbability: number }> {
   const { data: orders } = await supabase.from('risk_orders')
     .select('order_status, shipping_address, payment_method, total_value, currency, ordered_at')
     .eq('customer_id', customerId).eq('store_id', storeId)
@@ -271,7 +281,7 @@ export async function recalc(
 
 export async function wcGet(
   base: string, auth: string, endpoint: string, params: Record<string, string>
-): Promise<{ data: any[]; total: number; totalPages: number }> {
+): Promise<{ data: Record<string, unknown>[]; total: number; totalPages: number }> {
   const url = new URL(`${base}/wp-json/wc/v3/${endpoint}`)
   Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v))
 
@@ -290,9 +300,10 @@ export async function wcGet(
 
 // ─── Build risk order ─────────────────────────────────────────────────────────
 
-export function buildOrder(woo: any, storeId: string, userId: string, customerId: string): any {
-  const b = woo.billing || {}, s = woo.shipping || {}
-  const pm = (woo.payment_method || '').toLowerCase()
+export function buildOrder(woo: Record<string, unknown>, storeId: string, userId: string, customerId: string): Record<string, unknown> {
+  const b = (woo.billing as Record<string, unknown>) || {}
+  const s = (woo.shipping as Record<string, unknown>) || {}
+  const pm = ((woo.payment_method as string) || '').toLowerCase()
   return {
     store_id: storeId, user_id: userId, customer_id: customerId,
     external_order_id: String(woo.id),
@@ -304,17 +315,20 @@ export function buildOrder(woo: any, storeId: string, userId: string, customerId
       .filter(Boolean).join(', '),
     payment_method: pm.includes('cod') || pm.includes('cash') ? 'cod'
       : pm.includes('card') ? 'card' : 'bank_transfer',
-    total_value: parseFloat(woo.total || '0'), currency: woo.currency || 'RON',
-    order_status: mapStatus(woo.status || 'pending'),
+    total_value: parseFloat((woo.total as string) || '0'), currency: (woo.currency as string) || 'RON',
+    order_status: mapStatus((woo.status as string) || 'pending'),
     risk_score_at_order: 0, risk_flags: [],
-    ordered_at: woo.date_created || new Date().toISOString(),
+    ordered_at: (woo.date_created as string) || new Date().toISOString(),
     updated_at: new Date().toISOString(),
   }
 }
 
 // ─── Settings helper ──────────────────────────────────────────────────────────
 
-export async function getSettings(supabase: any, storeId: string) {
+export async function getSettings(
+  supabase: ReturnType<typeof import('@/lib/supabase/admin').createAdminClient>,
+  storeId: string
+) {
   const { data: rs } = await supabase.from('risk_store_settings')
     .select('*').eq('store_id', storeId).single()
   return {

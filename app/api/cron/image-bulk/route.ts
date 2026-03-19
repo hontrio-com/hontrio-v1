@@ -84,7 +84,7 @@ export async function GET(request: Request) {
         // Check credits
         const { data: user } = await supabase.from('users').select('credits').eq('id', userId).single()
         if (!user || user.credits < creditCost) {
-          await supabase.from('image_bulk_items').update({ status: 'failed', error_message: 'Credite insuficiente' }).eq('id', item.id)
+          await supabase.from('image_bulk_items').update({ status: 'failed', error_message: 'Insufficient credits' }).eq('id', item.id)
           await supabase.from('image_bulk_jobs').update({ status: 'failed' }).eq('id', item.job_id)
           failed++
           continue
@@ -93,13 +93,13 @@ export async function GET(request: Request) {
         // Get reference image
         const refImageUrl = product.original_images?.[0]
         if (!refImageUrl) {
-          await supabase.from('image_bulk_items').update({ status: 'skipped', error_message: 'Nicio imagine de referință' }).eq('id', item.id)
+          await supabase.from('image_bulk_items').update({ status: 'skipped', error_message: 'No reference image found' }).eq('id', item.id)
           await incrementJobCounters(supabase, item.job_id, 'completed')
           continue
         }
 
         // Build GPT prompt
-        const productTitle = product.optimized_title || product.original_title || 'Produs'
+        const productTitle = product.optimized_title || product.original_title || 'Product'
         const detailedPrompt = await buildPromptForBulk(productTitle, product.category, product.optimized_short_description || product.original_description, style)
 
         // Create image record
@@ -212,8 +212,15 @@ async function autoPublishToWoo(supabase: any, userId: string, product: any, ima
     if (!store || !product.external_id) return
 
     const wooUrl = store.store_url.replace(/\/$/, '')
-    const ck = (store.api_key?.includes(':') ? decrypt(store.api_key) : store.api_key).trim()
-    const cs = (store.api_secret?.includes(':') ? decrypt(store.api_secret) : store.api_secret).trim()
+
+    let ck: string
+    try { ck = decrypt(store.api_key) } catch { ck = store.api_key }
+    ck = (ck || '').trim()
+
+    let cs: string
+    try { cs = decrypt(store.api_secret) } catch { cs = store.api_secret }
+    cs = (cs || '').trim()
+
     const authParams = `consumer_key=${encodeURIComponent(ck)}&consumer_secret=${encodeURIComponent(cs)}`
 
     await fetch(`${wooUrl}/wp-json/wc/v3/products/${product.external_id}?${authParams}`, {
@@ -224,7 +231,7 @@ async function autoPublishToWoo(supabase: any, userId: string, product: any, ima
     })
 
     await supabase.from('generated_images').update({ status: 'published', wc_published_at: new Date().toISOString() }).eq('id', imageId)
-  } catch {}
+  } catch(e) { console.error('[image-bulk] autoPublishToWoo error:', e) }
 }
 
 async function buildPromptForBulk(title: string, category: string | null, description: string | null, style: string): Promise<string> {

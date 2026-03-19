@@ -8,9 +8,7 @@ import { rateLimitExpensive } from '@/lib/security/rate-limit'
 // Note: rateLimitExpensive is now async but has sync fallback for backward compat
 import { canStartJob, markJobRunning, markJobDone } from '@/lib/security/ai-guard'
 
-// ─── Costuri per stil ─────────────────────────────────────────────────────────
-
-// ─── Costuri per stil ─────────────────────────────────────────────────────────
+// ─── Cost per style ───────────────────────────────────────────────────────────
 const STYLE_COSTS: Record<string, number> = {
   white_bg: 2,
   lifestyle: 3,
@@ -20,7 +18,7 @@ const STYLE_COSTS: Record<string, number> = {
   manual: 3,
 }
 
-// ─── SISTEM PROMPT GPT — PRODUS ───────────────────────────────────────────────
+// ─── GPT system prompt — product photography ──────────────────────────────────
 const PROMPT_BUILDER_SYSTEM = [
   'You are a world-class AI image prompt engineer specialized in commercial product photography for Flux-based models (Nano Banana Pro).',
   'Your prompts are legendary for two things: ABSOLUTE product fidelity and UNIQUE, surprising compositions that feel custom-made for each product.',
@@ -146,7 +144,7 @@ const PROMPT_BUILDER_SYSTEM = [
   '- Return ONLY the prompt text — no headers, no explanations, no markdown',
 ].join('\n')
 
-// ─── Instrucțiuni per stil ────────────────────────────────────────────────────
+// ─── Instructions per style ───────────────────────────────────────────────────
 function getStyleInstruction(style: string, manualDescription?: string): string {
 
   const styles: Record<string, string> = {
@@ -389,7 +387,7 @@ async function buildPromptWithGPT(params: {
     ? params.productDescription.replace(/<[^>]*>/g, '').substring(0, 700)
     : 'Not available'
 
-  // Seed de variație bazat pe timestamp — garantează unicitate chiar pentru același produs
+  // Variation seed based on timestamp — guarantees uniqueness even for the same product
   const variationSeed = Date.now() % 10000
   const variationHints = [
     // Lighting mood: golden hour
@@ -522,15 +520,15 @@ export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user) {
-      return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const userId = (session.user as any).id
 
-    // Rate limit (async cu Redis)
+    // Rate limit (async with Redis)
     const limit = await rateLimitExpensive(userId, 'image')
     if (!limit.success) {
-      return NextResponse.json({ error: 'Prea multe cereri. Așteaptă un minut.' }, { status: 429 })
+      return NextResponse.json({ error: 'Too many requests. Wait a minute.' }, { status: 429 })
     }
 
     // Concurrent job limit
@@ -549,16 +547,16 @@ export async function POST(request: Request) {
     } = body
 
     if (!style) {
-      return NextResponse.json({ error: 'Stilul este obligatoriu' }, { status: 400 })
+      return NextResponse.json({ error: 'Style is required' }, { status: 400 })
     }
     if (style === 'manual' && !manual_description?.trim()) {
-      return NextResponse.json({ error: 'Descrierea manuală este obligatorie pentru stilul manual' }, { status: 400 })
+      return NextResponse.json({ error: 'Manual description is required for manual style' }, { status: 400 })
     }
 
     const supabase = createAdminClient()
     const creditCost = STYLE_COSTS[style] || 3
 
-    // Verifică creditele
+    // Check credits
     const { data: user } = await supabase
       .from('users')
       .select('credits')
@@ -567,25 +565,24 @@ export async function POST(request: Request) {
 
     if (!user || user.credits < creditCost) {
       return NextResponse.json(
-        { error: `Credite insuficiente. Ai nevoie de ${creditCost} credite.` },
-        { status: 400 }
+        { error: `Insufficient credits. You need ${creditCost} credits.` },
+        { status: 402 }
       )
     }
 
-    // FIX: Deducem creditele ACUM, la crearea taskului — nu la finalizarea SSE
-    // Dacă generarea eșuează, SSE progress va face refund
-    const newCreditsUpfront = user.credits - creditCost
-    await supabase.from('users').update({ credits: newCreditsUpfront }).eq('id', userId)
+    // Atomically deduct credits via RPC — prevents race conditions
+    const { data: newCreditsUpfront, error: deductError } = await supabase.rpc('deduct_credits', { p_user_id: userId, p_amount: creditCost })
+    if (deductError || newCreditsUpfront === null) return NextResponse.json({ error: 'Insufficient credits' }, { status: 402 })
     await supabase.from('credit_transactions').insert({
       user_id: userId,
       type: 'usage',
       amount: -creditCost,
       balance_after: newCreditsUpfront,
-      description: `Generare imagine AI (rezervare)`,
+      description: `AI Image Generation (reservation)`,
       reference_type: 'image_generation',
     })
 
-    // ── Determină imaginea de referință și detaliile produsului ────────────
+    // ── Determine reference image and product details ─────────────────────
     let refImageUrl: string | null = null
     let productTitle = 'Product'
     let productCategory: string | null = null
@@ -593,7 +590,7 @@ export async function POST(request: Request) {
     let productDbId: string | null = null
 
     if (product_id) {
-      // Produs din DB
+      // Product from DB
       const { data: product } = await supabase
         .from('products')
         .select('*')
@@ -602,7 +599,7 @@ export async function POST(request: Request) {
         .single()
 
       if (!product) {
-        return NextResponse.json({ error: 'Produs negăsit' }, { status: 404 })
+        return NextResponse.json({ error: 'Product not found' }, { status: 404 })
       }
 
       productTitle = product.optimized_title || product.original_title || 'Product'
@@ -610,14 +607,14 @@ export async function POST(request: Request) {
       productDescription = product.optimized_short_description || product.original_description
       productDbId = product.id
 
-      // Imaginea de referință: din request > prima imagine din produs
+      // Reference image: from request > first product image
       if (reference_image_url) {
         refImageUrl = reference_image_url
       } else if (product.original_images?.length > 0) {
         refImageUrl = product.original_images[0]
       }
     } else if (reference_image_base64) {
-      // Upload manual — extragem URL-ul după upload în Supabase Storage
+      // Manual upload — extract URL after uploading to Supabase Storage
       try {
         const base64Data = reference_image_base64.split(',')[1]
         const buffer = Buffer.from(base64Data, 'base64')
@@ -637,13 +634,13 @@ export async function POST(request: Request) {
         productTitle = 'Uploaded Product'
       } catch (err) {
         console.error('Upload error:', err)
-        return NextResponse.json({ error: 'Eroare la upload-ul imaginii' }, { status: 500 })
+        return NextResponse.json({ error: 'Error uploading image' }, { status: 500 })
       }
     }
 
     if (!refImageUrl) {
       return NextResponse.json(
-        { error: 'Imaginea de referință lipsește. Selectează sau încarcă o imagine.' },
+        { error: 'Reference image is missing. Select or upload an image.' },
         { status: 400 }
       )
     }
@@ -669,12 +666,12 @@ export async function POST(request: Request) {
     const jobKey = `${userId}:image:${productDbId || 'upload'}`
     if (!markJobRunning(jobKey)) {
       return NextResponse.json(
-        { error: 'O imagine este deja în curs de generare.' },
+        { error: 'An image is already being generated.' },
         { status: 409 }
       )
     }
 
-    // ── Creează înregistrarea în DB ────────────────────────────────────────
+    // ── Create the DB record ───────────────────────────────────────────────
     const insertData: Record<string, unknown> = {
       user_id: userId,
       style,
@@ -683,7 +680,7 @@ export async function POST(request: Request) {
       credits_used: creditCost,
     }
 
-    // product_id e opțional — doar dacă avem un produs selectat
+    // product_id is optional — only if a product was selected
     if (productDbId) {
       insertData.product_id = productDbId
     }
@@ -698,14 +695,14 @@ export async function POST(request: Request) {
       markJobDone(jobKey)
       console.error('DB insert error:', insertError)
       return NextResponse.json(
-        { error: 'Eroare la salvarea în baza de date: ' + (insertError?.message || 'unknown') },
+        { error: 'Error saving to the database: ' + (insertError?.message || 'unknown') },
         { status: 500 }
       )
     }
 
     const startTime = Date.now()
     try {
-      // ── PASUL 1: GPT construiește promptul ultra-detaliat ────────────────
+      // ── STEP 1: GPT builds the ultra-detailed prompt ────────────────────
       const detailedPrompt = await buildPromptWithGPT({
         productTitle,
         productCategory,
@@ -719,13 +716,13 @@ export async function POST(request: Request) {
       console.log(`[ImageGen] GPT prompt built (${detailedPrompt.length} chars) for style: ${style}`)
       console.log('[ImageGen] Prompt preview:', detailedPrompt.substring(0, 600))
 
-      // Salvăm promptul în DB
+      // Save the prompt to DB
       await supabase
         .from('generated_images')
         .update({ prompt: detailedPrompt })
         .eq('id', imageRecord!.id)
 
-      // ── PASUL 2: Nano Banana Pro generează imaginea ──────────────────────
+      // ── STEP 2: Nano Banana Pro generates the image ──────────────────────
       const kie = new KieClient()
 
       const numVariants = body.num_variants || 1
@@ -768,16 +765,16 @@ export async function POST(request: Request) {
 
       console.error('Image generation error:', err)
       return NextResponse.json(
-        { error: 'Eroare la generarea imaginii: ' + (err as Error).message },
+        { error: 'Error generating image: ' + (err as Error).message },
         { status: 500 }
       )
     }
 
-    // Cod sincron eliminat — creditele se deduc upfront, generarea e 100% async via SSE
+    // Synchronous code removed — credits are deducted upfront, generation is 100% async via SSE
   } catch (err) {
     console.error('Generate image route error:', err)
     return NextResponse.json(
-      { error: 'Eroare internă: ' + (err as Error).message },
+      { error: 'Internal error: ' + (err as Error).message },
       { status: 500 }
     )
   }

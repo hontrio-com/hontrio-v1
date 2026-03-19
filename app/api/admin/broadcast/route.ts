@@ -3,14 +3,20 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/auth.config'
 import { createAdminClient } from '@/lib/supabase/admin'
 
+const VALID_TYPES = ['info', 'warning', 'success', 'error']
+const VALID_TARGETS = ['all', 'plan', 'paid', 'free']
+
 export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user || (session.user as any).role !== 'admin') {
-      return NextResponse.json({ error: 'Acces interzis' }, { status: 403 })
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
     const { title, message, type = 'info', target = 'all', plan } = await req.json()
-    if (!title || !message) return NextResponse.json({ error: 'Title si message sunt obligatorii' }, { status: 400 })
+    if (!title || !message) return NextResponse.json({ error: 'Title and message are required' }, { status: 400 })
+
+    if (!VALID_TYPES.includes(type)) return NextResponse.json({ error: 'Invalid type' }, { status: 400 })
+    if (!VALID_TARGETS.includes(target)) return NextResponse.json({ error: 'Invalid target' }, { status: 400 })
 
     const supabase = createAdminClient()
     let query = supabase.from('users').select('id')
@@ -19,7 +25,7 @@ export async function POST(req: Request) {
     else if (target === 'free') query = query.eq('plan', 'free')
 
     const { data: users } = await query
-    if (!users?.length) return NextResponse.json({ error: 'Niciun user găsit' }, { status: 400 })
+    if (!users?.length) return NextResponse.json({ error: 'No users found' }, { status: 400 })
 
     // Insert notification for each user
     const notifications = users.map(u => ({
@@ -47,7 +53,7 @@ export async function GET() {
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user || (session.user as any).role !== 'admin') {
-      return NextResponse.json({ error: 'Acces interzis' }, { status: 403 })
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
     const supabase = createAdminClient()
     const { data } = await supabase

@@ -66,13 +66,22 @@ export async function GET(req: Request) {
           const pages  = parseInt(res.headers.get('x-wp-totalpages') || '1')
           if (!Array.isArray(orders) || !orders.length) break
 
+          // Batch-fetch all existing orders for this page in one query
+          const pageExtIds = orders.map((woo: Record<string, unknown>) => String(woo.id))
+          const { data: existingOrders } = await supabase.from('risk_orders')
+            .select('id, order_status, customer_id, external_order_id')
+            .eq('store_id', storeId).in('external_order_id', pageExtIds)
+          const existingMap = new Map(
+            (existingOrders || []).map((o: { id: string; order_status: string; customer_id: string; external_order_id: string }) =>
+              [o.external_order_id, o]
+            )
+          )
+
           for (const woo of orders) {
             const extId  = String(woo.id)
             const newSt  = mapStatus(woo.status || 'pending')
 
-            const { data: existing } = await supabase.from('risk_orders')
-              .select('id, order_status, customer_id')
-              .eq('store_id', storeId).eq('external_order_id', extId).single()
+            const existing = existingMap.get(extId)
 
             if (existing) {
               // Update status if changed

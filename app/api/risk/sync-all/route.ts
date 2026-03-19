@@ -109,7 +109,7 @@ export async function GET(req: Request) {
         send({ stage: 'orders_start', message: 'Se importă comenzile...' })
 
         const { data: existDb } = await supabase.from('risk_orders')
-          .select('external_order_id').eq('store_id', storeId)
+          .select('external_order_id').eq('store_id', storeId).limit(5000)
         const existSet = new Set((existDb || []).map((o: any) => String(o.external_order_id)))
 
         let ordInserted = 0, ordSkipped = 0

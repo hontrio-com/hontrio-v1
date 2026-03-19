@@ -259,7 +259,8 @@ export async function POST(request: Request) {
       const { data: currentUser } = await supabase.from('users').select('credits').eq('id', userId).single()
       if (currentUser) {
         const newBal = currentUser.credits + refundAmount
-        await supabase.from('users').update({ credits: newBal }).eq('id', userId)
+        const { error: refundError } = await supabase.from('users').update({ credits: newBal }).eq('id', userId)
+        if (refundError) console.error('[seo/bulk] Failed to refund credits:', refundError)
         await supabase.from('credit_transactions').insert({
           user_id: userId,
           type: 'refund',

@@ -35,7 +35,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, skipped: topic })
   }
 
-  let order: any
+  let order: Record<string, any>
   try { order = JSON.parse(raw) } catch {
     // Invalid JSON — return 200, log silently
     console.warn('[webhook] Invalid JSON from', src)
@@ -50,7 +50,7 @@ export async function POST(req: Request) {
       .select('id, user_id, store_url, webhook_secret, api_key, api_secret')
       .not('webhook_secret', 'is', null)
 
-    let store: any = null
+    let store: NonNullable<typeof stores>[0] | null = null
     if (stores?.length) {
       // Primary: HMAC match
       for (const s of stores) {
@@ -59,8 +59,8 @@ export async function POST(req: Request) {
       // Fallback: URL match only when no signature present (dev / unsigned webhooks)
       if (!store && !sig && src) {
         console.warn('[Risk Webhook] Unsigned request matched by URL only — consider adding webhook secret:', src)
-        store = stores.find((s: any) => s.store_url && src.replace(/\/$/, '')
-          .includes(s.store_url.replace(/^https?:\/\//, '').replace(/\/$/, '')))
+        store = stores.find((s) => s.store_url && src.replace(/\/$/, '')
+          .includes(s.store_url.replace(/^https?:\/\//, '').replace(/\/$/, ''))) ?? null
       }
     }
 
@@ -139,7 +139,7 @@ export async function POST(req: Request) {
     const cid = customer.id
 
     // Update contact info on customer
-    const upd: any = { last_order_at: ordAt, updated_at: new Date().toISOString() }
+    const upd: Record<string, unknown> = { last_order_at: ordAt, updated_at: new Date().toISOString() }
     if (customer.is_guest) {
       if (name) upd.name = name
       if (phone) { upd.phone = phone; upd.phone_normalized = normalizePhone(phone) }
@@ -177,7 +177,7 @@ export async function POST(req: Request) {
       (result.label === 'watch'       && settings.alert_on_watch       === true)
 
     if (shouldAlert) {
-      const topFlags = result.flags.slice(0, 3).map((f: any) => f.label).join(', ')
+      const topFlags = result.flags.slice(0, 3).map((f) => f.label).join(', ')
       await supabase.from('risk_alerts').insert({
         store_id: storeId, user_id: userId, customer_id: cid, order_id: riskOrder?.id,
         alert_type: result.label === 'blocked' ? 'blocked_customer' : 'new_problematic_order',
@@ -208,7 +208,7 @@ export async function POST(req: Request) {
         if (!pool?.length) return
         const matches = findClusterMatches(
           { id: cid, name, phone, email, shipping_address: addr, city: extractCity(addr) },
-          pool.map((c: any) => ({ ...c, shipping_address: null, city: null })), 0.75)
+          pool.map((c) => ({ ...c, shipping_address: null, city: null })), 0.75)
         if (matches.length) {
           await supabase.from('risk_audit_log').insert(
             matches.slice(0, 3).map(m => ({
@@ -226,10 +226,10 @@ export async function POST(req: Request) {
       customer_id: cid, is_new_customer: isNew,
     })
 
-  } catch (err: any) {
+  } catch (err: unknown) {
     // CRITICAL: always return 200 even on unexpected errors
     // Otherwise WooCommerce will pause the webhook
-    console.error('[webhook] Unexpected error:', err?.message)
+    console.error('[webhook] Unexpected error:', err instanceof Error ? err.message : err)
     return NextResponse.json({ ok: true, skipped: 'internal_error' })
   }
 }

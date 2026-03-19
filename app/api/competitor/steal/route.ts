@@ -9,26 +9,26 @@ const CREDIT_COST = 1
 
 const FIELD_RULES: Record<string, { label: string; minLen: number; maxLen: number; instruction: string }> = {
   title: {
-    label: 'Titlu SEO',
+    label: 'SEO Title',
     minLen: 50,
     maxLen: 70,
-    instruction: 'Titlul trebuie să aibă 50-70 caractere, să conțină keyword-ul principal, să fie persuasiv și natural. NU folosi ghilimele în output.',
+    instruction: 'The title must be 50-70 characters, contain the main keyword, be persuasive and natural. Do NOT use quotes in the output.',
   },
   meta_description: {
     label: 'Meta Description',
     minLen: 120,
     maxLen: 155,
-    instruction: 'Meta description trebuie să aibă 120-155 caractere, să conțină un beneficiu clar și un CTA implicit. NU folosi ghilimele în output.',
+    instruction: 'The meta description must be 120-155 characters, contain a clear benefit and an implicit CTA. Do NOT use quotes in the output.',
   },
   focus_keyword: {
     label: 'Focus Keyword',
     minLen: 10,
     maxLen: 60,
-    instruction: 'Focus keyword trebuie să fie 2-4 cuvinte, natural, specific pentru intenție de cumpărare. NU folosi ghilimele în output.',
+    instruction: 'The focus keyword must be 2-4 words, natural, specific for purchase intent. Do NOT use quotes in the output.',
   },
 }
 
-// POST — generează o variantă îmbunătățită față de versiunea competitorului
+// POST — generates an improved variant compared to the competitor's version
 export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions)
@@ -49,9 +49,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: `Field "${field}" is not supported` }, { status: 400 })
     }
 
+    const safeValue = (competitor_value || '').toString().substring(0, 1000)
+
     const supabase = createAdminClient()
 
-    // Verifică credite
+    // Check credits
     const { data: user } = await supabase
       .from('users')
       .select('credits')
@@ -65,7 +67,7 @@ export async function POST(request: Request) {
       )
     }
 
-    // Ia contextul produsului dacă e disponibil
+    // Get product context if available
     let productContext = ''
     if (product_id) {
       const { data: product } = await supabase
@@ -77,32 +79,32 @@ export async function POST(request: Request) {
 
       if (product) {
         productContext = `
-Produs: "${product.optimized_title || product.original_title}"
-Categorie: ${product.category || 'nespecificată'}
-Focus keyword actual: ${product.focus_keyword || 'nesetat'}`
+Product: "${product.optimized_title || product.original_title}"
+Category: ${product.category || 'unspecified'}
+Current focus keyword: ${product.focus_keyword || 'not set'}`
       }
     }
 
-    const prompt = `Ești expert SEO senior pentru eCommerce România.
-Trebuie să generezi o variantă superioară atât față de varianta mea cât și față de a competitorului.
+    const prompt = `You are a senior SEO expert for eCommerce.
+Generate a variant that is superior to both my current version and the competitor's version.
 
-CÂMP: ${rule.label}
-REGULĂ: ${rule.instruction}
-${productContext ? `\nCONTEXT PRODUS:${productContext}` : ''}
+FIELD: ${rule.label}
+RULE: ${rule.instruction}
+${productContext ? `\nPRODUCT CONTEXT:${productContext}` : ''}
 
-VARIANTA MEA ACTUALĂ: "${my_current || 'necompletat'}"
-VARIANTA COMPETITORULUI: "${competitor_value}"
-URL COMPETITOR: ${competitor_url || '—'}
+MY CURRENT VERSION: "${my_current || 'not filled'}"
+COMPETITOR VERSION: "${safeValue}"
+COMPETITOR URL: ${competitor_url || '—'}
 
-Generează o variantă care să fie mai bună decât ambele.
-Răspunde STRICT JSON valid, fără alte cuvinte:
+Generate a variant that is better than both.
+Respond STRICT valid JSON only, no other text:
 {
-  "improved_value": "varianta generată fără ghilimele în text",
-  "explanation": "De ce e mai bună în max 15 cuvinte",
+  "improved_value": "generated variant without quotes in the text",
+  "explanation": "Why it is better in max 15 words",
   "char_count": ${0}
 }
 
-important: char_count trebuie să fie lungimea reală a improved_value în caractere.`
+important: char_count must be the real length of improved_value in characters.`
 
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
@@ -119,12 +121,12 @@ important: char_count trebuie să fie lungimea reală a improved_value în carac
       return NextResponse.json({ error: 'Generation error. Please try again.' }, { status: 500 })
     }
 
-    // Calculează char_count real (nu cel dat de GPT)
+    // Calculate real char_count (not the one provided by GPT)
     const improvedValue = (result.improved_value || '').trim()
     result.improved_value = improvedValue
     result.char_count = improvedValue.length
 
-    // Dacă apply=true și există product_id, salvează direct în produs
+    // If apply=true and product_id exists, save directly to product
     if (apply && product_id && improvedValue) {
       const fieldMap: Record<string, string> = {
         title: 'optimized_title',
@@ -141,7 +143,7 @@ important: char_count trebuie să fie lungimea reală a improved_value în carac
       }
     }
 
-    // Deduce credit
+    // Deduct credit
     const newBalance = user.credits - CREDIT_COST
     await supabase.from('users').update({ credits: newBalance }).eq('id', userId)
     await supabase.from('credit_transactions').insert({

@@ -42,7 +42,7 @@ if (typeof setInterval !== 'undefined') {
 export async function markJobRunningAsync(key: string): Promise<boolean> {
   const redis = await getRedis()
   if (redis) {
-    // SET NX cu TTL de 5 minute — atomic, distribuit
+    // SET NX with 5-minute TTL — atomic, distributed
     const result = await redis.set(`hontrio:job:${key}`, Date.now(), { nx: true, ex: 300 })
     return result === 'OK'
   }
@@ -128,13 +128,13 @@ export function validateAiInput(input: {
   prompt?: string
 }): { valid: boolean; error?: string } {
   if (input.title && input.title.length > MAX_TITLE_CHARS) {
-    return { valid: false, error: `Titlul depășește ${MAX_TITLE_CHARS} caractere` }
+    return { valid: false, error: `Title exceeds ${MAX_TITLE_CHARS} characters` }
   }
   if (input.description && input.description.length > MAX_DESCRIPTION_CHARS) {
-    return { valid: false, error: `Descrierea depășește ${MAX_DESCRIPTION_CHARS} caractere` }
+    return { valid: false, error: `Description exceeds ${MAX_DESCRIPTION_CHARS} characters` }
   }
   if (input.prompt && input.prompt.length > MAX_PROMPT_CHARS) {
-    return { valid: false, error: `Input-ul depășește ${MAX_PROMPT_CHARS} caractere` }
+    return { valid: false, error: `Input exceeds ${MAX_PROMPT_CHARS} characters` }
   }
   return { valid: true }
 }
@@ -166,10 +166,10 @@ export const MAX_CONCURRENT_JOBS_GLOBAL = 10
 export function canStartJob(userId: string): { allowed: boolean; reason?: string } {
   const userJobs = countUserJobs(userId)
   if (userJobs >= MAX_CONCURRENT_JOBS_PER_USER) {
-    return { allowed: false, reason: `Ai deja ${userJobs} operații active. Așteaptă să se finalizeze.` }
+    return { allowed: false, reason: `You already have ${userJobs} active operations. Wait for them to finish.` }
   }
   if (runningJobs.size >= MAX_CONCURRENT_JOBS_GLOBAL) {
-    return { allowed: false, reason: 'Sistemul este ocupat. Încearcă din nou în câteva secunde.' }
+    return { allowed: false, reason: 'The system is busy. Try again in a few seconds.' }
   }
   return { allowed: true }
 }

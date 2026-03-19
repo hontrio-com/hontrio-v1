@@ -10,7 +10,7 @@ export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user) {
-      return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const userId = (session.user as any).id
@@ -18,7 +18,7 @@ export async function POST(request: Request) {
     // Rate limit: max 10 text generations per minute
     const limit = await rateLimitExpensive(userId, 'text')
     if (!limit.success) {
-      return NextResponse.json({ error: 'Prea multe cereri. Așteaptă un minut.' }, { status: 429 })
+      return NextResponse.json({ error: 'Too many requests. Wait a minute.' }, { status: 429 })
     }
 
     // Concurrent job limit
@@ -30,7 +30,7 @@ export async function POST(request: Request) {
     const { product_id } = await request.json()
     const supabase = createAdminClient()
 
-    // Verifica creditele + ia setarile de brand
+    // Check credits and fetch brand settings
     const { data: user } = await supabase
       .from('users')
       .select('credits, business_name, brand_tone, brand_language, niche')
@@ -39,12 +39,12 @@ export async function POST(request: Request) {
 
     if (!user || user.credits < 5) {
       return NextResponse.json(
-        { error: 'Credite insuficiente. Ai nevoie de 5 credite.' },
+        { error: 'Insufficient credits. You need 5 credits.' },
         { status: 400 }
       )
     }
 
-    // Ia produsul
+    // Fetch the product
     const { data: product, error: productError } = await supabase
       .from('products')
       .select('*')
@@ -53,7 +53,7 @@ export async function POST(request: Request) {
       .single()
 
     if (productError || !product) {
-      return NextResponse.json({ error: 'Produs negăsit' }, { status: 404 })
+      return NextResponse.json({ error: 'Product not found' }, { status: 404 })
     }
 
     // Cost guard: validate input sizes
@@ -68,12 +68,12 @@ export async function POST(request: Request) {
     // Track this job
     const jobKey = `${userId}:text:${product_id}`
     if (!markJobRunning(jobKey)) {
-      return NextResponse.json({ error: 'Acest produs este deja în curs de procesare.' }, { status: 409 })
+      return NextResponse.json({ error: 'This product is already being processed.' }, { status: 409 })
     }
 
     let generated
     try {
-      // Genereaza textul cu OpenAI
+      // Generate text with OpenAI
       generated = await generateProductText({
         title: product.original_title,
         description: product.original_description,
@@ -89,7 +89,7 @@ export async function POST(request: Request) {
     } finally {
       markJobDone(jobKey)
     }
-    // Actualizeaza produsul
+    // Update the product
     const { error: updateError } = await supabase
       .from('products')
       .update({
@@ -106,10 +106,10 @@ export async function POST(request: Request) {
 
     if (updateError) {
       console.error('Update error:', updateError)
-      return NextResponse.json({ error: 'Eroare la salvarea textului' }, { status: 500 })
+      return NextResponse.json({ error: 'Error saving generated text' }, { status: 500 })
     }
 
-    // Scade creditele atomic — previne race conditions
+    // Deduct credits atomically — prevents race conditions
     const { data: newBalance } = await supabase.rpc('deduct_credits', { p_user_id: userId, p_amount: 5 })
     if (!newBalance || newBalance === -1) {
       // Credits were consumed between our check and now — rare but possible
@@ -123,20 +123,20 @@ export async function POST(request: Request) {
       type: 'usage',
       amount: -5,
       balance_after: creditsRemaining,
-      description: `Generare text: ${product.original_title}`,
+      description: `Text generation: ${product.original_title}`,
       reference_type: 'text_generation',
       reference_id: product_id,
     })
 
     return NextResponse.json({
-      message: 'Text generat cu succes',
+      message: 'Text generated successfully',
       generated,
       credits_remaining: creditsRemaining,
     })
   } catch (err) {
     console.error('Generate text error:', err)
     return NextResponse.json(
-      { error: 'Eroare la generarea textului' },
+      { error: 'Error generating text' },
       { status: 500 }
     )
   }

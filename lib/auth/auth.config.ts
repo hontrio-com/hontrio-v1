@@ -4,7 +4,11 @@ import GoogleProvider from 'next-auth/providers/google'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { rateLimit } from '@/lib/security/rate-limit'
 
-// ─── Helper: garantează că profilul există în tabela users ───────────────────
+if (!process.env.NEXTAUTH_SECRET) {
+  throw new Error('NEXTAUTH_SECRET environment variable is not set');
+}
+
+// ─── Helper: ensures the user profile exists in the users table ───────────────
 async function ensureUserProfile(params: {
   id: string
   email: string
@@ -21,7 +25,7 @@ async function ensureUserProfile(params: {
 
   if (existing) return existing
 
-  console.error('[auth/ensureUserProfile]', `Profil lipsă pentru ${params.email} (${params.id}) — se creează automat`)
+  console.error('[auth/ensureUserProfile]', `Missing profile for ${params.email} (${params.id}) — creating automatically`)
 
   const { data: newProfile, error } = await supabase
     .from('users')
@@ -39,7 +43,7 @@ async function ensureUserProfile(params: {
     .single()
 
   if (error) {
-    console.error('[auth/ensureUserProfile]', `Eroare la crearea profilului: ${error.message}`, { id: params.id, email: params.email })
+    console.error('[auth/ensureUserProfile]', `Error creating profile: ${error.message}`, { id: params.id, email: params.email })
     return null
   }
 
@@ -63,7 +67,7 @@ export const authOptions: NextAuthOptions = {
 
         const emailLimit = rateLimit(`login:email:${credentials.email.toLowerCase()}`, 5, 10 * 60 * 1000)
         if (!emailLimit.success) {
-          throw new Error('Prea multe incercari. Incearca din nou mai tarziu.')
+          throw new Error('Too many attempts. Try again later.')
         }
 
         const supabase = createAdminClient()
@@ -99,7 +103,7 @@ export const authOptions: NextAuthOptions = {
       if (account?.provider === 'google' && user.email) {
         const supabase = createAdminClient()
 
-        // Caută userul direct în tabela users (evităm listUsers full scan pe auth.users)
+        // Look up the user directly in the users table (avoids full listUsers scan on auth.users)
         const { data: existingProfile } = await supabase
           .from('users')
           .select('id')
@@ -107,12 +111,12 @@ export const authOptions: NextAuthOptions = {
           .maybeSingle()
         
         if (existingProfile) {
-          // Userul există deja în tabela noastră
+          // User already exists in our table
           user.id = existingProfile.id
         } else {
-          // Verificăm dacă există în auth.users prin signInWithOtp dry-run sau getUserByEmail
-          // Supabase admin API: getUserById nu e util, dar putem crea direct
-          // Dacă profilul nu e în users table, creăm userul
+          // Check if exists in auth.users via signInWithOtp dry-run or getUserByEmail
+          // Supabase admin API: getUserById is not useful here, but we can create directly
+          // If the profile is not in the users table, create the user
           const { data: authData } = await supabase.auth.admin.createUser({
             email: user.email,
             email_confirm: true,
@@ -121,7 +125,7 @@ export const authOptions: NextAuthOptions = {
           if (authData?.user) user.id = authData.user.id
         }
 
-        // Garantăm că profilul există
+        // Ensure the profile exists
         if (user.id) {
           try {
             await ensureUserProfile({
@@ -151,7 +155,7 @@ export const authOptions: NextAuthOptions = {
 
           if (profile) {
             token.id = profile.id
-            token.name = profile.name || user.name || 'Utilizator'
+            token.name = profile.name || user.name || 'User'
             token.role = profile.role || 'user'
             token.plan = profile.plan || 'free'
             token.credits = profile.credits || 20
@@ -159,23 +163,23 @@ export const authOptions: NextAuthOptions = {
           }
         } else {
           token.id = user.id
-          token.name = (user as any).name || 'Utilizator'
+          token.name = (user as any).name || 'User'
           token.role = (user as any).role
           token.plan = (user as any).plan
           token.credits = (user as any).credits
           token.onboardingCompleted = (user as any).onboarding_completed || false
         }
-        // Setăm timestamp-ul ultimei sincronizări cu DB
+        // Record the timestamp of the last DB sync
         token.refreshedAt = Date.now()
       }
 
-      // FIX: Refresh din DB doar dacă token-ul e mai vechi de 60 secunde
-      // Anterior: query la FIECARE request HTTP — acum doar o dată pe minut
+      // FIX: Refresh from DB only if token is older than 60 seconds
+      // Previously: query on EVERY HTTP request — now only once per minute
       if (token.id && !user) {
         const refreshedAt = (token.refreshedAt as number) || 0
         const elapsed = Date.now() - refreshedAt
         
-        if (elapsed > 60 * 1000) { // 60 secunde TTL
+        if (elapsed > 60 * 1000) { // 60-second TTL
           try {
             const supabase = createAdminClient()
             const { data: profile } = await supabase
@@ -185,7 +189,7 @@ export const authOptions: NextAuthOptions = {
               .maybeSingle()
 
             if (profile) {
-              token.name = profile.name || token.name || 'Utilizator'
+              token.name = profile.name || token.name || 'User'
               token.role = profile.role || 'user'
               token.plan = profile.plan || 'free'
               token.credits = profile.credits ?? token.credits
@@ -193,7 +197,7 @@ export const authOptions: NextAuthOptions = {
             }
             token.refreshedAt = Date.now()
           } catch {
-            // DB down — păstrăm token-ul existent
+            // DB down — keep the existing token as-is
           }
         }
       }
@@ -203,7 +207,7 @@ export const authOptions: NextAuthOptions = {
 
     async session({ session, token }) {
       if (session.user) {
-        session.user.name = (token.name as string) || 'Utilizator'
+        session.user.name = (token.name as string) || 'User'
         ;(session.user as any).id = token.id
         ;(session.user as any).role = token.role
         ;(session.user as any).plan = token.plan
@@ -221,6 +225,7 @@ export const authOptions: NextAuthOptions = {
 
   session: {
     strategy: 'jwt',
+    // Short-lived token; refreshed via session rotation every 60s against the DB
     maxAge: 24 * 60 * 60,
   },
 
