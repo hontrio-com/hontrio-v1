@@ -195,7 +195,7 @@ function Timeline({ orders, onUpdateStatus, updatingOrder }: {
           const isActive = ['pending', 'processing', 'shipped'].includes(order.order_status)
           const icon = ORDER_STATUS_ICON[order.order_status] || '·'
           return (
-            <motion.div key={order.id} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.03 }}
+            <motion.div key={order.id} initial={{ x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.03 }}
               className="flex items-start gap-3 pl-1">
               <div className={`h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 z-10 border
                 ${isBad  ? 'bg-red-50 text-red-600 border-red-200'     :
@@ -1081,7 +1081,7 @@ export default function RiskShieldPage() {
 
       {/* Sync Progress */}
       {syncProgress && (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+        <motion.div initial={{}} animate={{ opacity: 1 }}
           className={`rounded-xl border p-4 ${syncProgress.stage === 'error' ? 'bg-red-50 border-red-100' : syncProgress.stage === 'done' ? 'bg-emerald-50 border-emerald-100' : 'bg-neutral-50 border-neutral-200'}`}>
           <div className="flex items-center justify-between mb-1">
             <div className="flex items-center gap-2">
@@ -1121,7 +1121,7 @@ export default function RiskShieldPage() {
         ].map((s, i) => {
           const isActive = labelFilter === s.key && activeTab === 'customers'
           return (
-            <motion.button key={s.key} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}
+            <motion.button key={s.key} initial={{ y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}
               onClick={() => { setLabelFilter(s.key); setActiveTab('customers') }}
               className={`p-3.5 rounded-xl border text-left transition-all
                 ${isActive ? 'bg-neutral-900 border-neutral-900' : 'bg-white border-neutral-200 hover:border-neutral-300'}`}>
@@ -1188,7 +1188,7 @@ export default function RiskShieldPage() {
                 {customers.map((customer, i) => {
                   const rate = collectionRate(customer)
                   return (
-                    <motion.div key={customer.id} initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.015 }}
+                    <motion.div key={customer.id} initial={{ x: -6 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.015 }}
                       onClick={() => openProfile(customer)}
                       className="cursor-pointer hover:bg-neutral-50 transition-colors">
                       {/* Mobile layout */}
@@ -1273,7 +1273,7 @@ export default function RiskShieldPage() {
             ) : (
               <div className="divide-y divide-neutral-50">
                 {alerts.map((alert, i) => (
-                  <motion.div key={alert.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.02 }}
+                  <motion.div key={alert.id} initial={{}} animate={{ opacity: 1 }} transition={{ delay: i * 0.02 }}
                     className={`flex items-start gap-3 px-4 py-3.5 hover:bg-neutral-50 transition-colors ${!alert.is_read ? 'bg-amber-50/20' : ''}`}>
                     <div className={`h-8 w-8 rounded-xl flex items-center justify-center shrink-0
                       ${alert.severity === 'critical' ? 'bg-red-600' : alert.severity === 'warning' ? 'bg-amber-100' : 'bg-neutral-100'}`}>
@@ -1582,7 +1582,7 @@ export default function RiskShieldPage() {
       <AnimatePresence>
         {showProfile && selectedCustomer && (
           <>
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 0.25 }} exit={{ opacity: 0 }}
+            <motion.div initial={{}} animate={{ opacity: 0.25 }} exit={{ opacity: 0 }}
               className="fixed inset-0 bg-black z-40" onClick={() => setShowProfile(false)} />
             <motion.div initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
               transition={{ type: 'spring', damping: 28, stiffness: 280 }}

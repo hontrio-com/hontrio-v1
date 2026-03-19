@@ -192,7 +192,7 @@ function SubscriptionPageInner() {
       {/* Toast */}
       <AnimatePresence>
         {msg.text && (
-          <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+          <motion.div initial={{ y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
             className={`flex items-center gap-3 px-4 py-3 rounded-xl text-[13px] ${msg.type === 'success' ? 'bg-neutral-900 text-white' : 'bg-red-50 border border-red-100 text-red-700'}`}>
             {msg.type === 'success' ? <CheckCircle className="h-4 w-4 shrink-0" /> : <AlertCircle className="h-4 w-4 shrink-0" />}
             <span>{msg.text}</span>
@@ -265,7 +265,7 @@ function SubscriptionPageInner() {
               const isUpgrade = i > planIdx
               const PlanIcon  = plan.icon
               return (
-                <motion.div key={plan.id} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
+                <motion.div key={plan.id} initial={{ y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
                   <div className={`relative h-full flex flex-col bg-white rounded-xl border-2 overflow-hidden transition-all
                     ${(plan as any).popular ? 'border-neutral-900' : isCurrent ? 'border-neutral-300' : 'border-neutral-200 hover:border-neutral-300'}`}>
                     {(plan as any).popular && (

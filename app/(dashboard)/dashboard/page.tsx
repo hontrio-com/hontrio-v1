@@ -48,7 +48,7 @@ function SeoDonut({ green, yellow, red, total }: { green: number; yellow: number
 
 function Skeleton({ className }: { className?: string }) { return <div className={`animate-pulse bg-neutral-100 rounded-xl ${className || ''}`} /> }
 
-const stagger = { container: { animate: { transition: { staggerChildren: 0.07 } } }, item: { initial: { opacity: 0, y: 16 }, animate: { opacity: 1, y: 0, transition: { duration: 0.35 } } } }
+const stagger = { container: { animate: { transition: { staggerChildren: 0.07 } } }, item: { initial: { y: 16 }, animate: { y: 0, transition: { duration: 0.35 } } } }
 
 export default function DashboardPage() {
   const { data: session } = useSession()
@@ -120,7 +120,7 @@ export default function DashboardPage() {
                 <Link key={s.id} href={s.href}>
                   <div className={`flex items-center gap-2 px-2.5 py-2 rounded-lg text-sm transition-all cursor-pointer ${s.done ? 'bg-white/10' : 'bg-white/5 hover:bg-white/10'}`}>
                     {s.done ? <CheckCircle className="h-3.5 w-3.5 text-emerald-400 shrink-0" /> : <Circle className="h-3.5 w-3.5 text-white/30 shrink-0" />}
-                    <span className={`text-[12px] truncate ${s.done ? 'text-white/80' : 'text-white/40'}`}>{t(s.label)}</span>
+                    <span className={`text-[12px] truncate ${s.done ? 'text-white/80' : 'text-white/40'}`}>{t('dashboard.' + s.label)}</span>
                   </div>
                 </Link>
               ))}
@@ -161,7 +161,7 @@ export default function DashboardPage() {
             { label: t('dashboard.seo_score'), value: data?.avgSeoScore || 0, suffix: '/100', icon: Search, href: '/seo' },
             { label: t('dashboard.credits_remaining'), value: data?.creditsRemaining || 0, icon: CreditCard, href: '/credits', bar: true },
           ].map((stat, i) => (
-            <motion.div key={stat.label} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 + i * 0.06 }}>
+            <motion.div key={stat.label} initial={{ y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 + i * 0.06 }}>
               <Link href={stat.href}>
                 <div className="bg-white border border-neutral-200 hover:border-neutral-300 rounded-xl p-5 cursor-pointer transition-all group">
                   <div className="flex items-start justify-between mb-3">

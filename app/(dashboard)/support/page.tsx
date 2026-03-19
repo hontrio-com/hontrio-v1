@@ -320,7 +320,7 @@ export default function SupportPage() {
 
       <AnimatePresence>
         {createSuccess && (
-          <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+          <motion.div initial={{ y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
             className="flex items-center gap-3 px-4 py-3 bg-neutral-900 text-white rounded-xl text-[13px]">
             <CheckCircle className="h-4 w-4 shrink-0" />
             <span>{t('support.ticket_sent_redirect')}</span>
@@ -444,7 +444,7 @@ export default function SupportPage() {
 
           {/* Replies */}
           {replies.map(reply => (
-            <motion.div key={reply.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="flex gap-3">
+            <motion.div key={reply.id} initial={{ y: 6 }} animate={{ opacity: 1, y: 0 }} className="flex gap-3">
               <div className={`h-8 w-8 rounded-full flex items-center justify-center text-[11px] font-semibold shrink-0
                 ${reply.is_admin ? 'bg-neutral-900 text-white' : 'bg-neutral-200 text-neutral-600'}`}>
                 {reply.is_admin ? 'H' : t('support.you')}
@@ -595,7 +595,7 @@ export default function SupportPage() {
                   const cat = CATEGORY[ticket.category] || CATEGORY.general
                   const CatIcon = cat.icon
                   return (
-                    <motion.div key={ticket.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}
+                    <motion.div key={ticket.id} initial={{ y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}
                       onClick={() => openTicket(ticket)}
                       className={`group flex items-center gap-3 px-4 py-3.5 hover:bg-neutral-50 transition-colors cursor-pointer
                         ${ticket.has_unread ? 'bg-neutral-50/70' : ''}`}>

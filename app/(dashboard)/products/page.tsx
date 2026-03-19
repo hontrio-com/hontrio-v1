@@ -125,7 +125,7 @@ function Dropdown({ label, options, value, onChange }: {
       </button>
       <AnimatePresence>
         {open && (
-          <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 4 }}
+          <motion.div initial={{ y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 4 }}
             className="absolute top-11 left-0 z-30 min-w-[160px] bg-white border border-neutral-200 rounded-xl shadow-lg overflow-hidden">
             {options.map(o => (
               <button key={o.value} onClick={() => { onChange(o.value); setOpen(false) }}
@@ -150,7 +150,7 @@ function GridCard({ product, selected, onSelect }: {
   const img = product.thumbnail_url || product.original_images?.[0]
 
   return (
-    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+    <motion.div initial={{ y: 10 }} animate={{ opacity: 1, y: 0 }}
       className={`group relative bg-white border rounded-xl overflow-hidden transition-all duration-200 cursor-pointer
         ${selected ? 'border-neutral-900 ring-1 ring-neutral-900/10' : 'border-neutral-200 hover:border-neutral-300 hover:shadow-sm'}`}
       onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}>
@@ -171,7 +171,7 @@ function GridCard({ product, selected, onSelect }: {
           }
           <AnimatePresence>
             {hover && product.seo_score > 0 && (
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              <motion.div initial={{}} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                 className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent flex items-end p-3">
                 <div className="flex items-center gap-1.5 w-full">
                   <div className="h-1 flex-1 bg-white/30 rounded-full overflow-hidden">
@@ -215,7 +215,7 @@ function ListRow({ product, selected, onSelect, index }: {
   const hasImage = !!(product.thumbnail_url)
 
   return (
-    <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.02 }}
+    <motion.div initial={{ y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.02 }}
       className={`group flex items-center gap-3 px-4 py-3 border-b border-neutral-50 last:border-0 transition-colors
         ${selected ? 'bg-neutral-50' : 'hover:bg-neutral-50/70'}`}>
 

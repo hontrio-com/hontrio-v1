@@ -180,7 +180,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     <TooltipProvider delayDuration={0}>
       <div className="min-h-screen bg-neutral-50/50 overflow-x-hidden">
         {/* Mobile overlay */}
-        <AnimatePresence>{sidebarOpen && (<motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40 lg:hidden" onClick={() => setSidebarOpen(false)} />)}</AnimatePresence>
+        <AnimatePresence>{sidebarOpen && (<motion.div initial={{}} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40 lg:hidden" onClick={() => setSidebarOpen(false)} />)}</AnimatePresence>
 
         {/* ═══ SIDEBAR ═══ */}
         <aside className={`fixed top-0 left-0 z-50 h-full bg-white border-r border-neutral-100 transition-all duration-300 ease-in-out ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 ${collapsed ? 'lg:w-[72px]' : 'lg:w-[250px]'}`}>
@@ -297,7 +297,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <kbd className="hidden md:flex absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-neutral-400 bg-neutral-100 px-1.5 py-0.5 rounded font-mono">⌘K</kbd>
               </div>
               <AnimatePresence>{searchFocused && searchQuery.length >= 2 && (
-                <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 4 }}
+                <motion.div initial={{ y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 4 }}
                   className="absolute top-12 left-0 right-0 bg-white rounded-xl shadow-xl border border-neutral-100 overflow-hidden z-50 max-h-[520px] overflow-y-auto">
                   <SearchDropdown results={searchResults} loading={searchLoading} query={searchQuery} onNavigate={navigateAndClose} />
                 </motion.div>
@@ -318,7 +318,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
           {/* Mobile search overlay */}
           <AnimatePresence>{mobileSearchOpen && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 bg-black/30 sm:hidden" onClick={() => setMobileSearchOpen(false)}>
+            <motion.div initial={{}} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 bg-black/30 sm:hidden" onClick={() => setMobileSearchOpen(false)}>
               <motion.div initial={{ y: -20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -20, opacity: 0 }} className="bg-white p-4 shadow-lg" onClick={e => e.stopPropagation()}>
                 <div className="relative">
                   <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-300 pointer-events-none" />

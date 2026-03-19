@@ -122,7 +122,7 @@ function Card({ children, className = '' }: { children: React.ReactNode; classNa
 
 function Toast({ type, text, onClose }: { type: string; text: string; onClose: () => void }) {
   return (
-    <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+    <motion.div initial={{ y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
       className={`flex items-center gap-3 px-4 py-3 rounded-xl text-[13px] ${type === 'success' ? 'bg-neutral-900 text-white' : 'bg-red-50 border border-red-100 text-red-700'}`}>
       {type === 'success' ? <CheckCircle className="h-4 w-4 shrink-0" /> : <AlertCircle className="h-4 w-4 shrink-0" />}
       <span>{text}</span>
@@ -612,7 +612,7 @@ export default function SettingsPage() {
 
                   <AnimatePresence>
                     {connTest && (
-                      <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                      <motion.div initial={{ y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
                         className={`flex items-center gap-2 px-3 py-2.5 rounded-xl text-[13px] ${connTest.ok ? 'bg-neutral-900 text-white' : 'bg-red-50 border border-red-100 text-red-600'}`}>
                         {connTest.ok ? <CheckCircle2 className="h-4 w-4 shrink-0" /> : <XCircle className="h-4 w-4 shrink-0" />}
                         {connTest.msg}

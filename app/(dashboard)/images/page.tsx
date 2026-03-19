@@ -125,7 +125,7 @@ function StepDots({ steps, current }: { steps: string[]; current: string }) {
 
 function ZoomModal({ url, onClose }: { url: string; onClose: () => void }) {
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+    <motion.div initial={{}} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
       className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose}>
       <motion.img initial={{ scale: 0.9 }} animate={{ scale: 1 }} exit={{ scale: 0.9 }}
         src={url} alt="" onClick={e => e.stopPropagation()}
@@ -483,7 +483,7 @@ function ProductGenerator({ onImageGenerated, brandKit }: { onImageGenerated: (i
         <AnimatePresence mode="wait">
           {/* Step 1 */}
           {step === 'select_image' && (
-            <motion.div key="s1" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-4">
+            <motion.div key="s1" initial={{ y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-4">
               <ImageSourceSelector {...{ selectedProduct, setSelectedProduct, selectedProductImage, setSelectedProductImage, uploadedImage, setUploadedImage, setUploadedImageFile, showPicker, setShowPicker, fileInputRef }} />
               <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={handleFileUpload} className="hidden" />
               <div className="bg-neutral-50 rounded-xl border border-neutral-100 px-4 py-3">
@@ -504,7 +504,7 @@ function ProductGenerator({ onImageGenerated, brandKit }: { onImageGenerated: (i
 
           {/* Step 2 */}
           {step === 'select_style' && (
-            <motion.div key="s2" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-4">
+            <motion.div key="s2" initial={{ y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-4">
               <div className="flex items-center gap-3">
                 {activeImage && <img src={activeImage} alt="" className="h-14 w-14 rounded-xl object-cover border border-neutral-200 cursor-zoom-in" onClick={() => setZoomUrl(activeImage!)} />}
                 <div>
@@ -538,7 +538,7 @@ function ProductGenerator({ onImageGenerated, brandKit }: { onImageGenerated: (i
 
               {/* Manual desc */}
               {selectedStyle === 'manual' && (
-                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
+                <motion.div initial={{ height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
                   <div className="p-4 bg-neutral-50 rounded-xl border border-neutral-200 space-y-2">
                     <SectionLabel>{t('images.describe_scene')}</SectionLabel>
                     <textarea value={manualDesc} onChange={e => setManualDesc(e.target.value)}
@@ -559,14 +559,14 @@ function ProductGenerator({ onImageGenerated, brandKit }: { onImageGenerated: (i
 
           {/* Generating */}
           {step === 'generating' && (
-            <motion.div key="gen" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+            <motion.div key="gen" initial={{}} animate={{ opacity: 1 }}>
               <GeneratingScreen taskId={taskId} imageRecordId={imageRecordId} onDone={handleDone} onError={err => { setError(err); setStep('select_style') }} variantCount={variantCount} />
             </motion.div>
           )}
 
           {/* Done */}
           {step === 'done' && lastUrls.length > 0 && (
-            <motion.div key="done" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
+            <motion.div key="done" initial={{ y: 6 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
               <div className="flex items-center gap-2 p-3 bg-emerald-50 border border-emerald-100 rounded-xl">
                 <CheckCircle className="h-4 w-4 text-emerald-600 shrink-0" />
                 <p className="text-[13px] font-medium text-emerald-700">{lastUrls.length > 1 ? t('images.gen_variants_success', { count: String(lastUrls.length) }) : t('images.gen_image_success')}</p>
@@ -738,7 +738,7 @@ function PromoGenerator({ onImageGenerated, brandKit }: { onImageGenerated: (img
       <div className="p-5">
         <AnimatePresence mode="wait">
           {step === 'select_image' && (
-            <motion.div key="p1" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-4">
+            <motion.div key="p1" initial={{ y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-4">
               <ImageSourceSelector {...{ selectedProduct, setSelectedProduct, selectedProductImage, setSelectedProductImage, uploadedImage, setUploadedImage, setUploadedImageFile, showPicker, setShowPicker, fileInputRef }} />
               <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={handleFileUpload} className="hidden" />
               <div className="flex justify-end">
@@ -750,7 +750,7 @@ function PromoGenerator({ onImageGenerated, brandKit }: { onImageGenerated: (img
           )}
 
           {step === 'select_style' && (
-            <motion.div key="p2" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-4">
+            <motion.div key="p2" initial={{ y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-4">
               <div className="flex items-center gap-3">
                 {activeImage && <img src={activeImage} alt="" className="h-14 w-14 rounded-xl object-cover border border-neutral-200" />}
                 <div>
@@ -777,7 +777,7 @@ function PromoGenerator({ onImageGenerated, brandKit }: { onImageGenerated: (img
           )}
 
           {step === 'edit_text' && promoText && (
-            <motion.div key="p3" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-4">
+            <motion.div key="p3" initial={{ y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-4">
               <p className="text-[13px] font-semibold text-neutral-900">{t('images.edit_poster_texts')}</p>
               {error && <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-100 rounded-xl text-[12px] text-red-600"><AlertCircle className="h-4 w-4 shrink-0" />{error}</div>}
               <div className="space-y-3">
@@ -832,13 +832,13 @@ function PromoGenerator({ onImageGenerated, brandKit }: { onImageGenerated: (img
           )}
 
           {step === 'generating' && (
-            <motion.div key="pgen" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+            <motion.div key="pgen" initial={{}} animate={{ opacity: 1 }}>
               <GeneratingScreen taskId={taskId} imageRecordId={imageRecordId} onDone={handleDone} onError={err => { setError(err); setStep('edit_text') }} />
             </motion.div>
           )}
 
           {step === 'done' && lastUrl && (
-            <motion.div key="pdone" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
+            <motion.div key="pdone" initial={{ y: 6 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
               <div className="flex items-center gap-2 p-3 bg-emerald-50 border border-emerald-100 rounded-xl">
                 <CheckCircle className="h-4 w-4 text-emerald-600" /><p className="text-[13px] font-medium text-emerald-700">{t('images.poster_generated')}</p>
               </div>
@@ -976,7 +976,7 @@ function BulkTab() {
           </div>
 
           {priority === 'manual' && (
-            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="overflow-hidden">
+            <motion.div initial={{ height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="overflow-hidden">
               {loadingProds ? <div className="flex items-center gap-2 text-[12px] text-neutral-400 py-2"><Loader2 className="h-4 w-4 animate-spin" />{t('images.loading')}</div>
               : <div className="space-y-2">
                   <div className="flex items-center justify-between">
@@ -1032,7 +1032,7 @@ function BulkTab() {
 
           <AnimatePresence>
             {showConfirm && estimate && (
-              <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="border-2 border-neutral-900 rounded-xl p-4 space-y-3">
+              <motion.div initial={{ y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="border-2 border-neutral-900 rounded-xl p-4 space-y-3">
                 <p className="text-[13px] font-semibold text-neutral-900">{t('images.confirm_job_title')}</p>
                 <div className="grid grid-cols-3 gap-3 text-center">
                   {[{ label: t('images.bulk_products_label'), val: estimate.products }, { label: t('images.bulk_credits_label'), val: estimate.credits }, { label: t('images.bulk_time_est'), val: `~${estimate.minutes}min` }].map(x => (
@@ -1336,7 +1336,7 @@ function GalleryTab({ gallery, onUpdate }: { gallery: GeneratedImage[]; onUpdate
               const isPromo     = img.style.startsWith('promo_')
               const isPublished = !!img.wc_published_at
               return (
-                <motion.div key={img.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: Math.min(i * 0.02, 0.3) }}>
+                <motion.div key={img.id} initial={{ y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: Math.min(i * 0.02, 0.3) }}>
                   <div className="group bg-white rounded-xl border border-neutral-200 overflow-hidden hover:shadow-md hover:border-neutral-300 transition-all cursor-pointer" onClick={() => setPreview(img)}>
                     <div className="relative aspect-square bg-neutral-50 overflow-hidden">
                       <img src={img.generated_image_url} alt={img.product_title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
@@ -1384,7 +1384,7 @@ function GalleryTab({ gallery, onUpdate }: { gallery: GeneratedImage[]; onUpdate
       {/* Preview modal */}
       <AnimatePresence>
         {preview && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+          <motion.div initial={{}} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setPreview(null)}>
             <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9 }}
               className="bg-white rounded-xl overflow-hidden shadow-2xl max-w-lg w-full" onClick={e => e.stopPropagation()}>
@@ -1514,7 +1514,7 @@ export default function ImagesPage() {
       {/* Content */}
       <AnimatePresence mode="wait">
         {mainTab === 'generator' && (
-          <motion.div key="generator" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-4">
+          <motion.div key="generator" initial={{ y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-4">
             {/* Gen sub-tabs */}
             <div className="flex gap-1 border-b border-neutral-100">
               {([{ value: 'product', label: t('images.gen_product_image') }, { value: 'promo', label: t('images.gen_poster_promo') }] as const).map(gt => (
@@ -1526,12 +1526,12 @@ export default function ImagesPage() {
             </div>
             <AnimatePresence mode="wait">
               {genTab === 'product' && (
-                <motion.div key="gen-product" initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                <motion.div key="gen-product" initial={{ y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
                   <ProductGenerator onImageGenerated={handleNewImage} brandKit={brandKit} />
                 </motion.div>
               )}
               {genTab === 'promo' && (
-                <motion.div key="gen-promo" initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                <motion.div key="gen-promo" initial={{ y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
                   <PromoGenerator onImageGenerated={handleNewImage} brandKit={brandKit} />
                 </motion.div>
               )}
@@ -1539,13 +1539,13 @@ export default function ImagesPage() {
           </motion.div>
         )}
         {mainTab === 'bulk' && (
-          <motion.div key="bulk" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}><BulkTab /></motion.div>
+          <motion.div key="bulk" initial={{ y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}><BulkTab /></motion.div>
         )}
         {mainTab === 'brand' && (
-          <motion.div key="brand" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}><BrandTab /></motion.div>
+          <motion.div key="brand" initial={{ y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}><BrandTab /></motion.div>
         )}
         {mainTab === 'gallery' && (
-          <motion.div key="gallery" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+          <motion.div key="gallery" initial={{ y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
             {galleryLoading
               ? <div className="grid grid-cols-2 md:grid-cols-4 gap-3">{[...Array(8)].map((_, i) => <div key={i} className="aspect-square rounded-xl bg-neutral-100 animate-pulse" />)}</div>
               : <GalleryTab gallery={gallery} onUpdate={fetchGallery} />}

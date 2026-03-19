@@ -297,7 +297,7 @@ export default function SEOPage() {
           {/* Bulk Progress */}
           <AnimatePresence>
             {(bulkRunning || bulkFinished) && (
-              <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}>
+              <motion.div initial={{ height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}>
                 <Card className="p-4">
                   <div className="flex items-center justify-between mb-3">
                     <p className="text-[13px] font-semibold text-neutral-900">
@@ -357,7 +357,7 @@ export default function SEOPage() {
                   const cs    = scoreStyle(score)
                   const isSel = selected.has(p.id)
                   return (
-                    <motion.div key={p.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: Math.min(i * 0.012, 0.2) }}
+                    <motion.div key={p.id} initial={{}} animate={{ opacity: 1 }} transition={{ delay: Math.min(i * 0.012, 0.2) }}
                       className={`flex items-center gap-3 px-4 py-3 hover:bg-neutral-50 transition-all group ${isSel ? 'bg-neutral-50' : ''}`}>
                       <button onClick={() => toggleSelect(p.id)}
                         className={`shrink-0 transition-colors ${isSel ? 'text-neutral-900' : 'text-neutral-200 hover:text-neutral-400'}`}>
@@ -467,7 +467,7 @@ export default function SEOPage() {
 
           {/* Audit Results */}
           {auditResult && !auditing && (
-            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
+            <motion.div initial={{ y: 12 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
 
               {/* Scores */}
               <div className="bg-neutral-900 rounded-xl p-5">

@@ -245,7 +245,7 @@ function StealModal({ open, field, myCurrent, competitorValue, competitorUrl, on
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/30 backdrop-blur-sm p-4">
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }}
+      <motion.div initial={{ y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }}
         className="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden border border-neutral-200">
         <div className="px-5 py-4 border-b border-neutral-100 flex items-center justify-between">
           <div>
@@ -1278,7 +1278,7 @@ export default function CompetitorPage() {
 
       {/* Tab Content */}
       <AnimatePresence mode="wait">
-        <motion.div key={activeTab} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
+        <motion.div key={activeTab} initial={{ y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
           {activeTab === 'overview'  && <TabOverview  result={result} onSteal={(f, v, c) => setStealModal({ field: f, val: v, current: c })} />}
           {activeTab === 'monitor'   && <TabMonitor   competitorUrl={competitorUrl} />}
           {activeTab === 'keywords'  && <TabKeywords  myUrl={myUrl} competitorUrl={competitorUrl} />}

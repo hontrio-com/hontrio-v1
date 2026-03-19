@@ -268,7 +268,7 @@ function DuplicateWarning({ productId, title }: { productId: string; title: stri
   }, [title, productId])
   if (!dup) return null
   return (
-    <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}
+    <motion.div initial={{ height: 0 }} animate={{ opacity: 1, height: 'auto' }}
       className="flex items-start gap-2 p-3 bg-amber-50 rounded-xl border border-amber-100 text-[12px] text-amber-700 mb-2">
       <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
       <span><strong>{t('seo.duplicate_title')}:</strong> „{dup}" — {t('seo.duplicate_content_warning')}</span>
@@ -293,7 +293,7 @@ function SectionEditor({ label, fieldKey, value, originalValue, generating, save
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-[13px] font-semibold text-neutral-800">{label}</span>
             {saved && !hasChanges && (
-              <motion.span initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }}
+              <motion.span initial={{ scale: 0.8 }} animate={{ opacity: 1, scale: 1 }}
                 className="flex items-center gap-1 text-[10px] text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full font-medium">
                 <CheckCircle className="h-2.5 w-2.5" />{t('seo.saved_label')}
               </motion.span>
@@ -690,7 +690,7 @@ export default function ProductSEOPage() {
     <div className="space-y-4 max-w-5xl">
 
       {/* Header */}
-      <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}>
+      <motion.div initial={{ y: -8 }} animate={{ opacity: 1, y: 0 }}>
         <Link href="/seo" className="inline-flex items-center gap-1.5 text-[12px] text-neutral-400 hover:text-neutral-700 transition-colors mb-3">
           <ChevronLeft className="h-3.5 w-3.5" />{t('seo.back_to_seo')}
         </Link>
@@ -725,7 +725,7 @@ export default function ProductSEOPage() {
 
         <AnimatePresence>
           {publishResult && (
-            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
+            <motion.div initial={{ height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
               className={`mt-3 flex items-center gap-2 px-4 py-3 rounded-xl text-[13px] font-medium ${publishResult.success ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-red-50 text-red-700 border border-red-100'}`}>
               {publishResult.success ? <CheckCircle className="h-4 w-4 shrink-0" /> : <XCircle className="h-4 w-4 shrink-0" />}
               {publishResult.success ? t('seo.publish_woo_success') : publishResult.error}
@@ -741,7 +741,7 @@ export default function ProductSEOPage() {
         <div className="lg:col-span-2 space-y-4">
 
           {/* Preview toggle */}
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
+          <motion.div initial={{ y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
             <div className="flex items-center gap-2 mb-2">
               <div className="flex gap-0.5 p-0.5 bg-neutral-100 rounded-lg">
                 {[{ id: 'desktop', icon: Monitor }, { id: 'mobile', icon: Smartphone }].map(m => {
@@ -761,7 +761,7 @@ export default function ProductSEOPage() {
 
           {/* SEO Suggestions */}
           {product.seo_suggestions && product.seo_suggestions.length > 0 && (
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}>
+            <motion.div initial={{ y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}>
               <div className="bg-amber-50 border border-amber-100 rounded-xl p-4">
                 <p className="text-[11px] font-semibold text-amber-700 mb-2 flex items-center gap-1.5"><AlertTriangle className="h-3.5 w-3.5" />{t('seo.seo_suggestions')}</p>
                 <ul className="space-y-1.5">
@@ -781,7 +781,7 @@ export default function ProductSEOPage() {
             { key: 'short_description', label: t('seo.short_desc_label'), maxChars: 350, minChars: 80,  placeholder: t('seo.short_desc_placeholder'),   hint: t('seo.short_desc_hint'),     creditCost: 2, isHtml: /<[a-z][\s\S]*>/i.test(sections.short_description.current) },
             { key: 'long_description',  label: t('seo.long_desc_html'),                                 placeholder: t('seo.long_desc_placeholder'),    hint: t('seo.long_desc_hint'),      creditCost: 2, isHtml: true },
           ] as any[]).map((cfg, i) => (
-            <motion.div key={cfg.key} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 + i * 0.04 }}>
+            <motion.div key={cfg.key} initial={{ y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 + i * 0.04 }}>
               {cfg.key === 'title' && <DuplicateWarning productId={productId} title={sections.title.current} />}
               <SectionEditor
                 label={cfg.label} fieldKey={cfg.key as SectionKey}
@@ -809,19 +809,19 @@ export default function ProductSEOPage() {
 
         {/* Right — widgets */}
         <div className="space-y-3">
-          <motion.div initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.1 }}>
+          <motion.div initial={{ x: 10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.1 }}>
             <LiveScoreWidget sections={sections} collapsed={scoreCollapsed} onToggle={() => setScoreCollapsed(!scoreCollapsed)} />
           </motion.div>
-          <motion.div initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.15 }}>
+          <motion.div initial={{ x: 10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.15 }}>
             <KeywordDensity keyword={sections.focus_keyword.current} shortDesc={sections.short_description.current} longDesc={sections.long_description.current} />
           </motion.div>
-          <motion.div initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.2 }}>
+          <motion.div initial={{ x: 10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.2 }}>
             <HistoryWidget productId={productId} onRestore={handleRestoreVersion} />
           </motion.div>
-          <motion.div initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.25 }}>
+          <motion.div initial={{ x: 10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.25 }}>
             <SchemaWidget productId={productId} />
           </motion.div>
-          <motion.div initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.3 }}>
+          <motion.div initial={{ x: 10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.3 }}>
             <InternalLinkSuggestions productId={productId} longDesc={sections.long_description.current} category={product.category} />
           </motion.div>
         </div>
