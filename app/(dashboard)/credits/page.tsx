@@ -97,7 +97,7 @@ function SubscriptionPageInner() {
   const { t } = useT()
   const PLANS = getPlans(t)
   const COSTS = getCosts(t)
-  const { data: session } = useSession()
+  const { data: session, update: updateSession } = useSession()
   const searchParams = useSearchParams()
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [loading, setLoading]           = useState(true)
@@ -111,10 +111,19 @@ function SubscriptionPageInner() {
   const userPlan = (session?.user as any)?.plan || 'free'
 
   useEffect(() => {
-    if (searchParams.get('success') === 'true') { setMsg({ type: 'success', text: t('credits.subscription_activated') }); setTab('history') }
-    if (searchParams.get('credits_success') === 'true') { setMsg({ type: 'success', text: t('credits.credits_purchased_success') }); setTab('history') }
-    if (searchParams.get('canceled') === 'true') { setMsg({ type: 'error', text: t('credits.payment_cancelled') }) }
-  }, [searchParams])
+    if (searchParams.get('success') === 'true') {
+      setMsg({ type: 'success', text: t('credits.subscription_activated') })
+      setTab('history')
+      updateSession() // force JWT refresh so new plan shows immediately
+    }
+    if (searchParams.get('credits_success') === 'true') {
+      setMsg({ type: 'success', text: t('credits.credits_purchased_success') })
+      setTab('history')
+    }
+    if (searchParams.get('canceled') === 'true') {
+      setMsg({ type: 'error', text: t('credits.payment_cancelled') })
+    }
+  }, [searchParams, t])
 
   useEffect(() => { fetchCredits() }, [])
 

@@ -18,10 +18,10 @@ const STEPS_RO = ['Bun venit', 'Afacerea ta', 'Magazin', 'Produse', 'Plan', 'Gat
 const STEPS_EN = ['Welcome', 'Your Business', 'Store', 'Products', 'Plan', 'Done']
 
 const PLANS = [
-  { id: 'free', name: 'Free Trial', price: 0, unit: 'RON', features: ['20 credite gratuite', '1 magazin conectat', 'Toate functiile AI'], recommended: false },
-  { id: 'starter', name: 'Starter', price: 49, unit: 'RON/luna', features: ['200 credite/luna', 'Suport prioritar', 'Analiza SEO completa'], recommended: false },
-  { id: 'professional', name: 'Professional', price: 99, unit: 'RON/luna', features: ['500 credite/luna', '3 magazine conectate', 'Generare in masa', 'Suport prioritar'], recommended: true },
-  { id: 'enterprise', name: 'Enterprise', price: 249, unit: 'RON/luna', features: ['2000+ credite/luna', 'Magazine nelimitate', 'Manager dedicat'], recommended: false },
+  { id: 'free', name: 'Free Trial', price: 0, unit: '', features: ['20 free credits', '1 connected store', 'All AI features'], recommended: false },
+  { id: 'starter', name: 'Starter', price: 19, unit: '$/mo', features: ['150 credits/month', 'Priority support', 'Full SEO analysis'], recommended: false },
+  { id: 'professional', name: 'Professional', price: 49, unit: '$/mo', features: ['400 credits/month', '3 connected stores', 'Bulk generation', 'Priority support'], recommended: true },
+  { id: 'enterprise', name: 'Enterprise', price: 99, unit: '$/mo', features: ['900 credits/month', 'Unlimited stores', 'Dedicated manager'], recommended: false },
 ]
 
 const COUNTRIES = [
