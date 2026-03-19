@@ -24,14 +24,14 @@ export async function POST(req: Request) {
 
     // Dacă are external_customer_id, caută comenzile după customer= param
     const wooOrders: any[] = []
-    const seen = new Set<number>()
+    const seen = new Set<string>()
 
     if (customer.external_customer_id) {
       try {
         const res = await wcGet(base, auth, 'orders', {
           customer: customer.external_customer_id, orderby: 'date', order: 'desc', per_page: '100',
         })
-        for (const o of res.data) { if (!seen.has(o.id)) { seen.add(o.id); wooOrders.push(o) } }
+        for (const o of res.data) { const key = String(o.id); if (!seen.has(key)) { seen.add(key); wooOrders.push(o) } }
       } catch {}
     }
 
@@ -41,7 +41,7 @@ export async function POST(req: Request) {
         const res = await wcGet(base, auth, 'orders', {
           search: customer.email, orderby: 'date', order: 'desc', per_page: '100',
         })
-        for (const o of res.data) { if (!seen.has(o.id)) { seen.add(o.id); wooOrders.push(o) } }
+        for (const o of res.data) { const key = String(o.id); if (!seen.has(key)) { seen.add(key); wooOrders.push(o) } }
       } catch {}
     }
 
