@@ -147,19 +147,19 @@ export default function AdminUsersPage() {
         body: JSON.stringify({
           user_id: selectedUser.id,
           amount: parseInt(creditAmount),
-          reason: creditReason || 'Credite adăugate de admin',
+          reason: creditReason || 'Credits added by admin',
         }),
       })
       const data = await res.json()
-      if (!res.ok) { showMsg('error', data.error || 'Eroare'); return }
-      showMsg('success', `${creditAmount} credite adăugate cu succes!`)
+      if (!res.ok) { showMsg('error', data.error || 'Error'); return }
+      showMsg('success', `${creditAmount} credits added successfully!`)
       setSelectedUser({ ...selectedUser, credits: selectedUser.credits + parseInt(creditAmount) })
       setUsers(prev => prev.map(u =>
         u.id === selectedUser.id ? { ...u, credits: u.credits + parseInt(creditAmount) } : u
       ))
       setCreditAmount('10')
       setCreditReason('')
-    } catch { showMsg('error', 'Eroare la adăugarea creditelor') }
+    } catch { showMsg('error', 'Error adding credits') }
     finally { setActionLoading('') }
   }
 
@@ -174,17 +174,17 @@ export default function AdminUsersPage() {
         body: JSON.stringify({
           user_id: selectedUser.id,
           amount: -parseInt(creditAmount),
-          reason: creditReason || 'Credite retrase de admin',
+          reason: creditReason || 'Credits removed by admin',
         }),
       })
       const data = await res.json()
-      if (!res.ok) { showMsg('error', data.error || 'Eroare'); return }
-      showMsg('success', `${creditAmount} credite retrase.`)
+      if (!res.ok) { showMsg('error', data.error || 'Error'); return }
+      showMsg('success', `${creditAmount} credits removed.`)
       setSelectedUser({ ...selectedUser, credits: Math.max(0, selectedUser.credits - parseInt(creditAmount)) })
       setUsers(prev => prev.map(u =>
         u.id === selectedUser.id ? { ...u, credits: Math.max(0, u.credits - parseInt(creditAmount)) } : u
       ))
-    } catch { showMsg('error', 'Eroare') }
+    } catch { showMsg('error', 'Error') }
     finally { setActionLoading('') }
   }
 
@@ -200,11 +200,11 @@ export default function AdminUsersPage() {
         body: JSON.stringify({ user_id: selectedUser.id, plan: newPlan }),
       })
       const data = await res.json()
-      if (!res.ok) { showMsg('error', data.error || 'Eroare'); return }
-      showMsg('success', `Plan schimbat la ${newPlan}`)
+      if (!res.ok) { showMsg('error', data.error || 'Error'); return }
+      showMsg('success', `Plan changed to ${newPlan}`)
       setSelectedUser({ ...selectedUser, plan: newPlan })
       setUsers(prev => prev.map(u => u.id === selectedUser.id ? { ...u, plan: newPlan } : u))
-    } catch { showMsg('error', 'Eroare') }
+    } catch { showMsg('error', 'Error') }
     finally { setActionLoading('') }
   }
 
@@ -220,11 +220,11 @@ export default function AdminUsersPage() {
         body: JSON.stringify({ user_id: selectedUser.id, role: newRole }),
       })
       const data = await res.json()
-      if (!res.ok) { showMsg('error', data.error || 'Eroare'); return }
-      showMsg('success', `Rol schimbat la ${newRole}`)
+      if (!res.ok) { showMsg('error', data.error || 'Error'); return }
+      showMsg('success', `Role changed to ${newRole}`)
       setSelectedUser({ ...selectedUser, role: newRole })
       setUsers(prev => prev.map(u => u.id === selectedUser.id ? { ...u, role: newRole } : u))
-    } catch { showMsg('error', 'Eroare') }
+    } catch { showMsg('error', 'Error') }
     finally { setActionLoading('') }
   }
 
@@ -245,14 +245,14 @@ export default function AdminUsersPage() {
         body: JSON.stringify({ user_id: deleteUser.id }),
       })
       const data = await res.json()
-      if (!res.ok) { showMsg('error', data.error || 'Eroare la ștergere'); return }
-      showMsg('success', data.message || 'Utilizator șters')
+      if (!res.ok) { showMsg('error', data.error || 'Error deleting user'); return }
+      showMsg('success', data.message || 'User deleted')
       setUsers(prev => prev.filter(u => u.id !== deleteUser.id))
       setShowDeleteConfirm(false)
       setShowUserModal(false)
       setSelectedUser(null)
       setDeleteUser(null)
-    } catch { showMsg('error', 'Eroare la ștergere') }
+    } catch { showMsg('error', 'Error deleting user') }
     finally { setDeleting(false) }
   }
 
@@ -281,10 +281,10 @@ export default function AdminUsersPage() {
         }),
       })
       const data = await res.json()
-      if (!res.ok) { showMsg('error', data.error || 'Eroare'); return }
-      showMsg('success', `Notificare trimisă către ${notifyUser.name || notifyUser.email}`)
+      if (!res.ok) { showMsg('error', data.error || 'Error'); return }
+      showMsg('success', `Notification sent to ${notifyUser.name || notifyUser.email}`)
       setShowNotifyModal(false)
-    } catch { showMsg('error', 'Eroare la trimitere') }
+    } catch { showMsg('error', 'Error sending notification') }
     finally { setSendingNotify(false) }
   }
 
@@ -304,12 +304,12 @@ export default function AdminUsersPage() {
         }),
       })
       const data = await res.json()
-      if (!res.ok) { showMsg('error', data.error || 'Eroare'); return }
-      showMsg('success', 'Notificare globală trimisă către toți utilizatorii!')
+      if (!res.ok) { showMsg('error', data.error || 'Error'); return }
+      showMsg('success', 'Global notification sent to all users!')
       setShowGlobalNotifyModal(false)
       setGlobalTitle('')
       setGlobalMessage('')
-    } catch { showMsg('error', 'Eroare la trimitere') }
+    } catch { showMsg('error', 'Error sending notification') }
     finally { setSendingGlobal(false) }
   }
 
@@ -330,15 +330,15 @@ export default function AdminUsersPage() {
       <motion.div {...fadeInUp} transition={{ duration: 0.3 }}>
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 tracking-tight font-mono">Utilizatori</h1>
-            <p className="text-gray-500 text-sm mt-0.5">{users.length} utilizatori înregistrați</p>
+            <h1 className="text-2xl font-bold text-gray-900 tracking-tight font-mono">Users</h1>
+            <p className="text-gray-500 text-sm mt-0.5">{users.length} registered users</p>
           </div>
           <Button
             onClick={() => setShowGlobalNotifyModal(true)}
             className="bg-gray-900 hover:bg-gray-800 text-white rounded-xl h-10 px-4 text-sm"
           >
             <Bell className="h-4 w-4 mr-2" />
-            Notificare globală
+            Global notification
           </Button>
         </div>
       </motion.div>
@@ -369,7 +369,7 @@ export default function AdminUsersPage() {
             <Input
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Caută după email sau nume..."
+              placeholder="Search by email or name..."
               className="pl-10 h-10 rounded-xl border-gray-200"
             />
           </div>
@@ -380,7 +380,7 @@ export default function AdminUsersPage() {
             className="rounded-xl h-10 px-4 border-gray-200 relative"
           >
             <SlidersHorizontal className="h-4 w-4 mr-1.5" />
-            Filtre
+            Filters
             {activeFilters > 0 && (
               <span className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-gray-900 text-white text-[10px] flex items-center justify-center">
                 {activeFilters}
@@ -407,12 +407,12 @@ export default function AdminUsersPage() {
                       planFilter === p ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                     }`}
                   >
-                    {p === 'all' ? 'Toate' : p}
+                    {p === 'all' ? 'All' : p}
                   </button>
                 ))}
               </div>
               <div className="flex gap-1.5">
-                <span className="text-xs text-gray-400 self-center mr-1">Rol:</span>
+                <span className="text-xs text-gray-400 self-center mr-1">Role:</span>
                 {['all', 'user', 'admin'].map(r => (
                   <button
                     key={r}
@@ -421,7 +421,7 @@ export default function AdminUsersPage() {
                       roleFilter === r ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                     }`}
                   >
-                    {r === 'all' ? 'Toate' : r}
+                    {r === 'all' ? 'All' : r}
                   </button>
                 ))}
               </div>
@@ -437,7 +437,7 @@ export default function AdminUsersPage() {
             {filteredUsers.length === 0 ? (
               <div className="text-center py-12">
                 <Users className="h-10 w-10 text-gray-300 mx-auto mb-3" />
-                <p className="text-sm text-gray-400">Niciun utilizator găsit</p>
+                <p className="text-sm text-gray-400">No users found</p>
               </div>
             ) : (
               <div>
@@ -457,7 +457,7 @@ export default function AdminUsersPage() {
                         </div>
                         <div>
                           <div className="flex items-center gap-2">
-                            <p className="text-sm font-medium text-gray-900">{user.name || 'Fără nume'}</p>
+                            <p className="text-sm font-medium text-gray-900">{user.name || 'No name'}</p>
                             {user.role === 'admin' && (
                               <Badge className="bg-red-100 text-red-700 border-0 text-[9px]">Admin</Badge>
                             )}
@@ -478,7 +478,7 @@ export default function AdminUsersPage() {
                         <button
                           onClick={(e) => { e.stopPropagation(); openNotifyModal(user) }}
                           className="p-1.5 rounded-lg hover:bg-blue-50 transition-colors"
-                          title="Trimite notificare"
+                          title="Send notification"
                         >
                           <Bell className="h-3.5 w-3.5 text-blue-400" />
                         </button>
@@ -512,7 +512,7 @@ export default function AdminUsersPage() {
             >
               <div className="p-5">
                 <div className="flex items-center justify-between mb-5">
-                  <h3 className="text-lg font-bold text-gray-900">Gestionează utilizator</h3>
+                  <h3 className="text-lg font-bold text-gray-900">Manage user</h3>
                   <button onClick={() => setShowUserModal(false)} className="p-2 rounded-xl hover:bg-gray-100 text-gray-400">
                     <X className="h-5 w-5" />
                   </button>
@@ -541,7 +541,7 @@ export default function AdminUsersPage() {
                       </span>
                     </div>
                     <div>
-                      <p className="font-semibold text-gray-900">{selectedUser.name || 'Fără nume'}</p>
+                      <p className="font-semibold text-gray-900">{selectedUser.name || 'No name'}</p>
                       <p className="text-sm text-gray-400">{selectedUser.email}</p>
                     </div>
                   </div>
@@ -550,7 +550,7 @@ export default function AdminUsersPage() {
                   <div className="grid grid-cols-3 gap-2">
                     <div className="bg-gray-50 rounded-xl p-3 text-center">
                       <p className="text-lg font-bold text-gray-900">{selectedUser.credits}</p>
-                      <p className="text-[10px] text-gray-400 mt-0.5">Credite</p>
+                      <p className="text-[10px] text-gray-400 mt-0.5">Credits</p>
                     </div>
                     <div className="bg-gray-50 rounded-xl p-3 text-center">
                       <Badge className={`border-0 text-[10px] capitalize ${
@@ -569,7 +569,7 @@ export default function AdminUsersPage() {
                       }`}>
                         {selectedUser.role}
                       </Badge>
-                      <p className="text-[10px] text-gray-400 mt-1">Rol</p>
+                      <p className="text-[10px] text-gray-400 mt-1">Role</p>
                     </div>
                   </div>
 
@@ -579,25 +579,25 @@ export default function AdminUsersPage() {
                   <div>
                     <h4 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
                       <CreditCard className="h-4 w-4 text-blue-600" />
-                      Gestionează credite
+                      Manage credits
                     </h4>
                     <div className="space-y-3">
                       <div className="grid grid-cols-2 gap-3">
                         <div className="space-y-1.5">
-                          <Label className="text-xs text-gray-500">Cantitate</Label>
+                          <Label className="text-xs text-gray-500">Amount</Label>
                           <Input type="number" value={creditAmount} onChange={(e) => setCreditAmount(e.target.value)} min="1" className="h-10 rounded-xl border-gray-200" />
                         </div>
                         <div className="space-y-1.5">
-                          <Label className="text-xs text-gray-500">Motiv (opțional)</Label>
-                          <Input value={creditReason} onChange={(e) => setCreditReason(e.target.value)} placeholder="Ex: Bonus..." className="h-10 rounded-xl border-gray-200" />
+                          <Label className="text-xs text-gray-500">Reason (optional)</Label>
+                          <Input value={creditReason} onChange={(e) => setCreditReason(e.target.value)} placeholder="e.g. Bonus..." className="h-10 rounded-xl border-gray-200" />
                         </div>
                       </div>
                       <div className="flex gap-2">
                         <Button onClick={handleAddCredits} disabled={actionLoading === 'addCredits' || !creditAmount} className="flex-1 bg-green-600 hover:bg-green-700 rounded-xl h-10 text-sm">
-                          {actionLoading === 'addCredits' ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Plus className="h-4 w-4 mr-1.5" />Adaugă</>}
+                          {actionLoading === 'addCredits' ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Plus className="h-4 w-4 mr-1.5" />Add</>}
                         </Button>
                         <Button onClick={handleRemoveCredits} disabled={actionLoading === 'removeCredits' || !creditAmount} variant="outline" className="flex-1 rounded-xl h-10 text-sm border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700">
-                          {actionLoading === 'removeCredits' ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Minus className="h-4 w-4 mr-1.5" />Retrage</>}
+                          {actionLoading === 'removeCredits' ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Minus className="h-4 w-4 mr-1.5" />Remove</>}
                         </Button>
                       </div>
                       <div className="flex gap-1.5">
@@ -616,7 +616,7 @@ export default function AdminUsersPage() {
                   <div>
                     <h4 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
                       <Crown className="h-4 w-4 text-purple-600" />
-                      Schimbă planul
+                      Change plan
                     </h4>
                     <div className="grid grid-cols-2 gap-2">
                       {['free', 'starter', 'professional', 'enterprise'].map(plan => (
@@ -628,7 +628,7 @@ export default function AdminUsersPage() {
                             {selectedUser.plan === plan && <CheckCircle className="h-4 w-4 text-blue-600" />}
                           </div>
                           <p className="text-[10px] text-gray-400 mt-0.5">
-                            {plan === 'free' ? '20 credite' : plan === 'starter' ? '200 cr/lună · 49€' : plan === 'professional' ? '500 cr/lună · 99€' : '2000 cr/lună · 249€'}
+                            {plan === 'free' ? '20 credits' : plan === 'starter' ? '200 cr/mo · 49€' : plan === 'professional' ? '500 cr/mo · 99€' : '2000 cr/mo · 249€'}
                           </p>
                         </button>
                       ))}
@@ -641,7 +641,7 @@ export default function AdminUsersPage() {
                   <div>
                     <h4 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
                       <Shield className="h-4 w-4 text-red-600" />
-                      Schimbă rolul
+                      Change role
                     </h4>
                     <div className="flex gap-2">
                       {['user', 'admin'].map(role => (
@@ -664,12 +664,12 @@ export default function AdminUsersPage() {
                   <div>
                     <h4 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
                       <Bell className="h-4 w-4 text-blue-600" />
-                      Acțiuni rapide
+                      Quick actions
                     </h4>
                     <div className="flex gap-2">
                       <Button onClick={() => openNotifyModal(selectedUser)} variant="outline" className="flex-1 rounded-xl h-10 text-sm border-blue-200 text-blue-600 hover:bg-blue-50">
                         <MessageSquare className="h-4 w-4 mr-1.5" />
-                        Trimite notificare
+                        Send notification
                       </Button>
                       <Button onClick={() => openDeleteConfirm(selectedUser)} variant="outline" className="rounded-xl h-10 text-sm border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 px-4">
                         <Trash2 className="h-4 w-4" />
@@ -681,22 +681,22 @@ export default function AdminUsersPage() {
 
                   {/* Details */}
                   <div>
-                    <h4 className="text-sm font-semibold text-gray-900 mb-3">Detalii</h4>
+                    <h4 className="text-sm font-semibold text-gray-900 mb-3">Details</h4>
                     <div className="space-y-2 text-sm">
                       <div className="flex justify-between">
                         <span className="text-gray-400">ID</span>
                         <span className="text-gray-700 font-mono text-xs">{selectedUser.id.slice(0, 16)}...</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-gray-400">Înregistrat</span>
+                        <span className="text-gray-400">Registered</span>
                         <span className="text-gray-700">
-                          {new Date(selectedUser.created_at).toLocaleDateString('ro-RO', { day: 'numeric', month: 'long', year: 'numeric' })}
+                          {new Date(selectedUser.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
                         </span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-gray-400">Onboarding</span>
                         <Badge className={`border-0 text-[10px] ${selectedUser.onboarding_completed ? 'bg-green-50 text-green-600' : 'bg-yellow-50 text-yellow-600'}`}>
-                          {selectedUser.onboarding_completed ? 'Complet' : 'Incomplet'}
+                          {selectedUser.onboarding_completed ? 'Complete' : 'Incomplete'}
                         </Badge>
                       </div>
                     </div>
@@ -716,27 +716,27 @@ export default function AdminUsersPage() {
             <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="fixed inset-0 z-50 flex items-center justify-center p-4">
               <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-5" onClick={(e) => e.stopPropagation()}>
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-bold text-gray-900">Trimite notificare</h3>
+                  <h3 className="text-lg font-bold text-gray-900">Send notification</h3>
                   <button onClick={() => setShowNotifyModal(false)} className="p-2 rounded-xl hover:bg-gray-100 text-gray-400"><X className="h-5 w-5" /></button>
                 </div>
-                <p className="text-sm text-gray-500 mb-4">Către: <span className="font-medium text-gray-700">{notifyUser.name || notifyUser.email}</span></p>
+                <p className="text-sm text-gray-500 mb-4">To: <span className="font-medium text-gray-700">{notifyUser.name || notifyUser.email}</span></p>
                 <div className="space-y-4">
                   <div className="space-y-1.5">
-                    <Label className="text-xs text-gray-500">Titlu</Label>
-                    <Input value={notifyTitle} onChange={(e) => setNotifyTitle(e.target.value)} placeholder="Titlul notificării" className="h-10 rounded-xl border-gray-200" />
+                    <Label className="text-xs text-gray-500">Title</Label>
+                    <Input value={notifyTitle} onChange={(e) => setNotifyTitle(e.target.value)} placeholder="Notification title" className="h-10 rounded-xl border-gray-200" />
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-xs text-gray-500">Mesaj</Label>
-                    <textarea value={notifyMessage} onChange={(e) => setNotifyMessage(e.target.value)} placeholder="Mesajul notificării..." className="w-full h-24 px-3 py-2 text-sm rounded-xl border border-gray-200 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                    <Label className="text-xs text-gray-500">Message</Label>
+                    <textarea value={notifyMessage} onChange={(e) => setNotifyMessage(e.target.value)} placeholder="Notification message..." className="w-full h-24 px-3 py-2 text-sm rounded-xl border border-gray-200 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-xs text-gray-500">Tip</Label>
+                    <Label className="text-xs text-gray-500">Type</Label>
                     <div className="flex gap-2">
                       {[
                         { value: 'info', label: 'Info', color: 'bg-blue-100 text-blue-700' },
-                        { value: 'success', label: 'Succes', color: 'bg-green-100 text-green-700' },
-                        { value: 'warning', label: 'Atenție', color: 'bg-yellow-100 text-yellow-700' },
-                        { value: 'error', label: 'Eroare', color: 'bg-red-100 text-red-700' },
+                        { value: 'success', label: 'Success', color: 'bg-green-100 text-green-700' },
+                        { value: 'warning', label: 'Warning', color: 'bg-yellow-100 text-yellow-700' },
+                        { value: 'error', label: 'Error', color: 'bg-red-100 text-red-700' },
                       ].map(t => (
                         <button key={t.value} onClick={() => setNotifyType(t.value)} className={`flex-1 py-2 rounded-xl text-xs font-medium transition-all ${notifyType === t.value ? t.color + ' ring-2 ring-offset-1 ring-gray-300' : 'bg-gray-100 text-gray-500'}`}>
                           {t.label}
@@ -746,7 +746,7 @@ export default function AdminUsersPage() {
                   </div>
                   <Button onClick={handleSendNotification} disabled={sendingNotify || !notifyTitle || !notifyMessage} className="w-full bg-blue-600 hover:bg-blue-700 rounded-xl h-10">
                     {sendingNotify ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Send className="h-4 w-4 mr-2" />}
-                    Trimite notificare
+                    Send notification
                   </Button>
                 </div>
               </div>
@@ -765,28 +765,28 @@ export default function AdminUsersPage() {
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
                     <Bell className="h-5 w-5 text-blue-600" />
-                    Notificare globală
+                    Global notification
                   </h3>
                   <button onClick={() => setShowGlobalNotifyModal(false)} className="p-2 rounded-xl hover:bg-gray-100 text-gray-400"><X className="h-5 w-5" /></button>
                 </div>
-                <p className="text-sm text-gray-500 mb-4">Această notificare va fi vizibilă pentru <span className="font-medium text-gray-700">toți utilizatorii</span> platformei.</p>
+                <p className="text-sm text-gray-500 mb-4">This notification will be visible to <span className="font-medium text-gray-700">all users</span> on the platform.</p>
                 <div className="space-y-4">
                   <div className="space-y-1.5">
-                    <Label className="text-xs text-gray-500">Titlu</Label>
-                    <Input value={globalTitle} onChange={(e) => setGlobalTitle(e.target.value)} placeholder="Ex: Actualizare platformă" className="h-10 rounded-xl border-gray-200" />
+                    <Label className="text-xs text-gray-500">Title</Label>
+                    <Input value={globalTitle} onChange={(e) => setGlobalTitle(e.target.value)} placeholder="e.g. Platform update" className="h-10 rounded-xl border-gray-200" />
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-xs text-gray-500">Mesaj</Label>
-                    <textarea value={globalMessage} onChange={(e) => setGlobalMessage(e.target.value)} placeholder="Mesajul care va fi afișat tuturor..." className="w-full h-24 px-3 py-2 text-sm rounded-xl border border-gray-200 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                    <Label className="text-xs text-gray-500">Message</Label>
+                    <textarea value={globalMessage} onChange={(e) => setGlobalMessage(e.target.value)} placeholder="The message that will be shown to everyone..." className="w-full h-24 px-3 py-2 text-sm rounded-xl border border-gray-200 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-xs text-gray-500">Tip</Label>
+                    <Label className="text-xs text-gray-500">Type</Label>
                     <div className="flex gap-2">
                       {[
                         { value: 'info', label: 'Info', color: 'bg-blue-100 text-blue-700' },
-                        { value: 'success', label: 'Succes', color: 'bg-green-100 text-green-700' },
-                        { value: 'warning', label: 'Atenție', color: 'bg-yellow-100 text-yellow-700' },
-                        { value: 'error', label: 'Eroare', color: 'bg-red-100 text-red-700' },
+                        { value: 'success', label: 'Success', color: 'bg-green-100 text-green-700' },
+                        { value: 'warning', label: 'Warning', color: 'bg-yellow-100 text-yellow-700' },
+                        { value: 'error', label: 'Error', color: 'bg-red-100 text-red-700' },
                       ].map(t => (
                         <button key={t.value} onClick={() => setGlobalType(t.value)} className={`flex-1 py-2 rounded-xl text-xs font-medium transition-all ${globalType === t.value ? t.color + ' ring-2 ring-offset-1 ring-gray-300' : 'bg-gray-100 text-gray-500'}`}>
                           {t.label}
@@ -796,7 +796,7 @@ export default function AdminUsersPage() {
                   </div>
                   <Button onClick={handleSendGlobalNotification} disabled={sendingGlobal || !globalTitle || !globalMessage} className="w-full bg-blue-600 hover:bg-blue-700 rounded-xl h-10">
                     {sendingGlobal ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Bell className="h-4 w-4 mr-2" />}
-                    Trimite la toți utilizatorii
+                    Send to all users
                   </Button>
                 </div>
               </div>
@@ -817,33 +817,33 @@ export default function AdminUsersPage() {
                     <Trash2 className="h-6 w-6 text-red-600" />
                   </div>
                   <div>
-                    <h3 className="text-lg font-bold text-gray-900">Șterge utilizator</h3>
-                    <p className="text-sm text-red-500">Această acțiune este permanentă!</p>
+                    <h3 className="text-lg font-bold text-gray-900">Delete user</h3>
+                    <p className="text-sm text-red-500">This action is permanent!</p>
                   </div>
                 </div>
 
                 <div className="bg-red-50 border border-red-100 rounded-xl p-4 mb-4">
-                  <p className="text-sm text-red-700 mb-2">Vor fi șterse definitiv:</p>
+                  <p className="text-sm text-red-700 mb-2">The following will be permanently deleted:</p>
                   <div className="text-xs text-red-600 space-y-1">
-                    <p>• Contul și datele utilizatorului</p>
-                    <p>• Toate produsele și imaginile generate</p>
-                    <p>• Istoricul de tranzacții și credite</p>
-                    <p>• Conexiunile cu magazine</p>
-                    <p>• Notificările</p>
+                    <p>• User account and data</p>
+                    <p>• All products and generated images</p>
+                    <p>• Transaction and credit history</p>
+                    <p>• Store connections</p>
+                    <p>• Notifications</p>
                   </div>
                 </div>
 
                 <p className="text-sm text-gray-600 mb-3">
-                  Pentru confirmare, scrie emailul utilizatorului: <span className="font-mono font-medium text-gray-900">{deleteUser.email}</span>
+                  To confirm, type the user's email: <span className="font-mono font-medium text-gray-900">{deleteUser.email}</span>
                 </p>
 
                 <Input value={deleteConfirmText} onChange={(e) => setDeleteConfirmText(e.target.value)} placeholder={deleteUser.email} className="h-10 rounded-xl border-gray-200 mb-4 font-mono text-sm" />
 
                 <div className="flex gap-2">
-                  <Button variant="outline" onClick={() => setShowDeleteConfirm(false)} className="flex-1 rounded-xl h-10">Anulează</Button>
+                  <Button variant="outline" onClick={() => setShowDeleteConfirm(false)} className="flex-1 rounded-xl h-10">Cancel</Button>
                   <Button onClick={handleDeleteUser} disabled={deleting || deleteConfirmText !== deleteUser.email} className="flex-1 bg-red-600 hover:bg-red-700 rounded-xl h-10 text-white">
                     {deleting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Trash2 className="h-4 w-4 mr-2" />}
-                    Șterge definitiv
+                    Delete permanently
                   </Button>
                 </div>
               </div>

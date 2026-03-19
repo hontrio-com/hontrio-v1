@@ -805,12 +805,12 @@ function SettingsTab({ settings, mlAccuracy, mlTotalPredictions, savingSettings,
 function timeAgo(dateStr: string) {
   const diff = Date.now() - new Date(dateStr).getTime()
   const m = Math.floor(diff / 60000)
-  if (m < 60) return `${m}m`
+  if (m < 60) return `${m}m ago`
   const h = Math.floor(m / 60)
-  if (h < 24) return `${h}h`
+  if (h < 24) return `${h}h ago`
   const d = Math.floor(h / 24)
-  if (d < 30) return `${d}z`
-  return `${Math.floor(d / 30)}l`
+  if (d < 30) return `${d}d ago`
+  return `${Math.floor(d / 30)}mo ago`
 }
 
 // ─── Main Page ────────────────────────────────────────────────────────────────

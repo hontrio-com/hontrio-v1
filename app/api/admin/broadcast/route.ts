@@ -39,8 +39,8 @@ export async function POST(req: Request) {
 
     const { error } = await supabase.from('notifications').insert(notifications)
     if (error) {
-      // Table might not exist yet - return success anyway with note
-      return NextResponse.json({ sent: users.length, note: 'notifications table not found - create it first' })
+      console.error('[Admin Broadcast] Insert error:', error.message)
+      return NextResponse.json({ error: error.message || 'Eroare la inserarea notificărilor' }, { status: 500 })
     }
 
     return NextResponse.json({ sent: users.length })

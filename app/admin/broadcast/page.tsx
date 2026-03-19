@@ -5,17 +5,17 @@ import { motion } from 'framer-motion'
 import { Send, Users, CheckCircle2, AlertCircle } from 'lucide-react'
 
 const TYPES = [
-  { value: 'info', label: 'Info', desc: 'Informație generală' },
-  { value: 'success', label: 'Success', desc: 'Veste bună, feature nou' },
-  { value: 'warning', label: 'Warning', desc: 'Mentenanță, schimbare' },
-  { value: 'promo', label: 'Promo', desc: 'Ofertă specială, discount' },
+  { value: 'info', label: 'Info', desc: 'General information' },
+  { value: 'success', label: 'Success', desc: 'Good news, new feature' },
+  { value: 'warning', label: 'Warning', desc: 'Maintenance, change' },
+  { value: 'error', label: 'Error', desc: 'Critical issue or error' },
 ]
 
 const TARGETS = [
-  { value: 'all', label: 'Toți userii' },
-  { value: 'paid', label: 'Useri plătitori' },
-  { value: 'free', label: 'Useri free' },
-  { value: 'plan', label: 'Plan specific' },
+  { value: 'all', label: 'All users' },
+  { value: 'paid', label: 'Paid users' },
+  { value: 'free', label: 'Free users' },
+  { value: 'plan', label: 'Specific plan' },
 ]
 
 const PLANS = ['starter', 'professional', 'enterprise']
@@ -31,6 +31,8 @@ export default function BroadcastPage() {
 
   const send = async () => {
     if (!title.trim() || !message.trim()) return
+    const confirmed = window.confirm('Send broadcast to all users? This cannot be undone.')
+    if (!confirmed) return
     setSending(true)
     setResult(null)
     try {
@@ -41,14 +43,14 @@ export default function BroadcastPage() {
       })
       const data = await res.json()
       if (data.sent) {
-        setResult({ ok: true, msg: `Trimis cu succes către ${data.sent} useri` })
+        setResult({ ok: true, msg: `Successfully sent to ${data.sent} users` })
         setTitle('')
         setMessage('')
       } else {
-        setResult({ ok: false, msg: data.error || 'Eroare la trimitere' })
+        setResult({ ok: false, msg: data.error || 'Failed to send' })
       }
     } catch {
-      setResult({ ok: false, msg: 'Eroare de rețea' })
+      setResult({ ok: false, msg: 'Network error' })
     } finally {
       setSending(false)
     }
@@ -58,7 +60,7 @@ export default function BroadcastPage() {
     <div className="space-y-6 font-mono max-w-2xl">
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
         <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Broadcast Message</h1>
-        <p className="text-xs text-gray-400 mt-0.5 font-sans">Trimite notificări in-app utilizatorilor</p>
+        <p className="text-xs text-gray-400 mt-0.5 font-sans">Send in-app notifications to users</p>
       </motion.div>
 
       {result && (
@@ -73,7 +75,7 @@ export default function BroadcastPage() {
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-5">
         {/* Type */}
         <div>
-          <p className="text-[10px] text-gray-400 uppercase tracking-widest mb-2">Tip mesaj</p>
+          <p className="text-[10px] text-gray-400 uppercase tracking-widest mb-2">Message type</p>
           <div className="grid grid-cols-2 gap-2">
             {TYPES.map(t => (
               <button
@@ -90,7 +92,7 @@ export default function BroadcastPage() {
 
         {/* Target */}
         <div>
-          <p className="text-[10px] text-gray-400 uppercase tracking-widest mb-2">Destinatari</p>
+          <p className="text-[10px] text-gray-400 uppercase tracking-widest mb-2">Recipients</p>
           <div className="flex flex-wrap gap-2">
             {TARGETS.map(t => (
               <button
@@ -117,11 +119,11 @@ export default function BroadcastPage() {
 
         {/* Title */}
         <div>
-          <p className="text-[10px] text-gray-400 uppercase tracking-widest mb-2">Titlu</p>
+          <p className="text-[10px] text-gray-400 uppercase tracking-widest mb-2">Title</p>
           <input
             value={title}
             onChange={e => setTitle(e.target.value)}
-            placeholder="ex: Funcție nouă disponibilă!"
+            placeholder="e.g. New feature available!"
             maxLength={80}
             className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm text-gray-900 focus:outline-none focus:border-gray-400 font-sans"
           />
@@ -129,11 +131,11 @@ export default function BroadcastPage() {
 
         {/* Message */}
         <div>
-          <p className="text-[10px] text-gray-400 uppercase tracking-widest mb-2">Mesaj</p>
+          <p className="text-[10px] text-gray-400 uppercase tracking-widest mb-2">Message</p>
           <textarea
             value={message}
             onChange={e => setMessage(e.target.value)}
-            placeholder="Scrie mesajul complet..."
+            placeholder="Write the full message..."
             rows={4}
             maxLength={500}
             className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm text-gray-900 focus:outline-none focus:border-gray-400 resize-none font-sans"
@@ -156,9 +158,9 @@ export default function BroadcastPage() {
           className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-gray-900 text-white text-sm font-medium hover:bg-gray-800 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         >
           {sending ? (
-            <><div className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />Se trimite...</>
+            <><div className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />Sending...</>
           ) : (
-            <><Send className="h-4 w-4" />Trimite notificare</>
+            <><Send className="h-4 w-4" />Send notification</>
           )}
         </button>
       </div>

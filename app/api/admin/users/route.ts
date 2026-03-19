@@ -19,7 +19,7 @@ export async function GET(request: Request) {
 
     const { data: users, count } = await supabase
       .from('users')
-      .select('id, email, name, credits, plan, role, created_at, stripe_customer_id, stripe_subscription_id', { count: 'exact' })
+      .select('id, email, name, credits, plan, role, created_at, stripe_customer_id, stripe_subscription_id, onboarding_completed', { count: 'exact' })
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1)
 

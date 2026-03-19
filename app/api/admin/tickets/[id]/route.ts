@@ -52,9 +52,6 @@ export async function GET(
       users: usersMap[r.user_id] || { name: r.is_admin ? 'Admin' : 'User', email: '' },
     }))
 
-    console.log('RAW REPLIES FROM DB:', JSON.stringify(replies?.map((r:any) => ({ id: r.id, is_admin: r.is_admin, attachments: r.attachments })), null, 2))
-    console.log('ENRICHED REPLIES:', JSON.stringify(enrichedReplies?.map((r:any) => ({ id: r.id, is_admin: r.is_admin, attachments: r.attachments })), null, 2))
-
     return NextResponse.json({ ticket, replies: enrichedReplies })
   } catch {
     return NextResponse.json({ error: 'Eroare internă' }, { status: 500 })

@@ -14,12 +14,12 @@ const COST_PER_TEXT_GENERATION = 0.004
 // Using $0.10 as average (mix of 1K at $0.09 and occasional retries)
 const COST_PER_IMAGE_GENERATION = 0.10
 
-// ===== PLAN PRICES (EUR/month) =====
+// ===== PLAN PRICES (USD/month) =====
 const PLAN_PRICES: Record<string, number> = {
   free: 0,
-  starter: 99,
-  professional: 249,
-  enterprise: 499,
+  starter: 19,
+  professional: 49,
+  enterprise: 99,
 }
 
 export async function GET() {
@@ -97,16 +97,16 @@ export async function GET() {
     const { data: monthlyPurchases } = await supabase
       .from('credit_transactions')
       .select('amount, description, reference_type')
-      .eq('type', 'purchase')
+      .in('type', ['purchase', 'subscription'])
       .gte('created_at', firstOfMonth)
 
     let monthlySubscriptionRevenue = 0
     let monthlyCreditPackRevenue = 0
     ;(monthlyPurchases || []).forEach(t => {
       if (t.reference_type === 'subscription' || t.reference_type === 'subscription_renewal') {
-        if (t.amount === 250) monthlySubscriptionRevenue += 99
-        else if (t.amount === 750) monthlySubscriptionRevenue += 249
-        else if (t.amount === 2000) monthlySubscriptionRevenue += 499
+        if (t.amount === 250) monthlySubscriptionRevenue += 19
+        else if (t.amount === 750) monthlySubscriptionRevenue += 49
+        else if (t.amount === 2000) monthlySubscriptionRevenue += 99
       } else if (t.reference_type === 'credit_purchase') {
         if (t.amount === 50) monthlyCreditPackRevenue += 39
         else if (t.amount === 100) monthlyCreditPackRevenue += 69
@@ -136,12 +136,8 @@ export async function GET() {
     const monthlyTextCost = monthlyTextGenerations * COST_PER_TEXT_GENERATION
     const totalMonthlyApiCost = monthlyImageCost + monthlyTextCost
 
-    // Convert API cost to EUR (approximate USD to EUR)
-    const usdToEur = 0.92
-    const totalMonthlyApiCostEur = totalMonthlyApiCost * usdToEur
-
-    // 4. Profit
-    const monthlyProfit = totalMonthlyRevenue - totalMonthlyApiCostEur
+    // 4. Profit (all values in USD)
+    const monthlyProfit = totalMonthlyRevenue - totalMonthlyApiCost
     const profitMargin = totalMonthlyRevenue > 0 ? (monthlyProfit / totalMonthlyRevenue) * 100 : 0
 
     // 5. All-time costs
@@ -160,18 +156,18 @@ export async function GET() {
     const totalTextCost = totalTextGenerations * COST_PER_TEXT_GENERATION
     const totalApiCost = totalImageCost + totalTextCost
 
-    // 6. All-time revenue
+    // 6. All-time revenue (excluding manual/bonus credit additions)
     const { data: allPurchases } = await supabase
       .from('credit_transactions')
       .select('amount, reference_type')
-      .eq('type', 'purchase')
+      .in('type', ['purchase', 'subscription'])
 
     let totalRevenue = 0
     ;(allPurchases || []).forEach(t => {
       if (t.reference_type === 'subscription' || t.reference_type === 'subscription_renewal') {
-        if (t.amount === 250) totalRevenue += 99
-        else if (t.amount === 750) totalRevenue += 249
-        else if (t.amount === 2000) totalRevenue += 499
+        if (t.amount === 250) totalRevenue += 19
+        else if (t.amount === 750) totalRevenue += 49
+        else if (t.amount === 2000) totalRevenue += 99
       } else if (t.reference_type === 'credit_purchase') {
         if (t.amount === 50) totalRevenue += 39
         else if (t.amount === 100) totalRevenue += 69
@@ -213,15 +209,13 @@ export async function GET() {
         monthlyImageCost,
         monthlyTextCost,
         totalMonthlyApiCost,
-        totalMonthlyApiCostEur,
         monthlyProfit,
         profitMargin,
 
         // All-time
         totalRevenue,
         totalApiCost,
-        totalApiCostEur: totalApiCost * usdToEur,
-        totalProfit: totalRevenue - (totalApiCost * usdToEur),
+        totalProfit: totalRevenue - totalApiCost,
         totalImageCost,
         totalTextCost,
         totalTextGenerations,
@@ -238,7 +232,6 @@ export async function GET() {
         // Cost references
         costPerImageGeneration: COST_PER_IMAGE_GENERATION,
         costPerTextGeneration: COST_PER_TEXT_GENERATION,
-        usdToEurRate: usdToEur,
       },
     })
   } catch (err) {

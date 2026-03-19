@@ -10,16 +10,20 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Acces interzis' }, { status: 403 })
     }
 
-    const { user_id, amount, action = 'add' } = await req.json()
+    const { user_id, amount, reason } = await req.json()
 
-    if (!user_id || !amount || isNaN(parseInt(amount))) {
+    if (!user_id || amount === undefined || amount === null || isNaN(parseInt(amount))) {
       return NextResponse.json({ error: 'user_id și amount sunt obligatorii' }, { status: 400 })
     }
 
-    const creditAmount = parseInt(amount)
-    if (creditAmount <= 0 || creditAmount > 100000) {
+    const rawAmount = parseInt(amount)
+    if (rawAmount === 0 || Math.abs(rawAmount) > 100000) {
       return NextResponse.json({ error: 'Suma trebuie să fie între 1 și 100.000' }, { status: 400 })
     }
+
+    // Positive amount = add, negative amount = remove
+    const action = rawAmount >= 0 ? 'add' : 'remove'
+    const creditAmount = Math.abs(rawAmount)
 
     const supabase = createAdminClient()
 
@@ -41,13 +45,11 @@ export async function POST(req: Request) {
     if (action === 'add') {
       newBalance = user.credits + creditAmount
       transactionType = 'bonus'
-      description = `Admin: +${creditAmount} credite adăugate de ${(session.user as any).email}`
-    } else if (action === 'remove') {
+      description = reason || `Admin: +${creditAmount} credite adăugate de ${(session.user as any).email}`
+    } else {
       newBalance = Math.max(0, user.credits - creditAmount)
       transactionType = 'usage'
-      description = `Admin: -${creditAmount} credite retrase de ${(session.user as any).email}`
-    } else {
-      return NextResponse.json({ error: 'Acțiune invalidă (add/remove)' }, { status: 400 })
+      description = reason || `Admin: -${creditAmount} credite retrase de ${(session.user as any).email}`
     }
 
     // Update credits

@@ -115,11 +115,11 @@ export default function NotificationBell() {
     const diffH = Math.floor(diffMin / 60)
     const diffD = Math.floor(diffH / 24)
 
-    if (diffMin < 1) return 'Acum'
-    if (diffMin < 60) return `${diffMin}m`
-    if (diffH < 24) return `${diffH}h`
-    if (diffD < 7) return `${diffD}z`
-    return date.toLocaleDateString('ro-RO', { day: 'numeric', month: 'short' })
+    if (diffMin < 1) return 'just now'
+    if (diffMin < 60) return `${diffMin}m ago`
+    if (diffH < 24) return `${diffH}h ago`
+    if (diffD < 7) return `${diffD}d ago`
+    return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
   }
 
   return (

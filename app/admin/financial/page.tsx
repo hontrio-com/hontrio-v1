@@ -43,7 +43,7 @@ type FinancialData = {
 const fmt = (n: number) => n.toLocaleString('ro-RO')
 
 function MiniSparkline({ data, color = '#000' }: { data: number[]; color?: string }) {
-  if (!data.length) return null
+  if (data.length < 2) return null
   const max = Math.max(...data, 1)
   const min = Math.min(...data)
   const range = max - min || 1

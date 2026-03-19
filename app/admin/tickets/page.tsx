@@ -150,12 +150,12 @@ function timeAgo(iso: string): string {
   const mins  = Math.floor(diff / 60000)
   const hours = Math.floor(diff / 3600000)
   const days  = Math.floor(diff / 86400000)
-  if (mins < 2)   return 'acum câteva secunde'
-  if (mins < 60)  return `acum ${mins} min`
-  if (hours < 24) return `acum ${hours}h`
-  if (days === 1) return 'ieri'
-  if (days < 7)   return `acum ${days}z`
-  return new Date(iso).toLocaleDateString('ro-RO', { day: 'numeric', month: 'short' })
+  if (mins < 2)   return 'just now'
+  if (mins < 60)  return `${mins}m ago`
+  if (hours < 24) return `${hours}h ago`
+  if (days === 1) return 'yesterday'
+  if (days < 7)   return `${days}d ago`
+  return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
 }
 
 function formatFull(iso: string): string {

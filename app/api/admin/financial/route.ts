@@ -5,15 +5,14 @@ import { createAdminClient } from '@/lib/supabase/admin'
 
 const COST_PER_IMAGE = 0.09  // $0.09 KIE Nano Banana Pro 1K
 const COST_PER_TEXT  = 0.004 // GPT-4o-mini average
-const USD_TO_RON     = 4.60
 
-const PLAN_PRICES_RON: Record<string, number> = {
-  free: 0, starter: 99, professional: 249, enterprise: 499,
+const PLAN_PRICES_USD: Record<string, number> = {
+  free: 0, starter: 19, professional: 49, enterprise: 99,
 }
 const PLAN_CREDITS: Record<string, number> = {
   free: 20, starter: 250, professional: 750, enterprise: 2000,
 }
-const PACK_PRICES_RON: Record<number, number> = {
+const PACK_PRICES_USD: Record<number, number> = {
   50: 39, 100: 69, 300: 159, 500: 249, 1000: 399,
 }
 
@@ -36,7 +35,7 @@ export async function GET() {
     })
 
     const [{ data: allTx }, { data: allUsers }] = await Promise.all([
-      supabase.from('credit_transactions').select('amount,type,reference_type,created_at,user_id').order('created_at', { ascending: true }),
+      supabase.from('credit_transactions').select('amount,type,reference_type,created_at,user_id').order('created_at', { ascending: true }).not('type', 'in', '("manual","bonus")'),
       supabase.from('users').select('id,plan,stripe_subscription_id,created_at'),
     ])
 
@@ -44,25 +43,25 @@ export async function GET() {
       const txInMonth = (allTx || []).filter(t => t.created_at >= m.start && t.created_at < m.end)
 
       let subRevenue = 0, packRevenue = 0
-      txInMonth.filter(t => t.type === 'purchase').forEach(t => {
+      txInMonth.filter(t => t.type === 'purchase' || t.type === 'subscription').forEach(t => {
         const planMatch = Object.entries(PLAN_CREDITS).find(([, cr]) => cr === t.amount)
-        if (planMatch) subRevenue += PLAN_PRICES_RON[planMatch[0]] || 0
-        else packRevenue += PACK_PRICES_RON[t.amount] || 0
+        if (planMatch) subRevenue += PLAN_PRICES_USD[planMatch[0]] || 0
+        else packRevenue += PACK_PRICES_USD[t.amount] || 0
       })
 
       const imgCount = txInMonth.filter(t => t.type === 'usage' && t.reference_type === 'image_generation').length
       const txtCount = txInMonth.filter(t => t.type === 'usage' && t.reference_type === 'text_generation').length
-      const apiCostRon = (imgCount * COST_PER_IMAGE + txtCount * COST_PER_TEXT) * USD_TO_RON
+      const apiCostUsd = imgCount * COST_PER_IMAGE + txtCount * COST_PER_TEXT
       const newUsers = (allUsers || []).filter(u => u.created_at >= m.start && u.created_at < m.end).length
       const totalRevenue = subRevenue + packRevenue
-      const profit = totalRevenue - apiCostRon
+      const profit = totalRevenue - apiCostUsd
 
       return {
         label: m.label,
         revenue: Math.round(totalRevenue),
         subRevenue: Math.round(subRevenue),
         packRevenue: Math.round(packRevenue),
-        apiCost: Math.round(apiCostRon * 100) / 100,
+        apiCost: Math.round(apiCostUsd * 100) / 100,
         profit: Math.round(profit),
         margin: totalRevenue > 0 ? Math.round((profit / totalRevenue) * 100) : 0,
         images: imgCount,
@@ -76,14 +75,19 @@ export async function GET() {
 
     const mrr = (allUsers || [])
       .filter(u => u.stripe_subscription_id)
-      .reduce((sum, u) => sum + (PLAN_PRICES_RON[u.plan] || 0), 0)
+      .reduce((sum, u) => sum + (PLAN_PRICES_USD[u.plan] || 0), 0)
 
     const planDist: Record<string, number> = { free: 0, starter: 0, professional: 0, enterprise: 0 }
     ;(allUsers || []).forEach(u => { const p = u.plan || 'free'; if (planDist[p] !== undefined) planDist[p]++ })
 
     const paidNow = (allUsers || []).filter(u => u.plan !== 'free').length
-    const paidLastMonth = (allUsers || []).filter(u => u.plan !== 'free' && u.created_at < months[11].start).length
-    const churnRate = paidLastMonth > 0 ? Math.max(0, Math.round(((paidLastMonth - paidNow) / paidLastMonth) * 1000) / 10) : 0
+    // Customers who were paid at the start of the current month (created before this month)
+    const paidAtStartOfMonth = (allUsers || []).filter(u => u.plan !== 'free' && u.created_at < months[11].start).length
+    // New paid users who joined this month
+    const newPaidThisMonth = (allUsers || []).filter(u => u.plan !== 'free' && u.created_at >= months[11].start).length
+    // Cancelled = customers at start - (current paid - new paid this month)
+    const cancelledThisMonth = Math.max(0, paidAtStartOfMonth - (paidNow - newPaidThisMonth))
+    const churnRate = paidAtStartOfMonth > 0 ? Math.round((cancelledThisMonth / paidAtStartOfMonth) * 1000) / 10 : 0
     const arpu = paidNow > 0 ? Math.round((mrr / paidNow) * 100) / 100 : 0
     const ltv = churnRate > 0 ? Math.round(arpu / (churnRate / 100)) : arpu * 24
 
