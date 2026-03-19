@@ -53,10 +53,10 @@ export async function POST(request: Request) {
       line_items: [
         {
           price_data: {
-            currency: 'ron',
+            currency: 'usd',
             product_data: {
-              name: `${packConfig.credits} Credite HONTRIO`,
-              description: `Pachet de ${packConfig.credits} credite pentru generare AI`,
+              name: `${packConfig.credits} HONTRIO Credits`,
+              description: `Pack of ${packConfig.credits} credits for AI generation`,
             },
             unit_amount: packConfig.priceInCents,
           },

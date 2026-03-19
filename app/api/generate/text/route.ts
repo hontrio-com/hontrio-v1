@@ -110,7 +110,7 @@ export async function POST(request: Request) {
     }
 
     // Deduct credits atomically — prevents race conditions
-    const { data: newBalance } = await supabase.rpc('deduct_credits', { p_user_id: userId, p_amount: 5 })
+    const { data: newBalance } = await supabase.rpc('deduct_credits', { p_user_id: userId, p_amount: 3 })
     if (!newBalance || newBalance === -1) {
       // Credits were consumed between our check and now — rare but possible
       console.warn('[generate/text] Credit race condition detected for user', userId)

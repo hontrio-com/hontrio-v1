@@ -2,12 +2,12 @@
 // Folosit de toate rutele de API care consumă credite
 
 export const IMAGE_STYLE_COSTS: Record<string, number> = {
-  white_bg: 2,
-  lifestyle: 3,
-  premium_dark: 3,
-  industrial: 3,
-  seasonal: 4,
-  manual: 3,
+  white_bg: 6,
+  lifestyle: 7,
+  premium_dark: 7,
+  industrial: 7,
+  seasonal: 8,
+  manual: 7,
 }
 
 export const CREDIT_COSTS = {
@@ -16,19 +16,19 @@ export const CREDIT_COSTS = {
   seo_meta: 1,
   seo_short_description: 1,
   seo_long_description: 2,
-  seo_all_sections: 5,
-  seo_bulk_per_product: 5,
+  seo_all_sections: 3,
+  seo_bulk_per_product: 3,
 
   // Images
-  image_white_bg: 2,
-  image_lifestyle: 3,
-  image_premium_dark: 3,
-  image_industrial: 3,
-  image_seasonal: 4,
-  image_manual: 3,
+  image_white_bg: 6,
+  image_lifestyle: 7,
+  image_premium_dark: 7,
+  image_industrial: 7,
+  image_seasonal: 8,
+  image_manual: 7,
 
   // Agent
-  product_intelligence: 2,  // per produs
+  product_intelligence: 3,  // per product
 
   // Text generation per section
   text_title: 1,
@@ -36,7 +36,7 @@ export const CREDIT_COSTS = {
   text_short_description: 1,
   text_long_description: 2,
   text_benefits: 1,
-  text_all: 5,
+  text_all: 3,
 } as const
 
 export type CreditOperation = keyof typeof CREDIT_COSTS

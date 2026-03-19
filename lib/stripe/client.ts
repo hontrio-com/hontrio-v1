@@ -19,32 +19,32 @@ export const STRIPE_PLANS: Record<string, {
   starter: {
     name: 'Starter',
     priceId: process.env.STRIPE_STARTER_PRICE_ID || 'price_starter_placeholder',
-    credits: 250,
-    price: 99,
+    credits: 150,
+    price: 19,
   },
   professional: {
     name: 'Professional',
     priceId: process.env.STRIPE_PROFESSIONAL_PRICE_ID || 'price_professional_placeholder',
-    credits: 750,
-    price: 249,
+    credits: 400,
+    price: 49,
   },
   enterprise: {
     name: 'Enterprise',
     priceId: process.env.STRIPE_ENTERPRISE_PRICE_ID || 'price_enterprise_placeholder',
-    credits: 2000,
-    price: 499,
+    credits: 900,
+    price: 99,
   },
 }
 
-// Credit pack configuration
+// Credit pack configuration — prices in USD cents
 export const CREDIT_PACKS: Record<string, {
   credits: number
   price: number
   priceInCents: number
 }> = {
-  pack_50:   { credits: 50,   price: 39,  priceInCents: 3900  },
-  pack_100:  { credits: 100,  price: 69,  priceInCents: 6900  },
-  pack_300:  { credits: 300,  price: 159, priceInCents: 15900 },
-  pack_500:  { credits: 500,  price: 249, priceInCents: 24900 },
-  pack_1000: { credits: 1000, price: 399, priceInCents: 39900 },
+  pack_50:   { credits: 50,   price: 9,  priceInCents: 900  },
+  pack_100:  { credits: 100,  price: 15, priceInCents: 1500 },
+  pack_300:  { credits: 300,  price: 35, priceInCents: 3500 },
+  pack_500:  { credits: 500,  price: 55, priceInCents: 5500 },
+  pack_1000: { credits: 1000, price: 99, priceInCents: 9900 },
 }

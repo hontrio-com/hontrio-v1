@@ -90,7 +90,7 @@ export async function POST(req: Request) {
       }
       const hash = computeHash(src)
       if (!force && hashMap.get(product.id) === hash) { skipped++; continue }
-      if (credits - (generated * 2) < 2) { errors.push('Insufficient credits'); break }
+      if (credits - (generated * 3) < 3) { errors.push('Insufficient credits'); break }
 
       try {
         await supabase.from('product_intelligence').upsert({
@@ -145,7 +145,7 @@ PRODUS: ${src.title}\nCATEGORIE: ${src.category}\nPREȚ: ${src.price ? src.price
     }
 
     if (generated > 0) {
-      const cost = generated * 2
+      const cost = generated * 3
       const newBal = Math.max(0, credits - cost)
       await supabase.from('users').update({ credits: newBal }).eq('id', userId)
       await supabase.from('credit_transactions').insert({
@@ -154,7 +154,7 @@ PRODUS: ${src.title}\nCATEGORIE: ${src.category}\nPREȚ: ${src.price ? src.price
       })
     }
 
-    return NextResponse.json({ ok: true, total: products.length, generated, skipped, failed, credits_used: generated * 2, errors: errors.length ? errors : undefined })
+    return NextResponse.json({ ok: true, total: products.length, generated, skipped, failed, credits_used: generated * 3, errors: errors.length ? errors : undefined })
   } catch (err: any) { return NextResponse.json({ error: err.message }, { status: 500 }) }
 }
 

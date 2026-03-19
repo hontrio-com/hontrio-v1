@@ -31,43 +31,43 @@ const getPlans = (t: (k: string, p?: Record<string, string | number>) => string)
     limitations: [t('credits.no_bulk_gen'), t('credits.no_priority_support')],
   },
   {
-    id: 'starter', name: 'Starter', price: 99, period: t('credits.per_month_label'),
+    id: 'starter', name: 'Starter', price: 19, period: t('credits.per_month_label'),
     description: t('credits.test_platform'),
-    icon: Zap, credits: 250,
-    features: [t('credits.feat_credits_month', { count: '250' }), t('credits.feat_unlimited_text'), t('credits.feat_all_styles'), t('credits.feat_1_store'), t('credits.feat_priority_support'), t('credits.feat_full_seo')],
+    icon: Zap, credits: 150,
+    features: [t('credits.feat_credits_month', { count: '150' }), t('credits.feat_unlimited_text'), t('credits.feat_all_styles'), t('credits.feat_1_store'), t('credits.feat_priority_support'), t('credits.feat_full_seo')],
     limitations: [],
   },
   {
-    id: 'professional', name: 'Professional', price: 249, period: t('credits.per_month_label'),
+    id: 'professional', name: 'Professional', price: 49, period: t('credits.per_month_label'),
     description: t('credits.plan_for_growing'),
-    icon: Rocket, credits: 750,
-    features: [t('credits.feat_credits_month', { count: '750' }), t('credits.feat_includes_starter'), t('credits.feat_batch_gen'), t('credits.feat_3_stores'), t('credits.feat_priority_247'), t('credits.feat_advanced_reports')],
+    icon: Rocket, credits: 400,
+    features: [t('credits.feat_credits_month', { count: '400' }), t('credits.feat_includes_starter'), t('credits.feat_batch_gen'), t('credits.feat_3_stores'), t('credits.feat_priority_247'), t('credits.feat_advanced_reports')],
     limitations: [], popular: true,
   },
   {
-    id: 'enterprise', name: 'Enterprise', price: 499, period: t('credits.per_month_label'),
+    id: 'enterprise', name: 'Enterprise', price: 99, period: t('credits.per_month_label'),
     description: t('credits.plan_for_scale'),
-    icon: Crown, credits: 2000,
-    features: [t('credits.feat_credits_month', { count: '2000' }), t('credits.feat_includes_pro'), t('credits.feat_unlimited_stores'), t('credits.feat_dedicated_manager'), t('credits.feat_sla'), t('credits.feat_personal_training')],
+    icon: Crown, credits: 900,
+    features: [t('credits.feat_credits_month', { count: '900' }), t('credits.feat_includes_pro'), t('credits.feat_unlimited_stores'), t('credits.feat_dedicated_manager'), t('credits.feat_sla'), t('credits.feat_personal_training')],
     limitations: [],
   },
 ]
 
 const PACKS = [
-  { id: 'pack_50',   credits: 50,   price: 39,  perCredit: 0.78, popular: false },
-  { id: 'pack_100',  credits: 100,  price: 69,  perCredit: 0.69, popular: false },
-  { id: 'pack_300',  credits: 300,  price: 159, perCredit: 0.53, popular: true  },
-  { id: 'pack_500',  credits: 500,  price: 249, perCredit: 0.50, popular: false },
-  { id: 'pack_1000', credits: 1000, price: 399, perCredit: 0.40, popular: false },
+  { id: 'pack_50',   credits: 50,   price: 9,  perCredit: 0.18, popular: false },
+  { id: 'pack_100',  credits: 100,  price: 15, perCredit: 0.15, popular: false },
+  { id: 'pack_300',  credits: 300,  price: 35, perCredit: 0.12, popular: true  },
+  { id: 'pack_500',  credits: 500,  price: 55, perCredit: 0.11, popular: false },
+  { id: 'pack_1000', credits: 1000, price: 99, perCredit: 0.10, popular: false },
 ]
 
 const getCosts = (t: (k: string, p?: Record<string, string | number>) => string) => [
-  { label: t('credits.ai_text_gen'),          cost: '5 cr.', icon: FileText  },
-  { label: t('credits.image_white'),          cost: '2 cr.', icon: ImageIcon },
-  { label: t('credits.image_lifestyle'),      cost: '3 cr.', icon: ImageIcon },
-  { label: t('credits.image_premium'),        cost: '3 cr.', icon: ImageIcon },
-  { label: t('credits.image_seasonal'),       cost: '4 cr.', icon: ImageIcon },
-  { label: t('credits.auto_gen_3x_label'),    cost: '8 cr.', icon: Sparkles  },
+  { label: t('credits.ai_text_gen'),          cost: '3 cr.', icon: FileText  },
+  { label: t('credits.image_white'),          cost: '6 cr.', icon: ImageIcon },
+  { label: t('credits.image_lifestyle'),      cost: '7 cr.', icon: ImageIcon },
+  { label: t('credits.image_premium'),        cost: '7 cr.', icon: ImageIcon },
+  { label: t('credits.image_seasonal'),       cost: '8 cr.', icon: ImageIcon },
+  { label: t('credits.auto_gen_3x_label'),    cost: '18 cr.', icon: Sparkles  },
 ]
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -276,7 +276,7 @@ function SubscriptionPageInner() {
                       <div className="mb-4">
                         {plan.price === 0
                           ? <p className="text-[28px] font-bold text-neutral-900">{t('credits.free_trial')}</p>
-                          : <p className="text-[28px] font-bold text-neutral-900">{plan.price} <span className="text-[14px] font-normal text-neutral-400">RON{plan.period}</span></p>
+                          : <p className="text-[28px] font-bold text-neutral-900">${plan.price} <span className="text-[14px] font-normal text-neutral-400">{plan.period}</span></p>
                         }
                         <p className="text-[11px] text-neutral-400 mt-0.5"><span className="font-medium text-neutral-600">{plan.credits} {t('credits.credits_word')}</span> {t('credits.included_word')}</p>
                       </div>
@@ -355,11 +355,11 @@ function SubscriptionPageInner() {
                           <p className="text-[14px] font-semibold text-neutral-900">{pack.credits} {t('credits.credits_word')}</p>
                           {pack.popular && <span className="text-[9px] font-bold bg-neutral-900 text-white px-1.5 py-0.5 rounded-md">{t('credits.popular').toUpperCase()}</span>}
                         </div>
-                        <p className="text-[11px] text-neutral-400 tabular-nums">{pack.perCredit.toFixed(2)} RON / {t('credits.per_credit')}</p>
+                        <p className="text-[11px] text-neutral-400 tabular-nums">${pack.perCredit.toFixed(2)} / {t('credits.per_credit')}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
-                      <p className="text-[15px] font-bold text-neutral-900 tabular-nums">{pack.price} RON</p>
+                      <p className="text-[15px] font-bold text-neutral-900 tabular-nums">${pack.price}</p>
                       <button onClick={() => handleBuyPack(pack.id)} disabled={!!checkoutId}
                         className="h-8 px-3 rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white text-[12px] font-medium disabled:opacity-50 transition-all flex items-center gap-1.5">
                         {checkoutId === pack.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : t('credits.buy_btn')}

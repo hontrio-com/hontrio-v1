@@ -7,8 +7,8 @@ import { rateLimitExpensive } from '@/lib/security/rate-limit'
 import { calculateSeoScore } from '@/lib/seo/score'
 import { getAILanguage } from '@/lib/i18n/ai-languages'
 
-// Costul per produs la bulk (= 5 credite, acelasi ca "all" sections individual)
-const CREDIT_COST_PER_PRODUCT = 5
+// Cost per product for bulk SEO (same as "all" sections individual)
+const CREDIT_COST_PER_PRODUCT = 3
 
 function buildBulkSeoPrompt(lang: string): string {
   const L = getAILanguage(lang)

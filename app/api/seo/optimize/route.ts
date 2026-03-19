@@ -9,7 +9,7 @@ import { getAILanguage } from '@/lib/i18n/ai-languages'
 
 // ─── CREDIT COSTS ─────────────────────────────────────────────────────────────
 const CREDIT_COSTS: Record<string, number> = {
-  all: 5,
+  all: 3,
   title: 1,
   meta_description: 1,
   short_description: 2,

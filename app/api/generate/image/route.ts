@@ -10,12 +10,12 @@ import { canStartJob, markJobRunning, markJobDone } from '@/lib/security/ai-guar
 
 // ─── Cost per style ───────────────────────────────────────────────────────────
 const STYLE_COSTS: Record<string, number> = {
-  white_bg: 2,
-  lifestyle: 3,
-  premium_dark: 3,
-  industrial: 3,
-  seasonal: 4,
-  manual: 3,
+  white_bg: 6,
+  lifestyle: 7,
+  premium_dark: 7,
+  industrial: 7,
+  seasonal: 8,
+  manual: 7,
 }
 
 // ─── GPT system prompt — product photography ──────────────────────────────────
