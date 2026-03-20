@@ -36,7 +36,23 @@
       "Bash(grep -r \"risk_customers\\\\|risk_orders\\\\|risk_alerts\" /c/Users/iorda/Desktop/Hontrio.com/v1/hontrio/types --include=*.ts -l)",
       "Bash(grep -r 'CREATE TABLE.*risk_' /c/Users/iorda/Desktop/Hontrio.com/v1/hontrio --include=*.sql --include=*.ts -n)",
       "mcp__claude_ai_Supabase__list_projects",
-      "mcp__claude_ai_Supabase__apply_migration"
+      "mcp__claude_ai_Supabase__apply_migration",
+      "Bash(head:*)",
+      "Bash(tail -n 704 /c/Users/iorda/Desktop/Hontrio.com/v1/hontrio/app/\\\\\\(dashboard\\\\\\)/agent/page.tsx)",
+      "Bash(tail:*)",
+      "Bash(grep -r \"RESEND\\\\|EMAIL\\\\|MAIL\" /c/Users/iorda/Desktop/Hontrio.com/v1/hontrio --include=*.env* --include=*.ts --include=*.js)",
+      "Bash(grep -r \"buildWelcome\\\\|buildReset\\\\|buildEscalation\\\\|buildReview\\\\|buildRisk\\\\|buildWeekly\" /c/Users/iorda/Desktop/Hontrio.com/v1/hontrio --include=*.ts --include=*.tsx)",
+      "Bash(grep -r \"sendRiskAlert\\\\|sendWeeklyReport\" /c/Users/iorda/Desktop/Hontrio.com/v1/hontrio --include=*.ts --include=*.tsx)",
+      "Bash(npx next:*)",
+      "Bash(npx vercel:*)",
+      "Bash(find \"app/\\(dashboard\\)\" -name \"*.tsx\")",
+      "Bash(find . -path ./node_modules -prune -o -type f \\\\\\(-name *onboarding* -o -name robots.txt -o -name sitemap* -o -name og-* \\\\\\) -print)",
+      "Bash(grep -r \"JSON-LD\\\\|LD+JSON\\\\|schema\\\\.org\\\\|structuredData\\\\|generateMetadata\" . --include=*.tsx --include=*.ts)",
+      "Bash(head -5 \"C:/Users/iorda/Desktop/Hontrio.com/v1/hontrio/app/\\(auth\\)/login/page.tsx\")",
+      "Bash(head -5 \"C:/Users/iorda/Desktop/Hontrio.com/v1/hontrio/app/\\(auth\\)/register/page.tsx\")",
+      "Bash(magick --version)",
+      "Bash(convert --version)",
+      "Bash(ls /c/Users/iorda/Desktop/Hontrio.com/v1/hontrio/app/\\\\\\(marketing\\\\\\))"
     ]
   }
 }
