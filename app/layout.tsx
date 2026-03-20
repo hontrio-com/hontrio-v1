@@ -10,11 +10,11 @@ const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://app.hontrio.com'
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
-    default: 'HONTRIO — AI Growth Engine for eCommerce',
+    default: 'Hontrio',
     template: '%s | Hontrio',
   },
   description:
-    'Hontrio is the AI-powered platform for WooCommerce stores. Generate SEO product descriptions, optimize titles, create AI product images, and protect against fraud — all in one place.',
+    'A complete ecosystem for your online store, powered by artificial intelligence and smart automation.',
   keywords: [
     'ecommerce AI',
     'WooCommerce optimization',
@@ -45,9 +45,9 @@ export const metadata: Metadata = {
     alternateLocale: ['ro_RO'],
     url: siteUrl,
     siteName: 'Hontrio',
-    title: 'HONTRIO — AI Growth Engine for eCommerce',
+    title: 'Hontrio',
     description:
-      'Optimize your WooCommerce store with AI. Generate product descriptions, SEO titles, AI images, and protect against fraud — all in one platform.',
+      'A complete ecosystem for your online store, powered by artificial intelligence and smart automation.',
     images: [
       {
         url: '/opengraph-image',
@@ -60,9 +60,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'HONTRIO — AI Growth Engine for eCommerce',
+    title: 'Hontrio',
     description:
-      'Optimize your WooCommerce store with AI. Generate descriptions, SEO titles, AI images, and protect against fraud.',
+      'A complete ecosystem for your online store, powered by artificial intelligence and smart automation.',
     images: ['/opengraph-image'],
     creator: '@hontrio',
     site: '@hontrio',
@@ -77,10 +77,10 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [
-      { url: '/logo-icon.png', type: 'image/png' },
+      { url: '/icon.png', type: 'image/png' },
     ],
-    shortcut: '/logo-icon.png',
-    apple: '/logo-icon.png',
+    shortcut: '/icon.png',
+    apple: '/icon.png',
   },
   category: 'technology',
 }

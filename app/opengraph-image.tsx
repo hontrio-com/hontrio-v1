@@ -1,7 +1,7 @@
 import { ImageResponse } from 'next/og'
 
 export const runtime = 'edge'
-export const alt = 'Hontrio — AI Growth Engine for eCommerce'
+export const alt = 'Hontrio — A complete ecosystem for your online store'
 export const size = { width: 1200, height: 630 }
 export const contentType = 'image/png'
 
@@ -62,7 +62,7 @@ export default async function Image() {
         >
           <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#818cf8' }} />
           <span style={{ color: '#a5b4fc', fontSize: 16, fontWeight: 600 }}>
-            AI Growth Engine for eCommerce
+            Powered by AI &amp; Smart Automation
           </span>
         </div>
 
@@ -83,16 +83,16 @@ export default async function Image() {
         {/* Tagline */}
         <div
           style={{
-            fontSize: 26,
+            fontSize: 24,
             color: 'rgba(255,255,255,0.5)',
             textAlign: 'center',
-            maxWidth: 700,
-            lineHeight: 1.5,
+            maxWidth: 780,
+            lineHeight: 1.6,
           }}
         >
-          Optimize your WooCommerce store with AI.
+          A complete ecosystem for your online store,
           <br />
-          Descriptions · SEO · Images · Fraud Protection
+          powered by artificial intelligence and smart automation.
         </div>
 
         {/* Features row */}
