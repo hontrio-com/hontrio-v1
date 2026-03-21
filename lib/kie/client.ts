@@ -14,7 +14,19 @@ export class KieClient {
     aspect_ratio?: string
     resolution?: string
     output_format?: string
+    negative_prompt?: string
+    image_strength?: number
   } = {}) {
+    const input: Record<string, unknown> = {
+      prompt,
+      image_input: imageUrls,
+      aspect_ratio: options.aspect_ratio || '1:1',
+      resolution: options.resolution || '1K',
+      output_format: options.output_format || 'png',
+    }
+    if (options.negative_prompt) input.negative_prompt = options.negative_prompt
+    if (options.image_strength !== undefined) input.image_strength = options.image_strength
+
     const response = await fetch(`${KIE_API_URL}/createTask`, {
       method: 'POST',
       headers: {
@@ -23,13 +35,7 @@ export class KieClient {
       },
       body: JSON.stringify({
         model: 'nano-banana-pro',
-        input: {
-          prompt,
-          image_input: imageUrls,
-          aspect_ratio: options.aspect_ratio || '1:1',
-          resolution: options.resolution || '1K',
-          output_format: options.output_format || 'png',
-        },
+        input,
       }),
     })
 

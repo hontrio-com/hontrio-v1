@@ -143,7 +143,7 @@ export const authOptions: NextAuthOptions = {
       return true
     },
 
-    async jwt({ token, user, account }) {
+    async jwt({ token, user, account, trigger }) {
       if (user) {
         if (account?.provider === 'google') {
           const supabase = createAdminClient()
@@ -179,7 +179,7 @@ export const authOptions: NextAuthOptions = {
         const refreshedAt = (token.refreshedAt as number) || 0
         const elapsed = Date.now() - refreshedAt
         
-        if (elapsed > 60 * 1000) { // 60-second TTL
+        if (trigger === 'update' || elapsed > 60 * 1000) { // 60-second TTL or explicit refresh
           try {
             const supabase = createAdminClient()
             const { data: profile } = await supabase

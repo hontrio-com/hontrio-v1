@@ -57,16 +57,15 @@ export async function POST(request: Request) {
       )
     }
 
-    // Test connection with WooCommerce (HTTPS only)
+    // Test connection with WooCommerce (HTTPS only) + fetch store info
+    let detectedCurrency = 'RON'
+    let detectedStoreName: string | null = null
     try {
-      const testUrl = `${cleanUrl}/wp-json/wc/v3/system_status`
       const authHeader = 'Basic ' + Buffer.from(`${consumer_key}:${consumer_secret}`).toString('base64')
+      const testUrl = `${cleanUrl}/wp-json/wc/v3/system_status`
 
       const testRes = await fetch(testUrl, {
-        headers: {
-          'Authorization': authHeader,
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Authorization': authHeader, 'Content-Type': 'application/json' },
         signal: AbortSignal.timeout(15000),
       })
 
@@ -76,6 +75,13 @@ export async function POST(request: Request) {
           { status: 400 }
         )
       }
+
+      // Parse currency and store name from system_status
+      try {
+        const status = await testRes.json()
+        if (status?.settings?.currency) detectedCurrency = status.settings.currency
+        if (status?.settings?.blog_name) detectedStoreName = status.settings.blog_name
+      } catch { /* ignore parse errors */ }
     } catch {
       return NextResponse.json(
         { error: 'Nu s-a putut accesa magazinul. Verifică URL-ul.' },
@@ -133,7 +139,7 @@ export async function POST(request: Request) {
       )
     }
 
-    // Save store with encrypted credentials
+    // Save store with encrypted credentials + detected currency/name
     const { data: store, error } = await supabase
       .from('stores')
       .insert({
@@ -144,6 +150,8 @@ export async function POST(request: Request) {
         api_secret: encryptedSecret,
         sync_status: 'active',
         webhook_secret: crypto.randomUUID(),
+        currency: detectedCurrency,
+        ...(detectedStoreName ? { store_name: detectedStoreName } : {}),
       })
       .select()
       .single()

@@ -91,6 +91,7 @@ async function generatePromoText(params: {
   productCategory: string | null
   productDescription: string | null
   price: number | null
+  currency?: string | null
   style: string
   language?: string
 }): Promise<{
@@ -119,7 +120,11 @@ async function generatePromoText(params: {
     ? params.productDescription.replace(/<[^>]*>/g, '').substring(0, 400)
     : 'Not available'
 
-  const priceJson = params.price ? '"' + params.price + '"' : 'null'
+  const currency = params.currency?.toUpperCase() || ''
+  const priceFormatted = params.price
+    ? (currency ? params.price + ' ' + currency : String(params.price))
+    : null
+  const priceJson = priceFormatted ? '"' + priceFormatted + '"' : 'null'
 
   const prompt = [
     'Generate promotional text for this product. Write EVERYTHING in ' + language + '.',
@@ -172,15 +177,36 @@ const IMAGE_PROMPT_SYSTEM = `You are an expert AI image generation prompt writer
 
 Your job is to write detailed text prompts for Flux-based image generation models. These prompts describe advertising poster compositions that include a product photo and promotional text elements as part of the visual design.
 
-When writing prompts, you describe:
+════════════════════════════════════════════════════════
+RULE #1 — PRODUCT IDENTITY IS SACRED (NON-NEGOTIABLE)
+════════════════════════════════════════════════════════
+
+The product in the poster MUST be an EXACT visual reproduction of the product shown in the reference image:
+- SAME shape and silhouette — zero distortion, zero simplification
+- SAME proportions — no stretching, no compression of any part
+- SAME colors — pixel-perfect reproduction, NO color shifting from poster lighting, NO desaturation, NO tinting
+- SAME labels, text, logos, and packaging artwork — every character reproduced exactly
+- SAME material finishes — matte stays matte, glossy stays glossy, metallic stays metallic
+- SAME physical details — buttons, caps, handles, seams, embossing — ALL reproduced exactly
+
+You are NOT redesigning the product. You are NOT creating a generic version of that product category.
+You are PLACING the EXACT product from the reference image into a well-designed poster layout.
+
+Every prompt MUST end with this sentence:
+"CRITICAL: The product must be photographically identical to the reference image in every detail — same exact colors, shape, labels, materials, and proportions — reproduce it with zero alterations."
+
+════════════════════════════════════════════════════════
+RULE #2 — PROMPT CONTENT
+════════════════════════════════════════════════════════
+
+When writing prompts, describe:
 - The visual composition and layout of the poster
-- How the product should appear (faithful to reference)
+- How the product should appear (EXACT reproduction of reference — state specific details)
 - The background, colors, and design elements
-- Typography elements as visual components of the design (font style, size, placement, color)
+- Typography elements as visual components (font style, size, placement, color — include the actual text strings)
 - The overall mood and quality
 
-Your prompts are descriptive and specific. You write them in the style of a detailed art direction brief.
-
+Your prompts are descriptive and specific. Write them in the style of a detailed art direction brief.
 Output only the prompt text itself — no preamble, no commentary.`
 
 // ─── Style layout instructions ────────────────────────────────────────────────
@@ -733,11 +759,19 @@ export async function POST(request: Request) {
           ? product.sale_price
           : (product.price ?? null)
 
+      // Get store currency
+      const { data: store } = await supabase
+        .from('stores')
+        .select('currency')
+        .eq('user_id', userId)
+        .maybeSingle()
+
       const promoText = await generatePromoText({
         productTitle: product.optimized_title || product.original_title,
         productCategory: product.category,
         productDescription: product.optimized_short_description || product.original_description,
         price: effectivePrice,
+        currency: store?.currency || body.currency || null,
         style,
         language: language || undefined,
       })
@@ -903,6 +937,7 @@ export async function POST(request: Request) {
         aspect_ratio: '1:1',
         resolution: '1K',
         output_format: 'png',
+        negative_prompt: 'different product, wrong colors, wrong shape, redesigned product, generic product, changed packaging, different labels, product alteration, wrong proportions, wrong material finish',
       })
 
       const resultUrls = await kie.waitForTask(taskId)

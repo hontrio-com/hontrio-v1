@@ -52,7 +52,15 @@
       "Bash(head -5 \"C:/Users/iorda/Desktop/Hontrio.com/v1/hontrio/app/\\(auth\\)/register/page.tsx\")",
       "Bash(magick --version)",
       "Bash(convert --version)",
-      "Bash(ls /c/Users/iorda/Desktop/Hontrio.com/v1/hontrio/app/\\\\\\(marketing\\\\\\))"
+      "Bash(ls /c/Users/iorda/Desktop/Hontrio.com/v1/hontrio/app/\\\\\\(marketing\\\\\\))",
+      "Bash(find C:UsersiordaDesktopHontrio.comv1hontrio -type f \\\\\\(-name *.sql -o -name *schema* \\\\\\))",
+      "Bash(grep -r style_check C:UsersiordaDesktopHontrio.comv1hontrio --include=*.sql --include=*.ts --include=*.tsx)",
+      "Bash(grep -r generated_images C:UsersiordaDesktopHontrio.comv1hontrio --include=*.sql --include=*.ts --include=*.tsx)",
+      "Bash(find C:UsersiordaDesktopHontrio.comv1hontrio/lib -type f \\\\\\(-name *.ts -o -name *.tsx \\\\\\))",
+      "Bash(find C:UsersiordaDesktopHontrio.comv1hontrio -type f \\\\\\(-name *.sql -o -name schema* \\\\\\))",
+      "Bash(grep -r \"generated_images\\\\|image_bulk\\\\|image_style\" C:UsersiordaDesktopHontrio.comv1hontrio/lib --include=*.ts)",
+      "Bash(grep -r \"interface.*Image\\\\|type.*Image\" C:UsersiordaDesktopHontrio.comv1hontrio --include=*.ts)",
+      "mcp__claude_ai_Supabase__execute_sql"
     ]
   }
 }
