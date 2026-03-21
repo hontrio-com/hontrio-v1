@@ -14,15 +14,21 @@ function isNewer(latest: string, current: string): boolean {
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
   const clientVersion = searchParams.get('v') || '1.0.0'
-  const apiBase = process.env.NEXT_PUBLIC_APP_URL || 'https://hontrio.com'
+  const storeId = searchParams.get('store_id') || ''
+  const apiBase = process.env.NEXT_PUBLIC_APP_URL || 'https://app.hontrio.com'
   const hasUpdate = isNewer(PLUGIN_VERSION, clientVersion)
+
+  // Download URL includes store_id so WordPress can download without session auth
+  const downloadUrl = storeId
+    ? `${apiBase}/api/plugin/download?store_id=${encodeURIComponent(storeId)}`
+    : null
 
   return NextResponse.json({
     slug: PLUGIN_SLUG, plugin: 'hontrio/hontrio.php',
     current_version: clientVersion,
     new_version: PLUGIN_VERSION,
     has_update: hasUpdate,
-    download_url: hasUpdate ? `${apiBase}/api/plugin/download` : null,
+    download_url: hasUpdate ? downloadUrl : null,
     tested: '6.6', requires: '5.8', requires_php: '7.4',
     changelog: 'Plugin unificat Hontrio — AI Agent + Risk Shield într-un singur modul cu auto-update.',
     sections: {

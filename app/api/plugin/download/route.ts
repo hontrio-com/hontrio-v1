@@ -200,7 +200,7 @@ function buildPluginPhp(cfg: {
   o("add_filter( 'pre_set_site_transient_update_plugins', 'hontrio_check_update' );")
   o('function hontrio_check_update( $transient ) {')
   o('    if ( empty( $transient->checked ) ) return $transient;')
-  o("    $res = wp_remote_get( HONTRIO_API_BASE . '/api/plugin/update?v=' . HONTRIO_VERSION, array( 'timeout' => 10 ) );")
+  o("    $res = wp_remote_get( HONTRIO_API_BASE . '/api/plugin/update?v=' . HONTRIO_VERSION . '&store_id=' . HONTRIO_STORE_ID, array( 'timeout' => 10 ) );")
   o('    if ( is_wp_error( $res ) ) return $transient;')
   o("    $data = json_decode( wp_remote_retrieve_body( $res ), true );")
   o("    if ( empty( $data['has_update'] ) ) return $transient;")
@@ -214,7 +214,7 @@ function buildPluginPhp(cfg: {
   o("add_filter( 'plugins_api', 'hontrio_plugin_info', 20, 3 );")
   o('function hontrio_plugin_info( $result, $action, $args ) {')
   o("    if ( $action !== 'plugin_information' || $args->slug !== 'hontrio' ) return $result;")
-  o("    $res = wp_remote_get( HONTRIO_API_BASE . '/api/plugin/update?v=' . HONTRIO_VERSION, array( 'timeout' => 10 ) );")
+  o("    $res = wp_remote_get( HONTRIO_API_BASE . '/api/plugin/update?v=' . HONTRIO_VERSION . '&store_id=' . HONTRIO_STORE_ID, array( 'timeout' => 10 ) );")
   o('    if ( is_wp_error( $res ) ) return $result;')
   o("    $data = json_decode( wp_remote_retrieve_body( $res ), true );")
   o('    if ( empty( $data ) ) return $result;')
@@ -272,24 +272,40 @@ function buildPluginPhp(cfg: {
 }
 
 // ─── ROUTE HANDLER ────────────────────────────────────────────────────────────
-export async function GET() {
+export async function GET(req: Request) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user) return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
-
-    const userId   = (session.user as any).id
     const supabase = createAdminClient()
     const apiBase  = process.env.NEXT_PUBLIC_APP_URL || 'https://app.hontrio.com'
 
-    const [storeRes, configRes] = await Promise.all([
-      supabase.from('stores').select('id, store_url, webhook_secret').eq('user_id', userId).single(),
-      supabase.from('agent_configs').select('agent_name, widget_color, widget_position').eq('user_id', userId).single(),
-    ])
-    const store  = storeRes.data
-    const config = configRes.data
+    // Auth: accept either NextAuth session OR store_id query param (for WP auto-update)
+    const { searchParams } = new URL(req.url)
+    const storeIdParam = searchParams.get('store_id')
 
-    console.log('[Plugin Download] userId:', userId, 'store:', store, 'storeErr:', storeRes.error)
-    if (!store) return NextResponse.json({ error: 'Niciun magazin conectat. userId=' + userId + ' err=' + storeRes.error?.message }, { status: 400 })
+    let store: any = null
+    let config: any = null
+
+    if (storeIdParam) {
+      // WordPress auto-update path — identify by store_id directly
+      const [storeRes, configRes] = await Promise.all([
+        supabase.from('stores').select('id, store_url, webhook_secret, user_id').eq('id', storeIdParam).single(),
+        supabase.from('agent_configs').select('agent_name, widget_color, widget_position').eq('store_id', storeIdParam).single(),
+      ])
+      store  = storeRes.data
+      config = configRes.data
+      if (!store) return NextResponse.json({ error: 'Store not found' }, { status: 404 })
+    } else {
+      // Dashboard download path — requires session
+      const session = await getServerSession(authOptions)
+      if (!session?.user) return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
+      const userId = (session.user as any).id
+      const [storeRes, configRes] = await Promise.all([
+        supabase.from('stores').select('id, store_url, webhook_secret, user_id').eq('user_id', userId).single(),
+        supabase.from('agent_configs').select('agent_name, widget_color, widget_position').eq('user_id', userId).single(),
+      ])
+      store  = storeRes.data
+      config = configRes.data
+      if (!store) return NextResponse.json({ error: 'Niciun magazin conectat.' }, { status: 400 })
+    }
 
     let secret = store.webhook_secret
     if (!secret) {
@@ -298,7 +314,7 @@ export async function GET() {
     }
 
     const php = buildPluginPhp({
-      apiBase, userId, storeId: store.id,
+      apiBase, userId: store.user_id, storeId: store.id,
       storeName:    store.store_url?.replace(/^https?:\/\//,'').replace(/\/$/,'') || '',
       webhookSecret: secret,
       agentName:    config?.agent_name      || 'Asistent Hontrio',
