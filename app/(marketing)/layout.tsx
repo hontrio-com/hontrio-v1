@@ -235,12 +235,6 @@ function MarketingHeader() {
               Blog
             </Link>
 
-            <Link
-              href="/roadmap"
-              className="px-3.5 py-1.5 text-[13.5px] font-medium text-neutral-500 hover:text-neutral-900 rounded-lg hover:bg-black/[0.04] transition-all duration-150"
-            >
-              Roadmap
-            </Link>
 
           </nav>
 
@@ -442,13 +436,6 @@ function MarketingHeader() {
               className="flex items-center px-3 py-3 text-[17px] font-semibold text-neutral-900 rounded-xl hover:bg-neutral-50 transition-colors"
             >
               Blog
-            </Link>
-            <Link
-              href="/roadmap"
-              onClick={() => setMobileOpen(false)}
-              className="flex items-center px-3 py-3 text-[17px] font-semibold text-neutral-900 rounded-xl hover:bg-neutral-50 transition-colors"
-            >
-              Roadmap
             </Link>
           </div>
 

@@ -3,14 +3,14 @@
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import {
-  motion, AnimatePresence, useReducedMotion, useInView, useAnimation,
+  motion, AnimatePresence, useReducedMotion, useInView,
   type MotionProps,
 } from 'framer-motion'
 import {
   Map, Info, ImageIcon, TrendingUp, Bot, ShieldCheck,
   CheckCircle, RefreshCw, Cpu, Gauge, Languages, MessageSquarePlus,
   Video, Music, Type, Smartphone, Lightbulb, ArrowRight, ChevronDown,
-  Check, Send, Loader2,
+  Check, Send, Loader2, Search, BarChart2,
 } from 'lucide-react'
 import { useLocale } from '@/lib/i18n/context'
 
@@ -47,7 +47,7 @@ const ro = {
   ],
 
   s2Title: 'Extindere platforme eCommerce',
-  s2Desc: 'Extindem compatibilitatea platformei la principalele solutii eCommerce din Romania si Europa. WooCommerce este deja disponibil, restul urmaza.',
+  s2Desc: 'WooCommerce este deja disponibil. Extindem suportul la cele mai utilizate platforme de comert electronic pentru a fi accesibil oricarui magazin online, indiferent de infrastructura tehnica aleasa.',
   s2Note: 'Ordinea integrarii urmatoarelor platforme poate fi influentata de voturile voastre din sectiunea de mai jos.',
   s2Platforms: [
     { name: 'WooCommerce', status: 'available' },
@@ -60,7 +60,7 @@ const ro = {
   ],
 
   s3Title: 'Creare reclame cu AI',
-  s3Desc: 'Genereaza reclame complete pentru Meta, Google si TikTok direct din platforma. Texte, imagini si targeting, totul optimizat de AI pentru produsele tale.',
+  s3Desc: 'Genereaza reclame complete pentru Meta, Google si TikTok direct din platforma. Texte, imagini si targeting, totul optimizat de AI. Un setup wizard in cativa pasi ghideaza configurarea primei campanii fara cunostinte tehnice prealabile.',
   s3Channels: [
     {
       name: 'Meta Ads',
@@ -89,10 +89,28 @@ const ro = {
   s5Title: 'Google Merchant Optimizer',
   s5Desc: 'Optimizare automata a feed-ului Google Merchant Center pentru a maximiza vizibilitatea produselor tale in Google Shopping.',
   s5Items: [
-    'Sincronizare automata produs -- feed',
+    'Sincronizare automata produs si feed',
     'Optimizare titluri si atribute pentru Shopping',
     'Detectie si corectare erori de feed',
     'Rapoarte de performanta Google Shopping',
+  ],
+
+  s5bTitle: 'Analiza produse castigatoare',
+  s5bDesc: 'Descopera produsele cu potential maxim de vanzare inainte sa investesti in promovarea lor. Platforma analizeaza tendintele de cautare, datele de vanzari agregate si semnalele de pe retelele sociale pentru a-ti recomanda produsele cu cea mai mare probabilitate de succes.',
+  s5bItems: [
+    'Identificare tendinte de cautare pe categorii de produse',
+    'Scor de potential bazat pe date agregate de vanzari',
+    'Analiza cererii in timp real pe multiple canale',
+    'Recomandari de stoc si timing optim de lansare',
+  ],
+
+  s5cTitle: 'Analiza preturi concurenti',
+  s5cDesc: 'Monitorizeaza automat preturile concurentilor pentru produsele din catalogul tau si primeste recomandari de repricing bazate pe date reale. Fii mereu informat despre pozitionarea ta in piata fara sa pierzi timp cu verificari manuale.',
+  s5cItems: [
+    'Monitorizare automata preturi pentru produsele selectate',
+    'Alerte instant la modificari de pret ale concurentilor',
+    'Recomandari de repricing pentru maximizarea conversiei',
+    'Rapoarte de pozitionare competitiva pe categorie',
   ],
 
   s6Title: 'Imbunatatiri continue',
@@ -105,18 +123,20 @@ const ro = {
   ],
 
   overviewTitle: 'Privire de ansamblu',
-  overviewSub: 'Cele 6 etape ale evolutiei Hontrio, de la lansare la platforma completa.',
+  overviewSub: 'Cele 8 etape ale evolutiei Hontrio, de la lansare la platforma completa.',
 
   feedbackTitle: 'Ajuta-ne sa prioritizam',
   feedbackSub: 'Voturile si sugestiile voastre influenteaza direct ce construim in continuare.',
   voteTitle: 'Ce vrei sa vedem implementat primul?',
-  voteNote: 'Votul este anonim si stocat local. Poti vota o singura optiune o data.',
+  voteNote: 'Votul este anonim. Poti vota o singura optiune o data.',
   voteOptions: [
     { key: 'shopify', label: 'Shopify Integration', pct: 68 },
     { key: 'ads', label: 'Reclame cu AI', pct: 54 },
     { key: 'merchant', label: 'Google Merchant Optimizer', pct: 41 },
     { key: 'video', label: 'Videoclipuri de produs', pct: 38 },
     { key: 'merchantpro', label: 'MerchantPRO Integration', pct: 29 },
+    { key: 'winning-products', label: 'Analiza produse castigatoare', pct: 45 },
+    { key: 'price-analysis', label: 'Analiza preturi concurenti', pct: 33 },
   ],
   voteBtnLabel: 'Voteaza',
   votedLabel: 'Votat',
@@ -140,7 +160,7 @@ const ro = {
     },
     {
       q: 'Pot sa influentez ce se construieste?',
-      a: 'Da. Sectiunea de vot si formul de sugestii de mai sus au impact direct. Functiile cu cele mai multe voturi sunt prioritizate in planning-ul urmatorului sprint.',
+      a: 'Da. Sectiunea de vot si formularul de sugestii de mai sus au impact direct. Functiile cu cele mai multe voturi sunt prioritizate in planning-ul urmatorului sprint.',
     },
     {
       q: 'Cand va fi disponibil Shopify?',
@@ -194,7 +214,7 @@ const en: typeof ro = {
   ],
 
   s2Title: 'eCommerce Platform Expansion',
-  s2Desc: 'We\'re expanding platform compatibility to the main eCommerce solutions in Romania and Europe. WooCommerce is already available, the rest is coming.',
+  s2Desc: 'WooCommerce is already available. We are expanding support to the most widely used eCommerce platforms to be accessible to any online store, regardless of the technical infrastructure chosen.',
   s2Note: 'The order of upcoming platform integrations may be influenced by your votes in the section below.',
   s2Platforms: [
     { name: 'WooCommerce', status: 'available' },
@@ -207,7 +227,7 @@ const en: typeof ro = {
   ],
 
   s3Title: 'AI Ad Creation',
-  s3Desc: 'Generate complete ads for Meta, Google and TikTok directly from the platform. Copy, images and targeting -- all AI-optimized for your products.',
+  s3Desc: 'Generate complete ads for Meta, Google and TikTok directly from the platform. Copy, images and targeting, all AI-optimized. A step-by-step setup wizard guides the configuration of your first campaign without any prior technical knowledge.',
   s3Channels: [
     {
       name: 'Meta Ads',
@@ -236,10 +256,28 @@ const en: typeof ro = {
   s5Title: 'Google Merchant Optimizer',
   s5Desc: 'Automatic optimization of your Google Merchant Center feed to maximize product visibility in Google Shopping.',
   s5Items: [
-    'Automatic product -- feed sync',
+    'Automatic product and feed sync',
     'Title and attribute optimization for Shopping',
     'Feed error detection and correction',
     'Google Shopping performance reports',
+  ],
+
+  s5bTitle: 'Winning Products Analysis',
+  s5bDesc: 'Discover products with maximum sales potential before investing in their promotion. The platform analyzes search trends, aggregated sales data and social media signals to recommend products with the highest probability of success.',
+  s5bItems: [
+    'Search trend identification by product category',
+    'Potential score based on aggregated sales data',
+    'Real-time demand analysis across multiple channels',
+    'Stock recommendations and optimal launch timing',
+  ],
+
+  s5cTitle: 'Competitor Price Analysis',
+  s5cDesc: 'Automatically monitor competitor prices for products in your catalog and receive data-driven repricing recommendations. Always stay informed about your market positioning without wasting time on manual checks.',
+  s5cItems: [
+    'Automatic price monitoring for selected products',
+    'Instant alerts on competitor price changes',
+    'Repricing recommendations to maximize conversion',
+    'Competitive positioning reports by category',
   ],
 
   s6Title: 'Continuous Improvements',
@@ -252,18 +290,20 @@ const en: typeof ro = {
   ],
 
   overviewTitle: 'Overview',
-  overviewSub: 'The 6 stages of Hontrio\'s evolution, from launch to full platform.',
+  overviewSub: 'The 8 stages of Hontrio\'s evolution, from launch to full platform.',
 
   feedbackTitle: 'Help us prioritize',
   feedbackSub: 'Your votes and suggestions directly influence what we build next.',
   voteTitle: 'What do you want to see first?',
-  voteNote: 'Vote is anonymous and stored locally. You can vote once per option.',
+  voteNote: 'Vote is anonymous. You can vote once per option.',
   voteOptions: [
     { key: 'shopify', label: 'Shopify Integration', pct: 68 },
     { key: 'ads', label: 'AI Ads', pct: 54 },
     { key: 'merchant', label: 'Google Merchant Optimizer', pct: 41 },
     { key: 'video', label: 'Product Videos', pct: 38 },
     { key: 'merchantpro', label: 'MerchantPRO Integration', pct: 29 },
+    { key: 'winning-products', label: 'Winning Products Analysis', pct: 45 },
+    { key: 'price-analysis', label: 'Competitor Price Analysis', pct: 33 },
   ],
   voteBtnLabel: 'Vote',
   votedLabel: 'Voted',
@@ -313,10 +353,26 @@ const en: typeof ro = {
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 const STATUS_COLORS = {
-  available: { dot: 'bg-green-500', border: 'border-green-500/40', bg: 'bg-green-500/8', badge: 'bg-green-500/12 text-green-700 border-green-500/30', text: 'text-green-700' },
-  inDev:     { dot: 'bg-blue-500',  border: 'border-blue-500/40',  bg: 'bg-blue-500/8',  badge: 'bg-blue-500/12 text-blue-700 border-blue-500/30',   text: 'text-blue-700'  },
-  next:      { dot: 'bg-yellow-500',border: 'border-yellow-500/40',bg: 'bg-yellow-500/8',badge: 'bg-yellow-500/12 text-yellow-700 border-yellow-500/30',text:'text-yellow-700'},
-  future:    { dot: 'bg-neutral-400',border:'border-neutral-300/30',bg: 'bg-transparent', badge: 'bg-neutral-100 text-neutral-500 border-neutral-200',  text: 'text-neutral-500'},
+  available: {
+    dot: 'bg-green-500',
+    badge: 'bg-green-50 text-green-700 border-green-200',
+    node: 'bg-green-500',
+  },
+  inDev: {
+    dot: 'bg-blue-500',
+    badge: 'bg-blue-50 text-blue-700 border-blue-200',
+    node: 'bg-blue-500',
+  },
+  next: {
+    dot: 'bg-yellow-500',
+    badge: 'bg-yellow-50 text-yellow-700 border-yellow-200',
+    node: 'bg-yellow-500',
+  },
+  future: {
+    dot: 'bg-neutral-400',
+    badge: 'bg-neutral-100 text-neutral-500 border-neutral-200',
+    node: 'bg-neutral-400',
+  },
 }
 
 type StatusKey = keyof typeof STATUS_COLORS
@@ -332,8 +388,11 @@ function fadeUp(delay = 0, reduced = false): MotionProps {
 
 function StatusBadge({ status, T }: { status: StatusKey; T: typeof ro }) {
   const c = STATUS_COLORS[status]
-  const label = T.statuses[status === 'inDev' ? 'inDev' : status === 'available' ? 'available' : status === 'next' ? 'next' : 'future']
-  const pulse = status === 'available' ? 'animate-ping' : status === 'inDev' ? '' : ''
+  const label =
+    status === 'available' ? T.statuses.available
+    : status === 'inDev' ? T.statuses.inDev
+    : status === 'next' ? T.statuses.next
+    : T.statuses.future
   return (
     <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium ${c.badge}`}>
       <span className="relative flex h-2 w-2">
@@ -356,7 +415,11 @@ export default function RoadmapPage() {
   const overviewRef = useRef<HTMLDivElement>(null)
   const overviewInView = useInView(overviewRef, { once: true, margin: '-80px' })
 
-  const [votes, setVotes] = useState<string[]>([])
+  const [voteCounts, setVoteCounts] = useState<Record<string, number>>({})
+  const [votedKeys, setVotedKeys] = useState<Set<string>>(new Set())
+  const [sessionId, setSessionId] = useState('')
+  const [votingKey, setVotingKey] = useState<string | null>(null)
+
   const [email, setEmail] = useState('')
   const [message, setMessage] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -364,19 +427,45 @@ export default function RoadmapPage() {
   const [openFaq, setOpenFaq] = useState<number | null>(null)
 
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem('hontrio_roadmap_votes')
-      if (stored) setVotes(JSON.parse(stored))
-    } catch {
-      // ignore
+    // Session ID
+    let sid = localStorage.getItem('hontrio_session_id')
+    if (!sid) {
+      sid = crypto.randomUUID()
+      localStorage.setItem('hontrio_session_id', sid)
     }
+    setSessionId(sid)
+
+    // Previously voted keys
+    const stored = localStorage.getItem('hontrio_roadmap_votes')
+    if (stored) {
+      try { setVotedKeys(new Set(JSON.parse(stored))) } catch {}
+    }
+
+    // Fetch real vote counts
+    fetch('/api/roadmap/votes')
+      .then(r => r.json())
+      .then(d => { if (d.counts) setVoteCounts(d.counts) })
+      .catch(() => {})
   }, [])
 
-  function handleVote(key: string) {
-    if (votes.includes(key)) return
-    const next = [...votes, key]
-    setVotes(next)
-    try { localStorage.setItem('hontrio_roadmap_votes', JSON.stringify(next)) } catch { /* ignore */ }
+  async function handleVote(key: string) {
+    if (votedKeys.has(key) || !sessionId || votingKey) return
+    setVotingKey(key)
+    try {
+      const res = await fetch('/api/roadmap/votes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ feature_key: key, session_id: sessionId }),
+      })
+      const data = await res.json()
+      if (res.ok && data.counts) {
+        setVoteCounts(data.counts)
+      }
+      const newVoted = new Set([...votedKeys, key])
+      setVotedKeys(newVoted)
+      localStorage.setItem('hontrio_roadmap_votes', JSON.stringify([...newVoted]))
+    } catch {}
+    setVotingKey(null)
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -403,24 +492,18 @@ export default function RoadmapPage() {
     feedbackRef.current?.scrollIntoView({ behavior: 'smooth' })
   }
 
+  // Compute dynamic pct from real vote counts
+  const totalVotes = Object.values(voteCounts).reduce((a, b) => a + b, 0)
+  function getPct(key: string, fallback: number) {
+    return totalVotes > 0 ? Math.round((voteCounts[key] ?? 0) / totalVotes * 100) : fallback
+  }
+
   // ─── Render ───────────────────────────────────────────────────────────────
 
   return (
     <main className="pt-20 overflow-x-hidden">
-      {/* CSS keyframes for animated gradient and slow spin */}
+      {/* CSS keyframes for slow spin and pulse */}
       <style>{`
-        @keyframes gradientShift {
-          0%,100% { background-position: 0% 50%; }
-          50%      { background-position: 100% 50%; }
-        }
-        .gradient-text-anim {
-          background: linear-gradient(90deg, var(--color-primary), #60a5fa, var(--color-primary));
-          background-size: 200% auto;
-          -webkit-background-clip: text;
-          background-clip: text;
-          -webkit-text-fill-color: transparent;
-          animation: gradientShift 4s ease infinite;
-        }
         @keyframes slowSpin {
           from { transform: rotate(0deg); }
           to   { transform: rotate(360deg); }
@@ -434,17 +517,17 @@ export default function RoadmapPage() {
       `}</style>
 
       {/* ── SECTION 1: HERO ─────────────────────────────────────────────── */}
-      <section className="relative flex flex-col items-center text-center px-4 py-24 overflow-hidden">
-        {/* background */}
-        <div className="pointer-events-none absolute inset-0 -z-10"
-          style={{ background: 'radial-gradient(ellipse 70% 50% at 80% 0%, var(--color-primary) / 0.08, transparent 70%)' }} />
-        <div className="pointer-events-none absolute inset-0 -z-10 opacity-[0.04]"
-          style={{ backgroundImage: 'radial-gradient(circle, currentColor 1px, transparent 1px)', backgroundSize: '24px 24px' }} />
+      <section className="relative flex flex-col items-center text-center px-4 py-24 overflow-hidden bg-white">
+        {/* subtle dot grid */}
+        <div
+          className="pointer-events-none absolute inset-0 -z-10 opacity-[0.035]"
+          style={{ backgroundImage: 'radial-gradient(circle, #000 1px, transparent 1px)', backgroundSize: '24px 24px' }}
+        />
 
         <div className="flex flex-col items-center max-w-[760px] w-full gap-5">
           {/* Badge */}
           <motion.div {...fadeUp(0, reduced)}>
-            <span className="inline-flex items-center gap-2 rounded-full border border-primary/25 bg-primary/[0.12] px-4 py-1.5 text-sm font-medium text-primary">
+            <span className="inline-flex items-center gap-2 rounded-full border border-primary/25 bg-primary/[0.08] px-4 py-1.5 text-sm font-medium text-primary">
               <Map className="h-3.5 w-3.5 pulse-slow" />
               {T.heroBadge}
             </span>
@@ -453,17 +536,17 @@ export default function RoadmapPage() {
           {/* H1 */}
           <motion.h1
             {...fadeUp(100, reduced)}
-            className="font-extrabold leading-[1.1] text-[34px] md:text-[52px]"
+            className="font-extrabold leading-[1.1] text-[34px] md:text-[52px] text-neutral-900"
           >
             {T.heroH1a}{' '}
-            <span className="gradient-text-anim">{T.heroH1b}</span>{' '}
+            <span className="font-extrabold text-neutral-900">{T.heroH1b}</span>{' '}
             {T.heroH1c}
           </motion.h1>
 
           {/* Subtitle */}
           <motion.p
             {...fadeUp(200, reduced)}
-            className="opacity-70 text-[18px] leading-[1.7] max-w-[580px]"
+            className="text-neutral-600 text-[18px] leading-[1.7] max-w-[580px]"
           >
             {T.heroSub}
           </motion.p>
@@ -471,38 +554,41 @@ export default function RoadmapPage() {
           {/* Info card */}
           <motion.div
             {...fadeUp(300, reduced)}
-            className="flex items-start gap-3 rounded-[12px] border border-primary/25 bg-primary/[0.05] px-5 py-3.5 text-left"
+            className="flex items-start gap-3 rounded-xl border border-neutral-200 bg-neutral-50 px-5 py-3.5 text-left"
           >
-            <Info className="h-4 w-4 mt-0.5 shrink-0 text-primary" />
-            <p className="text-sm opacity-70">{T.heroInfo}</p>
+            <Info className="h-4 w-4 mt-0.5 shrink-0 text-neutral-400" />
+            <p className="text-sm text-neutral-500">{T.heroInfo}</p>
           </motion.div>
         </div>
       </section>
 
       {/* ── SECTION 2: STATUS LEGEND ────────────────────────────────────── */}
-      <section className="flex flex-col items-center px-4 pb-16">
+      <section className="bg-neutral-50 flex flex-col items-center px-4 py-10">
         <div className="flex flex-wrap justify-center gap-3 max-w-[900px]">
           {(
             [
               ['available', 'bg-green-500', true],
               ['inDev',     'bg-blue-500',  false],
-              ['next',      'bg-yellow-500',false],
-              ['future',    'bg-neutral-400',false],
+              ['next',      'bg-yellow-500', false],
+              ['future',    'bg-neutral-400', false],
             ] as [StatusKey, string, boolean][]
           ).map(([key, dotClass, pulse]) => {
-            const c = STATUS_COLORS[key]
-            const label   = T.statuses[key === 'inDev' ? 'inDev' : key === 'available' ? 'available' : key === 'next' ? 'next' : 'future']
+            const label =
+              key === 'available' ? T.statuses.available
+              : key === 'inDev' ? T.statuses.inDev
+              : key === 'next' ? T.statuses.next
+              : T.statuses.future
             const descKey = (key + 'Desc') as keyof typeof ro.statuses
-            const desc    = T.statuses[descKey]
+            const desc = T.statuses[descKey]
             return (
-              <div key={key} className={`flex items-center gap-2.5 rounded-[10px] border bg-white px-5 py-2.5 text-sm shadow-sm`}>
+              <div key={key} className="flex items-center gap-2.5 rounded-xl border border-neutral-200 bg-white px-5 py-2.5 text-sm shadow-sm">
                 <span className="relative flex h-2.5 w-2.5 shrink-0">
                   {pulse && <span className={`absolute inline-flex h-full w-full rounded-full ${dotClass} animate-ping opacity-70`} />}
                   <span className={`relative inline-flex h-2.5 w-2.5 rounded-full ${dotClass}`} />
                 </span>
-                <span className="font-semibold">{label}</span>
-                <span className="text-xs opacity-50 hidden sm:block">--</span>
-                <span className="text-xs opacity-60 hidden sm:block">{desc}</span>
+                <span className="font-semibold text-neutral-800">{label}</span>
+                <span className="text-xs text-neutral-300 hidden sm:block">|</span>
+                <span className="text-xs text-neutral-500 hidden sm:block">{desc}</span>
               </div>
             )
           })}
@@ -510,28 +596,23 @@ export default function RoadmapPage() {
       </section>
 
       {/* ── SECTION 3: MAIN TIMELINE ────────────────────────────────────── */}
-      <section className="px-4 pb-24">
+      <section className="bg-white px-4 py-20">
         <div className="max-w-[860px] mx-auto">
           <div className="relative">
             {/* Vertical line */}
-            <div className="absolute left-5 top-0 bottom-0 w-px bg-gradient-to-b from-border via-border to-transparent" />
+            <div className="absolute left-[18px] top-0 bottom-0 w-px bg-neutral-200" />
 
             <div className="flex flex-col gap-10">
 
               {/* ── Stage 1: FUNDATIA ─────────────────────────────────── */}
-              <TimelineItem
-                status="available"
-                reduced={reduced}
-                delay={0}
-                node={<NodeDot color="bg-green-500" pulse="ping" />}
-              >
-                <div className={`rounded-[20px] border-2 ${STATUS_COLORS.available.border} ${STATUS_COLORS.available.bg} p-7 shadow-sm`}>
+              <TimelineItem status="available" reduced={reduced} delay={0}>
+                <div className="rounded-2xl border border-neutral-200 bg-white p-6 md:p-7 shadow-sm">
                   <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
                     <StatusBadge status="available" T={T} />
-                    <span className="text-[13px] italic opacity-50">{T.s1Launched}</span>
+                    <span className="text-[13px] italic text-neutral-400">{T.s1Launched}</span>
                   </div>
-                  <h3 className="font-bold text-xl mb-2">{T.s1Title}</h3>
-                  <p className="text-sm opacity-70 mb-5">{T.s1Desc}</p>
+                  <h3 className="font-bold text-xl mb-2 text-neutral-900">{T.s1Title}</h3>
+                  <p className="text-sm text-neutral-500 mb-5">{T.s1Desc}</p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {[
                       { icon: <ImageIcon className="h-4 w-4" />, ...T.s1Features[0] },
@@ -539,11 +620,11 @@ export default function RoadmapPage() {
                       { icon: <Bot className="h-4 w-4" />, ...T.s1Features[2] },
                       { icon: <ShieldCheck className="h-4 w-4" />, ...T.s1Features[3] },
                     ].map((f) => (
-                      <div key={f.title} className="flex items-start gap-3 rounded-[10px] border border-green-500/20 bg-green-500/5 p-3">
-                        <span className="mt-0.5 text-green-600 shrink-0">{f.icon}</span>
+                      <div key={f.title} className="flex items-start gap-3 rounded-xl border border-neutral-200 bg-neutral-50 p-3">
+                        <span className="mt-0.5 text-neutral-400 shrink-0">{f.icon}</span>
                         <div>
-                          <p className="text-sm font-semibold text-green-800">{f.title}</p>
-                          <p className="text-xs opacity-60 mt-0.5">{f.desc}</p>
+                          <p className="text-sm font-semibold text-neutral-800">{f.title}</p>
+                          <p className="text-xs text-neutral-500 mt-0.5">{f.desc}</p>
                         </div>
                       </div>
                     ))}
@@ -552,13 +633,8 @@ export default function RoadmapPage() {
               </TimelineItem>
 
               {/* ── Stage 2: EXTINDERE PLATFORME ─────────────────────── */}
-              <TimelineItem
-                status="inDev"
-                reduced={reduced}
-                delay={80}
-                node={<NodeDot color="bg-blue-500" pulse="slow" />}
-              >
-                <div className={`rounded-[20px] border-2 ${STATUS_COLORS.inDev.border} ${STATUS_COLORS.inDev.bg} p-7 shadow-sm`}>
+              <TimelineItem status="inDev" reduced={reduced} delay={80}>
+                <div className="rounded-2xl border border-neutral-200 bg-white p-6 md:p-7 shadow-sm">
                   <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
                     <StatusBadge status="inDev" T={T} />
                     <div className="flex items-center gap-2">
@@ -568,41 +644,36 @@ export default function RoadmapPage() {
                       <span className="text-xs font-medium text-blue-600">35%</span>
                     </div>
                   </div>
-                  <h3 className="font-bold text-xl mb-2">{T.s2Title}</h3>
-                  <p className="text-sm opacity-70 mb-5">{T.s2Desc}</p>
+                  <h3 className="font-bold text-xl mb-2 text-neutral-900">{T.s2Title}</h3>
+                  <p className="text-sm text-neutral-500 mb-5">{T.s2Desc}</p>
                   <div className="flex flex-col gap-2">
                     {T.s2Platforms.map((p) => (
-                      <div key={p.name} className="flex items-center justify-between rounded-[10px] border px-4 py-2.5">
-                        <span className="text-sm font-medium">{p.name}</span>
+                      <div key={p.name} className="flex items-center justify-between rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-2.5">
+                        <span className="text-sm font-medium text-neutral-800">{p.name}</span>
                         <StatusBadge status={p.status as StatusKey} T={T} />
                       </div>
                     ))}
                   </div>
-                  <p className="mt-4 text-xs italic opacity-50">{T.s2Note}</p>
+                  <p className="mt-4 text-xs italic text-neutral-400">{T.s2Note}</p>
                 </div>
               </TimelineItem>
 
               {/* ── Stage 3: RECLAME CU AI ────────────────────────────── */}
-              <TimelineItem
-                status="next"
-                reduced={reduced}
-                delay={160}
-                node={<NodeDot color="bg-yellow-500" pulse="none" />}
-              >
-                <div className={`rounded-[20px] border-2 ${STATUS_COLORS.next.border} ${STATUS_COLORS.next.bg} p-7`}>
+              <TimelineItem status="next" reduced={reduced} delay={160}>
+                <div className="rounded-2xl border border-neutral-200 bg-white p-6 md:p-7 shadow-sm">
                   <div className="mb-3">
                     <StatusBadge status="next" T={T} />
                   </div>
-                  <h3 className="font-bold text-xl mb-2">{T.s3Title}</h3>
-                  <p className="text-sm opacity-70 mb-5">{T.s3Desc}</p>
+                  <h3 className="font-bold text-xl mb-2 text-neutral-900">{T.s3Title}</h3>
+                  <p className="text-sm text-neutral-500 mb-5">{T.s3Desc}</p>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
                     {T.s3Channels.map((ch) => (
-                      <div key={ch.name} className="rounded-[10px] border border-yellow-500/20 bg-yellow-500/5 p-4">
-                        <p className="text-sm font-bold mb-2">{ch.name}</p>
+                      <div key={ch.name} className="rounded-xl border border-neutral-200 bg-neutral-50 p-4">
+                        <p className="text-sm font-bold mb-2 text-neutral-800">{ch.name}</p>
                         <ul className="flex flex-col gap-1">
                           {ch.items.map((item) => (
-                            <li key={item} className="flex items-start gap-1.5 text-xs opacity-70">
-                              <Check className="h-3 w-3 mt-0.5 shrink-0 text-yellow-600" />
+                            <li key={item} className="flex items-start gap-1.5 text-xs text-neutral-500">
+                              <Check className="h-3 w-3 mt-0.5 shrink-0 text-neutral-400" />
                               {item}
                             </li>
                           ))}
@@ -610,26 +681,21 @@ export default function RoadmapPage() {
                       </div>
                     ))}
                   </div>
-                  <div className="flex items-start gap-2.5 rounded-[10px] border bg-card p-3.5">
-                    <Lightbulb className="h-4 w-4 mt-0.5 shrink-0 text-primary" />
-                    <p className="text-xs opacity-70">{T.s3Info}</p>
+                  <div className="flex items-start gap-2.5 rounded-xl border border-neutral-200 bg-neutral-50 p-3.5">
+                    <Lightbulb className="h-4 w-4 mt-0.5 shrink-0 text-neutral-400" />
+                    <p className="text-xs text-neutral-500">{T.s3Info}</p>
                   </div>
                 </div>
               </TimelineItem>
 
               {/* ── Stage 4: VIDEOCLIPURI ─────────────────────────────── */}
-              <TimelineItem
-                status="next"
-                reduced={reduced}
-                delay={240}
-                node={<NodeDot color="bg-yellow-500" pulse="none" />}
-              >
-                <div className={`rounded-[20px] border-2 ${STATUS_COLORS.next.border} ${STATUS_COLORS.next.bg} p-7`}>
+              <TimelineItem status="next" reduced={reduced} delay={240}>
+                <div className="rounded-2xl border border-neutral-200 bg-white p-6 md:p-7 shadow-sm">
                   <div className="mb-3">
                     <StatusBadge status="next" T={T} />
                   </div>
-                  <h3 className="font-bold text-xl mb-2">{T.s4Title}</h3>
-                  <p className="text-sm opacity-70 mb-5">{T.s4Desc}</p>
+                  <h3 className="font-bold text-xl mb-2 text-neutral-900">{T.s4Title}</h3>
+                  <p className="text-sm text-neutral-500 mb-5">{T.s4Desc}</p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {[
                       { icon: <Video className="h-4 w-4" />, ...T.s4Features[0] },
@@ -637,11 +703,11 @@ export default function RoadmapPage() {
                       { icon: <Type className="h-4 w-4" />, ...T.s4Features[2] },
                       { icon: <Smartphone className="h-4 w-4" />, ...T.s4Features[3] },
                     ].map((f) => (
-                      <div key={f.title} className="flex items-start gap-3 rounded-[10px] border border-yellow-500/20 bg-yellow-500/5 p-3">
-                        <span className="mt-0.5 text-yellow-600 shrink-0">{f.icon}</span>
+                      <div key={f.title} className="flex items-start gap-3 rounded-xl border border-neutral-200 bg-neutral-50 p-3">
+                        <span className="mt-0.5 text-neutral-400 shrink-0">{f.icon}</span>
                         <div>
-                          <p className="text-sm font-semibold">{f.title}</p>
-                          <p className="text-xs opacity-60 mt-0.5">{f.desc}</p>
+                          <p className="text-sm font-semibold text-neutral-800">{f.title}</p>
+                          <p className="text-xs text-neutral-500 mt-0.5">{f.desc}</p>
                         </div>
                       </div>
                     ))}
@@ -650,22 +716,55 @@ export default function RoadmapPage() {
               </TimelineItem>
 
               {/* ── Stage 5: GOOGLE MERCHANT ──────────────────────────── */}
-              <TimelineItem
-                status="future"
-                reduced={reduced}
-                delay={320}
-                node={<NodeDot color="bg-neutral-400" pulse="none" />}
-              >
-                <div className={`rounded-[20px] border-2 ${STATUS_COLORS.future.border} bg-transparent p-7`}>
+              <TimelineItem status="future" reduced={reduced} delay={320}>
+                <div className="rounded-2xl border border-neutral-200 bg-white p-6 md:p-7 shadow-sm">
                   <div className="mb-3">
                     <StatusBadge status="future" T={T} />
                   </div>
-                  <h3 className="font-bold text-xl mb-2">{T.s5Title}</h3>
-                  <p className="text-sm opacity-70 mb-5">{T.s5Desc}</p>
+                  <h3 className="font-bold text-xl mb-2 text-neutral-900">{T.s5Title}</h3>
+                  <p className="text-sm text-neutral-500 mb-5">{T.s5Desc}</p>
                   <div className="flex flex-col gap-2">
                     {T.s5Items.map((item) => (
-                      <div key={item} className="flex items-center gap-2.5 text-sm opacity-60">
-                        <CheckCircle className="h-4 w-4 shrink-0 text-neutral-400" />
+                      <div key={item} className="flex items-center gap-2.5 text-sm text-neutral-500">
+                        <CheckCircle className="h-4 w-4 shrink-0 text-neutral-300" />
+                        {item}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </TimelineItem>
+
+              {/* ── Stage 5b: ANALIZA PRODUSE CASTIGATOARE ────────────── */}
+              <TimelineItem status="future" reduced={reduced} delay={380}>
+                <div className="rounded-2xl border border-neutral-200 bg-white p-6 md:p-7 shadow-sm">
+                  <div className="mb-3">
+                    <StatusBadge status="future" T={T} />
+                  </div>
+                  <h3 className="font-bold text-xl mb-2 text-neutral-900">{T.s5bTitle}</h3>
+                  <p className="text-sm text-neutral-500 mb-5">{T.s5bDesc}</p>
+                  <div className="flex flex-col gap-2">
+                    {T.s5bItems.map((item) => (
+                      <div key={item} className="flex items-center gap-2.5 text-sm text-neutral-500">
+                        <Search className="h-4 w-4 shrink-0 text-neutral-300" />
+                        {item}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </TimelineItem>
+
+              {/* ── Stage 5c: ANALIZA PRETURI CONCURENTI ─────────────── */}
+              <TimelineItem status="future" reduced={reduced} delay={440}>
+                <div className="rounded-2xl border border-neutral-200 bg-white p-6 md:p-7 shadow-sm">
+                  <div className="mb-3">
+                    <StatusBadge status="future" T={T} />
+                  </div>
+                  <h3 className="font-bold text-xl mb-2 text-neutral-900">{T.s5cTitle}</h3>
+                  <p className="text-sm text-neutral-500 mb-5">{T.s5cDesc}</p>
+                  <div className="flex flex-col gap-2">
+                    {T.s5cItems.map((item) => (
+                      <div key={item} className="flex items-center gap-2.5 text-sm text-neutral-500">
+                        <BarChart2 className="h-4 w-4 shrink-0 text-neutral-300" />
                         {item}
                       </div>
                     ))}
@@ -674,21 +773,16 @@ export default function RoadmapPage() {
               </TimelineItem>
 
               {/* ── Stage 6: IMBUNATATIRI CONTINUE ───────────────────── */}
-              <TimelineItem
-                status="available"
-                reduced={reduced}
-                delay={400}
-                node={<NodeDot color="bg-primary" pulse="glow" />}
-              >
-                <div className="rounded-[20px] border-2 border-primary/40 bg-primary/[0.04] p-7">
+              <TimelineItem status="available" reduced={reduced} delay={500}>
+                <div className="rounded-2xl border border-neutral-200 bg-white p-6 md:p-7 shadow-sm">
                   <div className="mb-3">
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/[0.12] px-2.5 py-0.5 text-xs font-medium text-primary">
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-neutral-200 bg-neutral-100 px-2.5 py-0.5 text-xs font-medium text-neutral-600">
                       <RefreshCw className="h-3 w-3 spin-slow" />
                       {locale === 'ro' ? 'Permanent' : 'Permanent'}
                     </span>
                   </div>
-                  <h3 className="font-bold text-xl mb-2">{T.s6Title}</h3>
-                  <p className="text-sm opacity-70 mb-5">{T.s6Desc}</p>
+                  <h3 className="font-bold text-xl mb-2 text-neutral-900">{T.s6Title}</h3>
+                  <p className="text-sm text-neutral-500 mb-5">{T.s6Desc}</p>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                     {[
                       { icon: <Cpu className="h-4 w-4" />, ...T.s6Features[0] },
@@ -696,10 +790,10 @@ export default function RoadmapPage() {
                       { icon: <Languages className="h-4 w-4" />, ...T.s6Features[2] },
                       { icon: <MessageSquarePlus className="h-4 w-4" />, ...T.s6Features[3] },
                     ].map((f) => (
-                      <div key={f.title} className="flex flex-col gap-1.5 rounded-[10px] border border-primary/20 bg-primary/5 p-3">
-                        <span className="text-primary">{f.icon}</span>
-                        <p className="text-xs font-semibold leading-tight">{f.title}</p>
-                        <p className="text-[11px] opacity-55 leading-tight">{f.desc}</p>
+                      <div key={f.title} className="flex flex-col gap-1.5 rounded-xl border border-neutral-200 bg-neutral-50 p-3">
+                        <span className="text-neutral-400">{f.icon}</span>
+                        <p className="text-xs font-semibold leading-tight text-neutral-800">{f.title}</p>
+                        <p className="text-[11px] text-neutral-500 leading-tight">{f.desc}</p>
                       </div>
                     ))}
                   </div>
@@ -712,24 +806,26 @@ export default function RoadmapPage() {
       </section>
 
       {/* ── SECTION 4: VISUAL TIMELINE SUMMARY ──────────────────────────── */}
-      <section className="bg-neutral-50/50 px-4 py-20" ref={overviewRef}>
-        <div className="max-w-[900px] mx-auto">
+      <section className="bg-neutral-50 px-4 py-20" ref={overviewRef}>
+        <div className="max-w-[960px] mx-auto">
           <div className="text-center mb-12">
-            <h2 className="text-2xl sm:text-3xl font-bold mb-2">{T.overviewTitle}</h2>
-            <p className="opacity-60 text-sm">{T.overviewSub}</p>
+            <h2 className="text-2xl sm:text-3xl font-bold mb-2 text-neutral-900">{T.overviewTitle}</h2>
+            <p className="text-neutral-500 text-sm">{T.overviewSub}</p>
           </div>
           <div className="overflow-x-auto pb-4">
-            <div className="min-w-[640px] relative flex items-start justify-between px-4">
+            <div className="min-w-[720px] relative flex items-start justify-between px-4">
               {/* connecting line */}
-              <div className="absolute top-6 left-8 right-8 h-px bg-border" />
+              <div className="absolute top-6 left-8 right-8 h-px bg-neutral-200" />
               {(
                 [
-                  { icon: <ImageIcon className="h-5 w-5" />, status: 'available' as StatusKey, label: locale === 'ro' ? 'Platforma de baza' : 'Core Platform' },
-                  { icon: <Bot className="h-5 w-5" />,       status: 'inDev' as StatusKey,     label: locale === 'ro' ? 'Extindere platforme' : 'Platform Expansion' },
-                  { icon: <TrendingUp className="h-5 w-5" />,status: 'next' as StatusKey,      label: locale === 'ro' ? 'Reclame cu AI' : 'AI Ads' },
-                  { icon: <Video className="h-5 w-5" />,     status: 'next' as StatusKey,      label: locale === 'ro' ? 'Videoclipuri AI' : 'AI Videos' },
-                  { icon: <ShieldCheck className="h-5 w-5" />,status:'future' as StatusKey,    label: locale === 'ro' ? 'Google Merchant' : 'Google Merchant' },
-                  { icon: <RefreshCw className="h-5 w-5" />, status: 'available' as StatusKey, label: locale === 'ro' ? 'Imbunatatiri continue' : 'Continuous Improvements' },
+                  { icon: <ImageIcon className="h-5 w-5" />,    status: 'available' as StatusKey, label: locale === 'ro' ? 'Platforma de baza' : 'Core Platform' },
+                  { icon: <Bot className="h-5 w-5" />,          status: 'inDev' as StatusKey,     label: locale === 'ro' ? 'Extindere platforme' : 'Platform Expansion' },
+                  { icon: <TrendingUp className="h-5 w-5" />,   status: 'next' as StatusKey,      label: locale === 'ro' ? 'Reclame cu AI' : 'AI Ads' },
+                  { icon: <Video className="h-5 w-5" />,        status: 'next' as StatusKey,      label: locale === 'ro' ? 'Videoclipuri AI' : 'AI Videos' },
+                  { icon: <ShieldCheck className="h-5 w-5" />,  status: 'future' as StatusKey,    label: locale === 'ro' ? 'Google Merchant' : 'Google Merchant' },
+                  { icon: <Search className="h-5 w-5" />,       status: 'future' as StatusKey,    label: locale === 'ro' ? 'Produse castigatoare' : 'Winning Products' },
+                  { icon: <BarChart2 className="h-5 w-5" />,    status: 'future' as StatusKey,    label: locale === 'ro' ? 'Preturi concurenti' : 'Competitor Prices' },
+                  { icon: <RefreshCw className="h-5 w-5" />,    status: 'available' as StatusKey, label: locale === 'ro' ? 'Imbunatatiri' : 'Continuous Improvements' },
                 ]
               ).map((node, i) => {
                 const c = STATUS_COLORS[node.status]
@@ -739,12 +835,12 @@ export default function RoadmapPage() {
                     className="relative flex flex-col items-center gap-2 z-10"
                     initial={reduced ? {} : { opacity: 0, y: 20 }}
                     animate={overviewInView ? { opacity: 1, y: 0 } : {}}
-                    transition={{ duration: 0.5, delay: i * 0.1 }}
+                    transition={{ duration: 0.5, delay: i * 0.08 }}
                   >
-                    <div className={`h-12 w-12 rounded-full border-2 ${c.border} ${c.bg} flex items-center justify-center ${c.text}`}>
+                    <div className={`h-12 w-12 rounded-full border-2 border-white shadow-sm flex items-center justify-center text-white ${c.node}`}>
                       {node.icon}
                     </div>
-                    <p className="text-[12px] font-bold text-center max-w-[90px] leading-tight">{node.label}</p>
+                    <p className="text-[11px] font-bold text-center max-w-[80px] leading-tight text-neutral-700">{node.label}</p>
                     <StatusBadge status={node.status} T={T} />
                   </motion.div>
                 )
@@ -755,56 +851,58 @@ export default function RoadmapPage() {
       </section>
 
       {/* ── SECTION 5: FEEDBACK & VOTING ────────────────────────────────── */}
-      <section className="px-4 py-20" ref={feedbackRef} id="feedback">
+      <section className="bg-white px-4 py-20" ref={feedbackRef} id="feedback">
         <div className="max-w-[800px] mx-auto">
           <div className="text-center mb-10">
-            <h2 className="text-2xl sm:text-3xl font-bold mb-2">{T.feedbackTitle}</h2>
-            <p className="opacity-60 text-sm">{T.feedbackSub}</p>
+            <h2 className="text-2xl sm:text-3xl font-bold mb-2 text-neutral-900">{T.feedbackTitle}</h2>
+            <p className="text-neutral-500 text-sm">{T.feedbackSub}</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
             {/* Vote card */}
-            <div className="rounded-[20px] border bg-card p-6 shadow-sm">
-              <h3 className="font-bold text-base mb-4">{T.voteTitle}</h3>
+            <div className="rounded-2xl border border-neutral-200 bg-white p-6 md:p-7 shadow-sm">
+              <h3 className="font-bold text-base mb-4 text-neutral-900">{T.voteTitle}</h3>
               <div className="flex flex-col gap-3">
                 {T.voteOptions.map((opt) => {
-                  const voted = votes.includes(opt.key)
+                  const voted = votedKeys.has(opt.key)
+                  const isVoting = votingKey === opt.key
+                  const pct = getPct(opt.key, opt.pct)
                   return (
                     <div key={opt.key} className="flex flex-col gap-1.5">
                       <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium">{opt.label}</span>
+                        <span className="text-sm font-medium text-neutral-800">{opt.label}</span>
                         <button
                           onClick={() => handleVote(opt.key)}
-                          disabled={voted}
+                          disabled={voted || !!votingKey}
                           className={`text-xs px-2.5 py-1 rounded-full border font-medium transition-all ${
                             voted
-                              ? 'bg-green-500/10 border-green-500/30 text-green-600 cursor-default'
-                              : 'bg-primary/10 border-primary/30 text-primary hover:bg-primary/20'
+                              ? 'bg-green-50 border-green-200 text-green-700 cursor-default'
+                              : 'bg-neutral-100 border-neutral-200 text-neutral-700 hover:bg-neutral-200 disabled:opacity-50'
                           }`}
                         >
-                          {voted ? `${T.votedLabel} ✓` : T.voteBtnLabel}
+                          {isVoting ? <Loader2 className="h-3 w-3 animate-spin inline" /> : voted ? `${T.votedLabel} \u2713` : T.voteBtnLabel}
                         </button>
                       </div>
                       <div className="h-1.5 w-full rounded-full bg-neutral-100 overflow-hidden">
                         <motion.div
                           className="h-full rounded-full bg-primary"
                           initial={{ width: 0 }}
-                          animate={{ width: `${opt.pct}%` }}
+                          animate={{ width: `${pct}%` }}
                           transition={{ duration: 0.8, ease: 'easeOut', delay: 0.2 }}
                         />
                       </div>
-                      <span className="text-[11px] opacity-40">{opt.pct}%</span>
+                      <span className="text-[11px] text-neutral-400">{pct}%</span>
                     </div>
                   )
                 })}
               </div>
-              <p className="mt-4 text-[11px] italic opacity-45">{T.voteNote}</p>
+              <p className="mt-4 text-[11px] italic text-neutral-400">{T.voteNote}</p>
             </div>
 
             {/* Suggestion form */}
-            <div className="rounded-[20px] border bg-card p-6 shadow-sm">
-              <h3 className="font-bold text-base mb-1">{T.suggestTitle}</h3>
-              <p className="text-xs opacity-60 mb-4">{T.suggestDesc}</p>
+            <div className="rounded-2xl border border-neutral-200 bg-white p-6 md:p-7 shadow-sm">
+              <h3 className="font-bold text-base mb-1 text-neutral-900">{T.suggestTitle}</h3>
+              <p className="text-xs text-neutral-500 mb-4">{T.suggestDesc}</p>
               {submitStatus === 'success' ? (
                 <div className="flex flex-col items-center justify-center gap-3 py-8 text-center">
                   <CheckCircle className="h-10 w-10 text-green-500" />
@@ -813,27 +911,27 @@ export default function RoadmapPage() {
               ) : (
                 <form onSubmit={handleSubmit} className="flex flex-col gap-3">
                   <div>
-                    <label className="text-xs font-medium opacity-70 mb-1 block">{T.emailLabel}</label>
+                    <label className="text-xs font-medium text-neutral-600 mb-1 block">{T.emailLabel}</label>
                     <input
                       type="email"
                       required
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder={T.emailPlaceholder}
-                      className="w-full rounded-[10px] border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/30"
+                      className="w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/30"
                     />
                   </div>
                   <div>
-                    <label className="text-xs font-medium opacity-70 mb-1 block">{T.messageLabel}</label>
+                    <label className="text-xs font-medium text-neutral-600 mb-1 block">{T.messageLabel}</label>
                     <textarea
                       required
                       value={message}
                       onChange={(e) => setMessage(e.target.value.slice(0, 400))}
                       placeholder={T.messagePlaceholder}
                       rows={4}
-                      className="w-full rounded-[10px] border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/30 resize-none"
+                      className="w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/30 resize-none"
                     />
-                    <p className="text-[11px] opacity-40 text-right">{message.length}/400</p>
+                    <p className="text-[11px] text-neutral-400 text-right">{message.length}/400</p>
                   </div>
                   {submitStatus === 'error' && (
                     <p className="text-xs text-red-500">{T.errorMsg}</p>
@@ -841,7 +939,7 @@ export default function RoadmapPage() {
                   <button
                     type="submit"
                     disabled={submitting}
-                    className="flex items-center justify-center gap-2 rounded-[10px] bg-primary px-4 py-2.5 text-sm font-medium text-white hover:opacity-90 transition-opacity disabled:opacity-60"
+                    className="flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-white hover:opacity-90 transition-opacity disabled:opacity-60"
                   >
                     {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                     {T.submitBtn}
@@ -854,22 +952,22 @@ export default function RoadmapPage() {
       </section>
 
       {/* ── SECTION 6: FAQ ───────────────────────────────────────────────── */}
-      <section className="bg-neutral-50/50 px-4 py-20">
+      <section className="bg-neutral-50 px-4 py-20">
         <div className="max-w-[700px] mx-auto">
           <div className="text-center mb-10">
-            <h2 className="text-2xl sm:text-3xl font-bold mb-2">{T.faqTitle}</h2>
-            <p className="opacity-60 text-sm">{T.faqSub}</p>
+            <h2 className="text-2xl sm:text-3xl font-bold mb-2 text-neutral-900">{T.faqTitle}</h2>
+            <p className="text-neutral-500 text-sm">{T.faqSub}</p>
           </div>
           <div className="flex flex-col gap-2">
             {T.faqs.map((faq, i) => (
-              <div key={i} className="rounded-[14px] border bg-card overflow-hidden">
+              <div key={i} className="rounded-xl border border-neutral-200 bg-white overflow-hidden">
                 <button
                   onClick={() => setOpenFaq(openFaq === i ? null : i)}
-                  className="flex w-full items-center justify-between px-5 py-4 text-left text-sm font-medium hover:bg-neutral-50/80 transition-colors"
+                  className="flex w-full items-center justify-between px-5 py-4 text-left text-sm font-medium text-neutral-800 hover:bg-neutral-50 transition-colors"
                 >
                   <span>{faq.q}</span>
                   <ChevronDown
-                    className="h-4 w-4 shrink-0 opacity-50 transition-transform duration-200"
+                    className="h-4 w-4 shrink-0 text-neutral-400 transition-transform duration-200"
                     style={{ transform: openFaq === i ? 'rotate(180deg)' : 'rotate(0deg)' }}
                   />
                 </button>
@@ -883,7 +981,7 @@ export default function RoadmapPage() {
                       transition={{ duration: 0.25, ease: 'easeInOut' }}
                       className="overflow-hidden"
                     >
-                      <p className="px-5 pb-4 text-sm opacity-65 leading-relaxed">{faq.a}</p>
+                      <p className="px-5 pb-4 text-sm text-neutral-500 leading-relaxed">{faq.a}</p>
                     </motion.div>
                   )}
                 </AnimatePresence>
@@ -894,28 +992,26 @@ export default function RoadmapPage() {
       </section>
 
       {/* ── SECTION 7: CTA FINAL ─────────────────────────────────────────── */}
-      <section className="relative overflow-hidden bg-neutral-900 px-4 py-24 text-center">
-        <div className="pointer-events-none absolute inset-0"
-          style={{ background: 'radial-gradient(ellipse 60% 70% at 50% 0%, var(--color-primary) / 0.18, transparent 70%)' }} />
-        <div className="relative z-10 flex flex-col items-center gap-5 max-w-[600px] mx-auto">
+      <section className="bg-neutral-900 px-4 py-24 text-center">
+        <div className="flex flex-col items-center gap-5 max-w-[600px] mx-auto">
           <h2 className="text-2xl sm:text-4xl font-extrabold text-white leading-tight">{T.ctaTitle}</h2>
-          <p className="text-white/80 text-[16px] leading-relaxed">{T.ctaSub}</p>
+          <p className="text-white/75 text-[16px] leading-relaxed">{T.ctaSub}</p>
           <div className="flex flex-wrap gap-3 justify-center">
             <Link
               href="/register"
-              className="inline-flex items-center gap-2 rounded-[12px] bg-primary px-6 py-3 text-sm font-semibold text-white hover:opacity-90 transition-opacity"
+              className="inline-flex items-center gap-2 rounded-xl bg-primary px-6 py-3 text-sm font-semibold text-white hover:opacity-90 transition-opacity"
             >
               {T.ctaBtn1}
               <ArrowRight className="h-4 w-4" />
             </Link>
             <button
               onClick={scrollToFeedback}
-              className="inline-flex items-center gap-2 rounded-[12px] border border-white/20 bg-white/10 px-6 py-3 text-sm font-semibold text-white hover:bg-white/20 transition-colors"
+              className="inline-flex items-center gap-2 rounded-xl border border-white/20 bg-white/10 px-6 py-3 text-sm font-semibold text-white hover:bg-white/20 transition-colors"
             >
               {T.ctaBtn2}
             </button>
           </div>
-          <p className="text-white/55 text-xs">{T.ctaNote}</p>
+          <p className="text-white/50 text-xs">{T.ctaNote}</p>
         </div>
       </section>
     </main>
@@ -924,49 +1020,34 @@ export default function RoadmapPage() {
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-function NodeDot({ color, pulse }: { color: string; pulse: 'ping' | 'slow' | 'glow' | 'none' }) {
-  return (
-    <div className="relative flex items-center justify-center h-8 w-8 shrink-0">
-      {pulse === 'ping' && (
-        <span className={`absolute inline-flex h-full w-full rounded-full ${color} animate-ping opacity-30`} />
-      )}
-      {pulse === 'slow' && (
-        <span className={`absolute inline-flex h-full w-full rounded-full ${color} pulse-slow opacity-20`} />
-      )}
-      {pulse === 'glow' && (
-        <span className={`absolute inline-flex h-full w-full rounded-full ${color} opacity-20 blur-sm`} />
-      )}
-      <span className={`relative h-6 w-6 rounded-full ${color} shadow-md`} />
-    </div>
-  )
-}
-
 function TimelineItem({
   children,
-  node,
+  status,
   reduced,
   delay,
 }: {
   children: React.ReactNode
-  node: React.ReactNode
   status: StatusKey
   reduced: boolean
   delay: number
 }) {
   const ref = useRef<HTMLDivElement>(null)
   const inView = useInView(ref, { once: true, margin: '-60px' })
+  const c = STATUS_COLORS[status]
 
   return (
     <motion.div
       ref={ref}
-      className="flex gap-5 pl-0"
+      className="flex gap-5"
       initial={reduced ? {} : { opacity: 0, y: 30 }}
       animate={inView ? { opacity: 1, y: 0 } : {}}
       transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1], delay: delay / 1000 }}
     >
       {/* Node on the left line */}
-      <div className="relative flex flex-col items-center">
-        <div className="z-10 mt-5">{node}</div>
+      <div className="relative flex flex-col items-center shrink-0">
+        <div className="z-10 mt-6">
+          <span className={`block w-4 h-4 rounded-full border-2 border-white shadow-sm ${c.node}`} />
+        </div>
       </div>
       {/* Card */}
       <div className="flex-1 min-w-0 pb-2">{children}</div>
