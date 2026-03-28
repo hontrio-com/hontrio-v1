@@ -34,9 +34,6 @@ const en = {
     'Increases conversion rate through fast and accurate responses',
     'Reduces workload for customer support',
     'Works 24/7 without breaks or human errors',
-    'Handles questions about delivery, returns and products',
-    'Delivers a professional and fast experience to every customer',
-    'Easily integrates into your online store',
     'Scalable, handles tens or hundreds of conversations simultaneously',
   ],
 
@@ -50,9 +47,6 @@ const en = {
     'See the complete history of each customer',
     'Get real loss estimates',
     'Reduce the rate of refused orders',
-    'Analyzes multiple data points simultaneously (not just one factor)',
-    'Works automatically, regardless of volume',
-    'Manages a large number of orders without effort',
   ],
 
   feat3Title: 'Live SEO Score and Automatic Optimization for Every Product',
@@ -64,10 +58,7 @@ const en = {
     'Attract organic traffic without additional ad costs',
     'Generate optimized SEO titles in seconds',
     'See in real time how well a product is optimized',
-    'Understand exactly what affects your Google ranking',
-    'Edit titles, descriptions and keywords from one place',
     'Automatically includes the keyword in the right places',
-    'Quickly optimize tens or hundreds of products',
   ],
 
   feat4Title: 'Images That Grab Attention and Increase Conversions',
@@ -75,14 +66,11 @@ const en = {
     'Quickly create product images that look professional and are ready for promotion. The AI Images module automatically generates attractive visuals, banners and posters based on your products, without needing designers or graphic design skills.',
   feat4Bullets: [
     'Generate product images in seconds',
-    'Ideal for small and large stores',
     'Titles and benefits integrated directly into the design',
     'Structure designed for conversion',
     'Use images on your website, ads or social media',
-    'Create images for tens or hundreds of products',
-    'Improve product performance',
     'Scale quickly for your entire catalog',
-    'Consistency in branding',
+    'No designers or graphic design skills needed',
   ],
 
   featDetailsCta: 'Learn more',
@@ -258,9 +246,6 @@ const ro = {
     'Crește rata de conversie prin răspunsuri rapide și precise',
     'Reduce volumul de muncă pentru suportul clienți',
     'Funcționează 24/7 fără pauze sau erori umane',
-    'Preia întrebări despre livrare, retururi și produse',
-    'Oferă experiență profesională și rapidă fiecărui client',
-    'Se integrează ușor în magazinul online',
     'Scalabil, gestionează zeci sau sute de conversații simultan',
   ],
 
@@ -274,9 +259,6 @@ const ro = {
     'Vezi istoricul complet al fiecărui client',
     'Primești estimări reale de pierderi',
     'Reduci rata comenzilor refuzate',
-    'Analizează mai multe date simultan (nu doar un factor)',
-    'Funcționează automat, indiferent de volum',
-    'Gestionează un număr mare de comenzi fără efort',
   ],
 
   feat3Title: 'Scor SEO live și optimizare automată pentru fiecare produs',
@@ -288,10 +270,7 @@ const ro = {
     'Atragi trafic organic fără costuri suplimentare de ads',
     'Generezi titluri SEO optimizate în câteva secunde',
     'Vezi în timp real cât de bine este optimizat un produs',
-    'Înțelegi exact ce afectează poziționarea în Google',
-    'Editezi titluri, descrieri și keyword-uri dintr-un singur loc',
     'Include keyword-ul în locurile potrivite automat',
-    'Optimizezi rapid zeci sau sute de produse',
   ],
 
   feat4Title: 'Imagini care atrag atenția și cresc conversiile',
@@ -299,14 +278,11 @@ const ro = {
     'Creează rapid imagini de produs care arată profesional și sunt gata de promovare. Modulul Imagini AI generează automat vizualuri atractive, bannere și postere bazate pe produsele tale, fără să ai nevoie de designeri sau cunoștințe de grafică.',
   feat4Bullets: [
     'Generezi imagini de produs în câteva secunde',
-    'Ideal pentru magazine mici și mari',
     'Titluri și beneficii integrate direct în design',
     'Structură gândită pentru conversie',
     'Folosești imaginile pe site, reclame sau social media',
-    'Creezi imagini pentru zeci sau sute de produse',
-    'Îmbunătățește performanța produselor',
     'Scalezi rapid pentru întreg catalogul',
-    'Consistență în branding',
+    'Fără designeri sau cunoștințe de grafică',
   ],
 
   featDetailsCta: 'Mai multe detalii',

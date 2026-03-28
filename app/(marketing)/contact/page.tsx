@@ -385,13 +385,7 @@ export default function ContactPage() {
             className="text-4xl sm:text-5xl font-extrabold tracking-tight text-neutral-900 leading-tight mb-4"
           >
             {t.heroH1}{' '}
-            <span className="relative inline-block">
-              {t.heroWord}
-              <motion.span
-                {...(reduced ? {} : { initial: { scaleX: 0 }, animate: { scaleX: 1 }, transition: { duration: 0.5, delay: 0.55, ease: [0.4, 0, 0.2, 1] as [number, number, number, number] } })}
-                className="absolute bottom-0 left-0 h-[3px] w-full bg-neutral-900 origin-left rounded-full"
-              />
-            </span>
+            <span>{t.heroWord}</span>
           </motion.h1>
 
           <motion.p

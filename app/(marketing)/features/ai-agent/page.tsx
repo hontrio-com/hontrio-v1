@@ -33,7 +33,7 @@ const en = {
   widgetQr3: 'Returns',
   widgetMsg2: 'I am looking for a clothes rack for the hallway.',
   widgetTyping: '',
-  widgetMsg3: 'I found 3 suitable options for you:',
+  widgetMsg3: 'I found 2 suitable options for you:',
   widgetProduct1: 'Metal clothes rack 5 arms',
   widgetProduct1Price: '189 lei',
   widgetProductBtn: 'View product',
@@ -52,7 +52,7 @@ const en = {
   pain3: 'Delivery, returns, stock availability, dimensions. Questions repeat daily and consume hours of your time or your team.',
   painCta: 'The Hontrio agent is always active, in your place.',
   howH2: 'Installed in five minutes, active forever',
-  howSub: 'No technical knowledge required. If you know how to copy text, you can install the agent.',
+  howSub: 'No technical knowledge required. Install the module from your platform and the agent is immediately active.',
   step1Title: 'Configure the agent',
   step1: 'Choose the agent name, welcome message, widget colors and WhatsApp number for escalation. All from the Hontrio dashboard, no code.',
   step2Title: 'Install the module',
@@ -71,17 +71,17 @@ const en = {
   demoNote: 'This is a demonstration with pre-defined responses. The real agent has access to your complete store catalog.',
   whatH2: 'More than an ordinary chatbot',
   whatSub: 'The Hontrio agent knows every product in your store and knows when to respond alone and when to involve you.',
-  w1Title: 'Searches products in catalog',
-  w1: 'The customer describes what they are looking for in their own words. The agent understands the intent, searches the synced catalog and presents suitable options with image, price and direct link.',
-  w2Title: 'Answers frequently asked questions',
-  w2: 'Delivery, returns, availability, warranty, dimensions. The agent knows your store policies and responds consistently and correctly at any hour.',
-  w3Title: 'Personalized responses for your brand',
-  w3: 'You choose the agent name, conversation tone and key messages you want to convey. The agent speaks in your store style, not generically.',
+  w1Title: 'Recommends the right products',
+  w1: 'The customer describes what they are looking for in their own words. The agent understands the intent, searches the catalog and presents suitable options with image, price and a direct link to the product page.',
+  w2Title: 'Customer can add products to cart directly from chat',
+  w2: 'The agent presents products with a direct link to the cart or product page. The buyer can complete the purchase without leaving the conversation, reducing friction and increasing conversions.',
+  w3Title: 'Guides visitors towards the purchase decision',
+  w3: 'The agent does not just answer questions. It actively recommends products, highlights key benefits and helps the customer make a decision faster.',
   w4Title: 'Intelligently escalates to WhatsApp',
-  w4: 'When a situation exceeds the agent capabilities, the conversation is transferred to you on WhatsApp with all context already filled in. The customer repeats nothing.',
-  w5Title: 'Understands multiple languages',
-  w5: 'If a visitor writes in English or another language, the agent automatically detects and responds in the same language, without additional configuration.',
-  w6Title: 'Reports what your customers want',
+  w4: 'When a situation requires human involvement, the conversation is transferred to you on WhatsApp with full context already filled in. The customer repeats nothing and the sale is not lost.',
+  w5Title: 'Handles delivery, returns and availability questions',
+  w5: 'Delivery times, return policies, stock availability, dimensions. The agent responds correctly at any hour so you do not lose customers to unanswered questions.',
+  w6Title: 'Reports what sells and what stops customers',
   w6: 'Every conversation is recorded. Find out which products generate the most interest, which questions go unanswered and where you lose customers in the buying process.',
   flowH2: 'A conversation that leads to a sale',
   flowSub: 'The agent does not just answer questions. It guides visitors step by step towards the purchase decision.',
@@ -146,7 +146,7 @@ const en = {
   stat3Label: 'availability, including weekends and public holidays',
   faqH2: 'Frequently asked questions',
   faqs: [
-    { q: 'Does the agent work if I do not have WooCommerce?', a: 'Currently the Hontrio agent is optimized for WooCommerce stores. Integration with other platforms such as Shopify or Gomag is in development and will be available in upcoming versions.' },
+    { q: 'Does the agent work if I do not have WooCommerce?', a: 'Currently the Hontrio agent is optimized for WooCommerce stores. Integration with other platforms such as Shopify or Magento is in development and will be available in upcoming versions.' },
     { q: 'What happens if the agent does not know how to answer a question?', a: 'The agent recognizes its limits. Instead of making up an answer, it tells the customer it does not have the information and offers the option of transfer to you on WhatsApp, with all conversation context already filled in.' },
     { q: 'Can I see all the conversations the agent has had?', a: 'Yes. All conversations are saved in the inbox of the Hontrio dashboard. You can filter by date, by mentioned products or by conversations that required escalation.' },
     { q: 'Can the agent complete orders or does it only answer questions?', a: 'In the current version, the agent guides the buyer towards the right product and redirects them to the product page or shopping cart. Order completion happens in WooCommerce, as usual.' },
@@ -179,7 +179,7 @@ const ro = {
   widgetQr3: 'Retururi',
   widgetMsg2: 'Caut un suport de haine pentru hol.',
   widgetTyping: '',
-  widgetMsg3: 'Am gasit 3 optiuni potrivite pentru tine:',
+  widgetMsg3: 'Am gasit 2 optiuni potrivite pentru tine:',
   widgetProduct1: 'Suport haine metalic 5 brate',
   widgetProduct1Price: '189 lei',
   widgetProductBtn: 'Vezi produsul',
@@ -198,7 +198,7 @@ const ro = {
   pain3: 'Livrare, retur, disponibilitate stoc, dimensiuni. Intrebarile se repeta zilnic si ocupa ore din timpul tau sau al echipei tale.',
   painCta: 'Agentul Hontrio este activ in permanenta, in locul tau.',
   howH2: 'Instalat in cinci minute, activ pentru totdeauna',
-  howSub: 'Nu ai nevoie de cunostinte tehnice. Daca stii sa copiezi un text, poti instala agentul.',
+  howSub: 'Nu ai nevoie de cunostinte tehnice. Instalezi modulul din platforma ta si agentul este activ imediat.',
   step1Title: 'Configurezi agentul',
   step1: 'Alegi numele agentului, mesajul de bun venit, culorile widgetului si numarul de WhatsApp pentru escaladare. Totul din dashboard-ul Hontrio, fara cod.',
   step2Title: 'Instalezi modulul',
@@ -217,17 +217,17 @@ const ro = {
   demoNote: 'Aceasta este o demonstratie cu raspunsuri pre-definite. Agentul real are acces la catalogul complet al magazinului tau.',
   whatH2: 'Mai mult decat un chatbot obisnuit',
   whatSub: 'Agentul Hontrio cunoaste fiecare produs din magazinul tau si stie cand sa raspunda singur si cand sa te implice pe tine.',
-  w1Title: 'Cauta produse in catalog',
-  w1: 'Clientul descrie ce cauta in cuvintele lui. Agentul intelege intentia, cauta in catalogul sincronizat si prezinta optiunile potrivite cu imagine, pret si link direct.',
-  w2Title: 'Raspunde la intrebarile frecvente',
-  w2: 'Livrare, retur, disponibilitate, garantie, dimensiuni. Agentul cunoaste politicile magazinului tau si raspunde consistent si corect la orice ora.',
-  w3Title: 'Raspunsuri personalizate pe brandul tau',
-  w3: 'Alegi numele agentului, tonul conversatiei si mesajele cheie pe care vrei sa le transmita. Agentul vorbeste in stilul magazinului tau, nu generic.',
+  w1Title: 'Recomanda produsele potrivite',
+  w1: 'Clientul descrie ce cauta in cuvintele lui. Agentul intelege intentia, cauta in catalog si prezinta optiunile potrivite cu imagine, pret si link direct catre pagina produsului.',
+  w2Title: 'Clientul poate adauga produsul in cos direct din chat',
+  w2: 'Agentul prezinta produsele cu link direct catre cos sau pagina de produs. Cumparatorul poate finaliza achizitia fara sa paraseasca conversatia, reducand frecarea si crescand conversiile.',
+  w3Title: 'Ghideaza vizitatorii catre decizia de cumparare',
+  w3: 'Agentul nu raspunde doar la intrebari. Recomanda activ produse, evidentiaza beneficiile cheie si ajuta clientul sa ia o decizie mai rapid.',
   w4Title: 'Escaladeaza inteligent catre WhatsApp',
-  w4: 'Cand o situatie depaseste capacitatile agentului, conversatia este transferata catre tine pe WhatsApp cu tot contextul deja completat. Clientul nu repeta nimic.',
-  w5Title: 'Intelege mai multe limbi',
-  w5: 'Daca un vizitator scrie in engleza sau alta limba, agentul detecteaza automat si raspunde in aceeasi limba, fara configurare suplimentara.',
-  w6Title: 'Raporteaza ce vor clientii tai',
+  w4: 'Cand o situatie necesita interventia umana, conversatia este transferata catre tine pe WhatsApp cu tot contextul deja completat. Clientul nu repeta nimic si vanzarea nu se pierde.',
+  w5Title: 'Gestioneaza intrebarile despre livrare, retur si stoc',
+  w5: 'Termene de livrare, politici de retur, disponibilitate stoc, dimensiuni. Agentul raspunde corect la orice ora ca sa nu pierzi clienti din cauza intrebarilor fara raspuns.',
+  w6Title: 'Raporteaza ce vinde si ce opreste clientii',
   w6: 'Fiecare conversatie este inregistrata. Afli ce produse sunt cele mai cautate, ce intrebari raman fara raspuns si unde pierzi clienti in procesul de cumparare.',
   flowH2: 'O conversatie care duce la vanzare',
   flowSub: 'Agentul nu raspunde doar la intrebari. Ghideaza vizitatorii pas cu pas catre decizia de cumparare.',
@@ -620,8 +620,8 @@ export default function AIAgentPage() {
   const productCards = (isLocaleRo: boolean, btnText: string) => (
     <div className="space-y-2 mt-2">
       {[
-        { name: isLocaleRo ? 'Suport haine metalic 5 brate' : 'Metal clothes rack 5 arms', price: '189 lei', img: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=96&h=96&fit=crop&q=80' },
-        { name: isLocaleRo ? 'Suport haine bambus minimal' : 'Bamboo minimal coat rack', price: '149 lei', img: 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=96&h=96&fit=crop&q=80' },
+        { name: isLocaleRo ? 'Suport haine bambus minimal' : 'Bamboo minimal coat rack', price: '149 lei', img: '/images/ProdusSuportHaineBambus.webp' },
+        { name: isLocaleRo ? 'Suport haine metalic 5 brate' : 'Metal clothes rack 5 arms', price: '189 lei', img: '/images/ProdusSuportHaineMetalic.jpeg' },
       ].map((p, i) => (
         <div key={i} className="flex items-center gap-3 p-2.5 rounded-xl border border-neutral-100 bg-white">
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -681,7 +681,7 @@ export default function AIAgentPage() {
             >
               {c.h1a}
               <br />
-              <span style={orangeGradientText}>{c.h1b}</span>
+              <span className="text-orange-500">{c.h1b}</span>
             </h1>
           </motion.div>
 

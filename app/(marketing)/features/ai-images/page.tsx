@@ -1,10 +1,10 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import {
-  Sparkles, ChevronDown, CheckCircle, Shield, Zap,
+  Sparkles, ChevronDown, ChevronRight, CheckCircle, Shield, Zap,
   PackageOpen, Banknote, XCircle, Upload, Wand2, Rocket,
   ImagePlus, ImageIcon, Download, Loader2, ArrowRight,
 } from 'lucide-react'
@@ -33,7 +33,7 @@ const en = {
   pain2Title: 'Professional photographers are expensive',
   pain2: 'A photo shoot starts at a few hundred euros and takes days. And when the assortment changes, the whole process starts over from scratch.',
   pain3Title: 'Marketplaces reject your products',
-  pain3: 'Major platforms like eMAG have strict image standards. Without a white background and adequate resolution, your products cannot be listed.',
+  pain3: 'Major platforms have strict image standards. Without a white background and adequate resolution, your products cannot be listed.',
   painCta: 'Hontrio fixes all of this automatically.',
   howH2: 'Three steps. A few seconds.',
   howSub: 'From raw photo to professional image, without any technical knowledge.',
@@ -42,12 +42,12 @@ const en = {
   step2Title: 'Choose the right style',
   step2: 'Six predefined styles for every sales channel. From marketplace to social media ads, you always have the right option.',
   step2Pills: ['White Background', 'Lifestyle', 'Premium Dark'],
-  step3Title: 'Publish directly to your store',
-  step3: 'One click and the optimized image replaces the old photo in WooCommerce. No download, no manual upload, no extra steps.',
+  step3Title: 'Publish directly to your online store',
+  step3: 'One click and the optimized image replaces the old photo in your store. No download, no manual upload, no extra steps.',
   demoH2: 'Interactive Demo',
   demoSub: 'See how Hontrio transforms a product photo. No account needed.',
   uploadLabel: 'Click to load the demo photo',
-  uploadSub: 'This is a demo — no real upload required',
+  uploadSub: 'This is a demo. No real upload required.',
   uploadedBadge: 'Photo uploaded',
   styleLabel: 'Choose style',
   styles: ['White Background', 'Lifestyle', 'Premium Dark', 'Industrial', 'Seasonal', 'Auto'],
@@ -59,6 +59,8 @@ const en = {
   tooltipText: 'Create a free account to download and publish your images.',
   tooltipCta: 'Create account',
   processingSteps: ['Analyzing photo...', 'Applying White Background style...', 'Running automatic verification...', 'Finalizing...'],
+  originalLabel: 'Original',
+  resultLabel: 'Result',
   generatedBadge: 'Generated successfully',
   colorBadge: 'Color preserved',
   artifactBadge: 'No artifacts',
@@ -132,12 +134,12 @@ const ro = {
   step2Title: 'Alegi stilul potrivit',
   step2: 'Sase stiluri predefinite pentru fiecare canal de vanzare. De la marketplace la reclame pe social media, ai mereu varianta potrivita.',
   step2Pills: ['Fundal Alb', 'Lifestyle', 'Premium Dark'],
-  step3Title: 'Publici direct in magazin',
-  step3: 'Un singur click si imaginea optimizata inlocuieste fotografia veche in WooCommerce. Fara download, fara upload manual, fara pasi in plus.',
+  step3Title: 'Publici direct in magazinul tau online',
+  step3: 'Un singur click si imaginea optimizata inlocuieste fotografia veche in magazinul tau. Fara download, fara upload manual, fara pasi in plus.',
   demoH2: 'Demo Interactiv',
   demoSub: 'Vezi cum Hontrio transforma o fotografie de produs. Nu ai nevoie de cont.',
   uploadLabel: 'Apasa pentru a incarca fotografia demo',
-  uploadSub: 'Acesta este un demo — nu incarci nimic real',
+  uploadSub: 'Acesta este un demo. Nu incarci nimic real.',
   uploadedBadge: 'Fotografie incarcata',
   styleLabel: 'Alege stilul',
   styles: ['Fundal Alb', 'Lifestyle', 'Premium Dark', 'Industrial', 'Seasonal', 'Auto'],
@@ -149,6 +151,8 @@ const ro = {
   tooltipText: 'Creeaza un cont gratuit pentru a descarca si publica imaginile tale.',
   tooltipCta: 'Creeaza cont',
   processingSteps: ['Analizam fotografia...', 'Aplicam stilul Fundal Alb...', 'Verificare automata in curs...', 'Finalizare...'],
+  originalLabel: 'Original',
+  resultLabel: 'Rezultat',
   generatedBadge: 'Generat cu succes',
   colorBadge: 'Culoare pastrata',
   artifactBadge: 'Fara artefacte',
@@ -212,55 +216,58 @@ function useCountUp(target: number, active: boolean) {
   return val
 }
 
-// ─── Before/After Slider ─────────────────────────────────────────────────────
+// ─── Before/After Auto Cycle ─────────────────────────────────────────────────
 
 function BeforeAfterSlider({ beforeLabel, afterLabel }: { beforeLabel: string; afterLabel: string }) {
-  const [pos, setPos] = useState(50)
-  const containerRef = useRef<HTMLDivElement>(null)
-  const dragging = useRef(false)
-
-  const move = useCallback((clientX: number) => {
-    const rect = containerRef.current?.getBoundingClientRect()
-    if (!rect) return
-    const x = Math.max(0, Math.min(clientX - rect.left, rect.width))
-    setPos((x / rect.width) * 100)
-  }, [])
+  const [showAfter, setShowAfter] = useState(false)
 
   useEffect(() => {
-    const up = () => { dragging.current = false }
-    const mv = (e: MouseEvent) => { if (dragging.current) move(e.clientX) }
-    document.addEventListener('mouseup', up)
-    document.addEventListener('mousemove', mv)
-    return () => { document.removeEventListener('mouseup', up); document.removeEventListener('mousemove', mv) }
-  }, [move])
+    const interval = setInterval(() => {
+      setShowAfter(prev => !prev)
+    }, 2500)
+    return () => clearInterval(interval)
+  }, [])
 
   return (
-    <div
-      ref={containerRef}
-      className="relative w-full aspect-[4/3] overflow-hidden rounded-2xl cursor-ew-resize select-none"
-      onTouchMove={(e) => move(e.touches[0].clientX)}
-    >
-      {/* After (base) */}
-      <img src="/After.jpeg" alt="After" className="absolute inset-0 w-full h-full object-cover" draggable={false} />
-      {/* Before (clipped) */}
-      <div className="absolute inset-0 overflow-hidden" style={{ width: `${pos}%` }}>
-        <img src="/Before.jpg" alt="Before" className="absolute inset-0 h-full object-cover" style={{ width: containerRef.current ? `${containerRef.current.offsetWidth}px` : '100%' }} draggable={false} />
+    <div className="relative w-full aspect-[4/3] overflow-hidden rounded-2xl select-none">
+      {/* Before image */}
+      <img src="/Before.jpg" alt="Before" className="absolute inset-0 w-full h-full object-cover" draggable={false} />
+      {/* After image - fades in/out */}
+      <AnimatePresence>
+        {showAfter && (
+          <motion.img
+            key="after"
+            src="/After.jpeg"
+            alt="After"
+            className="absolute inset-0 w-full h-full object-cover"
+            draggable={false}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.8, ease: 'easeInOut' }}
+          />
+        )}
+      </AnimatePresence>
+      {/* Label */}
+      <div className="absolute top-3 left-3 z-10">
+        <AnimatePresence mode="wait">
+          <motion.span
+            key={showAfter ? 'after-label' : 'before-label'}
+            className={`inline-block px-2.5 py-1 text-xs font-semibold rounded-lg ${showAfter ? 'bg-neutral-900 text-white' : 'bg-black/60 text-white backdrop-blur-sm'}`}
+            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 4 }}
+            transition={{ duration: 0.3 }}
+          >
+            {showAfter ? afterLabel : beforeLabel}
+          </motion.span>
+        </AnimatePresence>
       </div>
-      {/* Divider */}
-      <div className="absolute inset-y-0 z-10 flex items-center" style={{ left: `${pos}%`, transform: 'translateX(-50%)' }}>
-        <div className="w-0.5 h-full bg-white/90 shadow-[0_0_8px_rgba(0,0,0,0.3)]" />
-        <div
-          className="absolute w-10 h-10 bg-white rounded-full shadow-lg flex items-center justify-center cursor-ew-resize"
-          onMouseDown={() => { dragging.current = true }}
-        >
-          <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-            <path d="M6 9H12M6 9L8.5 6.5M6 9L8.5 11.5M12 9L9.5 6.5M12 9L9.5 11.5" stroke="#111827" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-        </div>
+      {/* Pulsing dot indicator */}
+      <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1.5">
+        <span className={`w-2 h-2 rounded-full transition-all duration-500 ${!showAfter ? 'bg-white scale-125' : 'bg-white/40'}`} />
+        <span className={`w-2 h-2 rounded-full transition-all duration-500 ${showAfter ? 'bg-white scale-125' : 'bg-white/40'}`} />
       </div>
-      {/* Labels */}
-      <span className="absolute top-3 left-3 z-10 px-2.5 py-1 bg-black/60 text-white text-xs font-semibold rounded-lg backdrop-blur-sm">{beforeLabel}</span>
-      <span className="absolute top-3 right-3 z-10 px-2.5 py-1 bg-neutral-900 text-white text-xs font-semibold rounded-lg">{afterLabel}</span>
     </div>
   )
 }
@@ -327,7 +334,7 @@ function DemoSection({ c }: { c: typeof en }) {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
             {/* Upload zone */}
             <div>
-              <p className="text-xs font-semibold uppercase tracking-widest text-neutral-400 mb-3">Original</p>
+              <p className="text-xs font-semibold uppercase tracking-widest text-neutral-400 mb-3">{c.originalLabel}</p>
               <div
                 onClick={handleUpload}
                 className={`relative w-full aspect-square rounded-2xl border-2 overflow-hidden flex flex-col items-center justify-center cursor-pointer transition-all duration-300 ${
@@ -358,7 +365,7 @@ function DemoSection({ c }: { c: typeof en }) {
 
             {/* Result zone */}
             <div>
-              <p className="text-xs font-semibold uppercase tracking-widest text-neutral-400 mb-3">AI Result</p>
+              <p className="text-xs font-semibold uppercase tracking-widest text-neutral-400 mb-3">{c.resultLabel}</p>
               <div className="relative w-full aspect-square rounded-2xl border-2 border-dashed border-neutral-200 overflow-hidden flex flex-col items-center justify-center bg-neutral-50">
                 {state !== 'processing' && state !== 'done' && (
                   <div className="flex flex-col items-center gap-2">
@@ -445,7 +452,7 @@ function DemoSection({ c }: { c: typeof en }) {
             )}
           </button>
 
-          {/* Action buttons — visible after done */}
+          {/* Action buttons - visible after done */}
           <AnimatePresence>
             {state === 'done' && (
               <motion.div
@@ -722,49 +729,47 @@ export default function AIImagesPage() {
             <p className="text-xl text-neutral-500">{c.howSub}</p>
           </motion.div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-4 relative">
-            {/* Connector line (desktop only) */}
-            <div className="hidden md:block absolute top-[52px] left-[calc(16.67%+24px)] right-[calc(16.67%+24px)] h-px bg-neutral-200 z-0">
-              <motion.div
-                className="h-full bg-neutral-400 origin-left"
-                initial={reduced ? false : { scaleX: 0 }}
-                whileInView={{ scaleX: 1 }}
-                viewport={{ once: true, amount: 0.5 }}
-                transition={{ duration: 1, ease: 'easeInOut' }}
-              />
-            </div>
-
+          <div className="flex flex-col md:flex-row items-stretch gap-0">
             {[
               { num: '01', Icon: Upload,  title: c.step1Title, text: c.step1, extra: null },
               { num: '02', Icon: Wand2,   title: c.step2Title, text: c.step2, extra: c.step2Pills },
               { num: '03', Icon: Rocket,  title: c.step3Title, text: c.step3, extra: null },
             ].map((step, i) => (
-              <motion.div
-                key={i}
-                className="relative z-10 flex flex-col items-center text-center px-4"
-                {...(reduced ? {} : {
-                  initial: { opacity: 0, y: 24 },
-                  whileInView: { opacity: 1, y: 0 },
-                  viewport: { once: true, amount: 0.2 },
-                  transition: { duration: 0.5, delay: i * 0.18 },
-                })}
-              >
-                <div className="relative mb-5">
-                  <span className="absolute -top-2 -right-2 text-4xl font-black text-neutral-100 select-none z-0" style={{ fontSize: 48, lineHeight: 1 }}>{step.num}</span>
-                  <div className="relative z-10 w-14 h-14 rounded-2xl bg-neutral-900 flex items-center justify-center shadow-md">
-                    <step.Icon className="h-6 w-6 text-white" />
+              <div key={i} className="flex flex-col md:flex-row items-center flex-1 min-w-0">
+                {/* Step card */}
+                <motion.div
+                  className="relative z-10 flex flex-col items-center text-center px-6 py-2 flex-1 w-full"
+                  {...(reduced ? {} : {
+                    initial: { opacity: 0, y: 24 },
+                    whileInView: { opacity: 1, y: 0 },
+                    viewport: { once: true, amount: 0.2 },
+                    transition: { duration: 0.5, delay: i * 0.18 },
+                  })}
+                >
+                  <div className="relative mb-5">
+                    <span className="absolute -top-2 -right-2 text-4xl font-black text-neutral-100 select-none z-0" style={{ fontSize: 48, lineHeight: 1 }}>{step.num}</span>
+                    <div className="relative z-10 w-14 h-14 rounded-2xl bg-neutral-900 flex items-center justify-center shadow-md">
+                      <step.Icon className="h-6 w-6 text-white" />
+                    </div>
                   </div>
-                </div>
-                <h3 className="text-lg font-bold text-neutral-900 mb-3">{step.title}</h3>
-                <p className="text-sm text-neutral-500 leading-relaxed mb-4">{step.text}</p>
-                {step.extra && (
-                  <div className="flex flex-wrap gap-2 justify-center">
-                    {(step.extra as string[]).map((pill) => (
-                      <span key={pill} className="px-3 py-1 bg-neutral-100 text-neutral-600 text-xs font-medium rounded-full">{pill}</span>
-                    ))}
+                  <h3 className="text-lg font-bold text-neutral-900 mb-3">{step.title}</h3>
+                  <p className="text-sm text-neutral-500 leading-relaxed mb-4">{step.text}</p>
+                  {step.extra && (
+                    <div className="flex flex-wrap gap-2 justify-center">
+                      {(step.extra as string[]).map((pill) => (
+                        <span key={pill} className="px-3 py-1 bg-neutral-100 text-neutral-600 text-xs font-medium rounded-full">{pill}</span>
+                      ))}
+                    </div>
+                  )}
+                </motion.div>
+                {/* Arrow between steps */}
+                {i < 2 && (
+                  <div className="flex items-center justify-center shrink-0 text-neutral-300 my-2 md:my-0">
+                    <ChevronDown className="h-6 w-6 md:hidden" />
+                    <ChevronRight className="h-6 w-6 hidden md:block" />
                   </div>
                 )}
-              </motion.div>
+              </div>
             ))}
           </div>
         </div>
@@ -801,8 +806,8 @@ export default function AIImagesPage() {
                   >
                     <CheckCircle className="h-5 w-5 shrink-0 mt-0.5" style={{ color: '#1877F2' }} />
                     <div>
-                      <span className="text-sm font-semibold text-neutral-900">{item.title} </span>
-                      <span className="text-sm text-neutral-500">{item.text}</span>
+                      <span className="text-sm font-semibold text-neutral-900">{item.title}</span>
+                      <span className="text-sm text-neutral-500"> - {item.text}</span>
                     </div>
                   </motion.li>
                 ))}

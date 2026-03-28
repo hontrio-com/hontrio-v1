@@ -48,7 +48,7 @@ const en = {
   step3Title: 'Check the score and adjust',
   step3: 'Each generated text comes with a visual SEO score and concrete improvement suggestions. You can accept the text as-is or ask for alternative versions.',
   step4Title: 'Publish directly to your store',
-  step4: 'One click and the new texts are live in WooCommerce. No copy-paste, no manual steps, no risk of errors.',
+  step4: 'One click and the new texts are live in your online store. No copy-paste, no manual steps, no risk of errors.',
   demoH2: 'See the difference in real time',
   demoSub: 'Same product, two completely different presentations. One ignored, one that sells.',
   demoIdleLabel: 'Product to optimize',
@@ -74,6 +74,7 @@ const en = {
   afterCheck3: 'Keywords integrated',
   demoBtn: 'Optimize your products',
   demoNote: 'No account needed. No setup required.',
+  demoInteractiveNote: 'This is an interactive demo. Real results may vary.',
   whatH2: 'Everything a product needs to sell',
   whatSub: 'Not just a description. A complete set of optimized texts for every product in your store.',
   w1Title: 'SEO-optimized title',
@@ -86,8 +87,8 @@ const en = {
   w4: 'The text that appears under the title in Google results. Formulated to increase the click-through rate from search and set the right expectations for the visitor.',
   w5Title: 'Visual SEO score',
   w5: 'A numeric indicator between 0 and 100 showing optimization quality. Accompanied by concrete suggestions about what can be improved further.',
-  w6Title: 'Alternative versions',
-  w6: "Not happy with the first result? You can request alternative versions of the title or description without consuming additional credits.",
+  w6Title: 'Google E-E-A-T compliant content',
+  w6: 'Content created according to Google E-E-A-T standards (Experience, Expertise, Authoritativeness, Trustworthiness). Each text is structured to build trust with both search engines and real buyers.',
   scoreH2: 'You know exactly how well optimized each product is',
   scoreSub: 'Each generated text automatically receives a score between 0 and 100 based on the most important optimization factors. You don\'t need to know SEO rules. Hontrio applies them and shows you the result.',
   scoreTag: 'SEO Score',
@@ -171,7 +172,7 @@ const ro = {
   step3Title: 'Verifici scorul si ajustezi',
   step3: 'Fiecare text generat vine cu un scor SEO vizual si sugestii concrete de imbunatatire. Poti accepta textul ca atare sau poti cere variante alternative.',
   step4Title: 'Publici direct in magazin',
-  step4: 'Un singur click si textele noi sunt live in WooCommerce. Fara copy-paste, fara pasi manuali, fara risc de erori.',
+  step4: 'Un singur click si textele noi sunt live in magazinul tau online. Fara copy-paste, fara pasi manuali, fara risc de erori.',
   demoH2: 'Vezi diferenta in timp real',
   demoSub: 'Acelasi produs, doua prezentari total diferite. Una ignorata, una care vinde.',
   demoIdleLabel: 'Produs de optimizat',
@@ -197,6 +198,7 @@ const ro = {
   afterCheck3: 'Cuvinte cheie integrate',
   demoBtn: 'Optimizeaza produsele tale',
   demoNote: 'Nu ai nevoie de cont. Nicio configurare necesara.',
+  demoInteractiveNote: 'Acesta este un demo interactiv. Rezultatele reale pot varia.',
   whatH2: 'Tot ce are nevoie un produs pentru a vinde',
   whatSub: 'Nu doar o descriere. Un set complet de texte optimizate pentru fiecare produs din magazinul tau.',
   w1Title: 'Titlu optimizat SEO',
@@ -209,8 +211,8 @@ const ro = {
   w4: 'Textul care apare sub titlu in rezultatele Google. Formulat sa creasca rata de click din cautare si sa seteze asteptarile corecte pentru vizitator.',
   w5Title: 'Scor SEO vizual',
   w5: 'Un indicator numeric intre 0 si 100 care arata calitatea optimizarii. Insotit de sugestii concrete despre ce poate fi imbunatatit in continuare.',
-  w6Title: 'Variante alternative',
-  w6: 'Nu esti multumit de primul rezultat? Poti cere variante alternative de titlu sau descriere fara sa consumi credite suplimentare.',
+  w6Title: 'Continut conform standardelor Google E-E-A-T',
+  w6: 'Continut creat conform standardelor Google E-E-A-T (Experienta, Expertiza, Autoritate, Incredere). Fiecare text este structurat sa construiasca incredere atat cu motoarele de cautare, cat si cu cumparatorii reali.',
   scoreH2: 'Stii exact cat de bine optimizat este fiecare produs',
   scoreSub: 'Fiecare text generat primeste automat un scor intre 0 si 100 bazat pe cei mai importanti factori de optimizare. Nu trebuie sa cunosti regulile SEO. Hontrio le aplica si iti arata rezultatul.',
   scoreTag: 'SEO Score',
@@ -502,7 +504,7 @@ export default function SEOPage() {
           <motion.div {...(reduced ? {} : { initial: { opacity: 0, y: 20 }, animate: { opacity: 1, y: 0 }, transition: { duration: 0.55, delay: 0.1 } })}>
             <h1 className="font-extrabold text-neutral-900 leading-[1.05] tracking-tight mb-6"
               style={{ fontSize: 'clamp(36px, 5vw, 60px)' }}>
-              <span style={greenGradientText}>{c.h1a}</span>
+              <span className="text-green-600">{c.h1a}</span>
               <br />
               {c.h1b}
             </h1>
@@ -726,7 +728,7 @@ export default function SEOPage() {
                   <div className="w-3 h-3 rounded-full bg-amber-400" />
                   <div className="w-3 h-3 rounded-full bg-emerald-400" />
                 </div>
-                <span className="flex-1 text-center text-[11px] text-neutral-400 font-medium tracking-wide">SEO Optimizer — Hontrio</span>
+                <span className="flex-1 text-center text-[11px] text-neutral-400 font-medium tracking-wide">SEO Optimizer - Hontrio</span>
                 <AnimatePresence mode="wait">
                   {demoState === 'idle' && (
                     <motion.span key="idle" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -864,6 +866,10 @@ export default function SEOPage() {
               </div>
             </div>
           </motion.div>
+
+          <motion.p className="text-center text-xs text-neutral-400 mt-4 leading-relaxed" {...fadeUp(0.2)}>
+            {c.demoInteractiveNote}
+          </motion.p>
         </div>
       </section>
 

@@ -18,9 +18,9 @@ import { useLocale } from '@/lib/i18n/context'
 
 const ro = {
   heroBadge: 'Roadmap public',
-  heroH1a: 'Unde mergem si',
-  heroH1b: 'cum ajungem',
-  heroH1c: 'acolo',
+  heroH1a: 'Cum evolueaza',
+  heroH1b: 'Hontrio',
+  heroH1c: '',
   heroSub: 'Transparenta totala despre ce construim, ce urmeaza si de ce luam deciziile pe care le luam. Roadmap-ul nostru este public pentru ca voi, utilizatorii, sunteti prioritatea.',
   heroInfo: 'Acest roadmap reflecta planurile curente si poate fi actualizat pe masura ce prioritatile se schimba. Feedback-ul vostru influenteaza direct ordinea de implementare.',
 
@@ -185,9 +185,9 @@ const ro = {
 
 const en: typeof ro = {
   heroBadge: 'Public Roadmap',
-  heroH1a: 'Where we\'re going and',
-  heroH1b: 'how we get',
-  heroH1c: 'there',
+  heroH1a: 'How Hontrio',
+  heroH1b: 'evolves',
+  heroH1c: '',
   heroSub: 'Full transparency on what we\'re building, what\'s next and why we make the decisions we make. Our roadmap is public because you, our users, are the priority.',
   heroInfo: 'This roadmap reflects current plans and may be updated as priorities evolve. Your feedback directly influences the order of implementation.',
 

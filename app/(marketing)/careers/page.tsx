@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { motion, AnimatePresence, useReducedMotion, type MotionProps } from 'framer-motion'
 import {
   Briefcase, Rocket, Brain, Globe, Users, TrendingUp, Laptop,
-  SearchX, RefreshCw, CheckCircle2, MessageSquare, CheckSquare, Zap, BookOpen,
+  SearchX, RefreshCw, CheckCircle2,
   Send, Loader2, AlertCircle, ArrowRight,
 } from 'lucide-react'
 import { useLocale } from '@/lib/i18n/context'
@@ -15,7 +15,7 @@ import { useLocale } from '@/lib/i18n/context'
 const en = {
   heroBadge: 'Careers',
   heroH1Part1: 'Build the future of',
-  heroH1Word: 'eCommerce',
+  heroH1Word: 'online commerce',
   heroH1Part2: 'alongside us.',
   heroSub: 'Hontrio is a rapidly growing platform and we are always interested in meeting talented people. Even if we have no open positions at the moment, you can leave your contact details for future opportunities.',
 
@@ -23,7 +23,7 @@ const en = {
   whySub: 'We build a real product with measurable impact, in a team where every contribution matters.',
   whyCards: [
     { icon: 'rocket', title: 'Growing product', text: 'You work on an active platform with real users and direct feedback. Every feature you build reaches production quickly and has measurable impact.' },
-    { icon: 'brain', title: 'Modern technology', text: 'Our stack includes Next.js, TypeScript, Supabase, OpenAI and Framer Motion. You work with the tools you would choose yourself, not legacy systems from another decade.' },
+    { icon: 'brain', title: 'Modern technology', text: 'We use the most modern technologies available, with a tech stack chosen for efficiency and scalability.' },
     { icon: 'globe', title: 'International impact', text: 'Our platform serves online stores from multiple countries. Your contribution has a global reach, not a local one.' },
     { icon: 'users', title: 'Small team, great autonomy', text: 'In a compact team, your opinion counts and decisions are made quickly. There is no bureaucracy between a good idea and its implementation.' },
     { icon: 'trending', title: 'Fast professional growth', text: 'Exposure to the entire product (from infrastructure to design, from AI to security) gives you professional growth that a narrow role cannot offer.' },
@@ -84,14 +84,6 @@ const en = {
   errMessageMin: 'Message must be at least 30 characters.',
   errGdpr: 'You must agree to the Privacy Policy.',
 
-  valuesH2: 'How we work',
-  valuesSub: 'We do not have a ten-page culture manual. We have a few simple principles that guide us every day.',
-  values: [
-    { icon: 'message', title: 'Direct communication', text: 'We say what we think, we listen to what we are told. There is no withheld information or hierarchies that filter feedback.' },
-    { icon: 'check', title: 'Individual accountability', text: 'Everyone fully owns their area. There are no tasks that fall between two chairs or unclear responsibilities.' },
-    { icon: 'zap', title: 'Execution speed', text: 'We prioritize fast delivery and iteration over perfect planning. An imperfect product in production is more valuable than a perfect product in planning.' },
-    { icon: 'book', title: 'Continuous learning', text: 'Technology evolves quickly. We encourage and allocate time for documentation, experimentation and learning new things.' },
-  ],
 
   ctaH2: "Didn't find what you were looking for?",
   ctaSub: 'Send us a spontaneous application or write to us directly. We take the time to read every message.',
@@ -103,7 +95,7 @@ const en = {
 const ro: typeof en = {
   heroBadge: 'Cariere',
   heroH1Part1: 'Construieste viitorul',
-  heroH1Word: 'eCommerce-ului',
+  heroH1Word: 'comertului online',
   heroH1Part2: 'alaturi de noi.',
   heroSub: 'Hontrio este o platforma in plina crestere si avem mereu interes sa cunoastem oameni talentati. Chiar daca nu avem pozitii deschise momentan, ne poti lasa datele de contact pentru oportunitatile viitoare.',
 
@@ -111,7 +103,7 @@ const ro: typeof en = {
   whySub: 'Construim un produs real, cu impact masurabil, intr-o echipa unde fiecare contributie conteaza.',
   whyCards: [
     { icon: 'rocket', title: 'Produs in crestere', text: 'Lucrezi la o platforma activa, cu utilizatori reali si feedback direct. Fiecare functionalitate pe care o construiesti ajunge rapid in productie si are impact masurabil.' },
-    { icon: 'brain', title: 'Tehnologie moderna', text: 'Stack-ul nostru include Next.js, TypeScript, Supabase, OpenAI si Framer Motion. Lucrezi cu uneltele pe care le-ai alege tu insuti, nu cu sisteme legacy din alt deceniu.' },
+    { icon: 'brain', title: 'Tehnologie moderna', text: 'Folosim cele mai moderne tehnologii disponibile, cu un stack tehnic ales pentru eficienta si scalabilitate.' },
     { icon: 'globe', title: 'Impact international', text: 'Platforma noastra serveste magazine online din mai multe tari. Contributia ta are un perimetru global, nu local.' },
     { icon: 'users', title: 'Echipa mica, autonomie mare', text: 'Intr-o echipa compacta, opinia ta conteaza si deciziile se iau rapid. Nu exista birocratie intre o idee buna si implementarea ei.' },
     { icon: 'trending', title: 'Crestere profesionala rapida', text: 'Expunerea la intregul produs (de la infrastructura la design, de la AI la securitate) iti ofera o crestere profesionala pe care un rol ingust nu ti-o poate oferi.' },
@@ -172,14 +164,6 @@ const ro: typeof en = {
   errMessageMin: 'Mesajul trebuie sa aiba cel putin 30 de caractere.',
   errGdpr: 'Trebuie sa fii de acord cu Politica de Confidentialitate.',
 
-  valuesH2: 'Cum lucram',
-  valuesSub: 'Nu avem un manual de cultura de zece pagini. Avem cateva principii simple dupa care ne ghidam in fiecare zi.',
-  values: [
-    { icon: 'message', title: 'Comunicare directa', text: 'Spunem ce gandim, ascultam ce ni se spune. Nu exista informatii retinute sau ierarhii care filtreaza feedback-ul.' },
-    { icon: 'check', title: 'Responsabilitate individuala', text: 'Fiecare isi asuma complet aria sa. Nu exista sarcini care sa cada intre doua scaune sau responsabilitati neclare.' },
-    { icon: 'zap', title: 'Viteza de executie', text: 'Prioritizam livrarea rapida si iteratia fata de planificarea perfecta. Un produs imperfect in productie este mai valoros decat un produs perfect in planificare.' },
-    { icon: 'book', title: 'Invatare continua', text: 'Tehnologia evolueaza rapid. Incurajam si alocam timp pentru documentare, experimentare si invatarea lucrurilor noi.' },
-  ],
 
   ctaH2: 'Nu ai gasit ce cautai?',
   ctaSub: 'Trimite-ne o candidatura spontana sau scrie-ne direct. Ne facem timp sa citim fiecare mesaj.',
@@ -236,16 +220,6 @@ function WhyIcon({ type }: { type: string }) {
   }
 }
 
-function ValueIcon({ type }: { type: string }) {
-  const cls = 'h-6 w-6 text-neutral-700'
-  switch (type) {
-    case 'message': return <MessageSquare className={cls} />
-    case 'check': return <CheckSquare className={cls} />
-    case 'zap': return <Zap className={cls} />
-    case 'book': return <BookOpen className={cls} />
-    default: return null
-  }
-}
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -337,13 +311,7 @@ export default function CareersPage() {
             className="text-4xl sm:text-5xl font-extrabold tracking-tight text-neutral-900 leading-tight mb-4"
           >
             {t.heroH1Part1}{' '}
-            <span className="relative inline-block">
-              {t.heroH1Word}
-              <motion.span
-                {...(reduced ? {} : { initial: { scaleX: 0 }, animate: { scaleX: 1 }, transition: { duration: 0.5, delay: 0.55, ease: [0.4, 0, 0.2, 1] as [number, number, number, number] } })}
-                className="absolute bottom-0 left-0 h-[3px] w-full bg-neutral-900 origin-left rounded-full"
-              />
-            </span>
+            <span>{t.heroH1Word}</span>
             {' '}{t.heroH1Part2}
           </motion.h1>
 
@@ -614,28 +582,6 @@ export default function CareersPage() {
               )}
             </AnimatePresence>
           </motion.div>
-        </div>
-      </section>
-
-      {/* ── Section 5: Values ──────────────────────────────────────────────── */}
-      <section className="py-20 bg-white">
-        <div className="max-w-5xl mx-auto px-6">
-          <motion.div {...fadeUp(reduced)} className="text-center mb-14">
-            <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-neutral-900 mb-3">{t.valuesH2}</h2>
-            <p className="text-neutral-500 leading-relaxed max-w-lg mx-auto">{t.valuesSub}</p>
-          </motion.div>
-
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-10">
-            {t.values.map((item, i) => (
-              <motion.div key={item.title} {...fadeUp(reduced, i * 0.08)} className="flex flex-col items-center text-center sm:items-start sm:text-left">
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-neutral-100 mb-4">
-                  <ValueIcon type={item.icon} />
-                </div>
-                <h3 className="font-bold text-neutral-900 mb-2">{item.title}</h3>
-                <p className="text-sm text-neutral-500 leading-relaxed">{item.text}</p>
-              </motion.div>
-            ))}
-          </div>
         </div>
       </section>
 

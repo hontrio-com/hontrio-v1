@@ -63,7 +63,6 @@ const en = {
     { value: '4', label: 'AI modules integrated into a single platform' },
     { value: '20+', label: 'signals analysed per order by Risk Shield' },
     { value: '6', label: 'professional image styles generated from a single photo' },
-    { value: '1', label: 'line of code to install the chat agent in your store' },
   ],
 
   ctaH2: 'Ready to grow your online business?',
@@ -125,7 +124,6 @@ const ro: typeof en = {
     { value: '4', label: 'module AI integrate intr-o singura platforma' },
     { value: '20+', label: 'semnale analizate per comanda de catre Risk Shield' },
     { value: '6', label: 'stiluri de imagine profesionala generate din o singura fotografie' },
-    { value: '1', label: 'rand de cod pentru instalarea agentului de chat in magazinul tau' },
   ],
 
   ctaH2: 'Gata sa cresti afacerea ta online?',
@@ -189,15 +187,7 @@ export default function AboutPage() {
             className="text-[34px] md:text-[52px] font-extrabold text-neutral-900 tracking-tight leading-[1.1] mb-6"
           >
             {t.heroH1}{' '}
-            <span className="relative inline-block">
-              <span className="relative z-10 text-neutral-900">{t.heroWord}</span>
-              <motion.span
-                className="absolute bottom-1 left-0 right-0 h-[3px] bg-neutral-900 rounded-full origin-left"
-                initial={{ scaleX: 0 }}
-                animate={{ scaleX: 1 }}
-                transition={{ duration: 0.7, ease: E, delay: 0.5 }}
-              />
-            </span>
+            <span className="text-neutral-900">{t.heroWord}</span>
           </motion.h1>
 
           <motion.p
@@ -396,7 +386,7 @@ export default function AboutPage() {
             <h2 className="text-3xl md:text-4xl font-bold text-neutral-900 tracking-tight mb-4">{t.statsH2}</h2>
             <p className="text-neutral-500">{t.statsSub}</p>
           </motion.div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
             {t.stats.map((s, i) => (
               <motion.div
                 key={i}

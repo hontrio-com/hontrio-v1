@@ -542,7 +542,7 @@ function MarketingFooter() {
 
         {/* ANPC — RO only */}
         {locale === 'ro' && (
-          <div className="mt-10 pt-8 border-t border-neutral-800 flex flex-wrap items-center gap-4">
+          <div className="mt-10 pt-8 border-t border-neutral-800 flex flex-wrap items-center gap-3">
             <p className="text-xs text-neutral-500 mr-2">Solutionarea alternativa a litigiilor:</p>
             <a href="https://anpc.ro/ce-este-sal/" target="_blank" rel="noopener noreferrer">
               <img src="/images/SAL.png" alt="SAL - Solutionarea Alternativa a Litigiilor" className="h-10 w-auto opacity-80 hover:opacity-100 transition-opacity" />
@@ -559,15 +559,21 @@ function MarketingFooter() {
 
           {/* Social icons */}
           <div className="flex items-center gap-3">
-            <Link href="https://facebook.com/hontrio" target="_blank" rel="noopener noreferrer"
+            <Link
+              href="https://www.facebook.com/profile.php?id=61564333583609"
+              target="_blank" rel="noopener noreferrer"
               className="w-8 h-8 rounded-lg bg-neutral-900 flex items-center justify-center text-neutral-500 hover:text-white hover:bg-neutral-800 transition-all">
               <Facebook className="h-3.5 w-3.5" />
             </Link>
-            <Link href="https://instagram.com/hontrio" target="_blank" rel="noopener noreferrer"
+            <Link
+              href={locale === 'ro' ? 'https://www.instagram.com/hontrioromania/' : 'https://www.instagram.com/hontrioglobal/'}
+              target="_blank" rel="noopener noreferrer"
               className="w-8 h-8 rounded-lg bg-neutral-900 flex items-center justify-center text-neutral-500 hover:text-white hover:bg-neutral-800 transition-all">
               <Instagram className="h-3.5 w-3.5" />
             </Link>
-            <Link href="https://tiktok.com/@hontrio" target="_blank" rel="noopener noreferrer"
+            <Link
+              href={locale === 'ro' ? 'https://www.tiktok.com/@hontrioromania' : 'https://www.tiktok.com/@hontrio.com'}
+              target="_blank" rel="noopener noreferrer"
               className="w-8 h-8 rounded-lg bg-neutral-900 flex items-center justify-center text-neutral-500 hover:text-white hover:bg-neutral-800 transition-all">
               <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1-2.89-2.89 2.89 2.89 0 0 1 2.89-2.89c.28 0 .54.04.79.1V9.01a6.33 6.33 0 0 0-.79-.05 6.34 6.34 0 0 0-6.34 6.34 6.34 6.34 0 0 0 6.34 6.34 6.34 6.34 0 0 0 6.33-6.34V8.69a8.18 8.18 0 0 0 4.78 1.52V6.75a4.85 4.85 0 0 1-1.01-.06z"/>

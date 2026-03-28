@@ -28,9 +28,9 @@ const en = {
   ai1H2: 'Studio images for every product, generated in seconds',
   ai1P: 'Upload any product photo and instantly get a professional version ready to publish. Six styles available for any sales channel, with automatic quality verification before delivery.',
   ai1Benefits: [
-    '6 styles: white background, lifestyle, premium dark, industrial, seasonal, auto',
+    'Multiple styles: white background, lifestyle, premium dark, industrial and more',
     'Automatic verification: shape, color, logo, no artifacts',
-    'Direct publish to WooCommerce with one click',
+    'Direct publishing to your online store with a single click',
     'Compatible with marketplace technical requirements',
   ],
   ai1Cta: 'Try for free', ai1CtaAlt: 'See all details',
@@ -127,9 +127,9 @@ const ro = {
   ai1H2: 'Imagini de studio pentru fiecare produs, generate in secunde',
   ai1P: 'Incarca orice fotografie a produsului si obtii instant o varianta profesionala gata de publicat. Sase stiluri disponibile pentru orice canal de vanzare, cu verificare automata a calitatii inainte de livrare.',
   ai1Benefits: [
-    '6 stiluri: fundal alb, lifestyle, premium dark, industrial, seasonal, auto',
+    'Diferite stiluri: fundal alb, lifestyle, premium dark, industrial si altele',
     'Verificare automata: forma, culoare, logo, fara artefacte',
-    'Publicare directa in WooCommerce cu un singur click',
+    'Publicare directa in magazinul tau online cu un singur click',
     'Compatibil cu cerintele tehnice ale marketplace-urilor',
   ],
   ai1Cta: 'Incearca gratuit', ai1CtaAlt: 'Vezi toate detaliile',
@@ -554,7 +554,7 @@ function FeatureText({
   return (
     <motion.div {...anim} className="flex flex-col justify-center">
       <div className="mb-6">
-        <p className="text-[72px] font-black text-neutral-900/[0.07] leading-none select-none pointer-events-none -mb-3">
+        <p className="text-[64px] font-black text-neutral-900/[0.06] leading-none select-none pointer-events-none mb-2">
           {num}
         </p>
         <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-neutral-100 border border-neutral-200 text-[12px] font-semibold text-neutral-600">
@@ -696,7 +696,7 @@ export default function FeaturesPage() {
       {/* ── FEATURES ────────────────────────────────────────────────────────── */}
       <div id="features-start" />
 
-      {/* Feature 1 — AI Images (text left, visual right) */}
+      {/* Feature 1 - AIImages (text left, visual right) */}
       <section className="py-20 sm:py-28 px-4 sm:px-6 lg:px-8 bg-white">
         <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
           <FeatureText
@@ -729,7 +729,7 @@ export default function FeaturesPage() {
         </div>
       </section>
 
-      {/* Feature 2 — SEO (visual left, text right) */}
+      {/* Feature 2 - SEO(visual left, text right) */}
       <section className="py-20 sm:py-28 px-4 sm:px-6 lg:px-8 bg-neutral-50">
         <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
           <motion.div
@@ -750,7 +750,7 @@ export default function FeaturesPage() {
         </div>
       </section>
 
-      {/* Feature 3 — AI Agent (text left, visual right) */}
+      {/* Feature 3 - AIAgent (text left, visual right) */}
       <section className="py-20 sm:py-28 px-4 sm:px-6 lg:px-8 bg-white">
         <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
           <FeatureText
@@ -768,7 +768,7 @@ export default function FeaturesPage() {
         </div>
       </section>
 
-      {/* Feature 4 — Risk Shield (visual left, text right) */}
+      {/* Feature 4 - RiskShield (visual left, text right) */}
       <section className="py-20 sm:py-28 px-4 sm:px-6 lg:px-8 bg-neutral-50">
         <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
           <motion.div
