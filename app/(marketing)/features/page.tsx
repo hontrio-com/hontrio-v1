@@ -48,11 +48,10 @@ const en = {
     'Alternative versions on demand, no extra credits',
   ],
   seo2Cta: 'Try for free', seo2CtaAlt: 'See all details',
-  seo2Badge: '+47% more clicks',
   seo2InputLabel: 'Product',
   seo2InputValue: '3-seater extendable sofa, grey fabric',
-  seo2TypeTitle: '3-Seater Extendable Sofa in Premium Fabric | Fast Delivery',
-  seo2TypeMeta: 'Discover the extendable sofa in premium fabric, perfect for modern living rooms...',
+  seo2TypeTitle: 'Extendable 3-Seater Sofa in Premium Fabric | Anthracite Grey | Nationwide Delivery',
+  seo2TypeMeta: 'Shop the extendable 3-seater sofa in premium anthracite grey fabric. Modern design, smooth mechanism, ideal for living rooms. Free delivery available.',
   seo2ScoreLabel: 'SEO Score',
   seo2Checks: ['Title', 'Meta', 'Keywords'],
 
@@ -67,7 +66,7 @@ const en = {
   ],
   agent3Cta: 'Try for free', agent3CtaAlt: 'See all details',
   agent3BadgeAvail: 'Available 24/7',
-  agent3WidgetName: 'MyStore Assistant',
+  agent3WidgetName: 'Asistent',
   agent3Msg1: 'Hi! How can I help you today?',
   agent3Quick1: 'Looking for a product',
   agent3Quick2: 'Delivery question',
@@ -79,10 +78,10 @@ const en = {
   risk4H2: 'You know in advance which orders will not be picked up',
   risk4P: 'A scoring engine that automatically analyzes 20+ signals for every new order: customer history, email type, order value, global blacklist shared between all Hontrio stores.',
   risk4Benefits: [
-    'Risk score 0-100 calculated instantly for every new order',
-    '5 labels: Trusted, New, Watch, Problematic, Blocked',
-    'Global blacklist shared with SHA-256 anonymized data',
-    'ML auto-calibrated from your real customer behavior',
+    'Every order gets an automatic risk score in real time',
+    '5 clear labels: Trusted, New, Watch, Problematic, Blocked',
+    'Shared database with all Hontrio users for wider coverage',
+    'The system learns from your real customers over time',
   ],
   risk4Cta: 'Try for free', risk4CtaAlt: 'See all details',
   risk4BadgeB: 'Global blacklist',
@@ -148,11 +147,10 @@ const ro = {
     'Variante alternative la cerere, fara credite suplimentare',
   ],
   seo2Cta: 'Incearca gratuit', seo2CtaAlt: 'Vezi toate detaliile',
-  seo2Badge: '+47% clickuri',
   seo2InputLabel: 'Produs',
   seo2InputValue: 'Canapea extensibila 3 locuri, stofa gri',
-  seo2TypeTitle: 'Canapea Extensibila 3 Locuri din Stofa Premium | Livrare Rapida',
-  seo2TypeMeta: 'Descopera canapeaua extensibila din stofa premium disponibila in gri antracit...',
+  seo2TypeTitle: 'Canapea Extensibila 3 Locuri din Stofa Premium | Gri Antracit | Livrare in toata tara',
+  seo2TypeMeta: 'Cumpara canapeaua extensibila 3 locuri din stofa premium gri antracit. Design modern, mecanism silentios, ideala pentru living. Livrare gratuita disponibila.',
   seo2ScoreLabel: 'Scor SEO',
   seo2Checks: ['Titlu', 'Meta', 'Keywords'],
 
@@ -167,7 +165,7 @@ const ro = {
   ],
   agent3Cta: 'Incearca gratuit', agent3CtaAlt: 'Vezi toate detaliile',
   agent3BadgeAvail: 'Disponibil 24/7',
-  agent3WidgetName: 'Asistent BundeCasa',
+  agent3WidgetName: 'Asistent',
   agent3Msg1: 'Buna! Cu ce te pot ajuta astazi?',
   agent3Quick1: 'Caut un produs',
   agent3Quick2: 'Intrebare livrare',
@@ -179,10 +177,10 @@ const ro = {
   risk4H2: 'Stii dinainte care comenzi nu vor fi ridicate',
   risk4P: 'Un engine de scoring care analizeaza automat 20+ semnale pentru fiecare comanda noua: istoricul clientului, tipul emailului, valoarea comenzii, blacklist global partajat intre toate magazinele Hontrio.',
   risk4Benefits: [
-    'Scor de risc 0-100 calculat instant la fiecare comanda noua',
-    '5 etichete: Trusted, Nou, Watch, Problematic, Blocat',
-    'Blacklist global partajat cu date anonimizate SHA-256',
-    'ML auto-calibrat din comportamentul real al clientilor tai',
+    'Fiecare comanda primeste automat un scor de risc in timp real',
+    '5 etichete clare: Trusted, Nou, Watch, Problematic, Blocat',
+    'Baza de date comuna cu toti utilizatorii Hontrio',
+    'Sistemul invata din comportamentul real al clientilor tai',
   ],
   risk4Cta: 'Incearca gratuit', risk4CtaAlt: 'Vezi toate detaliile',
   risk4BadgeB: 'Blacklist global',
@@ -271,20 +269,16 @@ function BeforeAfterSlider({ before, after }: { before: string; after: string })
       onTouchMove={e => move(e.touches[0].clientX)}
       onTouchStart={e => move(e.touches[0].clientX)}
     >
-      <div className="absolute inset-0 bg-neutral-200 flex flex-col items-center justify-center gap-2">
-        <ImageIcon className="h-12 w-12 text-neutral-400" />
-        <span className="text-xs text-neutral-400 font-medium">before.jpg</span>
-      </div>
+      <img src="/After.jpeg" alt="After" className="absolute inset-0 w-full h-full object-cover" draggable={false} />
       <div
-        className="absolute inset-0 bg-neutral-800 flex flex-col items-center justify-center gap-2"
-        style={{ clipPath: `inset(0 ${100 - pos}% 0 0)` }}
+        className="absolute inset-0 overflow-hidden"
+        style={{ width: `${pos}%` }}
       >
-        <ImageIcon className="h-12 w-12 text-neutral-500" />
-        <span className="text-xs text-neutral-500 font-medium">after.jpg</span>
+        <img src="/Before.jpg" alt="Before" className="absolute inset-0 h-full object-cover" style={{ width: containerRef.current ? `${containerRef.current.offsetWidth}px` : '100%' }} draggable={false} />
       </div>
-      <div className="absolute inset-y-0 pointer-events-none" style={{ left: `${pos}%` }}>
-        <div className="absolute inset-y-0 -ml-px w-0.5 bg-white/80" />
-        <div className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 w-9 h-9 bg-white rounded-full shadow-lg flex items-center justify-center pointer-events-auto">
+      <div className="absolute inset-y-0 z-10 flex items-center" style={{ left: `${pos}%`, transform: 'translateX(-50%)' }}>
+        <div className="absolute inset-y-0 left-1/2 -translate-x-1/2 w-0.5 bg-white/80" />
+        <div className="w-9 h-9 bg-white rounded-full shadow-lg flex items-center justify-center pointer-events-auto relative z-10">
           <svg viewBox="0 0 16 16" className="h-4 w-4 text-neutral-600" fill="none" stroke="currentColor" strokeWidth="1.5">
             <path d="M5 3l-3 5 3 5M11 3l3 5-3 5" />
           </svg>
@@ -363,15 +357,6 @@ function SEOCard({ t, skip }: { t: typeof en; skip: boolean }) {
         </div>
       </div>
 
-      {/* Float badge */}
-      <motion.div
-        animate={{ y: [0, -7, 0] }}
-        transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
-        className="absolute -top-4 -right-4 flex items-center gap-1.5 px-3 py-1.5 bg-white border border-neutral-200 rounded-full shadow-md text-[12px] font-semibold text-emerald-600"
-      >
-        <TrendingUp className="h-3.5 w-3.5" />
-        {t.seo2Badge}
-      </motion.div>
     </div>
   )
 }
@@ -477,15 +462,6 @@ function ChatWidget({ t }: { t: typeof en }) {
         </div>
       </div>
 
-      {/* Float badge */}
-      <motion.div
-        animate={{ y: [0, -7, 0] }}
-        transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut', delay: 0.5 }}
-        className="absolute -bottom-4 -left-4 flex items-center gap-1.5 px-3 py-1.5 bg-white border border-neutral-200 rounded-full shadow-md text-[12px] font-semibold text-neutral-700"
-      >
-        <Clock className="h-3.5 w-3.5 text-neutral-500" />
-        {t.agent3BadgeAvail}
-      </motion.div>
     </div>
   )
 }
@@ -558,15 +534,6 @@ function RiskCard({ t, skip }: { t: typeof en; skip: boolean }) {
         </div>
       </div>
 
-      {/* Float badge */}
-      <motion.div
-        animate={{ y: [0, -7, 0] }}
-        transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut', delay: 1 }}
-        className="absolute -top-4 -right-4 flex items-center gap-1.5 px-3 py-1.5 bg-white border border-neutral-200 rounded-full shadow-md text-[12px] font-semibold text-neutral-700"
-      >
-        <Globe className="h-3.5 w-3.5 text-neutral-500" />
-        {t.risk4BadgeB}
-      </motion.div>
     </div>
   )
 }
@@ -586,11 +553,11 @@ function FeatureText({
 
   return (
     <motion.div {...anim} className="flex flex-col justify-center">
-      <div className="relative mb-6">
-        <span className="absolute -top-4 -left-2 text-[80px] font-black text-neutral-900/[0.06] leading-none select-none pointer-events-none">
+      <div className="mb-6">
+        <p className="text-[72px] font-black text-neutral-900/[0.07] leading-none select-none pointer-events-none -mb-3">
           {num}
-        </span>
-        <div className="relative inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-neutral-100 border border-neutral-200 text-[12px] font-semibold text-neutral-600">
+        </p>
+        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-neutral-100 border border-neutral-200 text-[12px] font-semibold text-neutral-600">
           <PillIcon className="h-3.5 w-3.5" />
           {pill}
         </div>
@@ -687,38 +654,19 @@ export default function FeaturesPage() {
             className="font-extrabold text-neutral-900 tracking-tight leading-[1.1] mb-6"
             style={{ fontSize: 'clamp(32px, 5.5vw, 56px)' }}
           >
-            {t.heroH1a}{' '}
-            <span className="bg-gradient-to-r from-neutral-800 to-neutral-400 bg-clip-text text-transparent">
-              {t.heroH1b}
-            </span>
+            {t.heroH1a}{' '}{t.heroH1b}
           </motion.h1>
 
           {/* Subtitle */}
           <motion.p
             {...fadeUp(0.2)}
-            className="text-[17px] text-neutral-500 leading-[1.7] max-w-[640px] mx-auto mb-8"
+            className="text-[17px] text-neutral-500 leading-[1.7] max-w-[640px] mx-auto mb-9"
           >
             {t.heroSub}
           </motion.p>
 
-          {/* Pills */}
-          <motion.div {...fadeUp(0.3)} className="flex flex-wrap justify-center gap-2 mb-9">
-            {t.heroPills.map((pill, i) => {
-              const Icon = pillIcons[i]
-              return (
-                <div
-                  key={pill}
-                  className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border border-neutral-200 text-[13px] text-neutral-600 hover:border-neutral-400 hover:bg-neutral-50 transition-all duration-150 cursor-default"
-                >
-                  <Icon className="h-3.5 w-3.5" />
-                  {pill}
-                </div>
-              )
-            })}
-          </motion.div>
-
           {/* CTAs */}
-          <motion.div {...fadeUp(0.4)} className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-10">
+          <motion.div {...fadeUp(0.3)} className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-10">
             <Link
               href="/register"
               className="inline-flex items-center justify-center px-7 py-3.5 rounded-xl bg-neutral-900 text-white text-[15px] font-semibold hover:bg-neutral-800 active:scale-[0.98] transition-all shadow-[0_2px_8px_rgba(0,0,0,0.18)] w-full sm:w-auto"
@@ -739,22 +687,6 @@ export default function FeaturesPage() {
             </button>
           </motion.div>
 
-          {/* Social proof */}
-          <motion.div {...fadeUp(0.6)} className="flex items-center justify-center gap-3">
-            <div className="flex -space-x-2">
-              {['A', 'L', 'M', 'E'].map((i) => (
-                <div key={i} className="w-8 h-8 rounded-full bg-neutral-200 border-2 border-white flex items-center justify-center text-[10px] font-bold text-neutral-600">{i}</div>
-              ))}
-            </div>
-            <p className="text-[13px] text-neutral-500">
-              <span className="font-semibold text-neutral-900">{t.heroProof}</span>
-              {' · '}
-              <span className="inline-flex items-center gap-1">
-                <Star className="h-3 w-3 fill-neutral-900 text-neutral-900" />
-                {t.heroRating}
-              </span>
-            </p>
-          </motion.div>
         </div>
       </section>
 
@@ -793,23 +725,6 @@ export default function FeaturesPage() {
                 ))}
               </div>
             </div>
-
-            <motion.div
-              animate={shouldReduce ? {} : { y: [0, -7, 0] }}
-              transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut', delay: 0.8 }}
-              className="absolute -top-4 -right-4 flex items-center gap-1.5 px-3 py-1.5 bg-white border border-neutral-200 rounded-full shadow-md text-[12px] font-semibold text-emerald-600"
-            >
-              <ShieldCheck className="h-3.5 w-3.5" />
-              {t.ai1BadgeV}
-            </motion.div>
-            <motion.div
-              animate={shouldReduce ? {} : { y: [0, -7, 0] }}
-              transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut', delay: 1.2 }}
-              className="absolute -bottom-4 -left-4 flex items-center gap-1.5 px-3 py-1.5 bg-white border border-neutral-200 rounded-full shadow-md text-[12px] font-semibold text-neutral-700"
-            >
-              <Zap className="h-3.5 w-3.5 text-neutral-500" />
-              {t.ai1BadgeT}
-            </motion.div>
           </motion.div>
         </div>
       </section>
