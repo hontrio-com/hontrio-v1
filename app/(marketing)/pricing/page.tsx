@@ -5,7 +5,6 @@ import Link from 'next/link'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   Check, X, ChevronDown,
-  Wand2, Bot, TrendingUp, ShieldCheck, Headphones,
 } from 'lucide-react'
 import { useLocale } from '@/lib/i18n/context'
 
@@ -92,63 +91,6 @@ const en = {
         { text: 'AI Sales Agent', included: true },
         { text: 'Risk Shield', included: true },
         { text: 'Bulk operations', included: true },
-      ],
-    },
-  ],
-  comparisonTitle: 'Full feature comparison',
-  comparisonSub: 'Every detail, side by side.',
-  categories: [
-    {
-      label: 'AI Images',
-      icon: Wand2,
-      rows: [
-        { feature: 'AI-generated product photos', free: 'Limited', starter: true, professional: true, enterprise: true },
-        { feature: 'Background removal', free: true, starter: true, professional: true, enterprise: true },
-        { feature: 'Batch processing', free: false, starter: false, professional: true, enterprise: true },
-        { feature: 'Custom style presets', free: false, starter: false, professional: true, enterprise: true },
-      ],
-    },
-    {
-      label: 'SEO Optimizer',
-      icon: TrendingUp,
-      rows: [
-        { feature: 'Title and description generation', free: 'Limited', starter: true, professional: true, enterprise: true },
-        { feature: 'Meta description and keywords', free: false, starter: true, professional: true, enterprise: true },
-        { feature: 'Bulk optimization', free: false, starter: false, professional: true, enterprise: true },
-        { feature: 'Competitor analysis', free: false, starter: false, professional: true, enterprise: true },
-        { feature: 'SEO score analytics', free: false, starter: false, professional: true, enterprise: true },
-      ],
-    },
-    {
-      label: 'AI Sales Agent',
-      icon: Bot,
-      rows: [
-        { feature: 'Chat widget for your store', free: false, starter: false, professional: true, enterprise: true },
-        { feature: 'Trained on your catalog', free: false, starter: false, professional: true, enterprise: true },
-        { feature: 'Conversation analytics', free: false, starter: false, professional: true, enterprise: true },
-        { feature: 'Custom branding', free: false, starter: false, professional: false, enterprise: true },
-      ],
-    },
-    {
-      label: 'Risk Shield',
-      icon: ShieldCheck,
-      rows: [
-        { feature: 'Fraud order detection', free: false, starter: false, professional: true, enterprise: true },
-        { feature: 'Real-time risk scoring', free: false, starter: false, professional: true, enterprise: true },
-        { feature: 'Automatic order blocking', free: false, starter: false, professional: true, enterprise: true },
-        { feature: 'Fraud reports', free: false, starter: false, professional: true, enterprise: true },
-      ],
-    },
-    {
-      label: 'Platform and Support',
-      icon: Headphones,
-      rows: [
-        { feature: 'WooCommerce connection', free: true, starter: true, professional: true, enterprise: true },
-        { feature: 'Advanced analytics', free: false, starter: false, professional: false, enterprise: true },
-        { feature: 'Email support', free: true, starter: true, professional: true, enterprise: true },
-        { feature: 'Priority support', free: false, starter: true, professional: true, enterprise: true },
-        { feature: 'Dedicated support', free: false, starter: false, professional: false, enterprise: true },
-        { feature: 'Custom integrations', free: false, starter: false, professional: false, enterprise: true },
       ],
     },
   ],
@@ -251,63 +193,6 @@ const ro = {
       ],
     },
   ],
-  comparisonTitle: 'Comparatie completa a functiilor',
-  comparisonSub: 'Fiecare detaliu, fata in fata.',
-  categories: [
-    {
-      label: 'Imagini AI',
-      icon: Wand2,
-      rows: [
-        { feature: 'Fotografii generate cu AI', free: 'Limitat', starter: true, professional: true, enterprise: true },
-        { feature: 'Eliminare fundal', free: true, starter: true, professional: true, enterprise: true },
-        { feature: 'Procesare in lot', free: false, starter: false, professional: true, enterprise: true },
-        { feature: 'Stiluri personalizate', free: false, starter: false, professional: true, enterprise: true },
-      ],
-    },
-    {
-      label: 'SEO Optimizer',
-      icon: TrendingUp,
-      rows: [
-        { feature: 'Generare titlu si descriere', free: 'Limitat', starter: true, professional: true, enterprise: true },
-        { feature: 'Meta descriere si cuvinte cheie', free: false, starter: true, professional: true, enterprise: true },
-        { feature: 'Optimizare in lot', free: false, starter: false, professional: true, enterprise: true },
-        { feature: 'Analiza competitori', free: false, starter: false, professional: true, enterprise: true },
-        { feature: 'Analitics scor SEO', free: false, starter: false, professional: true, enterprise: true },
-      ],
-    },
-    {
-      label: 'Agent AI de vanzari',
-      icon: Bot,
-      rows: [
-        { feature: 'Widget chat pentru magazin', free: false, starter: false, professional: true, enterprise: true },
-        { feature: 'Antrenat pe catalogul tau', free: false, starter: false, professional: true, enterprise: true },
-        { feature: 'Analitics conversatii', free: false, starter: false, professional: true, enterprise: true },
-        { feature: 'Branding personalizat', free: false, starter: false, professional: false, enterprise: true },
-      ],
-    },
-    {
-      label: 'Risk Shield',
-      icon: ShieldCheck,
-      rows: [
-        { feature: 'Detectare comenzi frauduloase', free: false, starter: false, professional: true, enterprise: true },
-        { feature: 'Scor de risc in timp real', free: false, starter: false, professional: true, enterprise: true },
-        { feature: 'Blocare automata comenzi', free: false, starter: false, professional: true, enterprise: true },
-        { feature: 'Rapoarte fraude', free: false, starter: false, professional: true, enterprise: true },
-      ],
-    },
-    {
-      label: 'Platforma si Suport',
-      icon: Headphones,
-      rows: [
-        { feature: 'Conectare WooCommerce', free: true, starter: true, professional: true, enterprise: true },
-        { feature: 'Analize avansate', free: false, starter: false, professional: false, enterprise: true },
-        { feature: 'Suport email', free: true, starter: true, professional: true, enterprise: true },
-        { feature: 'Suport prioritar', free: false, starter: true, professional: true, enterprise: true },
-        { feature: 'Suport dedicat', free: false, starter: false, professional: false, enterprise: true },
-        { feature: 'Integratii personalizate', free: false, starter: false, professional: false, enterprise: true },
-      ],
-    },
-  ],
   faqTitle: 'Intrebari frecvente',
   faqs: [
     { q: 'Ce sunt creditele si de cate am nevoie?', a: 'Creditele sunt moneda de utilizare AI. O optimizare SEO costa 3 credite, o imagine AI costa 6 pana la 8 credite. Majoritatea magazinelor folosesc intre 50 si 300 de credite pe luna in functie de marimea catalogului.' },
@@ -349,16 +234,6 @@ function FAQItem({ q, a, isOpen, onToggle }: { q: string; a: string; isOpen: boo
       </AnimatePresence>
     </div>
   )
-}
-
-// ─── Comparison cell ──────────────────────────────────────────────────────────
-function Cell({ value }: { value: boolean | string }) {
-  if (typeof value === 'boolean') {
-    return value
-      ? <Check className="h-4 w-4 text-neutral-900 mx-auto" />
-      : <X className="h-4 w-4 text-neutral-300 mx-auto" />
-  }
-  return <span className="text-[13px] font-medium text-neutral-700">{value}</span>
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
@@ -440,58 +315,6 @@ export default function PricingPage() {
               </Link>
             </div>
           ))}
-        </div>
-      </section>
-
-      {/* Comparison table */}
-      <section className="py-20 sm:py-28 px-4 sm:px-6 lg:px-8 bg-neutral-50">
-        <div className="max-w-5xl mx-auto">
-          <div className="text-center mb-12">
-            <h2 className="text-4xl sm:text-5xl font-bold text-neutral-900 tracking-tight mb-5">
-              {t.comparisonTitle}
-            </h2>
-            <p className="text-xl text-neutral-500">{t.comparisonSub}</p>
-          </div>
-
-          <div className="rounded-2xl border border-neutral-200 overflow-hidden bg-white">
-            {/* Header */}
-            <div className="grid grid-cols-[1fr_70px_70px_110px_90px] sm:grid-cols-[1fr_90px_90px_130px_110px] border-b border-neutral-200 bg-neutral-50">
-              <div className="p-4" />
-              {['Free', 'Starter', 'Professional', 'Enterprise'].map((name) => (
-                <div key={name} className="p-4 text-center text-[11px] font-bold uppercase tracking-widest text-neutral-500">
-                  {name}
-                </div>
-              ))}
-            </div>
-
-            {t.categories.map((cat, ci) => {
-              const CatIcon = cat.icon
-              return (
-                <div key={ci}>
-                  <div className="grid grid-cols-[1fr_70px_70px_110px_90px] sm:grid-cols-[1fr_90px_90px_130px_110px] bg-neutral-50/80 border-b border-neutral-100">
-                    <div className="px-4 py-3 flex items-center gap-2">
-                      <CatIcon className="h-3.5 w-3.5 text-neutral-400" />
-                      <span className="text-[11px] font-bold uppercase tracking-widest text-neutral-400">{cat.label}</span>
-                    </div>
-                    <div /><div /><div /><div />
-                  </div>
-
-                  {cat.rows.map((row, ri) => (
-                    <div
-                      key={ri}
-                      className="grid grid-cols-[1fr_70px_70px_110px_90px] sm:grid-cols-[1fr_90px_90px_130px_110px] border-b border-neutral-100 last:border-b-0 hover:bg-neutral-50/40 transition-colors"
-                    >
-                      <div className="px-4 py-3.5 text-[13.5px] text-neutral-600">{row.feature}</div>
-                      <div className="px-2 py-3.5 flex items-center justify-center"><Cell value={row.free} /></div>
-                      <div className="px-2 py-3.5 flex items-center justify-center"><Cell value={row.starter} /></div>
-                      <div className="px-2 py-3.5 flex items-center justify-center"><Cell value={row.professional} /></div>
-                      <div className="px-2 py-3.5 flex items-center justify-center"><Cell value={row.enterprise} /></div>
-                    </div>
-                  ))}
-                </div>
-              )
-            })}
-          </div>
         </div>
       </section>
 
