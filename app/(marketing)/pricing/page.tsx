@@ -6,7 +6,6 @@ import { AnimatePresence, motion } from 'framer-motion'
 import {
   Check, X, ChevronDown,
   Wand2, Bot, TrendingUp, ShieldCheck, Headphones,
-  Zap, Rocket, Building2,
 } from 'lucide-react'
 import { useLocale } from '@/lib/i18n/context'
 
@@ -15,76 +14,84 @@ import { useLocale } from '@/lib/i18n/context'
 const en = {
   badge: 'Transparent pricing',
   h1: 'Simple, transparent pricing',
-  subtitle: 'Start free, upgrade when you grow. No hidden fees, no contracts. Cancel anytime.',
-  monthly: 'Monthly',
-  annually: 'Annually',
-  save: 'Save 35%',
+  subtitle: 'Start free, upgrade when you need more. Cancel anytime.',
   mostPopular: 'Most popular',
   perMonth: '/mo',
-  billedAnnually: 'billed annually',
-  billedMonthly: 'billed monthly',
   plans: [
     {
-      id: 'starter',
-      icon: Rocket,
-      name: 'Starter',
-      tagline: 'For stores just getting started',
-      priceMonthly: 0,
-      priceAnnually: 0,
-      isFree: true,
-      cta: 'Get started free',
+      id: 'free',
+      name: 'Free',
+      price: '$0',
+      period: 'forever',
+      credits: '20 credits included',
       highlight: false,
+      cta: 'Start for free',
       features: [
-        { text: '30 AI images / month', included: true },
-        { text: 'SEO optimizer — 20 products / month', included: true },
-        { text: 'AI Agent (chat widget)', included: false },
-        { text: 'Risk Shield fraud detection', included: false },
-        { text: '1 WooCommerce store', included: true },
+        { text: 'WooCommerce connection', included: true },
+        { text: 'All AI modules (limited)', included: true },
         { text: 'Email support', included: true },
-        { text: 'Analytics dashboard', included: false },
-        { text: 'Priority support', included: false },
+        { text: 'AI Sales Agent', included: false },
+        { text: 'Risk Shield', included: false },
+        { text: 'Competitor analysis', included: false },
+        { text: 'Bulk operations', included: false },
+        { text: 'Advanced analytics', included: false },
       ],
     },
     {
-      id: 'pro',
-      icon: Zap,
-      name: 'Pro',
-      tagline: 'For growing stores that want results',
-      priceMonthly: 39,
-      priceAnnually: 25,
-      isFree: false,
-      cta: 'Start free trial',
-      highlight: true,
-      features: [
-        { text: 'Unlimited AI images', included: true },
-        { text: 'SEO optimizer — unlimited', included: true },
-        { text: 'AI Agent (chat widget)', included: true },
-        { text: 'Risk Shield fraud detection', included: false },
-        { text: '1 WooCommerce store', included: true },
-        { text: 'Email & chat support', included: true },
-        { text: 'Analytics dashboard', included: true },
-        { text: 'Priority support', included: false },
-      ],
-    },
-    {
-      id: 'business',
-      icon: Building2,
-      name: 'Business',
-      tagline: 'For established stores with high volume',
-      priceMonthly: 79,
-      priceAnnually: 51,
-      isFree: false,
-      cta: 'Start free trial',
+      id: 'starter',
+      name: 'Starter',
+      price: '$19',
+      period: '/mo',
+      credits: '150 credits / month',
       highlight: false,
+      cta: 'Get Starter',
       features: [
-        { text: 'Unlimited AI images', included: true },
-        { text: 'SEO optimizer — unlimited', included: true },
-        { text: 'AI Agent (chat widget)', included: true },
-        { text: 'Risk Shield fraud detection', included: true },
-        { text: 'Up to 5 WooCommerce stores', included: true },
-        { text: 'Email, chat & phone support', included: true },
-        { text: 'Analytics dashboard', included: true },
+        { text: 'Everything in Free', included: true },
+        { text: '150 AI credits / month', included: true },
+        { text: 'AI product images', included: true },
+        { text: 'SEO optimization', included: true },
         { text: 'Priority support', included: true },
+        { text: 'AI Sales Agent', included: false },
+        { text: 'Risk Shield', included: false },
+        { text: 'Bulk operations', included: false },
+      ],
+    },
+    {
+      id: 'professional',
+      name: 'Professional',
+      price: '$49',
+      period: '/mo',
+      credits: '400 credits / month',
+      highlight: true,
+      cta: 'Get Professional',
+      features: [
+        { text: 'Everything in Starter', included: true },
+        { text: '400 AI credits / month', included: true },
+        { text: 'AI Sales Agent', included: true },
+        { text: 'Risk Shield', included: true },
+        { text: 'Competitor analysis', included: true },
+        { text: 'Bulk operations', included: true },
+        { text: 'Advanced analytics', included: false },
+        { text: 'Dedicated support', included: false },
+      ],
+    },
+    {
+      id: 'enterprise',
+      name: 'Enterprise',
+      price: '$99',
+      period: '/mo',
+      credits: '900 credits / month',
+      highlight: false,
+      cta: 'Get Enterprise',
+      features: [
+        { text: 'Everything in Professional', included: true },
+        { text: '900 AI credits / month', included: true },
+        { text: 'Advanced analytics', included: true },
+        { text: 'Dedicated support', included: true },
+        { text: 'Custom integrations', included: true },
+        { text: 'AI Sales Agent', included: true },
+        { text: 'Risk Shield', included: true },
+        { text: 'Bulk operations', included: true },
       ],
     },
   ],
@@ -95,217 +102,225 @@ const en = {
       label: 'AI Images',
       icon: Wand2,
       rows: [
-        { feature: 'AI-generated product photos', starter: '30 / mo', pro: 'Unlimited', business: 'Unlimited' },
-        { feature: 'Background removal', starter: true, pro: true, business: true },
-        { feature: 'Batch processing', starter: false, pro: true, business: true },
-        { feature: 'Custom style presets', starter: false, pro: true, business: true },
+        { feature: 'AI-generated product photos', free: 'Limited', starter: true, professional: true, enterprise: true },
+        { feature: 'Background removal', free: true, starter: true, professional: true, enterprise: true },
+        { feature: 'Batch processing', free: false, starter: false, professional: true, enterprise: true },
+        { feature: 'Custom style presets', free: false, starter: false, professional: true, enterprise: true },
       ],
     },
     {
       label: 'SEO Optimizer',
       icon: TrendingUp,
       rows: [
-        { feature: 'Products optimized / month', starter: '20', pro: 'Unlimited', business: 'Unlimited' },
-        { feature: 'Title & description generation', starter: true, pro: true, business: true },
-        { feature: 'Meta description & keywords', starter: false, pro: true, business: true },
-        { feature: 'Bulk optimization', starter: false, pro: true, business: true },
-        { feature: 'SEO score analytics', starter: false, pro: true, business: true },
+        { feature: 'Title and description generation', free: 'Limited', starter: true, professional: true, enterprise: true },
+        { feature: 'Meta description and keywords', free: false, starter: true, professional: true, enterprise: true },
+        { feature: 'Bulk optimization', free: false, starter: false, professional: true, enterprise: true },
+        { feature: 'Competitor analysis', free: false, starter: false, professional: true, enterprise: true },
+        { feature: 'SEO score analytics', free: false, starter: false, professional: true, enterprise: true },
       ],
     },
     {
-      label: 'AI Agent',
+      label: 'AI Sales Agent',
       icon: Bot,
       rows: [
-        { feature: 'Chat widget for your store', starter: false, pro: true, business: true },
-        { feature: 'Trained on your catalog', starter: false, pro: true, business: true },
-        { feature: 'Custom branding', starter: false, pro: false, business: true },
-        { feature: 'Conversation analytics', starter: false, pro: true, business: true },
+        { feature: 'Chat widget for your store', free: false, starter: false, professional: true, enterprise: true },
+        { feature: 'Trained on your catalog', free: false, starter: false, professional: true, enterprise: true },
+        { feature: 'Conversation analytics', free: false, starter: false, professional: true, enterprise: true },
+        { feature: 'Custom branding', free: false, starter: false, professional: false, enterprise: true },
       ],
     },
     {
       label: 'Risk Shield',
       icon: ShieldCheck,
       rows: [
-        { feature: 'Fraud order detection', starter: false, pro: false, business: true },
-        { feature: 'Real-time risk scoring', starter: false, pro: false, business: true },
-        { feature: 'Automatic order blocking', starter: false, pro: false, business: true },
-        { feature: 'Fraud reports', starter: false, pro: false, business: true },
+        { feature: 'Fraud order detection', free: false, starter: false, professional: true, enterprise: true },
+        { feature: 'Real-time risk scoring', free: false, starter: false, professional: true, enterprise: true },
+        { feature: 'Automatic order blocking', free: false, starter: false, professional: true, enterprise: true },
+        { feature: 'Fraud reports', free: false, starter: false, professional: true, enterprise: true },
       ],
     },
     {
-      label: 'Platform & Support',
+      label: 'Platform and Support',
       icon: Headphones,
       rows: [
-        { feature: 'WooCommerce stores', starter: '1', pro: '1', business: 'Up to 5' },
-        { feature: 'Analytics dashboard', starter: false, pro: true, business: true },
-        { feature: 'Email support', starter: true, pro: true, business: true },
-        { feature: 'Live chat support', starter: false, pro: true, business: true },
-        { feature: 'Priority support', starter: false, pro: false, business: true },
-        { feature: 'Onboarding session', starter: false, pro: false, business: true },
+        { feature: 'WooCommerce connection', free: true, starter: true, professional: true, enterprise: true },
+        { feature: 'Advanced analytics', free: false, starter: false, professional: false, enterprise: true },
+        { feature: 'Email support', free: true, starter: true, professional: true, enterprise: true },
+        { feature: 'Priority support', free: false, starter: true, professional: true, enterprise: true },
+        { feature: 'Dedicated support', free: false, starter: false, professional: false, enterprise: true },
+        { feature: 'Custom integrations', free: false, starter: false, professional: false, enterprise: true },
       ],
     },
   ],
   faqTitle: 'Frequently asked questions',
   faqs: [
-    { q: 'Is there a free trial?', a: 'Yes. The Pro and Business plans come with a 14-day free trial — no credit card required. You can explore all features and upgrade only if you love it.' },
+    { q: 'What are credits and how many do I need?', a: 'Credits are the AI usage currency. One SEO optimization costs 3 credits, one AI image costs 6 to 8 credits. Most stores use between 50 and 300 credits per month depending on catalog size.' },
+    { q: 'Is there a free trial?', a: 'Yes. You get 20 free credits when you create your account, no credit card required. This is enough to optimize around 6 products or generate 3 AI images and see the results for yourself.' },
     { q: 'Can I change my plan at any time?', a: 'Absolutely. You can upgrade, downgrade or cancel your plan at any time from your account dashboard. Changes take effect immediately.' },
-    { q: 'What happens when I reach the Starter limits?', a: "When you hit the monthly limits on the Starter plan, features pause until the next month. You'll receive a notification so you can decide if you'd like to upgrade." },
-    { q: 'Do you support multiple WooCommerce stores?', a: 'The Business plan supports up to 5 WooCommerce stores under a single account. Need more? Contact our sales team for a custom plan.' },
-    { q: 'Is my data safe?', a: 'All data is encrypted in transit and at rest. We are GDPR compliant and never share your store data with third parties. You own your data.' },
-    { q: 'What payment methods do you accept?', a: 'We accept all major credit and debit cards (Visa, Mastercard, Amex) as well as bank transfers for annual plans. Invoices are issued automatically.' },
+    { q: 'How does WooCommerce integration work?', a: 'Your store connects easily during the onboarding process or from Settings at any time. No technical knowledge required. If you run into any issues, our team offers fast assistance.' },
+    { q: 'Is my store data secure?', a: 'Yes. All data is encrypted in transit and at rest. We are GDPR compliant and never share your data with third parties. Your product data is used only to generate content for your store.' },
+    { q: 'What languages does the AI generate content in?', a: 'The AI generates content in any language you need. Simply set the desired language in your brand settings and the AI will write in that language. The Hontrio interface is available in English and Romanian.' },
   ],
   ctaH2: 'Ready to grow your store?',
-  ctaSub: 'Join 500+ stores already using Hontrio. Start free — no credit card needed.',
+  ctaSub: 'Join hundreds of store owners already using Hontrio to automate and grow.',
   ctaPrimary: 'Start for free, no card required',
   ctaSecondary: 'Sign in',
 }
 
 const ro = {
-  badge: 'Prețuri transparente',
-  h1: 'Prețuri simple și transparente',
-  subtitle: 'Începe gratuit, upgradează pe măsură ce crești. Fără costuri ascunse, fără contracte. Anulează oricând.',
-  monthly: 'Lunar',
-  annually: 'Anual',
-  save: 'Economisești 35%',
+  badge: 'Preturi transparente',
+  h1: 'Preturi simple si transparente',
+  subtitle: 'Incepe gratuit, upgradeaza cand ai nevoie de mai mult. Anuleaza oricand.',
   mostPopular: 'Cel mai popular',
-  perMonth: '/lună',
-  billedAnnually: 'facturat anual',
-  billedMonthly: 'facturat lunar',
+  perMonth: '/luna',
   plans: [
     {
-      id: 'starter',
-      icon: Rocket,
-      name: 'Starter',
-      tagline: 'Pentru magazinele la început de drum',
-      priceMonthly: 0,
-      priceAnnually: 0,
-      isFree: true,
-      cta: 'Începe gratuit',
+      id: 'free',
+      name: 'Free',
+      price: '$0',
+      period: 'permanent',
+      credits: '20 credite incluse',
       highlight: false,
+      cta: 'Incepe gratuit',
       features: [
-        { text: '30 imagini AI / lună', included: true },
-        { text: 'SEO optimizer — 20 produse / lună', included: true },
-        { text: 'Agent AI (widget chat)', included: false },
-        { text: 'Risk Shield detecție fraude', included: false },
-        { text: '1 magazin WooCommerce', included: true },
+        { text: 'Conectare WooCommerce', included: true },
+        { text: 'Toate modulele AI (limitat)', included: true },
         { text: 'Suport email', included: true },
-        { text: 'Dashboard analitics', included: false },
-        { text: 'Suport prioritar', included: false },
+        { text: 'Agent AI de vanzari', included: false },
+        { text: 'Risk Shield', included: false },
+        { text: 'Analiza competitori', included: false },
+        { text: 'Operatii in masa', included: false },
+        { text: 'Analize avansate', included: false },
       ],
     },
     {
-      id: 'pro',
-      icon: Zap,
-      name: 'Pro',
-      tagline: 'Pentru magazinele în creștere care vor rezultate',
-      priceMonthly: 39,
-      priceAnnually: 25,
-      isFree: false,
-      cta: 'Încearcă gratuit 14 zile',
-      highlight: true,
-      features: [
-        { text: 'Imagini AI nelimitate', included: true },
-        { text: 'SEO optimizer — nelimitat', included: true },
-        { text: 'Agent AI (widget chat)', included: true },
-        { text: 'Risk Shield detecție fraude', included: false },
-        { text: '1 magazin WooCommerce', included: true },
-        { text: 'Suport email & chat', included: true },
-        { text: 'Dashboard analitics', included: true },
-        { text: 'Suport prioritar', included: false },
-      ],
-    },
-    {
-      id: 'business',
-      icon: Building2,
-      name: 'Business',
-      tagline: 'Pentru magazinele consacrate cu volum mare',
-      priceMonthly: 79,
-      priceAnnually: 51,
-      isFree: false,
-      cta: 'Încearcă gratuit 14 zile',
+      id: 'starter',
+      name: 'Starter',
+      price: '$19',
+      period: '/luna',
+      credits: '150 credite / luna',
       highlight: false,
+      cta: 'Alege Starter',
       features: [
-        { text: 'Imagini AI nelimitate', included: true },
-        { text: 'SEO optimizer — nelimitat', included: true },
-        { text: 'Agent AI (widget chat)', included: true },
-        { text: 'Risk Shield detecție fraude', included: true },
-        { text: 'Până la 5 magazine WooCommerce', included: true },
-        { text: 'Suport email, chat & telefon', included: true },
-        { text: 'Dashboard analitics', included: true },
+        { text: 'Tot din Free', included: true },
+        { text: '150 credite AI / luna', included: true },
+        { text: 'Imagini AI produse', included: true },
+        { text: 'Optimizare SEO', included: true },
         { text: 'Suport prioritar', included: true },
+        { text: 'Agent AI de vanzari', included: false },
+        { text: 'Risk Shield', included: false },
+        { text: 'Operatii in masa', included: false },
+      ],
+    },
+    {
+      id: 'professional',
+      name: 'Professional',
+      price: '$49',
+      period: '/luna',
+      credits: '400 credite / luna',
+      highlight: true,
+      cta: 'Alege Professional',
+      features: [
+        { text: 'Tot din Starter', included: true },
+        { text: '400 credite AI / luna', included: true },
+        { text: 'Agent AI de vanzari', included: true },
+        { text: 'Risk Shield', included: true },
+        { text: 'Analiza competitori', included: true },
+        { text: 'Operatii in masa', included: true },
+        { text: 'Analize avansate', included: false },
+        { text: 'Suport dedicat', included: false },
+      ],
+    },
+    {
+      id: 'enterprise',
+      name: 'Enterprise',
+      price: '$99',
+      period: '/luna',
+      credits: '900 credite / luna',
+      highlight: false,
+      cta: 'Alege Enterprise',
+      features: [
+        { text: 'Tot din Professional', included: true },
+        { text: '900 credite AI / luna', included: true },
+        { text: 'Analize avansate', included: true },
+        { text: 'Suport dedicat', included: true },
+        { text: 'Integratii personalizate', included: true },
+        { text: 'Agent AI de vanzari', included: true },
+        { text: 'Risk Shield', included: true },
+        { text: 'Operatii in masa', included: true },
       ],
     },
   ],
-  comparisonTitle: 'Comparație completă a funcțiilor',
-  comparisonSub: 'Fiecare detaliu, față în față.',
+  comparisonTitle: 'Comparatie completa a functiilor',
+  comparisonSub: 'Fiecare detaliu, fata in fata.',
   categories: [
     {
       label: 'Imagini AI',
       icon: Wand2,
       rows: [
-        { feature: 'Fotografii generate cu AI', starter: '30 / lună', pro: 'Nelimitat', business: 'Nelimitat' },
-        { feature: 'Eliminare fundal', starter: true, pro: true, business: true },
-        { feature: 'Procesare în lot', starter: false, pro: true, business: true },
-        { feature: 'Stiluri personalizate', starter: false, pro: true, business: true },
+        { feature: 'Fotografii generate cu AI', free: 'Limitat', starter: true, professional: true, enterprise: true },
+        { feature: 'Eliminare fundal', free: true, starter: true, professional: true, enterprise: true },
+        { feature: 'Procesare in lot', free: false, starter: false, professional: true, enterprise: true },
+        { feature: 'Stiluri personalizate', free: false, starter: false, professional: true, enterprise: true },
       ],
     },
     {
       label: 'SEO Optimizer',
       icon: TrendingUp,
       rows: [
-        { feature: 'Produse optimizate / lună', starter: '20', pro: 'Nelimitat', business: 'Nelimitat' },
-        { feature: 'Generare titlu & descriere', starter: true, pro: true, business: true },
-        { feature: 'Meta descriere & cuvinte cheie', starter: false, pro: true, business: true },
-        { feature: 'Optimizare în lot', starter: false, pro: true, business: true },
-        { feature: 'Analitics scor SEO', starter: false, pro: true, business: true },
+        { feature: 'Generare titlu si descriere', free: 'Limitat', starter: true, professional: true, enterprise: true },
+        { feature: 'Meta descriere si cuvinte cheie', free: false, starter: true, professional: true, enterprise: true },
+        { feature: 'Optimizare in lot', free: false, starter: false, professional: true, enterprise: true },
+        { feature: 'Analiza competitori', free: false, starter: false, professional: true, enterprise: true },
+        { feature: 'Analitics scor SEO', free: false, starter: false, professional: true, enterprise: true },
       ],
     },
     {
-      label: 'Agent AI',
+      label: 'Agent AI de vanzari',
       icon: Bot,
       rows: [
-        { feature: 'Widget chat pentru magazin', starter: false, pro: true, business: true },
-        { feature: 'Antrenat pe catalogul tău', starter: false, pro: true, business: true },
-        { feature: 'Branding personalizat', starter: false, pro: false, business: true },
-        { feature: 'Analitics conversații', starter: false, pro: true, business: true },
+        { feature: 'Widget chat pentru magazin', free: false, starter: false, professional: true, enterprise: true },
+        { feature: 'Antrenat pe catalogul tau', free: false, starter: false, professional: true, enterprise: true },
+        { feature: 'Analitics conversatii', free: false, starter: false, professional: true, enterprise: true },
+        { feature: 'Branding personalizat', free: false, starter: false, professional: false, enterprise: true },
       ],
     },
     {
       label: 'Risk Shield',
       icon: ShieldCheck,
       rows: [
-        { feature: 'Detectare comenzi frauduloase', starter: false, pro: false, business: true },
-        { feature: 'Scor de risc în timp real', starter: false, pro: false, business: true },
-        { feature: 'Blocare automată comenzi', starter: false, pro: false, business: true },
-        { feature: 'Rapoarte fraude', starter: false, pro: false, business: true },
+        { feature: 'Detectare comenzi frauduloase', free: false, starter: false, professional: true, enterprise: true },
+        { feature: 'Scor de risc in timp real', free: false, starter: false, professional: true, enterprise: true },
+        { feature: 'Blocare automata comenzi', free: false, starter: false, professional: true, enterprise: true },
+        { feature: 'Rapoarte fraude', free: false, starter: false, professional: true, enterprise: true },
       ],
     },
     {
-      label: 'Platformă & Suport',
+      label: 'Platforma si Suport',
       icon: Headphones,
       rows: [
-        { feature: 'Magazine WooCommerce', starter: '1', pro: '1', business: 'Până la 5' },
-        { feature: 'Dashboard analitics', starter: false, pro: true, business: true },
-        { feature: 'Suport email', starter: true, pro: true, business: true },
-        { feature: 'Suport live chat', starter: false, pro: true, business: true },
-        { feature: 'Suport prioritar', starter: false, pro: false, business: true },
-        { feature: 'Sesiune de onboarding', starter: false, pro: false, business: true },
+        { feature: 'Conectare WooCommerce', free: true, starter: true, professional: true, enterprise: true },
+        { feature: 'Analize avansate', free: false, starter: false, professional: false, enterprise: true },
+        { feature: 'Suport email', free: true, starter: true, professional: true, enterprise: true },
+        { feature: 'Suport prioritar', free: false, starter: true, professional: true, enterprise: true },
+        { feature: 'Suport dedicat', free: false, starter: false, professional: false, enterprise: true },
+        { feature: 'Integratii personalizate', free: false, starter: false, professional: false, enterprise: true },
       ],
     },
   ],
-  faqTitle: 'Întrebări frecvente',
+  faqTitle: 'Intrebari frecvente',
   faqs: [
-    { q: 'Există o perioadă de probă gratuită?', a: 'Da. Planurile Pro și Business includ 14 zile de probă gratuită — fără card de credit. Explorezi toate funcțiile și upgradezi doar dacă ești mulțumit.' },
-    { q: 'Pot schimba planul oricând?', a: 'Absolut. Poți face upgrade, downgrade sau anula planul oricând din panoul de cont. Modificările intră în vigoare imediat.' },
-    { q: 'Ce se întâmplă când ating limitele planului Starter?', a: 'Când atingi limitele lunare ale planului Starter, funcțiile se opresc până luna viitoare. Vei primi o notificare pentru a decide dacă dorești să faci upgrade.' },
-    { q: 'Susțineți mai multe magazine WooCommerce?', a: 'Planul Business suportă până la 5 magazine WooCommerce sub un singur cont. Ai nevoie de mai multe? Contactează echipa noastră pentru un plan personalizat.' },
-    { q: 'Datele mele sunt în siguranță?', a: 'Toate datele sunt criptate în tranzit și în repaus. Suntem conformi GDPR și nu partajăm niciodată datele magazinului tău cu terțe părți. Tu ești proprietarul datelor.' },
-    { q: 'Ce metode de plată acceptați?', a: 'Acceptăm toate cardurile principale de credit și debit (Visa, Mastercard, Amex) precum și transfer bancar pentru planurile anuale. Facturile sunt emise automat.' },
+    { q: 'Ce sunt creditele si de cate am nevoie?', a: 'Creditele sunt moneda de utilizare AI. O optimizare SEO costa 3 credite, o imagine AI costa 6 pana la 8 credite. Majoritatea magazinelor folosesc intre 50 si 300 de credite pe luna in functie de marimea catalogului.' },
+    { q: 'Exista o perioada de proba gratuita?', a: 'Da. Primesti 20 de credite gratuite cand iti creezi contul, fara card de credit. Acestea sunt suficiente pentru a optimiza aproximativ 6 produse sau a genera 3 imagini AI si a vedea rezultatele.' },
+    { q: 'Pot schimba planul oricand?', a: 'Absolut. Poti face upgrade, downgrade sau anula planul oricand din panoul de cont. Modificarile intra in vigoare imediat.' },
+    { q: 'Cum functioneaza integrarea cu WooCommerce?', a: 'Magazinul tau se conecteaza usor in timpul procesului de onboarding sau din Setari oricand. Nu sunt necesare cunostinte tehnice. Daca intampini probleme, echipa noastra ofera asistenta rapida.' },
+    { q: 'Datele magazinului meu sunt in siguranta?', a: 'Da. Toate datele sunt criptate in tranzit si in repaus. Suntem conformi GDPR si nu impartasim niciodata datele tale cu terte parti. Datele tale de produs sunt folosite doar pentru a genera continut pentru magazinul tau.' },
+    { q: 'In ce limbi genereaza AI continut?', a: 'AI-ul genereaza continut in orice limba ai nevoie. Seteaza limba dorita in setarile brandului si AI-ul va scrie in acea limba. Interfata Hontrio este disponibila in engleza si romana.' },
   ],
-  ctaH2: 'Gata să îți crești magazinul?',
-  ctaSub: 'Alătură-te celor 500+ magazine care folosesc deja Hontrio. Începe gratuit — fără card de credit.',
-  ctaPrimary: 'Începe gratuit, fără card',
-  ctaSecondary: 'Conectează-te',
+  ctaH2: 'Gata sa iti cresti magazinul?',
+  ctaSub: 'Alatura-te sutelor de proprietari de magazine care folosesc deja Hontrio pentru a automatiza si creste.',
+  ctaPrimary: 'Incepe gratuit, fara card',
+  ctaSecondary: 'Conecteaza-te',
 }
 
 // ─── FAQ Item ─────────────────────────────────────────────────────────────────
@@ -350,14 +365,12 @@ function Cell({ value }: { value: boolean | string }) {
 export default function PricingPage() {
   const { locale } = useLocale()
   const t = locale === 'ro' ? ro : en
-
-  const [annually, setAnnually] = useState(false)
   const [openFaq, setOpenFaq] = useState<number | null>(null)
 
   return (
     <div className="bg-white">
 
-      {/* ── Hero ───────────────────────────────────────────────────────────── */}
+      {/* Hero */}
       <section className="py-20 sm:py-28 px-4 sm:px-6 lg:px-8 bg-white">
         <div className="max-w-3xl mx-auto text-center">
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-neutral-100 text-neutral-600 text-xs font-medium mb-6">
@@ -369,121 +382,68 @@ export default function PricingPage() {
           <p className="text-xl text-neutral-500 max-w-xl mx-auto leading-relaxed">
             {t.subtitle}
           </p>
-
-          {/* Toggle */}
-          <div className="mt-8 inline-flex items-center gap-3">
-            <span className={`text-[14px] font-medium transition-colors ${!annually ? 'text-neutral-900' : 'text-neutral-400'}`}>
-              {t.monthly}
-            </span>
-            <button
-              onClick={() => setAnnually(!annually)}
-              className={`relative w-11 h-6 rounded-full transition-colors duration-200 focus:outline-none ${annually ? 'bg-neutral-900' : 'bg-neutral-200'}`}
-              aria-label="Toggle billing"
-            >
-              <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${annually ? 'translate-x-5' : 'translate-x-0'}`} />
-            </button>
-            <span className={`text-[14px] font-medium flex items-center gap-2 transition-colors ${annually ? 'text-neutral-900' : 'text-neutral-400'}`}>
-              {t.annually}
-              <span className="px-2 py-0.5 text-[11px] font-semibold bg-neutral-100 text-neutral-600 rounded-full">
-                {t.save}
-              </span>
-            </span>
-          </div>
         </div>
       </section>
 
-      {/* ── Pricing Cards ──────────────────────────────────────────────────── */}
-      <section className="max-w-6xl mx-auto px-4 sm:px-6 pb-20">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {t.plans.map((plan) => {
-            const Icon = plan.icon
-            const price = annually ? plan.priceAnnually : plan.priceMonthly
+      {/* Pricing Cards */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 pb-20">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          {t.plans.map((plan) => (
+            <div
+              key={plan.id}
+              className={`relative rounded-2xl border p-6 flex flex-col transition-all duration-200 hover:shadow-lg ${
+                plan.highlight
+                  ? 'border-neutral-900 shadow-md'
+                  : 'border-neutral-200 hover:border-neutral-400'
+              }`}
+            >
+              {plan.highlight && (
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                  <span className="inline-flex items-center px-3 py-1 rounded-full bg-neutral-900 text-white text-xs font-semibold">
+                    {t.mostPopular}
+                  </span>
+                </div>
+              )}
 
-            return (
-              <div
-                key={plan.id}
-                className={`relative rounded-2xl border p-6 flex flex-col transition-all duration-200 hover:shadow-lg ${
-                  plan.highlight
-                    ? 'border-neutral-900 shadow-md'
-                    : 'border-neutral-200 hover:border-neutral-400'
+              <div className="mb-5">
+                <h3 className="text-base font-semibold text-neutral-900 mb-1">{plan.name}</h3>
+                <div className="flex items-baseline gap-1">
+                  <span className="text-4xl font-bold text-neutral-900">{plan.price}</span>
+                  <span className="text-neutral-500 text-sm">{plan.period}</span>
+                </div>
+                <p className="text-xs text-neutral-400 mt-1">{plan.credits}</p>
+              </div>
+
+              <ul className="space-y-2.5 flex-1 mb-6">
+                {plan.features.map((f, fi) => (
+                  <li key={fi} className="flex items-start gap-2">
+                    {f.included
+                      ? <Check className="h-4 w-4 text-neutral-900 shrink-0 mt-0.5" />
+                      : <X className="h-4 w-4 text-neutral-300 shrink-0 mt-0.5" />
+                    }
+                    <span className={`text-sm ${f.included ? 'text-neutral-600' : 'text-neutral-400'}`}>
+                      {f.text}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+
+              <Link
+                href={plan.id === 'free' ? '/register' : `/register?plan=${plan.id}`}
+                className={`block w-full text-center py-2.5 rounded-xl text-sm font-semibold transition-colors duration-200 ${
+                  plan.highlight || plan.id !== 'free'
+                    ? 'bg-neutral-900 text-white hover:bg-neutral-800'
+                    : 'bg-white text-neutral-900 border border-neutral-200 hover:border-neutral-400 hover:bg-neutral-50'
                 }`}
               >
-                {plan.highlight && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                    <span className="inline-flex items-center px-3 py-1 rounded-full bg-neutral-900 text-white text-xs font-semibold">
-                      {t.mostPopular}
-                    </span>
-                  </div>
-                )}
-
-                {/* Icon + name */}
-                <div className="flex items-center gap-3 mb-5">
-                  <div className="w-9 h-9 rounded-xl bg-neutral-100 flex items-center justify-center">
-                    <Icon className="h-[18px] w-[18px] text-neutral-700" />
-                  </div>
-                  <div>
-                    <p className="text-[15px] font-bold text-neutral-900">{plan.name}</p>
-                    <p className="text-[12px] text-neutral-400">{plan.tagline}</p>
-                  </div>
-                </div>
-
-                {/* Price */}
-                <div className="mb-6">
-                  <div className="flex items-baseline gap-1">
-                    {plan.isFree ? (
-                      <span className="text-4xl font-bold text-neutral-900">Free</span>
-                    ) : (
-                      <>
-                        <span className="text-sm text-neutral-500 mb-1">€</span>
-                        <span className="text-4xl font-bold text-neutral-900">{price}</span>
-                        <span className="text-neutral-500 text-sm">{t.perMonth}</span>
-                      </>
-                    )}
-                  </div>
-                  {!plan.isFree && (
-                    <p className="text-xs text-neutral-400 mt-1">
-                      {annually ? t.billedAnnually : t.billedMonthly}
-                    </p>
-                  )}
-                </div>
-
-                {/* Features */}
-                <ul className="space-y-2.5 flex-1 mb-6">
-                  {plan.features.map((f, fi) => (
-                    <li key={fi} className="flex items-start gap-2">
-                      {f.included
-                        ? <Check className="h-4 w-4 text-neutral-900 shrink-0 mt-0.5" />
-                        : <X className="h-4 w-4 text-neutral-300 shrink-0 mt-0.5" />
-                      }
-                      <span className={`text-sm ${f.included ? 'text-neutral-600' : 'text-neutral-400'}`}>
-                        {f.text}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-
-                {/* CTA */}
-                <Link
-                  href={plan.isFree ? '/register' : `/register?plan=${plan.id}${annually ? '&billing=annual' : ''}`}
-                  className={`block w-full text-center py-2.5 rounded-xl text-sm font-semibold transition-colors duration-200 ${
-                    plan.highlight || !plan.isFree
-                      ? 'bg-neutral-900 text-white hover:bg-neutral-800'
-                      : 'bg-white text-neutral-900 border border-neutral-200 hover:border-neutral-400 hover:bg-neutral-50'
-                  }`}
-                >
-                  {plan.cta}
-                </Link>
-              </div>
-            )
-          })}
+                {plan.cta}
+              </Link>
+            </div>
+          ))}
         </div>
-
-        <p className="text-center text-[13px] text-neutral-400 mt-6">
-          14-day free trial · No credit card required · Cancel anytime
-        </p>
       </section>
 
-      {/* ── Full comparison table ──────────────────────────────────────────── */}
+      {/* Comparison table */}
       <section className="py-20 sm:py-28 px-4 sm:px-6 lg:px-8 bg-neutral-50">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-12">
@@ -495,10 +455,10 @@ export default function PricingPage() {
 
           <div className="rounded-2xl border border-neutral-200 overflow-hidden bg-white">
             {/* Header */}
-            <div className="grid grid-cols-[1fr_90px_90px_90px] sm:grid-cols-[1fr_130px_130px_130px] border-b border-neutral-200 bg-neutral-50">
+            <div className="grid grid-cols-[1fr_70px_70px_110px_90px] sm:grid-cols-[1fr_90px_90px_130px_110px] border-b border-neutral-200 bg-neutral-50">
               <div className="p-4" />
-              {['Starter', 'Pro', 'Business'].map((name) => (
-                <div key={name} className="p-4 text-center text-[12px] font-bold uppercase tracking-widest text-neutral-500">
+              {['Free', 'Starter', 'Professional', 'Enterprise'].map((name) => (
+                <div key={name} className="p-4 text-center text-[11px] font-bold uppercase tracking-widest text-neutral-500">
                   {name}
                 </div>
               ))}
@@ -508,23 +468,24 @@ export default function PricingPage() {
               const CatIcon = cat.icon
               return (
                 <div key={ci}>
-                  <div className="grid grid-cols-[1fr_90px_90px_90px] sm:grid-cols-[1fr_130px_130px_130px] bg-neutral-50/80 border-b border-neutral-100">
+                  <div className="grid grid-cols-[1fr_70px_70px_110px_90px] sm:grid-cols-[1fr_90px_90px_130px_110px] bg-neutral-50/80 border-b border-neutral-100">
                     <div className="px-4 py-3 flex items-center gap-2">
                       <CatIcon className="h-3.5 w-3.5 text-neutral-400" />
                       <span className="text-[11px] font-bold uppercase tracking-widest text-neutral-400">{cat.label}</span>
                     </div>
-                    <div /><div /><div />
+                    <div /><div /><div /><div />
                   </div>
 
                   {cat.rows.map((row, ri) => (
                     <div
                       key={ri}
-                      className="grid grid-cols-[1fr_90px_90px_90px] sm:grid-cols-[1fr_130px_130px_130px] border-b border-neutral-100 last:border-b-0 hover:bg-neutral-50/40 transition-colors"
+                      className="grid grid-cols-[1fr_70px_70px_110px_90px] sm:grid-cols-[1fr_90px_90px_130px_110px] border-b border-neutral-100 last:border-b-0 hover:bg-neutral-50/40 transition-colors"
                     >
                       <div className="px-4 py-3.5 text-[13.5px] text-neutral-600">{row.feature}</div>
-                      <div className="px-4 py-3.5 flex items-center justify-center"><Cell value={row.starter} /></div>
-                      <div className="px-4 py-3.5 flex items-center justify-center"><Cell value={row.pro} /></div>
-                      <div className="px-4 py-3.5 flex items-center justify-center"><Cell value={row.business} /></div>
+                      <div className="px-2 py-3.5 flex items-center justify-center"><Cell value={row.free} /></div>
+                      <div className="px-2 py-3.5 flex items-center justify-center"><Cell value={row.starter} /></div>
+                      <div className="px-2 py-3.5 flex items-center justify-center"><Cell value={row.professional} /></div>
+                      <div className="px-2 py-3.5 flex items-center justify-center"><Cell value={row.enterprise} /></div>
                     </div>
                   ))}
                 </div>
@@ -534,7 +495,7 @@ export default function PricingPage() {
         </div>
       </section>
 
-      {/* ── FAQ ────────────────────────────────────────────────────────────── */}
+      {/* FAQ */}
       <section className="py-20 sm:py-28 px-4 sm:px-6 lg:px-8 bg-white">
         <div className="max-w-3xl mx-auto">
           <div className="text-center mb-12">
@@ -557,7 +518,7 @@ export default function PricingPage() {
         </div>
       </section>
 
-      {/* ── Bottom CTA ─────────────────────────────────────────────────────── */}
+      {/* Bottom CTA */}
       <section className="py-20 sm:py-28 px-4 sm:px-6 lg:px-8 bg-neutral-950">
         <div className="max-w-3xl mx-auto text-center">
           <h2 className="text-4xl sm:text-5xl font-bold text-white tracking-tight mb-5">
