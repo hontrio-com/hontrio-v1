@@ -9,22 +9,23 @@ import slugify from 'slugify'
 // GET /api/blog/tags — Public
 // Returns all tags with a count of published posts.
 // ---------------------------------------------------------------------------
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    const { searchParams } = new URL(request.url)
+    const q = searchParams.get('q') || ''
+
     const supabase = await createServerSupabaseClient()
 
-    // Fetch tags + count of published posts via the junction table
-    const { data: tags, error } = await supabase
+    let tagsQuery = supabase
       .from('blog_tags')
-      .select(
-        `
-        *,
-        blog_posts_tags (
-          blog_posts ( count )
-        )
-        `
-      )
+      .select('*')
       .order('name', { ascending: true })
+
+    if (q) {
+      tagsQuery = tagsQuery.ilike('name', `%${q}%`)
+    }
+
+    const { data: tags, error } = await tagsQuery
 
     if (error) {
       console.error('Blog tags fetch error:', error)

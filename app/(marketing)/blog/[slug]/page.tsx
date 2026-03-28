@@ -61,7 +61,7 @@ async function getPostBySlug(slug: string): Promise<BlogPost | null> {
       .select(`
         *,
         category:blog_categories(*),
-        tags:blog_post_tags(tag:blog_tags(*))
+        tags:blog_posts_tags(tag:blog_tags(*))
       `)
       .eq('slug', slug)
       .single()

@@ -739,9 +739,16 @@ export default function AdminBlogEditPage() {
               <button
                 type="button"
                 onClick={() => setFeatured(!featured)}
-                className={`relative w-11 h-6 rounded-full transition-colors ${featured ? 'bg-neutral-900' : 'bg-neutral-200'}`}
+                className={`relative w-11 h-6 rounded-full ${featured ? 'bg-neutral-900' : 'bg-neutral-200'}`}
+                style={{ transition: 'background-color 150ms cubic-bezier(0.4,0,0.2,1)' }}
               >
-                <span className={`absolute top-0.5 h-5 w-5 bg-white rounded-full shadow transition-transform ${featured ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                <span
+                  className="absolute top-0.5 h-5 w-5 bg-white rounded-full shadow"
+                  style={{
+                    left: featured ? 'calc(100% - 22px)' : '2px',
+                    transition: 'left 150ms cubic-bezier(0.4,0,0.2,1)',
+                  }}
+                />
               </button>
             </div>
 
