@@ -51,6 +51,18 @@ interface BlogPost {
   tags?: BlogTag[]
 }
 
+// ─── HTML Sanitizer ───────────────────────────────────────────────────────────
+// Strips dangerous tags injected by AI-generated content (style, script, html, head, body)
+
+function sanitizeArticleHtml(html: string): string {
+  return html
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+    .replace(/<\/?(html|head|body|meta|link|title)[^>]*>/gi, '')
+    .replace(/(<[^>]+)\s+style\s*=\s*(?:"[^"]*"|'[^']*')/gi, '$1')
+    .trim()
+}
+
 // ─── Data fetchers ────────────────────────────────────────────────────────────
 
 async function getPostBySlug(slug: string): Promise<BlogPost | null> {
@@ -381,18 +393,8 @@ export default async function BlogPostPage(
           {/* ── 4. Content ── */}
           <div className="max-w-2xl mx-auto mb-16">
             <div
-              className="prose prose-neutral max-w-none
-                prose-headings:font-bold prose-headings:tracking-tight prose-headings:text-neutral-900
-                prose-p:text-neutral-700 prose-p:leading-relaxed
-                prose-a:text-neutral-900 prose-a:font-medium prose-a:underline prose-a:underline-offset-2
-                hover:prose-a:text-neutral-600
-                prose-strong:text-neutral-900 prose-strong:font-semibold
-                prose-blockquote:border-l-neutral-900 prose-blockquote:text-neutral-600
-                prose-code:bg-neutral-100 prose-code:rounded prose-code:px-1 prose-code:text-[0.875em]
-                prose-pre:bg-neutral-950 prose-pre:text-neutral-100
-                prose-img:rounded-xl prose-img:shadow-sm
-                prose-hr:border-neutral-200"
-              dangerouslySetInnerHTML={{ __html: post.content }}
+              className="hblog-prose"
+              dangerouslySetInnerHTML={{ __html: sanitizeArticleHtml(post.content) }}
             />
           </div>
 
