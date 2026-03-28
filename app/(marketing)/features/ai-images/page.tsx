@@ -33,7 +33,7 @@ const en = {
   pain2Title: 'Professional photographers are expensive',
   pain2: 'A photo shoot starts at a few hundred euros and takes days. And when the assortment changes, the whole process starts over from scratch.',
   pain3Title: 'Marketplaces reject your products',
-  pain3: 'Major platforms have strict image standards. Without a white background and adequate resolution, your products cannot be listed.',
+  pain3: 'The major platforms have strict image standards. Without a white background and adequate resolution, your products cannot be listed.',
   painCta: 'Hontrio fixes all of this automatically.',
   howH2: 'Three steps. A few seconds.',
   howSub: 'From raw photo to professional image, without any technical knowledge.',
@@ -764,9 +764,8 @@ export default function AIImagesPage() {
                 </motion.div>
                 {/* Arrow between steps */}
                 {i < 2 && (
-                  <div className="flex items-center justify-center shrink-0 text-neutral-300 my-2 md:my-0">
-                    <ChevronDown className="h-6 w-6 md:hidden" />
-                    <ChevronRight className="h-6 w-6 hidden md:block" />
+                  <div className="flex items-center justify-center shrink-0 text-neutral-400 my-2 md:my-0 md:-mt-20">
+                    <ArrowRight className="h-6 w-6 rotate-90 md:rotate-0" />
                   </div>
                 )}
               </div>

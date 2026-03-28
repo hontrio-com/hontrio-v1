@@ -76,8 +76,8 @@ const en = {
   faqSub: 'Quick answers to questions we receive most often. If you do not find what you are looking for, use the form above.',
   faqs: [
     {
-      q: 'How do I connect my WooCommerce store to Hontrio?',
-      a: 'You install the free Hontrio plugin from the WordPress marketplace, enter your API key from the Hontrio dashboard and synchronization starts automatically. The entire process takes under 5 minutes.',
+      q: 'How do I connect my online store to Hontrio?',
+      a: 'You install the free Hontrio plugin from your online store marketplace, enter your API key from the Hontrio dashboard and synchronization starts automatically. The entire process takes under 5 minutes.',
     },
     {
       q: 'How many products can I process per month?',
@@ -171,8 +171,8 @@ const ro: typeof en = {
   faqSub: 'Raspunsuri rapide la intrebarile pe care le primim cel mai des. Daca nu gasesti ce cauti, foloseste formularul de mai sus.',
   faqs: [
     {
-      q: 'Cum conectez magazinul meu WooCommerce la Hontrio?',
-      a: 'Instalezi pluginul gratuit Hontrio din marketplace-ul WordPress, introduci cheia API din dashboard-ul Hontrio si sincronizarea porneste automat. Intregul proces dureaza sub 5 minute.',
+      q: 'Cum conectez magazinul meu online la Hontrio?',
+      a: 'Instalezi pluginul gratuit Hontrio din marketplace-ul magazinului tau online, introduci cheia API din dashboard-ul Hontrio si sincronizarea porneste automat. Intregul proces dureaza sub 5 minute.',
     },
     {
       q: 'Cate produse pot procesa pe luna?',

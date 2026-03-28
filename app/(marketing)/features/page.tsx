@@ -44,6 +44,7 @@ const en = {
   seo2Benefits: [
     'Title, short description, long description and meta description',
     'SEO score 0-100 with improvement suggestions',
+    'Optimized to Google E-E-A-T standards',
     'Unique content guaranteed for every product',
     'Alternative versions on demand, no extra credits',
   ],
@@ -59,10 +60,10 @@ const en = {
   agent3H2: 'Your sales assistant that never sleeps',
   agent3P: 'A chat widget installed with a single line of code that instantly answers your customers, finds the right products from your catalog and transfers the conversation to you on WhatsApp exactly when needed.',
   agent3Benefits: [
-    'Instant responses at any hour, including weekends',
-    'Searches products in the catalog synced with WooCommerce',
-    'Smart escalation to WhatsApp with conversation context',
-    'Installation in 5 minutes, no technical knowledge required',
+    'Recommends the right products based on what the customer is looking for',
+    'Customer can add products to cart directly from the chat',
+    'Helps close sales by answering questions and removing hesitations',
+    'Smart escalation to WhatsApp with full conversation context when needed',
   ],
   agent3Cta: 'Try for free', agent3CtaAlt: 'See all details',
   agent3BadgeAvail: 'Available 24/7',
@@ -143,6 +144,7 @@ const ro = {
   seo2Benefits: [
     'Titlu, descriere scurta, descriere lunga si meta description',
     'Scor SEO intre 0-100 cu sugestii de imbunatatire',
+    'Optimizat dupa standardele Google E-E-A-T',
     'Continut unic garantat pentru fiecare produs',
     'Variante alternative la cerere, fara credite suplimentare',
   ],
@@ -158,10 +160,10 @@ const ro = {
   agent3H2: 'Asistentul tau de vanzari care nu doarme niciodata',
   agent3P: 'Un widget de chat instalat intr-un singur rand de cod care raspunde instant clientilor tai, gaseste produsele potrivite din catalog si transfera conversatia catre tine pe WhatsApp exact cand e nevoie.',
   agent3Benefits: [
-    'Raspunsuri instant la orice ora, inclusiv weekenduri',
-    'Cauta produse in catalogul sincronizat cu WooCommerce',
-    'Escaladare inteligenta pe WhatsApp cu contextul conversatiei',
-    'Instalare in 5 minute, fara cunostinte tehnice',
+    'Recomanda produsele potrivite in functie de ce cauta clientul',
+    'Clientul poate adauga produse in cos direct din chat',
+    'Ajuta la inchiderea vanzarilor raspunzand la intrebari si eliminand ezitarile',
+    'Escaladare inteligenta pe WhatsApp cu contextul complet al conversatiei',
   ],
   agent3Cta: 'Incearca gratuit', agent3CtaAlt: 'Vezi toate detaliile',
   agent3BadgeAvail: 'Disponibil 24/7',
@@ -438,7 +440,7 @@ function ChatWidget({ t }: { t: typeof en }) {
             <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
               <div className="max-w-[90%] bg-neutral-100 rounded-[18px_18px_18px_4px] px-3.5 py-2.5">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-10 h-10 rounded-lg bg-neutral-200 shrink-0" />
+                  <img src="/images/ProdusSuportHaineMetalic.jpeg" alt="Suport Haine Metalic" className="w-10 h-10 rounded-lg object-cover shrink-0" />
                   <div className="flex-1 min-w-0">
                     <p className="text-[12px] font-semibold text-neutral-900 truncate">{t.agent3Msg3}</p>
                     <button className="mt-1 px-2 py-0.5 text-[10px] font-semibold bg-neutral-900 text-white rounded-md">
@@ -554,7 +556,7 @@ function FeatureText({
   return (
     <motion.div {...anim} className="flex flex-col justify-center">
       <div className="mb-6">
-        <p className="text-[64px] font-black text-neutral-900/[0.06] leading-none select-none pointer-events-none mb-2">
+        <p className="text-[64px] font-black text-neutral-900/[0.06] leading-none select-none pointer-events-none mb-3">
           {num}
         </p>
         <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-neutral-100 border border-neutral-200 text-[12px] font-semibold text-neutral-600">

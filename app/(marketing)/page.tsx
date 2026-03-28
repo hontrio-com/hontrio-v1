@@ -32,9 +32,7 @@ const en = {
     'Automatically responds to messages in real time, without delays',
     'Recommends relevant products based on customer questions',
     'Increases conversion rate through fast and accurate responses',
-    'Reduces workload for customer support',
     'Works 24/7 without breaks or human errors',
-    'Scalable, handles tens or hundreds of conversations simultaneously',
   ],
 
   feat2Title: 'Stop Fake Orders Before You Lose Money',
@@ -44,9 +42,7 @@ const en = {
     'Identifies customers who refuse orders',
     'Detects suspicious patterns (refusals, absences, cancellations)',
     'Mark customers as Trusted, Watch, Problematic or Blocked',
-    'See the complete history of each customer',
     'Get real loss estimates',
-    'Reduce the rate of refused orders',
   ],
 
   feat3Title: 'Live SEO Score and Automatic Optimization for Every Product',
@@ -55,9 +51,7 @@ const en = {
   feat3Bullets: [
     'Optimize products to appear higher in search results',
     'Improve product relevance for important keywords',
-    'Attract organic traffic without additional ad costs',
     'Generate optimized SEO titles in seconds',
-    'See in real time how well a product is optimized',
     'Automatically includes the keyword in the right places',
   ],
 
@@ -68,8 +62,6 @@ const en = {
     'Generate product images in seconds',
     'Titles and benefits integrated directly into the design',
     'Structure designed for conversion',
-    'Use images on your website, ads or social media',
-    'Scale quickly for your entire catalog',
     'No designers or graphic design skills needed',
   ],
 
@@ -244,9 +236,7 @@ const ro = {
     'Răspunde automat la mesaje în timp real, fără întârzieri',
     'Recomandă produse relevante pe baza întrebărilor clientului',
     'Crește rata de conversie prin răspunsuri rapide și precise',
-    'Reduce volumul de muncă pentru suportul clienți',
     'Funcționează 24/7 fără pauze sau erori umane',
-    'Scalabil, gestionează zeci sau sute de conversații simultan',
   ],
 
   feat2Title: 'Oprește comenzile false înainte să pierzi bani',
@@ -256,9 +246,7 @@ const ro = {
     'Identifică clienții care refuză comenzile',
     'Detectează tipare suspecte (refuzuri, absențe, anulări)',
     'Marchezi clienții ca Trusted, Watch, Problematic sau Blocat',
-    'Vezi istoricul complet al fiecărui client',
     'Primești estimări reale de pierderi',
-    'Reduci rata comenzilor refuzate',
   ],
 
   feat3Title: 'Scor SEO live și optimizare automată pentru fiecare produs',
@@ -267,9 +255,7 @@ const ro = {
   feat3Bullets: [
     'Optimizezi produsele pentru a apărea mai sus în rezultatele de căutare',
     'Îmbunătățești relevanța produselor pentru keyword-urile importante',
-    'Atragi trafic organic fără costuri suplimentare de ads',
     'Generezi titluri SEO optimizate în câteva secunde',
-    'Vezi în timp real cât de bine este optimizat un produs',
     'Include keyword-ul în locurile potrivite automat',
   ],
 
@@ -280,8 +266,6 @@ const ro = {
     'Generezi imagini de produs în câteva secunde',
     'Titluri și beneficii integrate direct în design',
     'Structură gândită pentru conversie',
-    'Folosești imaginile pe site, reclame sau social media',
-    'Scalezi rapid pentru întreg catalogul',
     'Fără designeri sau cunoștințe de grafică',
   ],
 

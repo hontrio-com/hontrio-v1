@@ -542,7 +542,7 @@ function MarketingFooter() {
 
         {/* ANPC — RO only */}
         {locale === 'ro' && (
-          <div className="mt-10 pt-8 border-t border-neutral-800 flex flex-wrap items-center gap-3">
+          <div className="mt-10 pt-8 border-t border-neutral-800 flex items-center gap-3">
             <p className="text-xs text-neutral-500 mr-2">Solutionarea alternativa a litigiilor:</p>
             <a href="https://anpc.ro/ce-este-sal/" target="_blank" rel="noopener noreferrer">
               <img src="/images/SAL.png" alt="SAL - Solutionarea Alternativa a Litigiilor" className="h-10 w-auto opacity-80 hover:opacity-100 transition-opacity" />
