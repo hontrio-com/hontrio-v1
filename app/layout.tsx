@@ -12,7 +12,7 @@ const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://hontrio.com'
 export const metadata: Metadata = {
   metadataBase: new URL('https://hontrio.com'),
   title: {
-    default: 'Hontrio — Platforma AI pentru magazine online',
+    default: 'Hontrio - Platforma AI pentru magazine online',
     template: '%s | Hontrio',
   },
   description: 'Genereaza imagini profesionale, optimizeaza SEO, automatizeaza suportul cu AI si protejeaza comenzile. Tot ce are nevoie magazinul tau online, intr-o singura platforma.',
@@ -40,13 +40,13 @@ export const metadata: Metadata = {
     alternateLocale: ['en_US'],
     url: 'https://hontrio.com',
     siteName: 'Hontrio',
-    title: 'Hontrio — Platforma AI pentru magazine online',
+    title: 'Hontrio - Platforma AI pentru magazine online',
     description: 'Imagini AI, SEO automat, agent de vanzari si protectie comenzi. Tot intr-o singura platforma.',
-    images: [{ url: '/opengraph-image', width: 1200, height: 630, alt: 'Hontrio — AI Platform for eCommerce', type: 'image/png' }],
+    images: [{ url: '/opengraph-image', width: 1200, height: 630, alt: 'Hontrio - AI Platform for eCommerce', type: 'image/png' }],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Hontrio — Platforma AI pentru magazine online',
+    title: 'Hontrio - Platforma AI pentru magazine online',
     description: 'Imagini AI, SEO automat, agent de vanzari si protectie comenzi.',
     images: ['/opengraph-image'],
     creator: '@hontrio',
@@ -144,7 +144,7 @@ const jsonLd = {
           price: '19',
           priceCurrency: 'USD',
           billingIncrement: 'monthly',
-          description: 'Starter plan — 150 credits/month',
+          description: 'Starter plan - 150 credits/month',
         },
         {
           '@type': 'Offer',
@@ -152,7 +152,7 @@ const jsonLd = {
           price: '49',
           priceCurrency: 'USD',
           billingIncrement: 'monthly',
-          description: 'Professional plan — 400 credits/month',
+          description: 'Professional plan - 400 credits/month',
         },
         {
           '@type': 'Offer',
@@ -160,7 +160,7 @@ const jsonLd = {
           price: '99',
           priceCurrency: 'USD',
           billingIncrement: 'monthly',
-          description: 'Enterprise plan — 900 credits/month',
+          description: 'Enterprise plan - 900 credits/month',
         },
       ],
       featureList: [
