@@ -184,7 +184,7 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en">
+    <html lang="ro">
       <head>
         {/* Google Consent Mode v2 — must be before GA4 */}
         <Script

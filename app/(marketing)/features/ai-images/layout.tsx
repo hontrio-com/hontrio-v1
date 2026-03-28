@@ -30,6 +30,53 @@ export const metadata: Metadata = {
   },
 }
 
+const faqJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  mainEntity: [
+    {
+      '@type': 'Question',
+      name: 'Obtii rezultate bune si de pe fotografii de calitate slaba?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'Sistemul functioneaza cel mai bine cu fotografii clare ale produsului. O imagine sursa de calitate mai scazuta va produce totusi un rezultat superior originalului, insa calitatea fotografiei initiale influenteaza direct calitatea rezultatului final.',
+      },
+    },
+    {
+      '@type': 'Question',
+      name: 'Poti genera toate cele sase stiluri din aceeasi fotografie?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'Da. Din o singura fotografie incarcata poti genera variante in oricare dintre cele sase stiluri disponibile. Fiecare generare consuma credite separat.',
+      },
+    },
+    {
+      '@type': 'Question',
+      name: 'Imaginile generate respecta cerintele tehnice ale marketplace-urilor?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'Stilul Fundal Alb este optimizat special pentru cerintele platformelor de comert electronic din Romania si Europa. Rezolutia, formatul si compozitia respecta specificatiile tehnice ale platformelor principale.',
+      },
+    },
+    {
+      '@type': 'Question',
+      name: 'Cate credite costa generarea unei imagini?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'O imagine costa intre 6 si 8 credite, in functie de stilul ales (Fundal Alb = 6 credite, celelalte stiluri = 7-8 credite). Verificarea automata a calitatii este inclusa fara costuri suplimentare.',
+      },
+    },
+  ],
+}
+
 export default function Layout({ children }: { children: React.ReactNode }) {
-  return <>{children}</>
+  return (
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
+      />
+      {children}
+    </>
+  )
 }

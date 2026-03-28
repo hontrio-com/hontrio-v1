@@ -128,7 +128,10 @@
       "Bash(mkdir -p /c/Users/iorda/Desktop/Hontrio.com/v1/hontrio/app/\\\\\\(dashboard\\\\\\)/admin/blog/[id]/edit)",
       "Bash(ls /c/Users/iorda/Desktop/Hontrio.com/v1/hontrio/app/\\\\\\(dashboard\\\\\\)/admin/blog/new/)",
       "Bash(ls /c/Users/iorda/Desktop/Hontrio.com/v1/hontrio/app/\\\\\\(dashboard\\\\\\)/admin/blog/[id]/edit/)",
-      "Bash(wc -l \"C:/Users/iorda/Desktop/Hontrio.com/v1/hontrio/app/\\(marketing\\)/roadmap/page.tsx\")"
+      "Bash(wc -l \"C:/Users/iorda/Desktop/Hontrio.com/v1/hontrio/app/\\(marketing\\)/roadmap/page.tsx\")",
+      "Bash(for f:*)",
+      "Bash(sed -i 's/Risk Shield — toate/Risk Shield - toate/g' \"C:/Users/iorda/Desktop/Hontrio.com/v1/hontrio/app/\\(marketing\\)/features/layout.tsx\")",
+      "Bash(sed -i 's/Europa — imagini/Europa: imagini/g' \"C:/Users/iorda/Desktop/Hontrio.com/v1/hontrio/app/\\(marketing\\)/about/layout.tsx\")"
     ]
   }
 }
