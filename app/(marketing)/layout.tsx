@@ -505,7 +505,6 @@ function MarketingFooter() {
                 { label: t.blog,    href: t.blogLink },
                 { label: t.faq,     href: '/#faq' },
                 { label: t.roadmap, href: '/roadmap' },
-                { label: t.support, href: '/support' },
               ].map((l) => (
                 <li key={l.label}><Link href={l.href} className={linkCls}>{l.label}</Link></li>
               ))}
