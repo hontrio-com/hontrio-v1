@@ -1,7 +1,7 @@
 import { ImageResponse } from 'next/og'
 
 export const runtime = 'edge'
-export const alt = 'Hontrio — A complete ecosystem for your online store'
+export const alt = 'Hontrio — Platforma AI pentru magazine online'
 export const size = { width: 1200, height: 630 }
 export const contentType = 'image/png'
 
@@ -10,7 +10,7 @@ export default async function Image() {
     (
       <div
         style={{
-          background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)',
+          background: '#0a0a0a',
           width: '100%',
           height: '100%',
           display: 'flex',
@@ -22,28 +22,26 @@ export default async function Image() {
           overflow: 'hidden',
         }}
       >
-        {/* Background grid */}
+        {/* Subtle grid */}
         <div
           style={{
             position: 'absolute',
             inset: 0,
             backgroundImage:
-              'linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px)',
-            backgroundSize: '60px 60px',
+              'linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px)',
+            backgroundSize: '48px 48px',
           }}
         />
 
-        {/* Glow */}
+        {/* Top accent line */}
         <div
           style={{
             position: 'absolute',
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)',
-            width: 700,
-            height: 400,
-            background: 'radial-gradient(ellipse, rgba(99,102,241,0.15) 0%, transparent 70%)',
-            borderRadius: '50%',
+            top: 0,
+            left: '20%',
+            right: '20%',
+            height: 2,
+            background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent)',
           }}
         />
 
@@ -53,28 +51,28 @@ export default async function Image() {
             display: 'flex',
             alignItems: 'center',
             gap: 8,
-            background: 'rgba(99,102,241,0.15)',
-            border: '1px solid rgba(99,102,241,0.4)',
+            background: 'rgba(255,255,255,0.06)',
+            border: '1px solid rgba(255,255,255,0.12)',
             borderRadius: 100,
-            padding: '6px 16px',
-            marginBottom: 32,
+            padding: '6px 20px',
+            marginBottom: 36,
           }}
         >
-          <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#818cf8' }} />
-          <span style={{ color: '#a5b4fc', fontSize: 16, fontWeight: 600 }}>
-            Powered by AI &amp; Smart Automation
+          <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#22c55e' }} />
+          <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: 15, fontWeight: 500 }}>
+            AI Growth Platform pentru eCommerce
           </span>
         </div>
 
-        {/* Logo / Brand name */}
+        {/* Brand name */}
         <div
           style={{
-            fontSize: 88,
+            fontSize: 96,
             fontWeight: 800,
             color: '#ffffff',
-            letterSpacing: -3,
+            letterSpacing: -4,
             lineHeight: 1,
-            marginBottom: 24,
+            marginBottom: 20,
           }}
         >
           HONTRIO
@@ -83,42 +81,50 @@ export default async function Image() {
         {/* Tagline */}
         <div
           style={{
-            fontSize: 24,
-            color: 'rgba(255,255,255,0.5)',
+            fontSize: 22,
+            color: 'rgba(255,255,255,0.4)',
             textAlign: 'center',
-            maxWidth: 780,
-            lineHeight: 1.6,
+            maxWidth: 700,
+            lineHeight: 1.5,
+            marginBottom: 56,
           }}
         >
-          A complete ecosystem for your online store,
-          <br />
-          powered by artificial intelligence and smart automation.
+          Imagini AI · SEO automat · Agent de vanzari · Protectie comenzi
         </div>
 
-        {/* Features row */}
-        <div
-          style={{
-            display: 'flex',
-            gap: 16,
-            marginTop: 48,
-          }}
-        >
-          {['AI Text', 'SEO Optimizer', 'AI Images', 'Risk Shield', 'AI Agent'].map((f) => (
+        {/* Feature pills */}
+        <div style={{ display: 'flex', gap: 12 }}>
+          {['AI Images', 'SEO Optimizer', 'AI Agent', 'Risk Shield'].map((f) => (
             <div
               key={f}
               style={{
-                background: 'rgba(255,255,255,0.06)',
+                background: 'rgba(255,255,255,0.07)',
                 border: '1px solid rgba(255,255,255,0.1)',
-                borderRadius: 8,
-                padding: '8px 16px',
-                color: 'rgba(255,255,255,0.7)',
-                fontSize: 15,
+                borderRadius: 10,
+                padding: '10px 20px',
+                color: 'rgba(255,255,255,0.65)',
+                fontSize: 14,
                 fontWeight: 500,
               }}
             >
               {f}
             </div>
           ))}
+        </div>
+
+        {/* Bottom: hontrio.com */}
+        <div
+          style={{
+            position: 'absolute',
+            bottom: 32,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+          }}
+        >
+          <div style={{ width: 5, height: 5, borderRadius: '50%', background: 'rgba(255,255,255,0.2)' }} />
+          <span style={{ color: 'rgba(255,255,255,0.25)', fontSize: 13 }}>hontrio.com</span>
+          <div style={{ width: 5, height: 5, borderRadius: '50%', background: 'rgba(255,255,255,0.2)' }} />
         </div>
       </div>
     ),
