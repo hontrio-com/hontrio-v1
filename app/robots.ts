@@ -1,12 +1,23 @@
 import type { MetadataRoute } from 'next'
 
 export default function robots(): MetadataRoute.Robots {
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://app.hontrio.com'
+  const siteUrl = 'https://hontrio.com'
   return {
     rules: [
       {
         userAgent: '*',
-        allow: ['/', '/login', '/register', '/forgot-password', '/reset-password'],
+        allow: [
+          '/',
+          '/blog',
+          '/blog/',
+          '/features',
+          '/features/',
+          '/pricing',
+          '/about',
+          '/contact',
+          '/careers',
+          '/legal/',
+        ],
         disallow: [
           '/dashboard',
           '/products',
@@ -20,6 +31,8 @@ export default function robots(): MetadataRoute.Robots {
           '/admin',
           '/api/',
           '/onboarding',
+          '/login',
+          '/register',
         ],
       },
     ],

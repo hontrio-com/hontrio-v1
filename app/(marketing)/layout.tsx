@@ -24,7 +24,7 @@ const COL_2 = [
 const T = {
   en: {
     nav: {
-      home: 'Home', features: 'Features', pricing: 'Pricing', caseStudies: 'Case Studies',
+      home: 'Home', features: 'Features', pricing: 'Pricing',
       signIn: 'Sign In', getStarted: 'Get Started →',
     },
     mega: {
@@ -51,18 +51,18 @@ const T = {
       riskShield: 'Risk Shield', pricing: 'Pricing',
       register: 'Register', login: 'Sign In',
       resources: 'Resources',
-      blog: 'Blog', faq: 'FAQ', roadmap: 'Roadmap', support: 'Support',
+      blog: 'Blog', blogLink: '/blog', faq: 'FAQ', roadmap: 'Roadmap', support: 'Support',
       company: 'Company',
-      about: 'About Us', contact: 'Contact', partnerships: 'Partnerships', careers: 'Careers',
+      about: 'About Us', contact: 'Contact', careers: 'Careers',
       legal: 'Legal',
-      terms: 'Terms & Conditions', privacy: 'Privacy Policy', cookies: 'Cookie Policy', gdpr: 'GDPR',
+      terms: 'Terms & Conditions', privacy: 'Privacy Policy', cookies: 'Cookie Policy',
       copyright: `© ${new Date().getFullYear()} Hontrio. All rights reserved.`,
       startFree: 'Start for free',
     },
   },
   ro: {
     nav: {
-      home: 'Acasă', features: 'Funcții', pricing: 'Prețuri', caseStudies: 'Studii de caz',
+      home: 'Acasă', features: 'Funcții', pricing: 'Prețuri',
       signIn: 'Conectează-te', getStarted: 'Începe Gratuit →',
     },
     mega: {
@@ -89,11 +89,11 @@ const T = {
       riskShield: 'Risk Shield', pricing: 'Preturi',
       register: 'Inregistreaza-te', login: 'Conecteaza-te',
       resources: 'Resurse',
-      blog: 'Blog', faq: 'FAQ', roadmap: 'Roadmap', support: 'Suport',
+      blog: 'Blog', blogLink: '/blog', faq: 'FAQ', roadmap: 'Roadmap', support: 'Suport',
       company: 'Companie',
-      about: 'Despre noi', contact: 'Contact', partnerships: 'Parteneriate', careers: 'Cariere',
+      about: 'Despre noi', contact: 'Contact', careers: 'Cariere',
       legal: 'Legal',
-      terms: 'Termeni si conditii', privacy: 'Politica de confidentialitate', cookies: 'Politica Cookies', gdpr: 'GDPR',
+      terms: 'Termeni si conditii', privacy: 'Politica de confidentialitate', cookies: 'Politica Cookies',
       copyright: `© ${new Date().getFullYear()} Hontrio. Toate drepturile rezervate.`,
       startFree: 'Incepe gratuit',
     },
@@ -229,11 +229,12 @@ function MarketingHeader() {
             </Link>
 
             <Link
-              href="/case-studies"
+              href="/blog"
               className="px-3.5 py-1.5 text-[13.5px] font-medium text-neutral-500 hover:text-neutral-900 rounded-lg hover:bg-black/[0.04] transition-all duration-150"
             >
-              {t.nav.caseStudies}
+              Blog
             </Link>
+
           </nav>
 
           {/* Desktop CTA */}
@@ -427,12 +428,13 @@ function MarketingHeader() {
             >
               {t.nav.pricing}
             </Link>
+
             <Link
-              href="/case-studies"
+              href="/blog"
               onClick={() => setMobileOpen(false)}
               className="flex items-center px-3 py-3 text-[17px] font-semibold text-neutral-900 rounded-xl hover:bg-neutral-50 transition-colors"
             >
-              {t.nav.caseStudies}
+              Blog
             </Link>
           </div>
 
@@ -499,10 +501,10 @@ function MarketingFooter() {
             <h3 className="text-xs font-semibold uppercase tracking-widest text-neutral-500 mb-4">{t.resources}</h3>
             <ul className="space-y-2.5">
               {[
-                { label: t.blog,     href: '/blog' },
-                { label: t.faq,      href: '/#faq' },
-                { label: t.roadmap,  href: '/roadmap' },
-                { label: t.support,  href: '/support' },
+                { label: t.blog,    href: t.blogLink },
+                { label: t.faq,     href: '/#faq' },
+                { label: t.roadmap, href: '/roadmap' },
+                { label: t.support, href: '/support' },
               ].map((l) => (
                 <li key={l.label}><Link href={l.href} className={linkCls}>{l.label}</Link></li>
               ))}
@@ -514,10 +516,9 @@ function MarketingFooter() {
             <h3 className="text-xs font-semibold uppercase tracking-widest text-neutral-500 mb-4">{t.company}</h3>
             <ul className="space-y-2.5">
               {[
-                { label: t.about,        href: '/about' },
-                { label: t.contact,      href: '/contact' },
-                { label: t.partnerships, href: '/partnerships' },
-                { label: t.careers,      href: '/careers' },
+                { label: t.about,    href: '/about' },
+                { label: t.contact,  href: '/contact' },
+                { label: t.careers,  href: '/careers' },
               ].map((l) => (
                 <li key={l.label}><Link href={l.href} className={linkCls}>{l.label}</Link></li>
               ))}
@@ -532,7 +533,6 @@ function MarketingFooter() {
                 { label: t.terms,   href: '/legal/terms' },
                 { label: t.privacy, href: '/legal/privacy' },
                 { label: t.cookies, href: '/legal/cookies' },
-                { label: t.gdpr,    href: '/legal/gdpr' },
               ].map((l) => (
                 <li key={l.label}><Link href={l.href} className={linkCls}>{l.label}</Link></li>
               ))}
@@ -540,8 +540,21 @@ function MarketingFooter() {
           </div>
         </div>
 
+        {/* ANPC — RO only */}
+        {locale === 'ro' && (
+          <div className="mt-10 pt-8 border-t border-neutral-800 flex flex-wrap items-center gap-4">
+            <p className="text-xs text-neutral-500 mr-2">Solutionarea alternativa a litigiilor:</p>
+            <a href="https://anpc.ro/ce-este-sal/" target="_blank" rel="noopener noreferrer">
+              <img src="/images/SAL.png" alt="SAL - Solutionarea Alternativa a Litigiilor" className="h-10 w-auto opacity-80 hover:opacity-100 transition-opacity" />
+            </a>
+            <a href="https://ec.europa.eu/consumers/odr" target="_blank" rel="noopener noreferrer">
+              <img src="/images/SOL.png" alt="SOL - Solutionarea Online a Litigiilor" className="h-10 w-auto opacity-80 hover:opacity-100 transition-opacity" />
+            </a>
+          </div>
+        )}
+
         {/* Bottom bar */}
-        <div className="mt-12 pt-8 border-t border-neutral-800 flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="mt-8 pt-8 border-t border-neutral-800 flex flex-col sm:flex-row items-center justify-between gap-4">
           <p className="text-xs text-neutral-500">{t.copyright}</p>
 
           {/* Social icons */}

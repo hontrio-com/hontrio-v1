@@ -11,7 +11,7 @@ import {
   LayoutDashboard, Shield, Package, ImageIcon, Search, CreditCard, Settings,
   LogOut, Menu, X, ChevronRight, Sparkles, AlertTriangle,
   MessageSquare, Zap, Crown, ArrowUpRight, Bot,
-  MessageCircle, TrendingUp, FileText, Tag, Clock, Loader2,
+  MessageCircle, TrendingUp, FileText, Tag, Clock, Loader2, BookOpen,
 } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
@@ -232,11 +232,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               {userRole === 'admin' && (<>
                 {!collapsed && <p className="text-[10px] font-semibold uppercase tracking-widest text-neutral-300 mb-2 px-3 mt-5">Admin</p>}
                 {collapsed && <div className="mx-1 border-t border-neutral-100 my-2" />}
-                {collapsed ? (
-                  <Tooltip><TooltipTrigger asChild><Link href="/admin/stats" className={`group flex items-center justify-center p-2.5 rounded-xl text-sm font-medium transition-all ${pathname.startsWith('/admin') ? 'bg-neutral-100 text-neutral-900' : 'text-neutral-400 hover:text-neutral-600 hover:bg-neutral-50'}`}><Shield className="h-[18px] w-[18px]" /></Link></TooltipTrigger><TooltipContent side="right" sideOffset={10}>Admin</TooltipContent></Tooltip>
-                ) : (
-                  <Link href="/admin/stats" onClick={() => setSidebarOpen(false)} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${pathname.startsWith('/admin') ? 'bg-neutral-100 text-neutral-900' : 'text-neutral-400 hover:text-neutral-600 hover:bg-neutral-50'}`}><Shield className="h-[18px] w-[18px]" /><span>{t('dashboard.admin_panel')}</span></Link>
-                )}
+                {collapsed ? (<>
+                  <Tooltip><TooltipTrigger asChild><Link href="/admin/stats" className={`group flex items-center justify-center p-2.5 rounded-xl text-sm font-medium transition-all ${pathname.startsWith('/admin/stats') || pathname === '/admin' ? 'bg-neutral-100 text-neutral-900' : 'text-neutral-400 hover:text-neutral-600 hover:bg-neutral-50'}`}><Shield className="h-[18px] w-[18px]" /></Link></TooltipTrigger><TooltipContent side="right" sideOffset={10}>Admin</TooltipContent></Tooltip>
+                  <Tooltip><TooltipTrigger asChild><Link href="/admin/blog" className={`group flex items-center justify-center p-2.5 rounded-xl text-sm font-medium transition-all mt-0.5 ${pathname.startsWith('/admin/blog') ? 'bg-neutral-100 text-neutral-900' : 'text-neutral-400 hover:text-neutral-600 hover:bg-neutral-50'}`}><BookOpen className="h-[18px] w-[18px]" /></Link></TooltipTrigger><TooltipContent side="right" sideOffset={10}>Blog</TooltipContent></Tooltip>
+                </>) : (<>
+                  <Link href="/admin/stats" onClick={() => setSidebarOpen(false)} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${pathname.startsWith('/admin/stats') || pathname === '/admin' ? 'bg-neutral-100 text-neutral-900' : 'text-neutral-400 hover:text-neutral-600 hover:bg-neutral-50'}`}><Shield className="h-[18px] w-[18px]" /><span>{t('dashboard.admin_panel')}</span></Link>
+                  <Link href="/admin/blog" onClick={() => setSidebarOpen(false)} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all mt-0.5 ${pathname.startsWith('/admin/blog') ? 'bg-neutral-100 text-neutral-900' : 'text-neutral-400 hover:text-neutral-600 hover:bg-neutral-50'}`}><BookOpen className="h-[18px] w-[18px]" /><span>Blog</span></Link>
+                </>)}
               </>)}
             </nav>
 
