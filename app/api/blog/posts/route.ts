@@ -21,6 +21,7 @@ export async function GET(request: Request) {
     const tagSlug = searchParams.get('tag') || ''
     const q = searchParams.get('q') || ''
     const featuredParam = searchParams.get('featured') || ''
+    const localeParam = searchParams.get('locale') || ''
     const page = Math.max(1, parseInt(searchParams.get('page') || '1'))
     const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '12')))
     const from = (page - 1) * limit
@@ -92,6 +93,11 @@ export async function GET(request: Request) {
       query = query.or(`title.ilike.%${q}%,excerpt.ilike.%${q}%`)
     }
 
+    // Locale filter
+    if (localeParam === 'ro' || localeParam === 'en') {
+      query = query.eq('locale', localeParam)
+    }
+
     // Featured filter
     if (featuredParam === 'true') {
       query = query.eq('featured', true)
@@ -139,6 +145,7 @@ export async function POST(request: Request) {
       category_id,
       status,
       featured,
+      locale,
       seo_title,
       seo_description,
       seo_og_image_url,
@@ -194,6 +201,7 @@ export async function POST(request: Request) {
         cover_image_alt: cover_image_alt ?? null,
         category_id: category_id ?? null,
         status: status ?? 'draft',
+        locale: locale === 'en' ? 'en' : 'ro',
         featured: featured ?? false,
         read_time_minutes,
         published_at,

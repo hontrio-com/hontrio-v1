@@ -245,6 +245,7 @@ function BlogTagPageInner() {
     p.set('page', String(pageParam))
     p.set('limit', String(LIMIT))
     p.set('status', 'published')
+    p.set('locale', locale)
     if (qParam) p.set('q', qParam)
 
     fetch(`/api/blog/posts?${p.toString()}`)

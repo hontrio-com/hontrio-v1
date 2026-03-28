@@ -408,13 +408,18 @@ export default function AdminBlogPage() {
                       />
                     </button>
                   </td>
-                  {/* Data */}
+                  {/* Data + Limba */}
                   <td className="px-4 py-3 hidden lg:table-cell">
-                    {post.published_at ? (
-                      <span className="text-xs text-neutral-400">{formatDate(post.published_at)}</span>
-                    ) : (
-                      <span className="text-xs text-neutral-300">Draft</span>
-                    )}
+                    <div className="flex flex-col gap-1">
+                      {post.published_at ? (
+                        <span className="text-xs text-neutral-400">{formatDate(post.published_at)}</span>
+                      ) : (
+                        <span className="text-xs text-neutral-300">Draft</span>
+                      )}
+                      <span className="text-xs text-neutral-400">
+                        {(post as any).locale === 'en' ? '🇬🇧 EN' : '🇷🇴 RO'}
+                      </span>
+                    </div>
                   </td>
                   {/* Vizualizari */}
                   <td className="px-4 py-3 hidden xl:table-cell">

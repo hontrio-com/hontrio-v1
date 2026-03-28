@@ -384,6 +384,7 @@ function BlogPageInner() {
     params.set('page', String(pageParam))
     params.set('limit', String(LIMIT))
     params.set('status', 'published')
+    params.set('locale', locale)
 
     fetch(`/api/blog/posts?${params.toString()}`)
       .then((r) => r.json())

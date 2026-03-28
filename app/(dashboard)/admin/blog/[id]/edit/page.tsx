@@ -396,6 +396,7 @@ export default function AdminBlogEditPage() {
     now.setSeconds(0, 0)
     return now.toISOString().slice(0, 16)
   })
+  const [locale, setLocale] = useState<'ro' | 'en'>('ro')
   const [featured, setFeatured] = useState(false)
   const [readTime, setReadTime] = useState(1)
   const [categoryId, setCategoryId] = useState('')
@@ -448,6 +449,7 @@ export default function AdminBlogEditPage() {
         setSlug(p.slug || '')
         setPostSlugForPreview(p.slug || '')
         setStatus(p.status || 'draft')
+        setLocale(p.locale === 'en' ? 'en' : 'ro')
         setFeatured(p.featured || false)
         setReadTime(p.read_time_minutes || 1)
         setCategoryId(p.category_id || p.blog_categories?.id || '')
@@ -525,6 +527,7 @@ export default function AdminBlogEditPage() {
     content: content || null,
     slug: slug || slugifyLocal(title),
     status: overrideStatus ?? status,
+    locale,
     featured,
     category_id: categoryId || null,
     cover_image_url: coverUrl || null,
@@ -535,7 +538,7 @@ export default function AdminBlogEditPage() {
     seo_keywords: seoKeywords || null,
     tags: selectedTags.map(t => t.id),
     published_at: (overrideStatus ?? status) === 'published' ? publishedAt : undefined,
-  }), [title, excerpt, content, slug, status, featured, categoryId, coverUrl, coverAlt, seoTitle, seoDesc, seoOgImage, seoKeywords, selectedTags, publishedAt])
+  }), [title, excerpt, content, slug, status, locale, featured, categoryId, coverUrl, coverAlt, seoTitle, seoDesc, seoOgImage, seoKeywords, selectedTags, publishedAt])
 
   async function save(overrideStatus?: PostStatus) {
     if (!title.trim()) { setError('Titlul este obligatoriu.'); return }
@@ -720,6 +723,26 @@ export default function AdminBlogEditPage() {
                 <option value="published">Publicat</option>
                 <option value="archived">Arhivat</option>
               </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-neutral-500 mb-1">Limba</label>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setLocale('ro')}
+                  className={`flex-1 h-9 rounded-xl border text-sm font-medium transition-colors ${locale === 'ro' ? 'border-neutral-900 bg-neutral-900 text-white' : 'border-neutral-200 text-neutral-600 hover:bg-neutral-50'}`}
+                >
+                  🇷🇴 Română
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLocale('en')}
+                  className={`flex-1 h-9 rounded-xl border text-sm font-medium transition-colors ${locale === 'en' ? 'border-neutral-900 bg-neutral-900 text-white' : 'border-neutral-200 text-neutral-600 hover:bg-neutral-50'}`}
+                >
+                  🇬🇧 English
+                </button>
+              </div>
             </div>
 
             {status === 'published' && (

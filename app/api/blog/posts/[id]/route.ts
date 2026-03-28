@@ -74,6 +74,7 @@ export async function PUT(
       category_id,
       status,
       featured,
+      locale,
       seo_title,
       seo_description,
       seo_og_image_url,
@@ -132,6 +133,7 @@ export async function PUT(
     if (seo_description !== undefined) updateData.seo_description = seo_description
     if (seo_og_image_url !== undefined) updateData.seo_og_image_url = seo_og_image_url
     if (seo_keywords !== undefined) updateData.seo_keywords = seo_keywords
+    if (locale === 'ro' || locale === 'en') updateData.locale = locale
     if (published_at !== undefined) updateData.published_at = published_at
     updateData.updated_at = new Date().toISOString()
 

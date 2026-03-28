@@ -406,6 +406,7 @@ export default function AdminBlogNewPage() {
     now.setSeconds(0, 0)
     return now.toISOString().slice(0, 16)
   })
+  const [locale, setLocale] = useState<'ro' | 'en'>('ro')
   const [featured, setFeatured] = useState(false)
   const [readTime, setReadTime] = useState(1)
   const [categoryId, setCategoryId] = useState('')
@@ -497,6 +498,7 @@ export default function AdminBlogNewPage() {
     content: content || null,
     slug: slug || slugifyLocal(title),
     status: overrideStatus ?? status,
+    locale,
     featured,
     category_id: categoryId || null,
     cover_image_url: coverUrl || null,
@@ -660,6 +662,26 @@ export default function AdminBlogNewPage() {
                 <option value="published">Publicat</option>
                 <option value="archived">Arhivat</option>
               </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-neutral-500 mb-1">Limba</label>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setLocale('ro')}
+                  className={`flex-1 h-9 rounded-xl border text-sm font-medium transition-colors ${locale === 'ro' ? 'border-neutral-900 bg-neutral-900 text-white' : 'border-neutral-200 text-neutral-600 hover:bg-neutral-50'}`}
+                >
+                  🇷🇴 Română
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLocale('en')}
+                  className={`flex-1 h-9 rounded-xl border text-sm font-medium transition-colors ${locale === 'en' ? 'border-neutral-900 bg-neutral-900 text-white' : 'border-neutral-200 text-neutral-600 hover:bg-neutral-50'}`}
+                >
+                  🇬🇧 English
+                </button>
+              </div>
             </div>
 
             {status === 'published' && (
