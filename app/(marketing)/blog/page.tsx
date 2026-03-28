@@ -59,7 +59,7 @@ interface PostsResponse {
   posts: BlogPost[]
   total: number
   page: number
-  limit: number
+  totalPages: number
 }
 
 // ─── Bilingual content ────────────────────────────────────────────────────────
@@ -289,14 +289,13 @@ function FeaturedPostCard({
 // ─── Pagination ───────────────────────────────────────────────────────────────
 
 function Pagination({
-  page, total, limit, onPage, prevLabel, nextLabel, pageLabel, ofLabel,
+  page, totalPages, onPage, prevLabel, nextLabel, pageLabel, ofLabel,
 }: {
-  page: number; total: number; limit: number
+  page: number; totalPages: number
   onPage: (p: number) => void
   prevLabel: string; nextLabel: string; pageLabel: string; ofLabel: string
 }) {
-  const totalPages = Math.ceil(total / limit)
-  if (totalPages <= 1) return null
+  if (!totalPages || totalPages <= 1) return null
 
   return (
     <div className="flex items-center justify-center gap-3 mt-12">
@@ -389,7 +388,7 @@ function BlogPageInner() {
     fetch(`/api/blog/posts?${params.toString()}`)
       .then((r) => r.json())
       .then((json) => setData(json))
-      .catch(() => setData({ posts: [], total: 0, page: 1, limit: LIMIT }))
+      .catch(() => setData({ posts: [], total: 0, page: 1, totalPages: 0 }))
       .finally(() => setLoading(false))
   }, [qParam, categoryParam, pageParam])
 
@@ -582,8 +581,7 @@ function BlogPageInner() {
             {data && (
               <Pagination
                 page={data.page}
-                total={data.total}
-                limit={data.limit}
+                totalPages={data.totalPages}
                 onPage={handlePage}
                 prevLabel={t.prevPage}
                 nextLabel={t.nextPage}
