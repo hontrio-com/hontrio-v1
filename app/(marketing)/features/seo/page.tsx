@@ -362,40 +362,7 @@ function SEODonutChart({ score, color, label, triggerAnimate }: {
   )
 }
 
-// ─── FAQItem ──────────────────────────────────────────────────────────────────
-
-function FAQItem({ q, a, open, onToggle }: { q: string; a: string; open: boolean; onToggle: () => void }) {
-  return (
-    <div className="border-b border-neutral-100 last:border-0">
-      <button
-        onClick={onToggle}
-        className="w-full flex items-start justify-between gap-4 py-5 text-left"
-      >
-        <span className="text-base font-medium text-neutral-900 leading-snug">{q}</span>
-        <motion.span
-          animate={{ rotate: open ? 180 : 0 }}
-          transition={{ duration: 0.2 }}
-          className="shrink-0 mt-0.5 text-neutral-400"
-        >
-          <ChevronDown className="h-5 w-5" />
-        </motion.span>
-      </button>
-      <AnimatePresence initial={false}>
-        {open && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.25, ease: 'easeInOut' as const }}
-            className="overflow-hidden"
-          >
-            <p className="text-neutral-500 leading-relaxed pb-5">{a}</p>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  )
-}
+// ─── FAQItem — kept for backward compat (unused after inline below) ───────────
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
@@ -1159,26 +1126,41 @@ export default function SEOPage() {
       </section>
 
       {/* ═══ SECTION 9 — FAQ ═══ */}
-      <section className="py-20 sm:py-28 px-4 sm:px-6 lg:px-8 bg-white">
+      <section className="bg-neutral-50 px-4 py-20">
         <div className="max-w-[700px] mx-auto">
-          <motion.div className="text-center mb-12" {...fadeUp()}>
-            <h2 className="text-4xl sm:text-5xl font-bold text-neutral-900 tracking-tight">{c.faqH2}</h2>
-          </motion.div>
-
-          <motion.div
-            className="bg-white rounded-2xl border border-neutral-100 shadow-sm divide-y-0"
-            {...fadeUp(0.1)}
-          >
+          <div className="text-center mb-10">
+            <h2 className="text-2xl sm:text-3xl font-bold mb-2 text-neutral-900">{c.faqH2}</h2>
+          </div>
+          <div className="flex flex-col gap-2">
             {c.faqs.map((faq, i) => (
-              <FAQItem
-                key={i}
-                q={faq.q}
-                a={faq.a}
-                open={openFaq === i}
-                onToggle={() => setOpenFaq(openFaq === i ? null : i)}
-              />
+              <div key={i} className="rounded-xl border border-neutral-200 bg-white overflow-hidden">
+                <button
+                  onClick={() => setOpenFaq(openFaq === i ? null : i)}
+                  className="flex w-full items-center justify-between px-5 py-4 text-left text-sm font-medium text-neutral-800 hover:bg-neutral-50 transition-colors"
+                >
+                  <span>{faq.q}</span>
+                  <ChevronDown
+                    className="h-4 w-4 shrink-0 text-neutral-400 transition-transform duration-200"
+                    style={{ transform: openFaq === i ? 'rotate(180deg)' : 'rotate(0deg)' }}
+                  />
+                </button>
+                <AnimatePresence initial={false}>
+                  {openFaq === i && (
+                    <motion.div
+                      key="content"
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.25, ease: 'easeInOut' }}
+                      className="overflow-hidden"
+                    >
+                      <p className="px-5 pb-4 text-sm text-neutral-500 leading-relaxed">{faq.a}</p>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
             ))}
-          </motion.div>
+          </div>
         </div>
       </section>
 

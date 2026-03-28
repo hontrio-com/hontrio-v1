@@ -241,49 +241,7 @@ function QuickIcon({ type }: { type: string }) {
   return <HelpCircle className="h-5 w-5" />
 }
 
-// ─── FAQ Item ─────────────────────────────────────────────────────────────────
-
-function FAQItem({ q, a, index, reduced }: { q: string; a: string; index: number; reduced: boolean }) {
-  const [open, setOpen] = useState(false)
-
-  return (
-    <motion.div
-      {...fadeUp(reduced, index * 0.07)}
-      className="border border-neutral-200 rounded-xl overflow-hidden"
-    >
-      <button
-        onClick={() => setOpen((v) => !v)}
-        className="w-full flex items-center justify-between gap-4 px-6 py-5 text-left bg-white hover:bg-neutral-50 transition-colors"
-        aria-expanded={open}
-      >
-        <span className="text-sm font-semibold text-neutral-900">{q}</span>
-        <motion.span
-          animate={{ rotate: open ? 180 : 0 }}
-          transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] as [number, number, number, number] }}
-          className="shrink-0 text-neutral-500"
-        >
-          <ChevronDown className="h-4 w-4" />
-        </motion.span>
-      </button>
-      <AnimatePresence initial={false}>
-        {open && (
-          <motion.div
-            key="body"
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] as [number, number, number, number] }}
-            className="overflow-hidden"
-          >
-            <p className="px-6 pb-5 pt-1 text-sm text-neutral-600 leading-relaxed border-t border-neutral-100">
-              {a}
-            </p>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </motion.div>
-  )
-}
+// ─── FAQ Item — kept for backward compat (unused after inline below) ──────────
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -298,6 +256,9 @@ export default function ContactPage() {
   const [touched, setTouched] = useState<Partial<Record<keyof FormFields, boolean>>>({})
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
   const formRef = useRef<HTMLFormElement>(null)
+
+  // FAQ state
+  const [openFaq, setOpenFaq] = useState<number | null>(null)
 
   const charsLeft = MAX_CHARS - fields.message.length
 
@@ -651,17 +612,40 @@ export default function ContactPage() {
       </section>
 
       {/* ── Section 3: FAQ ─────────────────────────────────────────────────── */}
-      <section id="faq" className="py-20 bg-white scroll-mt-20">
-        <div className="max-w-3xl mx-auto px-6">
-          <motion.div {...fadeUp(reduced)} className="text-center mb-12">
-            <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-neutral-900 mb-3">
-              {t.faqH2}
-            </h2>
-            <p className="text-neutral-500 leading-relaxed">{t.faqSub}</p>
-          </motion.div>
-          <div className="space-y-3">
-            {t.faqs.map((item, i) => (
-              <FAQItem key={i} q={item.q} a={item.a} index={i} reduced={reduced} />
+      <section id="faq" className="bg-neutral-50 px-4 py-20 scroll-mt-20">
+        <div className="max-w-[700px] mx-auto">
+          <div className="text-center mb-10">
+            <h2 className="text-2xl sm:text-3xl font-bold mb-2 text-neutral-900">{t.faqH2}</h2>
+            <p className="text-neutral-500 text-sm">{t.faqSub}</p>
+          </div>
+          <div className="flex flex-col gap-2">
+            {t.faqs.map((faq, i) => (
+              <div key={i} className="rounded-xl border border-neutral-200 bg-white overflow-hidden">
+                <button
+                  onClick={() => setOpenFaq(openFaq === i ? null : i)}
+                  className="flex w-full items-center justify-between px-5 py-4 text-left text-sm font-medium text-neutral-800 hover:bg-neutral-50 transition-colors"
+                >
+                  <span>{faq.q}</span>
+                  <ChevronDown
+                    className="h-4 w-4 shrink-0 text-neutral-400 transition-transform duration-200"
+                    style={{ transform: openFaq === i ? 'rotate(180deg)' : 'rotate(0deg)' }}
+                  />
+                </button>
+                <AnimatePresence initial={false}>
+                  {openFaq === i && (
+                    <motion.div
+                      key="content"
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.25, ease: 'easeInOut' }}
+                      className="overflow-hidden"
+                    >
+                      <p className="px-5 pb-4 text-sm text-neutral-500 leading-relaxed">{faq.a}</p>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
             ))}
           </div>
         </div>

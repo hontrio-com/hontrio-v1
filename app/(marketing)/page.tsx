@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
-import { Check, ChevronDown, ChevronUp, Star, ArrowRight, Bot, ShieldAlert } from 'lucide-react'
+import { Check, ChevronDown, Star, ArrowRight, Bot, ShieldAlert } from 'lucide-react'
+import { AnimatePresence, motion } from 'framer-motion'
 import { useT } from '@/lib/i18n/context'
 import { AuroraBackground } from '@/components/ui/aurora-background'
 
@@ -808,29 +809,6 @@ function FeatureBlock({
   )
 }
 
-// ─── FAQ Item ─────────────────────────────────────────────────────────────────
-
-function FAQItem({ q, a, isOpen, onToggle }: { q: string; a: string; isOpen: boolean; onToggle: () => void }) {
-  return (
-    <div className="border-b border-neutral-100 last:border-0">
-      <button
-        className="w-full flex items-start justify-between gap-4 py-5 text-left"
-        onClick={onToggle}
-      >
-        <span className="text-base font-medium text-neutral-900 leading-snug">{q}</span>
-        <span className="shrink-0 mt-0.5 text-neutral-400">
-          {isOpen ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
-        </span>
-      </button>
-      <div
-        className={`overflow-hidden transition-all duration-200 ${isOpen ? 'max-h-96 pb-5' : 'max-h-0'}`}
-      >
-        <p className="text-neutral-500 leading-relaxed">{a}</p>
-      </div>
-    </div>
-  )
-}
-
 // ─── Landing Page ─────────────────────────────────────────────────────────────
 
 export default function LandingPage() {
@@ -1039,23 +1017,39 @@ export default function LandingPage() {
       </section>
 
       {/* ═══ SECTION 6 — FAQ ═══ */}
-      <section id="faq" className="py-20 sm:py-28 px-4 sm:px-6 lg:px-8 bg-neutral-50">
-        <div className="max-w-3xl mx-auto">
-          <div className="text-center mb-12">
-            <h2 className="text-4xl sm:text-5xl font-bold text-neutral-900 tracking-tight">
-              {c.faqH2}
-            </h2>
+      <section id="faq" className="bg-neutral-50 px-4 py-20">
+        <div className="max-w-[700px] mx-auto">
+          <div className="text-center mb-10">
+            <h2 className="text-2xl sm:text-3xl font-bold mb-2 text-neutral-900">{c.faqH2}</h2>
           </div>
-
-          <div className="divide-y divide-neutral-100 border-t border-neutral-100">
+          <div className="flex flex-col gap-2">
             {c.faqs.map((faq, i) => (
-              <FAQItem
-                key={i}
-                q={faq.q}
-                a={faq.a}
-                isOpen={openFaq === i}
-                onToggle={() => setOpenFaq(openFaq === i ? null : i)}
-              />
+              <div key={i} className="rounded-xl border border-neutral-200 bg-white overflow-hidden">
+                <button
+                  onClick={() => setOpenFaq(openFaq === i ? null : i)}
+                  className="flex w-full items-center justify-between px-5 py-4 text-left text-sm font-medium text-neutral-800 hover:bg-neutral-50 transition-colors"
+                >
+                  <span>{faq.q}</span>
+                  <ChevronDown
+                    className="h-4 w-4 shrink-0 text-neutral-400 transition-transform duration-200"
+                    style={{ transform: openFaq === i ? 'rotate(180deg)' : 'rotate(0deg)' }}
+                  />
+                </button>
+                <AnimatePresence initial={false}>
+                  {openFaq === i && (
+                    <motion.div
+                      key="content"
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.25, ease: 'easeInOut' }}
+                      className="overflow-hidden"
+                    >
+                      <p className="px-5 pb-4 text-sm text-neutral-500 leading-relaxed">{faq.a}</p>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
             ))}
           </div>
         </div>

@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { AnimatePresence, motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import {
   Check, X, ChevronDown,
 } from 'lucide-react'
@@ -208,34 +208,6 @@ const ro = {
   ctaSecondary: 'Conecteaza-te',
 }
 
-// ─── FAQ Item ─────────────────────────────────────────────────────────────────
-function FAQItem({ q, a, isOpen, onToggle }: { q: string; a: string; isOpen: boolean; onToggle: () => void }) {
-  return (
-    <div className="border-b border-neutral-100 last:border-0">
-      <button
-        onClick={onToggle}
-        className="w-full flex items-center justify-between gap-4 py-5 text-left"
-      >
-        <span className="text-[15px] font-semibold text-neutral-900">{q}</span>
-        <ChevronDown className={`shrink-0 h-4 w-4 text-neutral-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
-      </button>
-      <AnimatePresence initial={false}>
-        {isOpen && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.22, ease: [0.4, 0, 0.2, 1] }}
-            className="overflow-hidden"
-          >
-            <p className="pb-5 text-[14.5px] text-neutral-500 leading-relaxed">{a}</p>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  )
-}
-
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function PricingPage() {
   const { locale } = useLocale()
@@ -319,23 +291,39 @@ export default function PricingPage() {
       </section>
 
       {/* FAQ */}
-      <section className="py-20 sm:py-28 px-4 sm:px-6 lg:px-8 bg-white">
-        <div className="max-w-3xl mx-auto">
-          <div className="text-center mb-12">
-            <h2 className="text-4xl sm:text-5xl font-bold text-neutral-900 tracking-tight">
-              {t.faqTitle}
-            </h2>
+      <section className="bg-neutral-50 px-4 py-20">
+        <div className="max-w-[700px] mx-auto">
+          <div className="text-center mb-10">
+            <h2 className="text-2xl sm:text-3xl font-bold mb-2 text-neutral-900">{t.faqTitle}</h2>
           </div>
-
-          <div className="divide-y divide-neutral-100 border-t border-neutral-100">
+          <div className="flex flex-col gap-2">
             {t.faqs.map((faq, i) => (
-              <FAQItem
-                key={i}
-                q={faq.q}
-                a={faq.a}
-                isOpen={openFaq === i}
-                onToggle={() => setOpenFaq(openFaq === i ? null : i)}
-              />
+              <div key={i} className="rounded-xl border border-neutral-200 bg-white overflow-hidden">
+                <button
+                  onClick={() => setOpenFaq(openFaq === i ? null : i)}
+                  className="flex w-full items-center justify-between px-5 py-4 text-left text-sm font-medium text-neutral-800 hover:bg-neutral-50 transition-colors"
+                >
+                  <span>{faq.q}</span>
+                  <ChevronDown
+                    className="h-4 w-4 shrink-0 text-neutral-400 transition-transform duration-200"
+                    style={{ transform: openFaq === i ? 'rotate(180deg)' : 'rotate(0deg)' }}
+                  />
+                </button>
+                <AnimatePresence initial={false}>
+                  {openFaq === i && (
+                    <motion.div
+                      key="content"
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.25, ease: 'easeInOut' }}
+                      className="overflow-hidden"
+                    >
+                      <p className="px-5 pb-4 text-sm text-neutral-500 leading-relaxed">{faq.a}</p>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
             ))}
           </div>
         </div>
