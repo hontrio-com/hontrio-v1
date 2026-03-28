@@ -161,7 +161,7 @@ RESPONSE FORMAT — strict JSON (but message content MUST be in ${L.nativeName})
   "confidence": 0.0-1.0,
   "quick_replies": ["2-3 opțiuni max, scurte"],
   "show_whatsapp": false,
-  "search_query": "1-3 cuvinte cheie SIMPLE SAU null",
+  "search_query": "DOAR substantivele produsului, fără cuvinte de legătură (tip/model/gen/fel/din/de) — ex: 'filtru aer burete', 'curea transmisie', 'ulei motor' SAU null",
   "crosssell_query": "1-2 cuvinte categorie complementară SAU null",
   "selected_product_index": null,
   "order_query": "numărul comenzii sau emailul clientului SAU null — când întreabă despre o comandă",
@@ -269,6 +269,9 @@ const STOP_WORDS = new Set([
   'ala','aia','alea','asta','astea',
   'bine','rau','mare','mic','nou','vechi',
   'da','nu','ok','deci','apoi','acum',
+  // Cuvinte de tip conector produs — eliminate pentru a nu fragmenta căutarea
+  'tip','model','gen','fel','serie','seria','varianta','versiune','tip','tipul',
+  'are','aveti','avem','exista','exista','disponibil','disponibila','disponibili',
 ])
 
 // Extrage keywords din query: normalize + split + remove stops + stem
@@ -792,22 +795,33 @@ async function persistMemory(params: {
       return_count: existing ? (existing.return_count || 0) + 1 : 0,
     }, { onConflict: 'user_id,visitor_id' })
 
-    // Citim sesiunea existentă ca să acumulăm date între mesaje
+    // Citim sesiunea existentă ca să acumulăm date între mesaje (inclusiv messages_log)
     const { data: existingSession } = await supabase
-      .from('visitor_sessions').select('intents, products_shown, search_queries, messages_count')
+      .from('visitor_sessions').select('intents, products_shown, search_queries, messages_count, messages_log')
       .eq('session_id', params.sessionId).single()
 
     const accIntents = [...new Set([...(existingSession?.intents || []), params.intent])].filter(Boolean)
     const accProducts = [...new Set([...(existingSession?.products_shown || []), ...params.productsShown])].filter(Boolean).slice(0, 50)
     const accQueries = [...new Set([...(existingSession?.search_queries || []), ...params.searchQueries])].filter(Boolean).slice(0, 50)
 
+    // Acumulăm messages_log: mergem mesajele existente cu cele noi, deduplicăm pe conținut+rol, limităm la 200
+    const existingMsgs: any[] = Array.isArray(existingSession?.messages_log) ? existingSession.messages_log : []
+    const incomingMsgs: any[] = Array.isArray(params.messages) ? params.messages : []
+    const seen = new Set<string>()
+    const allMsgs: any[] = []
+    for (const msg of [...existingMsgs, ...incomingMsgs]) {
+      const key = `${msg.role}::${msg.content}`
+      if (!seen.has(key)) { seen.add(key); allMsgs.push(msg) }
+    }
+    const accMessages = allMsgs.slice(-200)
+
     await supabase.from('visitor_sessions').upsert({
       user_id: params.userId, visitor_id: params.visitorId, session_id: params.sessionId,
-      messages_count: params.messages.length,
+      messages_count: accMessages.length,
       intents: accIntents,
       products_shown: accProducts,
       search_queries: accQueries,
-      messages_log: params.messages, ended_at: new Date().toISOString(),
+      messages_log: accMessages, ended_at: new Date().toISOString(),
     }, { onConflict: 'session_id' })
   } catch (err) { console.error('[Memory persist]', err) }
 }
@@ -894,6 +908,30 @@ export async function POST(request:Request) {
       // Semantic search returnează rezultate relevante — nu le mai filtrăm pe keyword
       // Filtrarea strictă era incorectă: anula produse găsite semantic (ex: "storcător" găsit corect dar filtrat)
       products=rawProducts.map(p=>({...p,url:p.url.replace('__STORE__',storeUrl)}))
+
+      // AI FALLBACK: dacă nu s-a găsit nimic, rugăm GPT să reformuleze query-ul cu sinonime
+      if(products.length === 0){
+        try {
+          const fallbackGpt = await openai.chat.completions.create({
+            model: 'gpt-4o-mini',
+            messages: [
+              { role: 'system', content: 'Ești un expert în produse auto. Reformulează query-ul de căutare cu 2-3 sinonime sau termeni alternativi (în română), returnează ca JSON: {"queries": ["query1","query2","query3"]}. Folosește DOAR substantivele esențiale, fără cuvinte de legătură.' },
+              { role: 'user', content: `Query original: "${parsed.search_query}"\nMesaj utilizator: "${safeMessage}"` },
+            ],
+            temperature: 0.3, max_tokens: 100, response_format: { type: 'json_object' },
+          })
+          const fbParsed = JSON.parse(fallbackGpt.choices[0].message.content || '{}')
+          const altQueries: string[] = Array.isArray(fbParsed.queries) ? fbParsed.queries.slice(0, 3) : []
+          for (const altQ of altQueries) {
+            if (!altQ || products.length > 0) break
+            const altRaw = await searchProducts(altQ, store_user_id, config.max_products_shown||3, boostIds)
+            if (altRaw.length > 0) {
+              searchQueriesUsed.push(altQ)
+              products = altRaw.map(p=>({...p,url:p.url.replace('__STORE__',storeUrl)}))
+            }
+          }
+        } catch { /* fallback non-fatal */ }
+      }
     }
     if(parsed.crosssell_query && products.length > 0){
       const cs=await searchProducts(parsed.crosssell_query,store_user_id,1)

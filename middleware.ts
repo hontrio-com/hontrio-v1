@@ -30,7 +30,7 @@ export async function middleware(request: NextRequest) {
       pathname === '/' ||
       pathname.startsWith('/_next') ||
       pathname.startsWith('/favicon') ||
-      /\.(svg|png|jpg|jpeg|gif|ico|css|js|woff|woff2)$/.test(pathname)
+      /\.(svg|png|jpg|jpeg|gif|ico|css|js|woff|woff2|mp4|webm|ogg|mp3|wav)$/.test(pathname)
     ) {
       return NextResponse.next()
     }
@@ -94,6 +94,11 @@ export async function middleware(request: NextRequest) {
     ) {
       return response
     }
+  }
+
+  // ===== Static media files — always public (public/ folder) =====
+  if (/\.(mp4|webm|ogg|mp3|wav|svg|png|jpg|jpeg|gif|ico|pdf)$/.test(pathname)) {
+    return response
   }
 
   // ===== Public routes =====

@@ -1,21 +1,23 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
-import { Check, ChevronDown, ChevronUp, Star } from 'lucide-react'
+import { Check, ChevronDown, ChevronUp, Star, ArrowRight, Bot, ShieldAlert } from 'lucide-react'
 import { useT } from '@/lib/i18n/context'
+import { AuroraBackground } from '@/components/ui/aurora-background'
 
 // ─── Bilingual content ────────────────────────────────────────────────────────
 
 const en = {
   // Hero
-  heroBadge: 'Powered by AI & Smart Automation',
-  heroTitle: 'A complete ecosystem\nfor your online store',
-  heroSubtitle:
-    'Generate AI content, optimize SEO, protect against fraud, and automate customer support — all from a single platform connected to your WooCommerce store.',
-  heroCta: 'Start for free',
-  heroCtaSecondary: 'Sign in',
-  heroNote: 'No credit card required · 20 free credits included',
+  heroBadge: 'Designed for eCommerce growth',
+  heroPrefix: 'AI that',
+  heroSuffix: 'your online store',
+  heroWords: ['Optimizes', 'Scales', 'Protects'],
+  heroDesc: 'Generate product images, optimize SEO, automate sales with AI and detect fake customers. All in one platform.',
+  heroCta: 'Try it free',
+  heroCtaAlt: 'See all features',
+  heroMeta: ['No credit card required', 'Setup in minutes', '20 free credits included'],
 
   // Features section
   featBadge: 'Everything in one platform',
@@ -23,61 +25,91 @@ const en = {
   featSubtitle:
     'Four powerful AI modules that work together to grow your online store',
 
-  feat1Title: 'AI Product Images',
+  feat1Title: 'Instant Response for Every Customer, 24/7',
   feat1Desc:
-    'Generate professional product photos on white background, lifestyle shots, and seasonal visuals — without a photographer or photo studio.',
+    'Transform the way you communicate with your customers. The agent instantly answers questions, recommends relevant products and helps customers complete orders without human intervention. Works non-stop, reduces wasted time and automatically increases conversions.',
   feat1Bullets: [
-    'White background, lifestyle & seasonal styles',
-    'Generate from existing product photos',
-    'Bulk generation for entire catalog',
+    'Automatically responds to messages in real time, without delays',
+    'Recommends relevant products based on customer questions',
+    'Increases conversion rate through fast and accurate responses',
+    'Reduces workload for customer support',
+    'Works 24/7 without breaks or human errors',
+    'Handles questions about delivery, returns and products',
+    'Delivers a professional and fast experience to every customer',
+    'Easily integrates into your online store',
+    'Scalable, handles tens or hundreds of conversations simultaneously',
   ],
 
-  feat2Title: 'SEO Optimizer',
+  feat2Title: 'Stop Fake Orders Before You Lose Money',
   feat2Desc:
-    'Automatically optimize product titles, descriptions, and meta tags for search engines. Analyze competitors and rank higher on Google.',
+    'Risk Shield is the system that protects your store from problematic orders and unnecessary losses. It automatically analyzes each customer based on order history, behavior and available data, giving you a clear risk score.',
   feat2Bullets: [
-    'AI-generated SEO titles & descriptions',
-    'Competitor analysis & keyword research',
-    'Bulk optimization for all products',
+    'Identifies customers who refuse orders',
+    'Detects suspicious patterns (refusals, absences, cancellations)',
+    'Mark customers as Trusted, Watch, Problematic or Blocked',
+    'See the complete history of each customer',
+    'Get real loss estimates',
+    'Reduce the rate of refused orders',
+    'Analyzes multiple data points simultaneously (not just one factor)',
+    'Works automatically, regardless of volume',
+    'Manages a large number of orders without effort',
   ],
 
-  feat3Title: 'AI Sales Agent',
+  feat3Title: 'Live SEO Score and Automatic Optimization for Every Product',
   feat3Desc:
-    'A 24/7 AI agent that answers customer questions, handles objections, tracks orders, and escalates to you only when needed.',
+    'Optimize every product in your store for maximum visibility on Google. The SEO module analyzes the title, meta description, keywords and page content, giving you a live SEO score and clear improvement recommendations.',
   feat3Bullets: [
-    'Trains on your product catalog automatically',
-    'Handles order tracking & FAQs',
-    'Escalates complex issues to your team',
+    'Optimize products to appear higher in search results',
+    'Improve product relevance for important keywords',
+    'Attract organic traffic without additional ad costs',
+    'Generate optimized SEO titles in seconds',
+    'See in real time how well a product is optimized',
+    'Understand exactly what affects your Google ranking',
+    'Edit titles, descriptions and keywords from one place',
+    'Automatically includes the keyword in the right places',
+    'Quickly optimize tens or hundreds of products',
   ],
 
-  feat4Title: 'Risk Shield',
+  feat4Title: 'Images That Grab Attention and Increase Conversions',
   feat4Desc:
-    'Detect fraudulent orders before shipping. AI analyzes each customer\'s behavior, address patterns, and order history to assign a risk score.',
+    'Quickly create product images that look professional and are ready for promotion. The AI Images module automatically generates attractive visuals, banners and posters based on your products, without needing designers or graphic design skills.',
   feat4Bullets: [
-    'Real-time risk score for every order',
-    'Automatic blocking of high-risk customers',
-    'Weekly fraud reports & analytics',
+    'Generate product images in seconds',
+    'Ideal for small and large stores',
+    'Titles and benefits integrated directly into the design',
+    'Structure designed for conversion',
+    'Use images on your website, ads or social media',
+    'Create images for tens or hundreds of products',
+    'Improve product performance',
+    'Scale quickly for your entire catalog',
+    'Consistency in branding',
   ],
+
+  featDetailsCta: 'Learn more',
+  featTrialCta: 'Try for free',
 
   // Comparison
   compH2: 'Stop paying for 5 different tools',
   compSubtitle:
     'As an online store owner, you normally need separate subscriptions for everything. Hontrio changes that.',
-  compOldHeader: '❌ The old way',
-  compNewHeader: '✅ With Hontrio',
-  compOldTotal: '$256+/month',
-  compNewPrice: 'From $19/month',
-  compOldPains: [
-    '5 separate subscriptions',
-    '5 different dashboards to manage',
-    'Hours of integration & setup',
+  compOldHeader: 'The old way',
+  compNewHeader: 'With Hontrio',
+  compTools: [
+    { name: 'AI Copywriter', price: '$39' },
+    { name: 'SEO Tool', price: '$99' },
+    { name: 'AI Image Generator', price: '$30' },
+    { name: 'Chatbot', price: '$49' },
+    { name: 'Fraud Detection', price: '$39' },
   ],
+  compFeatures: ['AI Images', 'SEO Optimizer', 'AI Agent', 'Risk Shield', 'WooCommerce Integration', 'Analytics Dashboard'],
   compNewBenefits: [
     '1 subscription, everything included',
     '1 unified dashboard',
-    'Connect WooCommerce in 5 minutes',
+    'Setup in minutes',
   ],
-  compCta: 'Start for free',
+  compSave: 'Save $237/month',
+  compSaveMsg: 'All your essential tools. One platform.',
+  compCta: 'Start Free',
 
   // Pricing
   pricingH2: 'Simple, transparent pricing',
@@ -101,7 +133,7 @@ const en = {
       credits: '150 credits/month',
       features: ['Everything in Free', '150 AI credits/month', 'AI product images', 'SEO optimization', 'Priority support'],
       cta: 'Get Starter',
-      popular: true,
+      popular: false,
       dark: false,
     },
     {
@@ -111,7 +143,7 @@ const en = {
       credits: '400 credits/month',
       features: ['Everything in Starter', '400 AI credits/month', 'AI Sales Agent', 'Risk Shield', 'Competitor analysis', 'Bulk operations'],
       cta: 'Get Professional',
-      popular: false,
+      popular: true,
       dark: false,
     },
     {
@@ -168,7 +200,7 @@ const en = {
   faqs: [
     {
       q: 'How does WooCommerce integration work?',
-      a: 'Install our free plugin from the WordPress repository, enter your store URL in Hontrio, and your products sync automatically in minutes. No technical knowledge required.',
+      a: 'Your store connects easily during the OnBoarding process or from Settings at any time. No technical knowledge required. If you run into any issues, our team offers fast assistance.',
     },
     {
       q: 'What are credits and how many do I need?',
@@ -176,7 +208,7 @@ const en = {
     },
     {
       q: 'Is there a free trial?',
-      a: 'Yes! You get 20 free credits when you create your account — no credit card required. This is enough to optimize around 6 products or generate 3 AI images and see the results for yourself.',
+      a: 'Yes! You get 20 free credits when you create your account, no credit card required. This is enough to optimize around 6 products or generate 3 AI images and see the results for yourself.',
     },
     {
       q: 'Can I cancel my subscription anytime?',
@@ -184,7 +216,7 @@ const en = {
     },
     {
       q: 'What languages does the AI generate content in?',
-      a: 'Hontrio generates content in the language you set in your brand settings. Currently fully supported: Romanian and English. More languages are coming soon.',
+      a: 'The AI generates content in any language you need. Simply set the desired language in your brand settings and the AI will write in that language. The Hontrio interface itself is available in English and Romanian.',
     },
     {
       q: 'Is my store data secure?',
@@ -196,19 +228,20 @@ const en = {
   ctaH2: 'Ready to grow your store?',
   ctaSubtitle:
     'Join hundreds of store owners already using Hontrio to automate and grow.',
-  ctaPrimary: 'Start for free — no card required',
+  ctaPrimary: 'Start for free, no card required',
   ctaSecondary: 'Sign in',
 }
 
 const ro = {
   // Hero
-  heroBadge: 'Alimentat de AI & Automatizare Inteligentă',
-  heroTitle: 'Un ecosistem complet\npentru magazinul tău online',
-  heroSubtitle:
-    'Generează conținut AI, optimizează SEO, protejează-te de fraudă și automatizează suportul clienților — totul dintr-o singură platformă conectată la magazinul tău WooCommerce.',
-  heroCta: 'Începe gratuit',
-  heroCtaSecondary: 'Conectează-te',
-  heroNote: 'Fără card bancar · 20 credite gratuite incluse',
+  heroBadge: 'Conceput pentru creșterea magazinelor online',
+  heroPrefix: 'AI care',
+  heroSuffix: 'magazinul tău online',
+  heroWords: ['Optimizează', 'Scalează', 'Protejează'],
+  heroDesc: 'Generează imagini pentru produse, optimizează SEO, automatizează vânzările cu AI și detectează clienții falși. Totul într-o singură platformă.',
+  heroCta: 'Încearcă gratuit',
+  heroCtaAlt: 'Vezi toate funcțiile',
+  heroMeta: ['Fără card bancar', 'Configurare în câteva minute', '20 de credite gratuite incluse'],
 
   // Features section
   featBadge: 'Totul într-o singură platformă',
@@ -216,60 +249,90 @@ const ro = {
   featSubtitle:
     'Patru module AI puternice care lucrează împreună pentru a-ți crește magazinul online',
 
-  feat1Title: 'Imagini AI pentru Produse',
+  feat1Title: 'Răspuns instant pentru fiecare client, 24/7',
   feat1Desc:
-    'Generează fotografii profesionale de produs pe fundal alb, lifestyle și sezoniere — fără fotograf sau studio foto.',
+    'Transformă modul în care comunici cu clienții tăi. Agentul răspunde instant la întrebări, recomandă produse relevante și ajută clienții să finalizeze comenzile fără intervenție umană. Funcționează non-stop, reduce timpul pierdut și crește conversiile automat.',
   feat1Bullets: [
-    'Fundal alb, lifestyle și stiluri sezoniere',
-    'Generare din fotografii existente',
-    'Generare în masă pentru întreg catalogul',
+    'Răspunde automat la mesaje în timp real, fără întârzieri',
+    'Recomandă produse relevante pe baza întrebărilor clientului',
+    'Crește rata de conversie prin răspunsuri rapide și precise',
+    'Reduce volumul de muncă pentru suportul clienți',
+    'Funcționează 24/7 fără pauze sau erori umane',
+    'Preia întrebări despre livrare, retururi și produse',
+    'Oferă experiență profesională și rapidă fiecărui client',
+    'Se integrează ușor în magazinul online',
+    'Scalabil, gestionează zeci sau sute de conversații simultan',
   ],
 
-  feat2Title: 'Optimizator SEO',
+  feat2Title: 'Oprește comenzile false înainte să pierzi bani',
   feat2Desc:
-    'Optimizează automat titlurile produselor, descrierile și meta tag-urile pentru motoarele de căutare. Analizează competitorii și urcă în Google.',
+    'Risk Shield este sistemul care îți protejează magazinul de comenzile problematice și pierderile inutile. Analizează automat fiecare client pe baza istoricului comenzilor, comportamentului și datelor disponibile, oferindu-ți un scor clar de risc.',
   feat2Bullets: [
-    'Titluri & descrieri SEO generate cu AI',
-    'Analiză competitori & cercetare cuvinte cheie',
-    'Optimizare în masă pentru toate produsele',
+    'Identifică clienții care refuză comenzile',
+    'Detectează tipare suspecte (refuzuri, absențe, anulări)',
+    'Marchezi clienții ca Trusted, Watch, Problematic sau Blocat',
+    'Vezi istoricul complet al fiecărui client',
+    'Primești estimări reale de pierderi',
+    'Reduci rata comenzilor refuzate',
+    'Analizează mai multe date simultan (nu doar un factor)',
+    'Funcționează automat, indiferent de volum',
+    'Gestionează un număr mare de comenzi fără efort',
   ],
 
-  feat3Title: 'Agent AI de Vânzări',
+  feat3Title: 'Scor SEO live și optimizare automată pentru fiecare produs',
   feat3Desc:
-    'Un agent AI disponibil 24/7 care răspunde la întrebările clienților, gestionează obiecțiile, urmărește comenzile și escaladează la tine doar când e nevoie.',
+    'Optimizează fiecare produs din magazinul tău pentru vizibilitate maximă în Google. Modulul SEO analizează titlul, meta descrierea, keyword-urile și conținutul paginii, oferindu-ți un scor SEO live și recomandări clare de îmbunătățire.',
   feat3Bullets: [
-    'Se antrenează automat pe catalogul tău',
-    'Gestionează tracking comenzi & FAQ-uri',
-    'Escaladează probleme complexe la echipa ta',
+    'Optimizezi produsele pentru a apărea mai sus în rezultatele de căutare',
+    'Îmbunătățești relevanța produselor pentru keyword-urile importante',
+    'Atragi trafic organic fără costuri suplimentare de ads',
+    'Generezi titluri SEO optimizate în câteva secunde',
+    'Vezi în timp real cât de bine este optimizat un produs',
+    'Înțelegi exact ce afectează poziționarea în Google',
+    'Editezi titluri, descrieri și keyword-uri dintr-un singur loc',
+    'Include keyword-ul în locurile potrivite automat',
+    'Optimizezi rapid zeci sau sute de produse',
   ],
 
-  feat4Title: 'Risk Shield',
+  feat4Title: 'Imagini care atrag atenția și cresc conversiile',
   feat4Desc:
-    'Detectează comenzile frauduloase înainte de expediere. AI-ul analizează comportamentul fiecărui client, adresele și istoricul comenzilor pentru un scor de risc.',
+    'Creează rapid imagini de produs care arată profesional și sunt gata de promovare. Modulul Imagini AI generează automat vizualuri atractive, bannere și postere bazate pe produsele tale, fără să ai nevoie de designeri sau cunoștințe de grafică.',
   feat4Bullets: [
-    'Scor de risc în timp real pentru fiecare comandă',
-    'Blocare automată a clienților cu risc ridicat',
-    'Rapoarte săptămânale de fraudă & analiză',
+    'Generezi imagini de produs în câteva secunde',
+    'Ideal pentru magazine mici și mari',
+    'Titluri și beneficii integrate direct în design',
+    'Structură gândită pentru conversie',
+    'Folosești imaginile pe site, reclame sau social media',
+    'Creezi imagini pentru zeci sau sute de produse',
+    'Îmbunătățește performanța produselor',
+    'Scalezi rapid pentru întreg catalogul',
+    'Consistență în branding',
   ],
+
+  featDetailsCta: 'Mai multe detalii',
+  featTrialCta: 'Încearcă gratuit',
 
   // Comparison
   compH2: 'Oprește-te să plătești pentru 5 unelte diferite',
   compSubtitle:
     'Ca proprietar de magazin online, în mod normal ai nevoie de abonamente separate pentru fiecare lucru. Hontrio schimbă asta.',
-  compOldHeader: '❌ Cum era înainte',
-  compNewHeader: '✅ Cu Hontrio',
-  compOldTotal: '$256+/lună',
-  compNewPrice: 'De la $19/lună',
-  compOldPains: [
-    '5 abonamente separate',
-    '5 dashboard-uri diferite de gestionat',
-    'Ore de integrare & configurare',
+  compOldHeader: 'Cum era înainte',
+  compNewHeader: 'Cu Hontrio',
+  compTools: [
+    { name: 'AI Copywriter', price: '$39' },
+    { name: 'Unealtă SEO', price: '$99' },
+    { name: 'Generator imagini AI', price: '$30' },
+    { name: 'Chatbot', price: '$49' },
+    { name: 'Detecție fraudă', price: '$39' },
   ],
+  compFeatures: ['Imagini AI', 'Optimizator SEO', 'Agent AI', 'Risk Shield', 'Integrare WooCommerce', 'Dashboard Analytics'],
   compNewBenefits: [
     '1 abonament, totul inclus',
     '1 dashboard unificat',
-    'Conectează WooCommerce în 5 minute',
+    'Configurare în câteva minute',
   ],
+  compSave: 'Economisești $237/lună',
+  compSaveMsg: 'Toate uneltele tale. O singură platformă.',
   compCta: 'Începe gratuit',
 
   // Pricing
@@ -293,7 +356,7 @@ const ro = {
       credits: '150 credite/lună',
       features: ['Tot din Free', '150 credite AI/lună', 'Imagini AI produse', 'Optimizare SEO', 'Suport prioritar'],
       cta: 'Alege Starter',
-      popular: true,
+      popular: false,
       dark: false,
     },
     {
@@ -303,7 +366,7 @@ const ro = {
       credits: '400 credite/lună',
       features: ['Tot din Starter', '400 credite AI/lună', 'Agent AI de vânzări', 'Risk Shield', 'Analiză competitori', 'Operații în masă'],
       cta: 'Alege Professional',
-      popular: false,
+      popular: true,
       dark: false,
     },
     {
@@ -360,7 +423,7 @@ const ro = {
   faqs: [
     {
       q: 'Cum funcționează integrarea cu WooCommerce?',
-      a: 'Instalați pluginul nostru gratuit din repository-ul WordPress, introduceți URL-ul magazinului în Hontrio, și produsele se sincronizează automat în câteva minute. Nu sunt necesare cunoștințe tehnice.',
+      a: 'Magazinul tău se conectează foarte simplu în procesul de OnBoarding sau din Setări oricând. Nu sunt necesare cunoștințe tehnice. Dacă întâmpini dificultăți, echipa noastră îți oferă asistență rapidă.',
     },
     {
       q: 'Ce sunt creditele și de câte am nevoie?',
@@ -368,7 +431,7 @@ const ro = {
     },
     {
       q: 'Există o perioadă de probă gratuită?',
-      a: 'Da! Primești 20 credite gratuite când îți creezi contul — fără card bancar. Este suficient pentru a optimiza aproximativ 6 produse sau a genera 3 imagini AI și a vedea rezultatele.',
+      a: 'Da! Primești 20 credite gratuite când îți creezi contul, fără card bancar. Este suficient pentru a optimiza aproximativ 6 produse sau a genera 3 imagini AI și a vedea rezultatele.',
     },
     {
       q: 'Pot anula abonamentul oricând?',
@@ -376,7 +439,7 @@ const ro = {
     },
     {
       q: 'În ce limbi generează AI-ul conținut?',
-      a: 'Hontrio generează conținut în limba pe care o setezi în setările brandului. Suportate complet în prezent: română și engleză. Mai multe limbi urmează în curând.',
+      a: 'AI-ul generează conținut în orice limbă ai nevoie. Setează pur și simplu limba dorită în setările brandului și AI-ul va scrie în acea limbă. Interfața Hontrio este disponibilă în Engleză și Română.',
     },
     {
       q: 'Datele magazinului meu sunt în siguranță?',
@@ -388,7 +451,7 @@ const ro = {
   ctaH2: 'Gata să îți crești magazinul?',
   ctaSubtitle:
     'Alătură-te sutelor de proprietari de magazine care folosesc deja Hontrio pentru a automatiza și crește.',
-  ctaPrimary: 'Începe gratuit — fără card',
+  ctaPrimary: 'Începe gratuit, fără card',
   ctaSecondary: 'Conectează-te',
 }
 
@@ -404,7 +467,7 @@ function DashboardMockup() {
           <div className="h-2.5 w-2.5 rounded-full bg-yellow-500" />
           <div className="h-2.5 w-2.5 rounded-full bg-green-500" />
         </div>
-        <span className="text-xs text-neutral-500 font-medium">Dashboard — Hontrio</span>
+        <span className="text-xs text-neutral-500 font-medium">Dashboard | Hontrio</span>
         <div className="w-16" />
       </div>
 
@@ -461,194 +524,270 @@ function DashboardMockup() {
   )
 }
 
-function ImagesMockup() {
+function VideoPlayer({ src }: { src: string }) {
+  const videoRef = useRef<HTMLVideoElement>(null)
+
+  useEffect(() => {
+    const v = videoRef.current
+    if (!v) return
+    // Belt-and-suspenders: ensure muted HTML attribute is present, then force
+    // load + play whenever src changes (catches locale flip after geo detection).
+    if (!v.hasAttribute('muted')) v.setAttribute('muted', '')
+    v.defaultMuted = true
+    v.muted = true
+    v.load()
+    v.play().catch(() => {})
+  }, [src])
+
+  // src is in JSX so the server-rendered HTML contains all four attributes
+  // iOS requires for declarative autoplay: src + muted + autoplay + playsinline.
   return (
-    <div className="bg-neutral-950 rounded-2xl p-5 shadow-2xl border border-neutral-800 w-full max-w-sm mx-auto">
-      <p className="text-[10px] font-semibold text-neutral-400 uppercase tracking-wider mb-4">AI Image Generator</p>
-      <div className="grid grid-cols-2 gap-3 mb-4">
-        {[
-          'from-neutral-800 to-neutral-700',
-          'from-neutral-700 to-neutral-600',
-          'from-neutral-800 to-neutral-600',
-          'from-neutral-700 to-neutral-800',
-        ].map((grad, i) => (
-          <div
-            key={i}
-            className={`aspect-square rounded-xl bg-gradient-to-br ${grad} flex items-center justify-center`}
-          >
-            {i === 1 && (
-              <div className="h-8 w-8 rounded-lg bg-white/10 flex items-center justify-center">
-                <div className="h-4 w-4 rounded bg-white/20" />
-              </div>
-            )}
-            {i === 3 && (
-              <div className="text-[8px] text-neutral-500 font-medium">Generating...</div>
-            )}
-          </div>
-        ))}
-      </div>
-      <div className="flex gap-2">
-        <div className="flex-1 h-8 rounded-lg bg-neutral-800 flex items-center px-3">
-          <span className="text-[10px] text-neutral-500">White background</span>
-        </div>
-        <button className="h-8 px-4 rounded-lg bg-white text-neutral-900 text-[10px] font-semibold">
-          Generate
-        </button>
-      </div>
+    <video
+      ref={videoRef}
+      src={src}
+      autoPlay
+      muted
+      loop
+      playsInline
+      preload="auto"
+      className="w-full aspect-square object-cover block"
+    />
+  )
+}
+
+function ImagesMockup({ locale }: { locale: string }) {
+  const src = locale === 'ro' ? '/videos/image.mp4' : '/videos/image-en.mp4'
+  return (
+    <div className="w-full rounded-2xl overflow-hidden shadow-2xl border border-neutral-200">
+      <VideoPlayer src={src} />
     </div>
   )
 }
 
-function SEOMockup() {
+function SEOMockup({ locale }: { locale: string }) {
+  const src = locale === 'ro' ? '/videos/seo.mp4' : '/videos/seo-en.mp4'
   return (
-    <div className="bg-neutral-950 rounded-2xl p-5 shadow-2xl border border-neutral-800 w-full max-w-sm mx-auto">
-      <p className="text-[10px] font-semibold text-neutral-400 uppercase tracking-wider mb-4">SEO Score</p>
-      <div className="flex items-center justify-center mb-5">
-        <div className="relative">
-          <svg className="h-24 w-24" viewBox="0 0 36 36">
-            <path
-              d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-              fill="none"
-              stroke="#262626"
-              strokeWidth="3"
-            />
-            <path
-              d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-              fill="none"
-              stroke="#34d399"
-              strokeWidth="3"
-              strokeDasharray="87, 100"
-              strokeLinecap="round"
-            />
-          </svg>
-          <div className="absolute inset-0 flex items-center justify-center">
-            <span className="text-2xl font-bold text-emerald-400">87</span>
-          </div>
-        </div>
-      </div>
-      <div className="space-y-3">
-        {[
-          { label: 'Title', value: 95, color: 'bg-emerald-500' },
-          { label: 'Description', value: 82, color: 'bg-emerald-500' },
-          { label: 'Keywords', value: 74, color: 'bg-yellow-500' },
-        ].map((bar) => (
-          <div key={bar.label}>
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-[10px] text-neutral-400">{bar.label}</span>
-              <span className="text-[10px] text-neutral-400">{bar.value}%</span>
-            </div>
-            <div className="h-1.5 bg-neutral-800 rounded-full overflow-hidden">
-              <div
-                className={`h-full rounded-full ${bar.color}`}
-                style={{ width: `${bar.value}%` }}
-              />
-            </div>
-          </div>
-        ))}
-      </div>
+    <div className="w-full rounded-2xl overflow-hidden shadow-2xl border border-neutral-200">
+      <VideoPlayer src={src} />
     </div>
   )
 }
 
-function AgentMockup() {
+function AgentMockup({ locale }: { locale: string }) {
+  const src = locale === 'ro' ? '/videos/ai-video.mp4' : '/videos/ai-video-en.mp4'
   return (
-    <div className="bg-neutral-950 rounded-2xl p-5 shadow-2xl border border-neutral-800 w-full max-w-sm mx-auto">
-      <div className="flex items-center gap-2 mb-4">
-        <div className="h-6 w-6 rounded-full bg-emerald-500 flex items-center justify-center">
-          <span className="text-[8px] font-bold text-white">AI</span>
-        </div>
-        <p className="text-[10px] font-semibold text-neutral-300">AI Sales Agent</p>
-        <div className="ml-auto h-1.5 w-1.5 rounded-full bg-emerald-400" />
-      </div>
-      <div className="space-y-3">
-        {/* Customer message */}
-        <div className="flex justify-end">
-          <div className="bg-neutral-800 rounded-2xl rounded-tr-sm px-3 py-2 max-w-[75%]">
-            <p className="text-[10px] text-neutral-200">Bună! Unde este comanda mea #8821?</p>
-          </div>
-        </div>
-        {/* Agent response */}
-        <div className="flex justify-start">
-          <div className="bg-neutral-900 border border-neutral-800 rounded-2xl rounded-tl-sm px-3 py-2 max-w-[80%]">
-            <p className="text-[10px] text-neutral-300">Comanda #8821 este în livrare! Estimat: mâine 10-14h. Număr AWB: 8RO22941.</p>
-          </div>
-        </div>
-        {/* Customer */}
-        <div className="flex justify-end">
-          <div className="bg-neutral-800 rounded-2xl rounded-tr-sm px-3 py-2 max-w-[75%]">
-            <p className="text-[10px] text-neutral-200">Mulțumesc!</p>
-          </div>
-        </div>
-        {/* Typing */}
-        <div className="flex justify-start">
-          <div className="bg-neutral-900 border border-neutral-800 rounded-2xl px-3 py-2">
-            <div className="flex gap-1">
-              <div className="h-1.5 w-1.5 rounded-full bg-neutral-500 animate-bounce" style={{ animationDelay: '0ms' }} />
-              <div className="h-1.5 w-1.5 rounded-full bg-neutral-500 animate-bounce" style={{ animationDelay: '150ms' }} />
-              <div className="h-1.5 w-1.5 rounded-full bg-neutral-500 animate-bounce" style={{ animationDelay: '300ms' }} />
-            </div>
-          </div>
-        </div>
-      </div>
+    <div className="w-full rounded-2xl overflow-hidden shadow-2xl border border-neutral-200">
+      <VideoPlayer src={src} />
     </div>
   )
 }
 
-function RiskMockup() {
+function RiskMockup({ locale }: { locale: string }) {
+  const src = locale === 'ro' ? '/videos/risk-shield.mp4' : '/videos/risk-shield-en.mp4'
   return (
-    <div className="bg-neutral-950 rounded-2xl p-5 shadow-2xl border border-neutral-800 w-full max-w-sm mx-auto">
-      <p className="text-[10px] font-semibold text-neutral-400 uppercase tracking-wider mb-4">Risk Analysis</p>
-      <div className="flex items-center gap-4 mb-5">
-        <div className="relative shrink-0">
-          <svg className="h-20 w-20" viewBox="0 0 36 36">
-            <path
-              d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-              fill="none"
-              stroke="#262626"
-              strokeWidth="3"
-            />
-            <path
-              d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-              fill="none"
-              stroke="#ef4444"
-              strokeWidth="3"
-              strokeDasharray="87, 100"
-              strokeLinecap="round"
-            />
-          </svg>
-          <div className="absolute inset-0 flex items-center justify-center">
-            <span className="text-xl font-bold text-red-400">87</span>
-          </div>
-        </div>
-        <div>
-          <p className="text-xs font-semibold text-neutral-200">Ionescu C.</p>
-          <p className="text-[10px] text-neutral-500 mb-2">București, RO</p>
-          <div className="flex flex-col gap-1">
-            <span className="text-[9px] px-2 py-0.5 rounded-full bg-red-900/50 text-red-400 border border-red-800/50">
-              Adresă suspectă
-            </span>
-            <span className="text-[9px] px-2 py-0.5 rounded-full bg-orange-900/50 text-orange-400 border border-orange-800/50">
-              3 ramburs refuzat
-            </span>
-            <span className="text-[9px] px-2 py-0.5 rounded-full bg-red-900/50 text-red-400 border border-red-800/50">
-              IP diferit
-            </span>
-          </div>
-        </div>
-      </div>
-      <div className="flex gap-2">
-        <div className="flex-1 h-8 rounded-lg bg-red-900/30 border border-red-800/50 flex items-center justify-center">
-          <span className="text-[10px] text-red-400 font-medium">Block order</span>
-        </div>
-        <div className="flex-1 h-8 rounded-lg bg-neutral-800 flex items-center justify-center">
-          <span className="text-[10px] text-neutral-400 font-medium">Review</span>
-        </div>
-      </div>
+    <div className="w-full rounded-2xl overflow-hidden shadow-2xl border border-neutral-200">
+      <VideoPlayer src={src} />
     </div>
   )
 }
 
 // ─── Feature Block ────────────────────────────────────────────────────────────
+
+// ─── Count-up hook ────────────────────────────────────────────────────────────
+function useCountUp(target: number, duration: number, active: boolean) {
+  const [value, setValue] = useState(0)
+  useEffect(() => {
+    if (!active) return
+    setValue(0)
+    let cur = 0
+    const steps = Math.ceil(duration / 16)
+    const inc = target / steps
+    const timer = setInterval(() => {
+      cur += inc
+      if (cur >= target) { setValue(target); clearInterval(timer) }
+      else setValue(Math.floor(cur))
+    }, 16)
+    return () => clearInterval(timer)
+  }, [target, duration, active])
+  return value
+}
+
+// ─── Brain Comparison Section ─────────────────────────────────────────────────
+const BRAIN_W = 700
+const BRAIN_H = 520
+const CX = 350
+const CY = 260
+const NODE_R = 185
+const toRad = (deg: number) => (deg * Math.PI) / 180
+
+function getBrainNodes(locale: string) {
+  const ro = locale === 'ro'
+  return [
+    { angle: 270, name: 'Jasper AI',                             sublabel: ro ? 'Copywriting & Conținut' : 'Copywriting & Content',  logo: '/JasperAILogo.png', price: '$39', icon: null },
+    { angle: 342, name: 'Semrush',                               sublabel: ro ? 'Optimizare SEO'          : 'SEO Optimization',        logo: '/SemrushLogo.png',   price: '$99', icon: null },
+    { angle: 54,  name: 'Gemini',                                sublabel: ro ? 'Generare Imagini AI'     : 'AI Image Generation',     logo: '/GeminiLogo.png',    price: '$30', icon: null },
+    { angle: 126, name: 'Chatbot',                               sublabel: ro ? 'Suport Clienți'          : 'Customer Support',        logo: null,                  price: '$49', icon: 'bot' as const },
+    { angle: 198, name: ro ? 'Anti-Fraudă' : 'Fraud Guard',      sublabel: ro ? 'Protecție Comenzi'       : 'Order Protection',        logo: null,                  price: '$39', icon: 'shield' as const },
+  ].map(n => ({
+    ...n,
+    x: CX + NODE_R * Math.cos(toRad(n.angle)),
+    y: CY + NODE_R * Math.sin(toRad(n.angle)),
+  }))
+}
+
+function BrainComparisonSection({ c, locale }: { c: typeof en; locale: string }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const diagramRef = useRef<HTMLDivElement>(null)
+  const [inView,        setInView]        = useState(false)
+  const [nodesVisible,  setNodesVisible]  = useState(false)
+  const [finalVisible,  setFinalVisible]  = useState(false)
+  const [diagramScale,  setDiagramScale]  = useState(1)
+
+  const nodes = getBrainNodes(locale)
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) { setInView(true); observer.disconnect() } },
+      { threshold: 0.15 }
+    )
+    if (ref.current) observer.observe(ref.current)
+    return () => observer.disconnect()
+  }, [])
+
+  useEffect(() => {
+    if (!inView) return
+    const t1 = setTimeout(() => setNodesVisible(true), 500)
+    const t2 = setTimeout(() => setFinalVisible(true), 1600)
+    return () => { clearTimeout(t1); clearTimeout(t2) }
+  }, [inView])
+
+  useEffect(() => {
+    if (!diagramRef.current) return
+    const ro = new ResizeObserver(([entry]) => {
+      setDiagramScale(Math.min(1, (entry.contentRect.width / BRAIN_W) * 1.2))
+    })
+    ro.observe(diagramRef.current)
+    return () => ro.disconnect()
+  }, [])
+
+  const saveCount    = useCountUp(237, 900, finalVisible)
+  const hontrioCount = useCountUp(19,  800, finalVisible)
+
+  return (
+    <section ref={ref} className="py-20 sm:py-28 px-4 sm:px-6 lg:px-8 bg-neutral-50 overflow-hidden">
+      <div className="max-w-6xl mx-auto">
+
+        {/* Header */}
+        <div className="text-center mb-14">
+          <h2 className="text-4xl sm:text-5xl font-bold text-neutral-900 tracking-tight mb-5">{c.compH2}</h2>
+          <p className="text-xl text-neutral-500 max-w-2xl mx-auto">{c.compSubtitle}</p>
+        </div>
+
+        {/* ── Brain diagram (all screen sizes) ── */}
+        <div ref={diagramRef} className="relative mx-auto select-none" style={{ maxWidth: BRAIN_W, width: '100%', height: BRAIN_H * diagramScale }}>
+        <div style={{ width: BRAIN_W, height: BRAIN_H, transform: `scale(${diagramScale})`, transformOrigin: 'top center', position: 'absolute', top: 0, left: '50%', marginLeft: -BRAIN_W / 2 }}>
+
+          {/* SVG lines */}
+          <svg viewBox={`0 0 ${BRAIN_W} ${BRAIN_H}`} className="absolute inset-0 w-full h-full" style={{ overflow: 'visible' }}>
+            <defs>
+              <radialGradient id="lineGrad" cx="50%" cy="50%" r="50%">
+                <stop offset="0%"   stopColor="#d1d5db" stopOpacity="0.8" />
+                <stop offset="100%" stopColor="#d1d5db" stopOpacity="0.2" />
+              </radialGradient>
+            </defs>
+            {nodes.map((node, i) => {
+              const len = Math.sqrt((node.x - CX) ** 2 + (node.y - CY) ** 2)
+              return (
+                <line key={i}
+                  x1={CX} y1={CY} x2={node.x} y2={node.y}
+                  stroke="#e5e7eb" strokeWidth="1.5"
+                  strokeDasharray={len}
+                  strokeDashoffset={inView ? 0 : len}
+                  style={{ transition: `stroke-dashoffset 0.7s ${0.2 + i * 0.13}s cubic-bezier(0.4,0,0.2,1)` }}
+                />
+              )
+            })}
+          </svg>
+
+          {/* Center core */}
+          <div className="absolute" style={{ left: `${(CX / BRAIN_W) * 100}%`, top: `${(CY / BRAIN_H) * 100}%`, transform: 'translate(-50%, -50%)', opacity: inView ? 1 : 0, transition: 'opacity 0.5s ease' }}>
+            {/* Pulse rings */}
+            <div className="absolute rounded-full bg-neutral-100" style={{ width: 110, height: 110, top: '50%', left: '50%', animation: inView ? 'corePulse 3s ease-in-out infinite' : 'none' }} />
+            <div className="absolute rounded-full bg-neutral-50" style={{ width: 150, height: 150, top: '50%', left: '50%', animation: inView ? 'coreRing 3s 0.4s ease-in-out infinite' : 'none' }} />
+            {/* Core card */}
+            <div className="relative z-10 w-[78px] h-[78px] rounded-2xl bg-white border border-neutral-200 shadow-[0_8px_32px_rgba(0,0,0,0.12)] flex flex-col items-center justify-center gap-1">
+              <img src="/logo-icon.png" className="h-7 w-auto" alt="Hontrio" />
+              <span className="text-[8px] font-bold text-neutral-400 uppercase tracking-widest">Hontrio</span>
+            </div>
+          </div>
+
+          {/* Tool nodes */}
+          {nodes.map((node, i) => (
+            <div key={i} style={{
+              position: 'absolute',
+              left: `${(node.x / BRAIN_W) * 100}%`,
+              top:  `${(node.y / BRAIN_H) * 100}%`,
+              transform: nodesVisible ? 'translate(-50%, -50%) scale(1)' : 'translate(-50%, -50%) scale(0.75)',
+              opacity:   nodesVisible ? 1 : 0,
+              transition: `opacity 0.4s ${i * 0.11}s ease, transform 0.4s ${i * 0.11}s ease`,
+            }}
+            >
+              <div className="bg-white rounded-2xl border border-neutral-200 shadow-lg flex flex-col items-center justify-center gap-1.5 p-3" style={{ width: 92 }}>
+                {node.logo ? (
+                  <img src={node.logo} className="h-6 w-auto max-w-[60px] object-contain" alt={node.name} />
+                ) : node.icon === 'bot' ? (
+                  <div className="w-7 h-7 rounded-xl bg-neutral-100 flex items-center justify-center">
+                    <Bot className="h-4 w-4 text-neutral-500" />
+                  </div>
+                ) : (
+                  <div className="w-7 h-7 rounded-xl bg-neutral-100 flex items-center justify-center">
+                    <ShieldAlert className="h-4 w-4 text-neutral-500" />
+                  </div>
+                )}
+                <span className="text-[9px] font-semibold text-neutral-800 text-center leading-tight">{node.name}</span>
+                <span className="text-[8px] text-neutral-400 text-center leading-tight">{node.sublabel}</span>
+                <span className="text-[9px] font-bold text-red-500 tabular-nums">{node.price}<span className="font-normal text-neutral-400">/mo</span></span>
+              </div>
+            </div>
+          ))}
+        </div>
+        </div>
+
+        {/* ── Bottom: message + CTA ── */}
+        <div className="mt-4 md:mt-14 text-center" style={{ opacity: finalVisible ? 1 : 0, transform: finalVisible ? 'translateY(0)' : 'translateY(20px)', transition: 'opacity 0.7s ease, transform 0.7s ease' }}>
+
+          <div className="inline-flex items-center gap-3 mb-6 flex-wrap justify-center">
+            <span className="text-2xl font-bold text-neutral-300 line-through tabular-nums">$256<span className="text-base">/mo</span></span>
+            <span className="text-neutral-300 text-lg">→</span>
+            <span className="text-4xl font-bold text-neutral-900 tabular-nums">${hontrioCount}<span className="text-base font-normal text-neutral-500">/mo</span></span>
+            <span className="px-3.5 py-1.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm font-bold whitespace-nowrap">
+              {c.compSave.replace('237', String(saveCount))}
+            </span>
+          </div>
+
+          <p className="text-3xl font-bold text-neutral-900 mb-3 tracking-tight">{c.compSaveMsg}</p>
+
+          <div className="flex items-center justify-center gap-6 mb-8 flex-wrap">
+            {c.compNewBenefits.map((b) => (
+              <div key={b} className="flex items-center gap-1.5 text-sm text-neutral-500">
+                <Check className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+                {b}
+              </div>
+            ))}
+          </div>
+
+          <Link
+            href="/register"
+            className="inline-flex items-center justify-center px-8 py-3.5 rounded-xl bg-neutral-900 text-white text-[15px] font-semibold hover:bg-neutral-800 active:scale-[0.98] transition-all shadow-[0_2px_8px_rgba(0,0,0,0.18)]"
+          >
+            {c.compCta}
+          </Link>
+        </div>
+
+      </div>
+    </section>
+  )
+}
 
 function FeatureBlock({
   mockup,
@@ -656,12 +795,18 @@ function FeatureBlock({
   desc,
   bullets,
   reverse,
+  detailsHref,
+  detailsCta,
+  trialCta,
 }: {
   mockup: React.ReactNode
   title: string
   desc: string
   bullets: string[]
   reverse?: boolean
+  detailsHref: string
+  detailsCta: string
+  trialCta: string
 }) {
   return (
     <div
@@ -674,7 +819,7 @@ function FeatureBlock({
       <div className="w-full lg:w-1/2">
         <h3 className="text-2xl font-bold text-neutral-900 mb-4">{title}</h3>
         <p className="text-neutral-500 leading-relaxed mb-6">{desc}</p>
-        <ul className="space-y-3">
+        <ul className="space-y-3 mb-8">
           {bullets.map((b) => (
             <li key={b} className="flex items-start gap-3">
               <div className="h-5 w-5 rounded-full bg-neutral-900 flex items-center justify-center shrink-0 mt-0.5">
@@ -684,6 +829,20 @@ function FeatureBlock({
             </li>
           ))}
         </ul>
+        <div className="flex flex-col sm:flex-row gap-3">
+          <Link
+            href={detailsHref}
+            className="inline-flex items-center justify-center px-5 py-2.5 rounded-xl text-[14px] font-semibold text-neutral-700 border border-neutral-200 hover:bg-neutral-50 hover:border-neutral-300 transition-colors"
+          >
+            {detailsCta}
+          </Link>
+          <Link
+            href="/register"
+            className="inline-flex items-center justify-center px-5 py-2.5 rounded-xl text-[14px] font-semibold text-white bg-neutral-900 hover:bg-neutral-800 transition-colors shadow-[0_1px_3px_rgba(0,0,0,0.18)]"
+          >
+            {trialCta}
+          </Link>
+        </div>
       </div>
     </div>
   )
@@ -719,59 +878,85 @@ export default function LandingPage() {
   const c = locale === 'ro' ? ro : en
 
   const [openFaq, setOpenFaq] = useState<number | null>(null)
+  const [wordIdx, setWordIdx] = useState(0)
+
+  useEffect(() => {
+    const t = setInterval(() => setWordIdx(i => (i + 1) % 3), 2500)
+    return () => clearInterval(t)
+  }, [])
 
   return (
     <div className="scroll-smooth">
       {/* ═══ SECTION 1 — HERO ═══ */}
-      <section className="min-h-[90vh] flex flex-col items-center justify-center bg-white py-32 px-4 sm:px-6 lg:px-8 text-center">
-        <div className="max-w-4xl mx-auto">
-          {/* Badge */}
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-neutral-900 text-white text-xs font-medium mb-8">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-            {c.heroBadge}
+      {/* -mt-14 trage aurora în spatele header-ului transparent (h-14 = 56px) */}
+      <div className="-mt-14">
+      <AuroraBackground className="min-h-screen">
+        <div className="flex flex-col items-center text-center px-5 w-full max-w-4xl mx-auto" style={{ paddingTop: 'calc(3.5rem + 7rem)', paddingBottom: '7rem' }}>
+
+          {/* Headline */}
+          <div style={{ animation: 'heroFadeUp 0.55s 0.08s ease both' }}>
+            <h1 className="font-bold text-neutral-900 mb-6" style={{ fontSize: 'clamp(48px, 7.5vw, 84px)', letterSpacing: '-0.035em', lineHeight: 1.0 }}>
+              <span className="inline-block overflow-hidden align-bottom" style={{ lineHeight: 1.1 }}>
+                <span
+                  key={wordIdx}
+                  className="inline-block"
+                  style={{ animation: 'wordSlideIn 0.5s cubic-bezier(0.22,1,0.36,1) forwards' }}
+                >
+                  {c.heroWords[wordIdx]}
+                </span>
+              </span>
+              <br />
+              {c.heroSuffix}
+            </h1>
           </div>
 
-          {/* H1 */}
-          <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold text-neutral-900 tracking-tight leading-[1.08] mb-6 whitespace-pre-line">
-            {c.heroTitle}
-          </h1>
-
-          {/* Subtitle */}
-          <p className="text-xl text-neutral-500 max-w-2xl mx-auto leading-relaxed mb-10">
-            {c.heroSubtitle}
-          </p>
+          {/* Description */}
+          <div style={{ animation: 'heroFadeUp 0.55s 0.16s ease both' }}>
+            <p className="text-neutral-500 mb-9" style={{ fontSize: 17, lineHeight: 1.75, maxWidth: 480 }}>
+              {c.heroDesc}
+            </p>
+          </div>
 
           {/* CTAs */}
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-5">
-            <Link
-              href="/register"
-              className="inline-flex items-center justify-center px-8 py-3.5 rounded-xl bg-neutral-900 text-white text-base font-semibold hover:bg-neutral-800 transition-colors duration-200 w-full sm:w-auto"
-            >
-              {c.heroCta}
-            </Link>
-            <Link
-              href="/login"
-              className="inline-flex items-center justify-center px-8 py-3.5 rounded-xl bg-white text-neutral-900 text-base font-semibold border border-neutral-200 hover:border-neutral-400 hover:bg-neutral-50 transition-all duration-200 w-full sm:w-auto"
-            >
-              {c.heroCtaSecondary}
-            </Link>
+          <div style={{ animation: 'heroFadeUp 0.55s 0.24s ease both' }}>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-9">
+              <Link
+                href="/register"
+                className="inline-flex items-center justify-center px-7 py-3.5 rounded-xl text-[15px] font-semibold text-white bg-neutral-900 hover:bg-neutral-800 active:scale-[0.98] transition-colors shadow-[0_2px_8px_rgba(0,0,0,0.18)]"
+              >
+                {c.heroCta}
+              </Link>
+              <Link
+                href="/features"
+                className="inline-flex items-center gap-1.5 px-6 py-3.5 rounded-xl text-[15px] font-semibold text-neutral-600 border border-neutral-200 bg-white/60 hover:bg-white hover:border-neutral-300 transition-colors"
+              >
+                {c.heroCtaAlt}
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            </div>
           </div>
 
-          {/* Note */}
-          <p className="text-sm text-neutral-400">{c.heroNote}</p>
-
-          {/* Dashboard Mockup */}
-          <div className="mt-16">
-            <DashboardMockup />
+          {/* Trust signals */}
+          <div style={{ animation: 'heroFadeUp 0.55s 0.32s ease both' }}>
+            <div className="flex items-center justify-center flex-wrap gap-x-6 gap-y-2">
+              {c.heroMeta.map((item: string, i: number) => (
+                <div key={i} className="flex items-center gap-2 text-[12.5px] text-neutral-400">
+                  <span className="w-1 h-1 rounded-full bg-neutral-300 inline-block" />
+                  {item}
+                </div>
+              ))}
+            </div>
           </div>
+
         </div>
-      </section>
+      </AuroraBackground>
+      </div>
 
       {/* ═══ SECTION 2 — FEATURES ═══ */}
-      <section id="features" className="py-24 px-4 sm:px-6 lg:px-8 bg-white">
+      <section id="features" className="py-20 sm:py-28 px-4 sm:px-6 lg:px-8 bg-white">
         <div className="max-w-7xl mx-auto">
           {/* Header */}
-          <div className="text-center mb-20">
+          <div className="text-center mb-16">
             <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-neutral-100 text-neutral-600 text-xs font-medium mb-5">
               {c.featBadge}
             </div>
@@ -781,131 +966,59 @@ export default function LandingPage() {
             <p className="text-xl text-neutral-500 max-w-2xl mx-auto">{c.featSubtitle}</p>
           </div>
 
-          {/* Feature blocks */}
-          <div className="space-y-24">
+          {/* Feature blocks — order: Agent, Risk Shield, SEO, AI Images */}
+          <div className="space-y-16 md:space-y-24">
             <FeatureBlock
-              mockup={<ImagesMockup />}
+              mockup={<AgentMockup locale={locale} />}
               title={c.feat1Title}
               desc={c.feat1Desc}
               bullets={c.feat1Bullets}
               reverse={false}
+              detailsHref="/features/ai-agent"
+              detailsCta={c.featDetailsCta}
+              trialCta={c.featTrialCta}
             />
             <FeatureBlock
-              mockup={<SEOMockup />}
+              mockup={<RiskMockup locale={locale} />}
               title={c.feat2Title}
               desc={c.feat2Desc}
               bullets={c.feat2Bullets}
               reverse={true}
+              detailsHref="/features/risk-shield"
+              detailsCta={c.featDetailsCta}
+              trialCta={c.featTrialCta}
             />
             <FeatureBlock
-              mockup={<AgentMockup />}
+              mockup={<SEOMockup locale={locale} />}
               title={c.feat3Title}
               desc={c.feat3Desc}
               bullets={c.feat3Bullets}
               reverse={false}
+              detailsHref="/features/seo"
+              detailsCta={c.featDetailsCta}
+              trialCta={c.featTrialCta}
             />
             <FeatureBlock
-              mockup={<RiskMockup />}
+              mockup={<ImagesMockup locale={locale} />}
               title={c.feat4Title}
               desc={c.feat4Desc}
               bullets={c.feat4Bullets}
               reverse={true}
+              detailsHref="/features/ai-images"
+              detailsCta={c.featDetailsCta}
+              trialCta={c.featTrialCta}
             />
           </div>
         </div>
       </section>
 
       {/* ═══ SECTION 3 — COMPARISON ═══ */}
-      <section className="py-24 px-4 sm:px-6 lg:px-8 bg-neutral-50">
-        <div className="max-w-5xl mx-auto">
-          <div className="text-center mb-14">
-            <h2 className="text-4xl sm:text-5xl font-bold text-neutral-900 tracking-tight mb-5">
-              {c.compH2}
-            </h2>
-            <p className="text-xl text-neutral-500 max-w-2xl mx-auto">{c.compSubtitle}</p>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* OLD WAY */}
-            <div className="bg-neutral-100 rounded-2xl p-8">
-              <h3 className="text-lg font-semibold text-neutral-700 mb-6">{c.compOldHeader}</h3>
-              <div className="space-y-3 mb-6">
-                {[
-                  { name: 'AI Copywriter (Jasper/Copy.ai)', price: '$39/mo' },
-                  { name: 'SEO Platform (Semrush)', price: '$99/mo' },
-                  { name: 'AI Image Generator (Midjourney)', price: '$30/mo' },
-                  { name: 'Customer Chatbot (Tidio)', price: '$49/mo' },
-                  { name: 'Fraud Detection Tool', price: '$39/mo' },
-                ].map((tool) => (
-                  <div key={tool.name} className="flex items-center justify-between">
-                    <span className="text-sm text-neutral-600">{tool.name}</span>
-                    <span className="text-sm font-medium text-neutral-500">{tool.price}</span>
-                  </div>
-                ))}
-              </div>
-              <div className="border-t border-neutral-200 pt-4 mb-6">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-semibold text-neutral-700">Total</span>
-                  <span className="text-2xl font-bold text-neutral-900">{c.compOldTotal}</span>
-                </div>
-              </div>
-              <div className="space-y-2">
-                {c.compOldPains.map((p) => (
-                  <div key={p} className="flex items-center gap-2">
-                    <span className="text-red-500 text-sm">❌</span>
-                    <span className="text-sm text-neutral-600">{p}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* WITH HONTRIO */}
-            <div className="bg-neutral-950 rounded-2xl p-8 text-white">
-              <h3 className="text-lg font-semibold text-emerald-400 mb-6">{c.compNewHeader}</h3>
-              <div className="space-y-3 mb-6">
-                {[
-                  'AI Images',
-                  'SEO Optimizer',
-                  'AI Agent',
-                  'Risk Shield',
-                  'WooCommerce Integration',
-                  'Analytics Dashboard',
-                ].map((feature) => (
-                  <div key={feature} className="flex items-center gap-2">
-                    <Check className="h-4 w-4 text-emerald-400 shrink-0" />
-                    <span className="text-sm text-neutral-300">{feature}</span>
-                  </div>
-                ))}
-              </div>
-              <div className="border-t border-neutral-800 pt-4 mb-6">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-semibold text-neutral-400">Total</span>
-                  <span className="text-2xl font-bold text-white">{c.compNewPrice}</span>
-                </div>
-              </div>
-              <div className="space-y-2 mb-8">
-                {c.compNewBenefits.map((b) => (
-                  <div key={b} className="flex items-center gap-2">
-                    <span className="text-emerald-400 text-sm">✅</span>
-                    <span className="text-sm text-neutral-300">{b}</span>
-                  </div>
-                ))}
-              </div>
-              <Link
-                href="/register"
-                className="block w-full text-center py-3 rounded-xl bg-white text-neutral-900 text-sm font-semibold hover:bg-neutral-100 transition-colors duration-200"
-              >
-                {c.compCta}
-              </Link>
-            </div>
-          </div>
-        </div>
-      </section>
+      <BrainComparisonSection c={c} locale={locale} />
 
       {/* ═══ SECTION 4 — PRICING ═══ */}
-      <section id="pricing" className="py-24 px-4 sm:px-6 lg:px-8 bg-white">
+      <section id="pricing" className="py-20 sm:py-28 px-4 sm:px-6 lg:px-8 bg-white">
         <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-14">
+          <div className="text-center mb-12">
             <h2 className="text-4xl sm:text-5xl font-bold text-neutral-900 tracking-tight mb-5">
               {c.pricingH2}
             </h2>
@@ -965,51 +1078,10 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ═══ SECTION 5 — TESTIMONIALS ═══ */}
-      <section id="testimonials" className="py-24 px-4 sm:px-6 lg:px-8 bg-neutral-50">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-14">
-            <h2 className="text-4xl sm:text-5xl font-bold text-neutral-900 tracking-tight">
-              {c.testimonialsH2}
-            </h2>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-            {c.testimonials.map((t) => (
-              <div
-                key={t.name}
-                className="bg-white rounded-2xl shadow-sm border border-neutral-100 p-7 flex flex-col gap-4"
-              >
-                {/* Stars */}
-                <div className="flex items-center gap-0.5">
-                  {Array.from({ length: t.stars }).map((_, i) => (
-                    <Star key={i} className="h-4 w-4 fill-amber-400 text-amber-400" />
-                  ))}
-                </div>
-
-                {/* Quote */}
-                <p className="text-neutral-700 leading-relaxed italic flex-1">"{t.quote}"</p>
-
-                {/* Author */}
-                <div className="flex items-center gap-3 pt-2 border-t border-neutral-50">
-                  <div className="h-10 w-10 rounded-full bg-neutral-900 flex items-center justify-center shrink-0">
-                    <span className="text-sm font-semibold text-white">{t.initials}</span>
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-neutral-900">{t.name}</p>
-                    <p className="text-xs text-neutral-400">{t.role}</p>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
       {/* ═══ SECTION 6 — FAQ ═══ */}
-      <section id="faq" className="py-24 px-4 sm:px-6 lg:px-8 bg-white">
+      <section id="faq" className="py-20 sm:py-28 px-4 sm:px-6 lg:px-8 bg-neutral-50">
         <div className="max-w-3xl mx-auto">
-          <div className="text-center mb-14">
+          <div className="text-center mb-12">
             <h2 className="text-4xl sm:text-5xl font-bold text-neutral-900 tracking-tight">
               {c.faqH2}
             </h2>
@@ -1030,7 +1102,7 @@ export default function LandingPage() {
       </section>
 
       {/* ═══ SECTION 7 — CTA BANNER ═══ */}
-      <section className="py-24 px-4 sm:px-6 lg:px-8 bg-neutral-950">
+      <section className="py-20 sm:py-28 px-4 sm:px-6 lg:px-8 bg-neutral-950">
         <div className="max-w-3xl mx-auto text-center">
           <h2 className="text-4xl sm:text-5xl font-bold text-white tracking-tight mb-5">
             {c.ctaH2}
