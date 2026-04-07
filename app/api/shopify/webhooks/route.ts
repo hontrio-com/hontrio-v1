@@ -10,7 +10,8 @@ import crypto from 'crypto'
 // =============================================
 
 function verifyShopifyHmac(rawBody: string, hmacHeader: string): boolean {
-  const secret = process.env.SHOPIFY_WEBHOOK_SECRET
+  // Shopify semnează TOATE webhook-urile cu CLIENT_SECRET (nu cu webhook secret separat)
+  const secret = process.env.SHOPIFY_CLIENT_SECRET
   if (!secret || !hmacHeader) return false
 
   const calculated = crypto
