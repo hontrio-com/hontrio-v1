@@ -117,10 +117,43 @@ export default function OnboardingPage() {
 
   const [biz, setBiz] = useState({ businessName: '', website: '', niche: '', country: '', language: 'ro' })
   const [store, setStore] = useState({ store_url: '', consumer_key: '', consumer_secret: '' })
+  const [selectedPlatform, setSelectedPlatform] = useState<'woocommerce' | 'shopify'>('woocommerce')
+  const [shopifyUrl, setShopifyUrl] = useState('')
+  const [connectingShopify, setConnectingShopify] = useState(false)
 
   const userName = session?.user?.name?.split(' ')[0] || 'Utilizator'
 
   useEffect(() => { if ((session?.user as any)?.onboardingCompleted) router.push('/dashboard') }, [session, router])
+
+  // Detectează revenirea din Shopify OAuth: /onboarding?step=3&shopify=connected
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const params = new URLSearchParams(window.location.search)
+    const stepParam = params.get('step')
+    const shopifyConnected = params.get('shopify')
+    if (stepParam && shopifyConnected === 'connected') {
+      const stepNum = parseInt(stepParam)
+      if (!isNaN(stepNum)) {
+        setStep(stepNum)
+        setStoreConnected(true)
+        setDir(1)
+      }
+    }
+  }, [])
+
+  const handleConnectShopify = () => {
+    const rawUrl = shopifyUrl.trim().toLowerCase()
+    if (!rawUrl) { setError('Introdu URL-ul magazinului Shopify'); return }
+    // Normalizare: extrage doar domeniul myshopify.com
+    const shop = rawUrl.replace(/^https?:\/\//, '').replace(/\/$/, '')
+    if (!shop.includes('.myshopify.com')) {
+      setError('URL-ul trebuie să fie de forma mystore.myshopify.com')
+      return
+    }
+    setConnectingShopify(true)
+    setError('')
+    window.location.href = `/api/shopify/install?shop=${encodeURIComponent(shop)}&redirect_onboarding=true`
+  }
 
   const goNext = () => { setDir(1); setStep(s => Math.min(s + 1, STEPS_RO.length - 1)); setError('') }
   const goBack = () => { setDir(-1); setStep(s => Math.max(s - 1, 0)); setError('') }
@@ -294,7 +327,7 @@ export default function OnboardingPage() {
                     <ExternalLink className="h-6 w-6 text-neutral-700" />
                   </div>
                   <h2 className="text-[24px] font-semibold text-neutral-900 tracking-tight">{t('onboarding.connect_store')}</h2>
-                  <p className="text-neutral-400 text-[14px] mt-1 font-light">Vom importa produsele automat din WooCommerce</p>
+                  <p className="text-neutral-400 text-[14px] mt-1 font-light">Conectează magazinul tău pentru a importa produsele automat</p>
                 </div>
 
                 {storeConnected ? (
@@ -307,6 +340,32 @@ export default function OnboardingPage() {
                   </motion.div>
                 ) : (
                   <div className="space-y-4">
+                    {/* ── Selector platformă ───────────────────────────────────── */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <button
+                        onClick={() => { setSelectedPlatform('woocommerce'); setError('') }}
+                        className={`p-4 rounded-xl border-2 text-left transition-all ${selectedPlatform === 'woocommerce' ? 'border-neutral-900 bg-neutral-50' : 'border-neutral-200 hover:border-neutral-300'}`}
+                      >
+                        <div className="h-8 w-8 rounded-lg bg-[#7F54B3]/10 flex items-center justify-center mb-2">
+                          <Store className="h-4 w-4 text-[#7F54B3]" />
+                        </div>
+                        <p className="text-[13px] font-semibold text-neutral-900">WooCommerce</p>
+                        <p className="text-[11px] text-neutral-400 mt-0.5">WordPress + REST API</p>
+                      </button>
+                      <button
+                        onClick={() => { setSelectedPlatform('shopify'); setError('') }}
+                        className={`p-4 rounded-xl border-2 text-left transition-all ${selectedPlatform === 'shopify' ? 'border-neutral-900 bg-neutral-50' : 'border-neutral-200 hover:border-neutral-300'}`}
+                      >
+                        <div className="h-8 w-8 rounded-lg bg-[#96BF48]/10 flex items-center justify-center mb-2">
+                          <Zap className="h-4 w-4 text-[#96BF48]" />
+                        </div>
+                        <p className="text-[13px] font-semibold text-neutral-900">Shopify</p>
+                        <p className="text-[11px] text-neutral-400 mt-0.5">OAuth 2.0 — simplu și sigur</p>
+                      </button>
+                    </div>
+
+                    {/* ── Formular WooCommerce ──────────────────────────────── */}
+                    {selectedPlatform === 'woocommerce' && (<>
                     {/* Tutorial toggle */}
                     <button onClick={() => setShowTutorial(!showTutorial)}
                       className="w-full border border-neutral-200 rounded-xl p-4 text-left transition-all hover:border-neutral-300">
@@ -381,6 +440,50 @@ export default function OnboardingPage() {
                         </button>
                       </motion.div>
                     </div>
+                    </>)}
+
+                    {/* ── Formular Shopify ──────────────────────────────── */}
+                    {selectedPlatform === 'shopify' && (
+                      <div className="space-y-3.5">
+                        <div className="border border-neutral-100 rounded-xl p-4 bg-neutral-50 space-y-2">
+                          <div className="flex items-center gap-2">
+                            <Zap className="h-4 w-4 text-[#96BF48]" />
+                            <p className="text-[13px] font-medium text-neutral-900">Autentificare OAuth 2.0</p>
+                          </div>
+                          <p className="text-[12px] text-neutral-500 leading-relaxed">
+                            Vei fi redirecționat către Shopify pentru autorizare. Asigură-te că ești autentificat în contul Shopify al magazinului.
+                          </p>
+                        </div>
+
+                        <InputField
+                          label="URL Magazin Shopify"
+                          value={shopifyUrl}
+                          onChange={v => setShopifyUrl(v)}
+                          placeholder="mystore.myshopify.com"
+                          icon={Globe}
+                        />
+
+                        {error && (
+                          <div className="flex items-center gap-2 p-3 border border-red-200 rounded-xl bg-red-50/50">
+                            <AlertCircle className="h-4 w-4 text-red-400 shrink-0" />
+                            <span className="text-[13px] text-red-500">{error}</span>
+                          </div>
+                        )}
+
+                        <motion.div whileTap={{ scale: 0.985 }}>
+                          <button
+                            onClick={handleConnectShopify}
+                            disabled={connectingShopify}
+                            className="w-full h-[46px] rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white text-[14px] font-medium flex items-center justify-center gap-2 transition-all disabled:opacity-50 cursor-pointer"
+                          >
+                            {connectingShopify
+                              ? <Loader2 className="h-4 w-4 animate-spin" />
+                              : <><Zap className="h-4 w-4" />Conectează cu Shopify</>
+                            }
+                          </button>
+                        </motion.div>
+                      </div>
+                    )}
                   </div>
                 )}
               </motion.div>

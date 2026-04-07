@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/auth.config'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { WooCommerceClient } from '@/lib/woocommerce/client'
+import { createAdapter } from '@/lib/integrations/types'
 import { decrypt } from '@/lib/security/encryption'
 import { rateLimitSync } from '@/lib/security/rate-limit'
 
@@ -110,13 +111,18 @@ export async function POST(
       // Keys might be stored in plain text (pre-encryption migration)
     }
 
+    // ===== SHOPIFY: ramură separată de sync =====
+    if (store.platform === 'shopify') {
+      return await syncShopifyProducts({ store, userId, supabase, accessToken: apiKey })
+    }
+
     const woo = new WooCommerceClient({
       store_url: store.store_url,
       consumer_key: apiKey,
       consumer_secret: apiSecret,
     })
 
-    // ===== PHASE 1: DOWNLOAD PRODUCTS =====
+    // ===== PHASE 1: DOWNLOAD PRODUCTS (WooCommerce) =====
     await supabase
       .from('stores')
       .update({
@@ -549,5 +555,202 @@ export async function POST(
   } catch (err) {
     console.error('Sync error:', err)
     return NextResponse.json({ error: 'Eroare la sincronizare' }, { status: 500 })
+  }
+}
+
+// ─── Sync Shopify via adapter generic ─────────────────────────────────────────
+async function syncShopifyProducts({
+  store, userId, supabase, accessToken,
+}: {
+  store: any
+  userId: string
+  supabase: any
+  accessToken: string
+}) {
+  try {
+    const adapter = createAdapter('shopify', {
+      store_url: store.store_url,
+      access_token: accessToken.trim(),
+    })
+
+    // FAZA 1: Descarcă produsele
+    await supabase
+      .from('stores')
+      .update({
+        sync_status: 'syncing',
+        sync_started_at: new Date().toISOString(),
+        sync_progress: 0,
+        sync_total: 0,
+      })
+      .eq('id', store.id)
+
+    const totalProducts = await adapter.getProductCount()
+    const perPage = 100
+    const totalPages = Math.ceil(totalProducts / perPage)
+
+    await supabase
+      .from('stores')
+      .update({ sync_total: totalProducts })
+      .eq('id', store.id)
+
+    console.log(`[Shopify Sync] Total produse: ${totalProducts}, pagini: ${totalPages}`)
+
+    let allProducts: any[] = []
+
+    for (let page = 1; page <= totalPages; page++) {
+      const batch = await adapter.getProducts(page, perPage)
+      allProducts = [...allProducts, ...batch]
+
+      await supabase
+        .from('stores')
+        .update({ sync_progress: allProducts.length })
+        .eq('id', store.id)
+
+      console.log(`[Shopify Sync] Pagina ${page}/${totalPages} (${allProducts.length} produse)`)
+    }
+
+    // Deduplicare după id
+    const seenIds = new Set<string>()
+    const uniqueProducts = allProducts.filter(p => {
+      if (seenIds.has(p.id)) return false
+      seenIds.add(p.id)
+      return true
+    })
+
+    // FAZA 2: Salvează în DB
+    await supabase
+      .from('stores')
+      .update({
+        sync_status: 'saving',
+        sync_progress: 0,
+        sync_total: uniqueProducts.length,
+      })
+      .eq('id', store.id)
+
+    let syncedCount = 0
+    let errorCount = 0
+
+    for (let i = 0; i < uniqueProducts.length; i++) {
+      const product = uniqueProducts[i]
+
+      try {
+        const rawPrice = parseFloat(product.price)
+        const safePrice = isNaN(rawPrice) ? null : rawPrice
+        const title = sanitize(product.name, 500) || `Product ${product.id}`
+        const description = product.description || ''
+        const images = Array.isArray(product.images)
+          ? product.images.filter((img: any) => img?.src).map((img: any) => String(img.src))
+          : []
+        const category = product.categories?.[0]?.name
+          ? sanitize(product.categories[0].name, 200)
+          : null
+
+        // Scor SEO inițial (fără Yoast — Shopify nu are)
+        const initialSeoScore = calculateInitialSeoScore({
+          original_title:             title,
+          original_description:       description,
+          original_short_description: null,
+          meta_description:           null,
+          focus_keyword:              null,
+        })
+
+        const productData = {
+          store_id: store.id,
+          user_id: userId,
+          external_id: product.id,
+          original_title: title,
+          original_description: description,
+          original_short_description: null,
+          original_images: images,
+          category,
+          price: safePrice,
+          status: 'draft' as const,
+          parent_id: null,
+          variant_name: null,
+          meta_description: null,
+          focus_keyword: null,
+          seo_score: initialSeoScore,
+        }
+
+        const { data: existing } = await supabaseRetry(() =>
+          supabase
+            .from('products')
+            .select('id, status')
+            .eq('store_id', store.id)
+            .eq('external_id', product.id)
+            .maybeSingle()
+        ) as { data: { id: string; status: string } | null; error: any }
+
+        if (existing) {
+          const isUnoptimized = existing.status === 'draft'
+          const updatePayload: Record<string, any> = {
+            original_title: title,
+            original_description: description,
+            original_images: images,
+            category,
+            price: safePrice,
+          }
+          if (isUnoptimized) {
+            updatePayload.seo_score = initialSeoScore
+          }
+          await supabaseRetry(() =>
+            supabase.from('products').update(updatePayload).eq('id', existing.id)
+          )
+          syncedCount++
+        } else {
+          const { error: insertErr } = await supabaseRetry(() =>
+            supabase.from('products').insert(productData)
+          )
+          if (insertErr) {
+            console.error(`[Shopify Sync] INSERT ERR ${product.id}: ${insertErr.message}`)
+            errorCount++
+          } else {
+            syncedCount++
+          }
+        }
+      } catch (err: any) {
+        console.error(`[Shopify Sync] EXCEPTION ${product.id}: ${err?.message}`)
+        errorCount++
+      }
+
+      if ((i + 1) % 50 === 0 || i === uniqueProducts.length - 1) {
+        await supabase
+          .from('stores')
+          .update({ sync_progress: i + 1 })
+          .eq('id', store.id)
+      }
+    }
+
+    // FAZA 3: Finalizare
+    const { count: actualCount } = await supabase
+      .from('products')
+      .select('id', { count: 'exact', head: true })
+      .eq('store_id', store.id)
+
+    const realCount = actualCount || syncedCount
+
+    await supabase
+      .from('stores')
+      .update({
+        sync_status: 'active',
+        last_sync_at: new Date().toISOString(),
+        products_count: realCount,
+        sync_progress: uniqueProducts.length,
+        sync_total: uniqueProducts.length,
+      })
+      .eq('id', store.id)
+
+    console.log(`[Shopify Sync] Complet: ${realCount} produse, ${errorCount} erori`)
+
+    return NextResponse.json({
+      message: 'Sincronizare Shopify completă',
+      synced: realCount,
+      products: uniqueProducts.length,
+      variations: 0,
+      errors: errorCount,
+    })
+  } catch (err: any) {
+    console.error('[Shopify Sync] Eroare:', err)
+    return NextResponse.json({ error: 'Eroare sincronizare Shopify: ' + err.message }, { status: 500 })
   }
 }

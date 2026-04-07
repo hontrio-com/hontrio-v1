@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { openai } from '@/lib/openai/client'
 import { KieClient } from '@/lib/kie/client'
 import { decrypt } from '@/lib/security/encryption'
+import { createAdapter } from '@/lib/integrations/types'
 
 const STYLE_COSTS: Record<string, number> = {
   white_bg: 2, lifestyle: 3, premium_dark: 3, industrial: 3, seasonal: 4, manual: 3,
@@ -155,9 +156,9 @@ export async function GET(request: Request) {
         })
         await supabase.rpc('increment_bulk_credits', { job_id: item.job_id, amount: creditCost })
 
-        // Auto-publish to WooCommerce if enabled
+        // Auto-publish to store if enabled (WooCommerce sau Shopify)
         if (job.auto_publish && product.external_id) {
-          await autoPublishToWoo(supabase, userId, product, generatedUrl, imgRecord.id)
+          await autoPublishToStore(supabase, userId, product, generatedUrl, imgRecord.id)
         }
 
         await incrementJobCounters(supabase, item.job_id, 'completed')
@@ -206,32 +207,65 @@ async function finalizeCompletedJobs(supabase: any) {
   }
 }
 
-async function autoPublishToWoo(supabase: any, userId: string, product: any, imageUrl: string, imageId: string) {
+async function autoPublishToStore(supabase: any, userId: string, product: any, imageUrl: string, imageId: string) {
   try {
-    const { data: store } = await supabase.from('stores').select('store_url, api_key, api_secret').eq('user_id', userId).single()
+    const { data: store } = await supabase
+      .from('stores')
+      .select('store_url, api_key, api_secret, platform')
+      .eq('user_id', userId)
+      .single()
+
     if (!store || !product.external_id) return
 
-    const wooUrl = store.store_url.replace(/\/$/, '')
+    const altText = product.optimized_title || product.original_title || ''
 
-    let ck: string
-    try { ck = decrypt(store.api_key) } catch { ck = store.api_key }
-    ck = (ck || '').trim()
+    if (store.platform === 'shopify') {
+      // Shopify: publică imaginea prin adapter
+      let accessToken: string
+      try { accessToken = decrypt(store.api_key) } catch { accessToken = store.api_key }
+      accessToken = (accessToken || '').trim()
 
-    let cs: string
-    try { cs = decrypt(store.api_secret) } catch { cs = store.api_secret }
-    cs = (cs || '').trim()
+      const adapter = createAdapter('shopify', {
+        store_url: store.store_url,
+        access_token: accessToken,
+      })
 
-    const authParams = `consumer_key=${encodeURIComponent(ck)}&consumer_secret=${encodeURIComponent(cs)}`
+      const ok = await adapter.publishImage(String(product.external_id), imageUrl, altText)
+      if (ok) {
+        await supabase
+          .from('generated_images')
+          .update({ status: 'published', wc_published_at: new Date().toISOString() })
+          .eq('id', imageId)
+      }
+    } else {
+      // WooCommerce: logică originală păstrată
+      const wooUrl = store.store_url.replace(/\/$/, '')
 
-    await fetch(`${wooUrl}/wp-json/wc/v3/products/${product.external_id}?${authParams}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ images: [{ src: imageUrl, name: product.optimized_title || product.original_title, alt: product.optimized_title }] }),
-      signal: AbortSignal.timeout(15000),
-    })
+      let ck: string
+      try { ck = decrypt(store.api_key) } catch { ck = store.api_key }
+      ck = (ck || '').trim()
 
-    await supabase.from('generated_images').update({ status: 'published', wc_published_at: new Date().toISOString() }).eq('id', imageId)
-  } catch(e) { console.error('[image-bulk] autoPublishToWoo error:', e) }
+      let cs: string
+      try { cs = decrypt(store.api_secret) } catch { cs = store.api_secret }
+      cs = (cs || '').trim()
+
+      const authParams = `consumer_key=${encodeURIComponent(ck)}&consumer_secret=${encodeURIComponent(cs)}`
+
+      await fetch(`${wooUrl}/wp-json/wc/v3/products/${product.external_id}?${authParams}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ images: [{ src: imageUrl, name: altText, alt: altText }] }),
+        signal: AbortSignal.timeout(15000),
+      })
+
+      await supabase
+        .from('generated_images')
+        .update({ status: 'published', wc_published_at: new Date().toISOString() })
+        .eq('id', imageId)
+    }
+  } catch (e) {
+    console.error('[image-bulk] autoPublishToStore error:', e)
+  }
 }
 
 async function buildPromptForBulk(title: string, category: string | null, description: string | null, style: string): Promise<string> {

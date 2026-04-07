@@ -50,6 +50,20 @@ export interface StoreAdapter {
     short_description?: string
     images?: { src: string }[]
   }): Promise<boolean>
+
+  // Publică o imagine generată de AI în magazin
+  publishImage(productId: string, imageUrl: string, altText: string): Promise<boolean>
+
+  // Publică descrierea scurtă (WooCommerce nativ, Shopify prin metafield)
+  publishShortDescription(productId: string, shortDescription: string): Promise<boolean>
+
+  // Publică metadate SEO (titlu SEO, meta description, focus keyword)
+  publishSeoMetadata(
+    productId: string,
+    seoTitle: string,
+    metaDescription: string,
+    focusKeyword: string
+  ): Promise<boolean>
 }
 
 // =============================================
@@ -58,10 +72,11 @@ export interface StoreAdapter {
 // =============================================
 
 import { WooCommerceAdapter } from './adapters/woocommerce'
+import { ShopifyAdapter } from './adapters/shopify'
 
 const adapters: Record<string, new (config: any) => StoreAdapter> = {
   woocommerce: WooCommerceAdapter,
-  // shopify: ShopifyAdapter,      // TODO: Future
+  shopify: ShopifyAdapter,
   // gomag: GomagAdapter,          // TODO: Future
   // merchantpro: MerchantProAdapter, // TODO: Future
   // opencart: OpencartAdapter,    // TODO: Future

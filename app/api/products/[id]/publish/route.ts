@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/auth.config'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { decrypt } from '@/lib/security/encryption'
+import { createAdapter } from '@/lib/integrations/types'
 
 export async function POST(
   request: Request,
@@ -49,11 +50,21 @@ export async function POST(
       return NextResponse.json({ error: 'Insufficient credits' }, { status: 400 })
     }
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // SHOPIFY — publicare via adapter generic
+    // ═══════════════════════════════════════════════════════════════════════
+    if (store.platform === 'shopify') {
+      return await publishToShopify({
+        supabase, product, store, user, userId, id
+      })
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // WOOCOMMERCE — cod original păstrat intact
+    // ═══════════════════════════════════════════════════════════════════════
     const wooUrl = store.store_url.replace(/\/$/, '')
-    // Cheile sunt criptate in DB — decripteaza daca e nevoie (contine ':' ca separator iv:tag:cipher)
     const ck = (store.api_key?.includes(':') ? decrypt(store.api_key) : store.api_key).trim()
     const cs = (store.api_secret?.includes(':') ? decrypt(store.api_secret) : store.api_secret).trim()
-    // encodeURIComponent e obligatoriu — cheile WooCommerce pot contine caractere speciale
     const authParams = `consumer_key=${encodeURIComponent(ck)}&consumer_secret=${encodeURIComponent(cs)}`
     const wooHeaders = { 'Content-Type': 'application/json' }
 
@@ -68,7 +79,6 @@ export async function POST(
       wooProduct.regular_price = String(product.price)
     }
 
-    // Meta description — Yoast SEO + Rank Math + AIOSEO
     if (product.meta_description) {
       wooProduct.meta_data.push(
         { key: '_yoast_wpseo_metadesc',   value: product.meta_description },
@@ -78,7 +88,6 @@ export async function POST(
       )
     }
 
-    // Titlu SEO (Yoast / Rank Math) — separat de titlul produsului
     if (product.optimized_title) {
       wooProduct.meta_data.push(
         { key: '_yoast_wpseo_title',      value: product.optimized_title },
@@ -88,7 +97,6 @@ export async function POST(
       )
     }
 
-    // Focus keyword (Yoast / Rank Math)
     if (product.focus_keyword) {
       wooProduct.meta_data.push(
         { key: '_yoast_wpseo_focuskw',    value: product.focus_keyword },
@@ -162,7 +170,6 @@ export async function POST(
       console.error('[Publish] WooCommerce error:', JSON.stringify(errData))
       console.error('[Publish] Status:', wooRes.status, '| Method:', method, '| external_id:', targetId)
 
-      // Daca PUT esueaza cu 401/403 (produs sters sau inexistent in WooCommerce), incearca POST ca produs nou
       if ((wooRes.status === 401 || wooRes.status === 403) && product.external_id) {
         console.log('[Publish] PUT 403 — incercam POST ca produs nou')
         const images: { src: string; name: string; alt: string }[] = []
@@ -222,5 +229,115 @@ export async function POST(
   } catch (error: any) {
     console.error('Publish error:', error)
     return NextResponse.json({ error: 'Publish error' }, { status: 500 })
+  }
+}
+
+// ─── Publicare Shopify via adapter ────────────────────────────────────────────
+async function publishToShopify({
+  supabase, product, store, user, userId, id
+}: {
+  supabase: any
+  product: any
+  store: any
+  user: any
+  userId: string
+  id: string
+}) {
+  try {
+    if (!product.external_id) {
+      return NextResponse.json(
+        { error: 'Produsul Shopify nu are external_id. Sincronizează magazinul mai întâi.' },
+        { status: 400 }
+      )
+    }
+
+    // Decriptează access token
+    const accessToken = store.api_key?.includes(':')
+      ? decrypt(store.api_key)
+      : store.api_key
+
+    const adapter = createAdapter('shopify', {
+      store_url: store.store_url,
+      access_token: accessToken.trim(),
+    })
+
+    const productId = product.external_id
+    const title = product.optimized_title || product.original_title
+    const description = product.optimized_long_description || product.original_description || ''
+    const shortDescription = product.optimized_short_description || ''
+
+    // 1. Actualizează titlul și descrierea principală
+    const updateOk = await adapter.updateProduct(productId, {
+      title,
+      description,
+    })
+
+    if (!updateOk) {
+      return NextResponse.json(
+        { error: 'Eroare la actualizarea produsului în Shopify' },
+        { status: 500 }
+      )
+    }
+
+    // 2. Publică descrierea scurtă ca metafield (dacă există)
+    if (shortDescription) {
+      await adapter.publishShortDescription(productId, shortDescription).catch(e =>
+        console.warn('[PublishShopify] publishShortDescription error (non-fatal):', e.message)
+      )
+    }
+
+    // 3. Publică metadatele SEO ca metafields Shopify
+    const seoTitle = product.optimized_title || ''
+    const metaDescription = product.meta_description || ''
+    const focusKeyword = product.focus_keyword || ''
+
+    if (seoTitle || metaDescription || focusKeyword) {
+      await adapter.publishSeoMetadata(productId, seoTitle, metaDescription, focusKeyword).catch(e =>
+        console.warn('[PublishShopify] publishSeoMetadata error (non-fatal):', e.message)
+      )
+    }
+
+    // 4. Publică imaginile generate de AI (cea mai recentă)
+    const { data: generatedImages } = await supabase
+      .from('generated_images')
+      .select('generated_image_url, style')
+      .eq('product_id', id)
+      .eq('status', 'completed')
+      .order('created_at', { ascending: false })
+      .limit(1)
+
+    if (generatedImages && generatedImages.length > 0) {
+      const imgUrl = generatedImages[0].generated_image_url
+      await adapter.publishImage(productId, imgUrl, title).catch(e =>
+        console.warn('[PublishShopify] publishImage error (non-fatal):', e.message)
+      )
+    }
+
+    // 5. Actualizează statusul produsului în DB
+    await supabase
+      .from('products')
+      .update({ status: 'published' })
+      .eq('id', id)
+
+    // 6. Decontează 1 credit
+    const newBalance = user.credits - 1
+    await supabase.from('users').update({ credits: newBalance }).eq('id', userId)
+    await supabase.from('credit_transactions').insert({
+      user_id: userId,
+      type: 'usage',
+      amount: -1,
+      balance_after: newBalance,
+      description: `Publish Shopify: ${title}`,
+      reference_type: 'publish',
+    })
+
+    console.log('[PublishShopify] Publicat cu succes:', productId)
+    return NextResponse.json({ success: true, external_id: productId })
+  } catch (err: any) {
+    console.error('[PublishShopify] Eroare:', err)
+    return NextResponse.json(
+      { error: 'Eroare la publicare Shopify: ' + err.message },
+      { status: 500 }
+    )
   }
 }

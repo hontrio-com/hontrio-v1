@@ -98,4 +98,46 @@ export class WooCommerceAdapter implements StoreAdapter {
 
     return res.ok
   }
+
+  async publishImage(productId: string, imageUrl: string, altText: string): Promise<boolean> {
+    // WooCommerce: adaugă imaginea în array-ul de imagini al produsului
+    const url = new URL(`${this.config.store_url}/wp-json/wc/v3/products/${productId}`)
+    const res = await fetch(url.toString(), {
+      method: 'PUT',
+      headers: {
+        'Authorization': this.authHeader,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        images: [{ src: imageUrl, alt: altText, position: 0 }],
+      }),
+    })
+    return res.ok
+  }
+
+  async publishShortDescription(productId: string, shortDescription: string): Promise<boolean> {
+    // WooCommerce: câmp nativ short_description
+    const url = new URL(`${this.config.store_url}/wp-json/wc/v3/products/${productId}`)
+    const res = await fetch(url.toString(), {
+      method: 'PUT',
+      headers: {
+        'Authorization': this.authHeader,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ short_description: shortDescription }),
+    })
+    return res.ok
+  }
+
+  async publishSeoMetadata(
+    _productId: string,
+    _seoTitle: string,
+    _metaDescription: string,
+    _focusKeyword: string
+  ): Promise<boolean> {
+    // WooCommerce: SEO metadata se gestionează prin plugin-urile Yoast/RankMath
+    // Publicarea se face prin plugin-ul Hontrio WordPress, nu direct via REST API
+    // Returnam true ca sa nu blocam fluxul
+    return true
+  }
 }

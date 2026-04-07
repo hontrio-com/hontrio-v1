@@ -90,7 +90,11 @@ export async function middleware(request: NextRequest) {
       pathname.startsWith('/api/agent/memory') ||
       pathname.startsWith('/api/risk/webhook') ||
       pathname.startsWith('/api/plugin/') ||
-      pathname.startsWith('/api/cron/')
+      pathname.startsWith('/api/cron/') ||
+      // Shopify OAuth + webhooks — publice (callback verifică sesiunea manual)
+      pathname.startsWith('/api/shopify/install') ||
+      pathname.startsWith('/api/shopify/callback') ||
+      pathname.startsWith('/api/shopify/webhooks')
     ) {
       return response
     }
@@ -190,6 +194,7 @@ export const config = {
     '/api/agent/conversations/:path*',
     '/api/agent/memory/:path*',
     '/api/agent/unanswered/:path*',
+    '/api/shopify/:path*',
     '/login',
     '/register',
     '/forgot-password',

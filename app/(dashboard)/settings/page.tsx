@@ -18,7 +18,7 @@ import {
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type StoreData = {
-  id: string; store_url: string; store_name: string
+  id: string; store_url: string; store_name: string; platform: string
   products_count: number; last_sync_at: string | null; status: string
 }
 type UserProfile = {
@@ -163,6 +163,8 @@ export default function SettingsPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([])
 
   const [storeForm, setStoreForm]     = useState({ store_url: '', consumer_key: '', consumer_secret: '' })
+  const [shopifyUrl, setShopifyUrl]   = useState('')
+  const [connectingShopify, setConnectingShopify] = useState(false)
   const [profileForm, setProfileForm] = useState({ name: '' })
   const [brandForm, setBrandForm]     = useState({ businessName: '', website: '', tone: 'professional', language: 'ro', niche: '' })
   const [pwForm, setPwForm]           = useState({ current: '', new: '', confirm: '' })
@@ -279,6 +281,18 @@ export default function SettingsPage() {
       if (!r.ok) { toast('error', d.error); return }
       toast('success', t('settings.sync_complete', { count: d.synced })); fetchStore()
     } catch { toast('error', t('settings.error_sync')) } finally { setSyncing(false) }
+  }
+
+  function handleConnectShopify() {
+    const raw = shopifyUrl.trim().toLowerCase()
+    if (!raw) { toast('error', 'Introdu URL-ul magazinului Shopify'); return }
+    const shop = raw.replace(/^https?:\/\//, '').replace(/\/$/, '')
+    if (!shop.includes('.myshopify.com')) {
+      toast('error', 'URL-ul trebuie să fie yourstore.myshopify.com')
+      return
+    }
+    setConnectingShopify(true)
+    window.location.href = `/api/shopify/install?shop=${encodeURIComponent(shop)}`
   }
 
   async function handleDisconnect() {
@@ -542,7 +556,9 @@ export default function SettingsPage() {
                   </div>
                   <div className="flex-1">
                     <p className="text-[13px] font-semibold text-neutral-900">{t('settings.store_connected')}</p>
-                    <p className="text-[11px] text-neutral-400">{t('settings.woo_active')}</p>
+                    <p className="text-[11px] text-neutral-400">
+                      {store.platform === 'shopify' ? 'Shopify — OAuth 2.0' : t('settings.woo_active')}
+                    </p>
                   </div>
                   <span className="flex items-center gap-1 text-[11px] font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md">
                     <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />{t('settings.connected')}
@@ -551,9 +567,20 @@ export default function SettingsPage() {
 
                 <div className="space-y-2 mb-4">
                   {[
-                    { icon: Globe,     label: t('settings.store_url_label'),          value: <a href={store.store_url} target="_blank" rel="noopener" className="text-[13px] text-neutral-600 flex items-center gap-1 hover:text-neutral-900">{store.store_url.replace(/^https?:\/\//, '')}<ExternalLink className="h-3 w-3" /></a> },
+                    { icon: Globe,     label: t('settings.store_url_label'),          value: <a href={store.platform === 'shopify' ? `https://${store.store_url}` : store.store_url} target="_blank" rel="noopener" className="text-[13px] text-neutral-600 flex items-center gap-1 hover:text-neutral-900">{store.store_url.replace(/^https?:\/\//, '')}<ExternalLink className="h-3 w-3" /></a> },
                     { icon: Package,   label: t('settings.products_synced'), value: <span className="text-[13px] font-semibold text-neutral-900">{store.products_count}</span> },
                     { icon: RefreshCw, label: t('settings.last_sync'),  value: <span className="text-[13px] text-neutral-600">{store.last_sync_at ? new Date(store.last_sync_at).toLocaleString('ro-RO') : t('settings.never_synced')}</span> },
+                    // Shopify: afișăm "OAuth 2.0" badge în loc de chei API
+                    ...(store.platform === 'shopify' ? [{
+                      icon: Key,
+                      label: 'Access Token',
+                      value: (
+                        <div className="flex items-center gap-2">
+                          <span className="text-[13px] font-mono text-neutral-500">••••••••••••••••</span>
+                          <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-md">OAuth 2.0</span>
+                        </div>
+                      ),
+                    }] : []),
                   ].map((row, i) => (
                     <div key={i} className="flex items-center justify-between px-3 py-2.5 bg-neutral-50 rounded-xl">
                       <div className="flex items-center gap-2">
@@ -577,61 +604,105 @@ export default function SettingsPage() {
                 </div>
               </Card>
             ) : (
-              <Card className="p-5">
-                <div className="flex items-center gap-2 mb-4">
-                  <div className="h-8 w-8 rounded-xl bg-neutral-100 flex items-center justify-center">
-                    <Plug className="h-4 w-4 text-neutral-500" />
-                  </div>
-                  <div>
-                    <p className="text-[13px] font-semibold text-neutral-900">{t('settings.connect_store_label')}</p>
-                    <p className="text-[11px] text-neutral-400">{t('settings.enter_woo_data')}</p>
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  <Field label={t('settings.store_url_label')}>
-                    <Inp value={storeForm.store_url} onChange={e => { setStoreForm(p => ({ ...p, store_url: e.target.value })); setConnTest(null) }} placeholder="https://magazin.ro" />
-                  </Field>
-
-                  <Field label={t('settings.consumer_key')}>
-                    <div className="relative">
-                      <Inp type={showKeys ? 'text' : 'password'} value={storeForm.consumer_key}
-                        onChange={e => { setStoreForm(p => ({ ...p, consumer_key: e.target.value })); setConnTest(null) }}
-                        placeholder="ck_..." className="pr-10" />
-                      <button onClick={() => setShowKeys(s => !s)} className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600">
-                        {showKeys ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </button>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* ── Card WooCommerce ──────────────────────────────────────── */}
+                <Card className="p-5">
+                  <div className="flex items-center gap-2 mb-4">
+                    <div className="h-8 w-8 rounded-xl bg-[#7F54B3]/10 flex items-center justify-center">
+                      <Store className="h-4 w-4 text-[#7F54B3]" />
                     </div>
-                  </Field>
+                    <div>
+                      <p className="text-[13px] font-semibold text-neutral-900">WooCommerce</p>
+                      <p className="text-[11px] text-neutral-400">WordPress + REST API</p>
+                    </div>
+                  </div>
 
-                  <Field label={t('settings.consumer_secret')}>
-                    <Inp type={showKeys ? 'text' : 'password'} value={storeForm.consumer_secret}
-                      onChange={e => { setStoreForm(p => ({ ...p, consumer_secret: e.target.value })); setConnTest(null) }}
-                      placeholder="cs_..." />
-                  </Field>
+                  <div className="space-y-3">
+                    <Field label={t('settings.store_url_label')}>
+                      <Inp value={storeForm.store_url} onChange={e => { setStoreForm(p => ({ ...p, store_url: e.target.value })); setConnTest(null) }} placeholder="https://magazin.ro" />
+                    </Field>
 
-                  <AnimatePresence>
-                    {connTest && (
-                      <motion.div initial={{ y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                        className={`flex items-center gap-2 px-3 py-2.5 rounded-xl text-[13px] ${connTest.ok ? 'bg-neutral-900 text-white' : 'bg-red-50 border border-red-100 text-red-600'}`}>
-                        {connTest.ok ? <CheckCircle2 className="h-4 w-4 shrink-0" /> : <XCircle className="h-4 w-4 shrink-0" />}
-                        {connTest.msg}
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
+                    <Field label={t('settings.consumer_key')}>
+                      <div className="relative">
+                        <Inp type={showKeys ? 'text' : 'password'} value={storeForm.consumer_key}
+                          onChange={e => { setStoreForm(p => ({ ...p, consumer_key: e.target.value })); setConnTest(null) }}
+                          placeholder="ck_..." className="pr-10" />
+                        <button onClick={() => setShowKeys(s => !s)} className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600">
+                          {showKeys ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
+                      </div>
+                    </Field>
 
-                  <div className="flex gap-2">
-                    <Btn variant="outline" onClick={handleTestConn} disabled={testingConn}>
-                      {testingConn ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wifi className="h-3.5 w-3.5" />}
-                      {t('settings.test_btn')}
-                    </Btn>
-                    <Btn onClick={handleConnect} disabled={connecting} className="flex-1 justify-center">
-                      {connecting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plug className="h-3.5 w-3.5" />}
-                      {connecting ? t('common.connecting') : t('onboarding.connect_store')}
+                    <Field label={t('settings.consumer_secret')}>
+                      <Inp type={showKeys ? 'text' : 'password'} value={storeForm.consumer_secret}
+                        onChange={e => { setStoreForm(p => ({ ...p, consumer_secret: e.target.value })); setConnTest(null) }}
+                        placeholder="cs_..." />
+                    </Field>
+
+                    <AnimatePresence>
+                      {connTest && (
+                        <motion.div initial={{ y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                          className={`flex items-center gap-2 px-3 py-2.5 rounded-xl text-[13px] ${connTest.ok ? 'bg-neutral-900 text-white' : 'bg-red-50 border border-red-100 text-red-600'}`}>
+                          {connTest.ok ? <CheckCircle2 className="h-4 w-4 shrink-0" /> : <XCircle className="h-4 w-4 shrink-0" />}
+                          {connTest.msg}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+
+                    <div className="flex gap-2">
+                      <Btn variant="outline" onClick={handleTestConn} disabled={testingConn}>
+                        {testingConn ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wifi className="h-3.5 w-3.5" />}
+                        {t('settings.test_btn')}
+                      </Btn>
+                      <Btn onClick={handleConnect} disabled={connecting} className="flex-1 justify-center">
+                        {connecting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plug className="h-3.5 w-3.5" />}
+                        {connecting ? t('common.connecting') : t('onboarding.connect_store')}
+                      </Btn>
+                    </div>
+                  </div>
+                </Card>
+
+                {/* ── Card Shopify ──────────────────────────────────────────── */}
+                <Card className="p-5">
+                  <div className="flex items-center gap-2 mb-4">
+                    <div className="h-8 w-8 rounded-xl bg-[#96BF48]/10 flex items-center justify-center">
+                      <Zap className="h-4 w-4 text-[#96BF48]" />
+                    </div>
+                    <div>
+                      <p className="text-[13px] font-semibold text-neutral-900">Shopify</p>
+                      <p className="text-[11px] text-neutral-400">OAuth 2.0 — simplu și sigur</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="p-3 bg-neutral-50 rounded-xl">
+                      <p className="text-[12px] text-neutral-500 leading-relaxed">
+                        Vei fi redirecționat către Shopify pentru autorizare. Nicio cheie API de copiat manual.
+                      </p>
+                    </div>
+
+                    <Field label="URL Magazin Shopify">
+                      <Inp
+                        value={shopifyUrl}
+                        onChange={e => setShopifyUrl(e.target.value)}
+                        placeholder="mystore.myshopify.com"
+                      />
+                    </Field>
+
+                    <Btn
+                      onClick={handleConnectShopify}
+                      disabled={connectingShopify}
+                      className="w-full justify-center"
+                    >
+                      {connectingShopify
+                        ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        : <Zap className="h-3.5 w-3.5" />
+                      }
+                      {connectingShopify ? 'Se redirecționează...' : 'Conectează cu Shopify'}
                     </Btn>
                   </div>
-                </div>
-              </Card>
+                </Card>
+              </div>
             )}
           </div>
 
