@@ -43,13 +43,12 @@ export async function POST(request: Request) {
     const topic       = request.headers.get('x-shopify-topic') || ''
     const shopDomain  = request.headers.get('x-shopify-shop-domain') || ''
 
-    // Verifică HMAC — fără secret valid ignorăm webhook-ul
+    // Verifică HMAC — Shopify cere 401 pentru HMAC invalid (cerință compliance)
     if (!verifyShopifyHmac(rawBody, hmacHeader)) {
       logApiError('/api/shopify/webhooks', 401, 'HMAC webhook Shopify invalid', {
         shop: shopDomain, topic,
       })
-      // Returnăm 200 ca să nu retrimită Shopify
-      return NextResponse.json({ ok: true }, { status: 200 })
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     let payload: any
