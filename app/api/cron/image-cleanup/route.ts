@@ -1,13 +1,15 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { storedMessage } from '@/lib/i18n/stored'
 
 // Cron: verifică imagini stuck în 'processing' mai vechi de 10 minute
 // Le marchează failed și returnează creditele
+// Răspunsurile JSON sunt pentru Vercel; descrierea rambursării se salvează ca cheie de traducere.
 export async function GET(request: Request) {
   const cronSecret = process.env.CRON_SECRET
   const authHeader = request.headers.get('authorization')
   if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) // i18n-ignore
   }
 
   try {
@@ -43,7 +45,7 @@ export async function GET(request: Request) {
             type: 'refund',
             amount: img.credits_used,
             balance_after: newBalance,
-            description: 'Refund automat — generare imagine timeout',
+            description: storedMessage('api.tx_refund_image_timeout'),
             reference_type: 'image_generation_timeout',
             reference_id: img.id,
           })
@@ -56,6 +58,6 @@ export async function GET(request: Request) {
     return NextResponse.json({ cleaned: stuck.length, refunded })
   } catch (err) {
     console.error('[Cron/ImageCleanup]', err)
-    return NextResponse.json({ error: 'Eroare' }, { status: 500 })
+    return NextResponse.json({ error: 'Eroare' }, { status: 500 }) // i18n-ignore
   }
 }

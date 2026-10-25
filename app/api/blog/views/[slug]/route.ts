@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { getT } from '@/lib/i18n/server'
 
 // ---------------------------------------------------------------------------
 // In-memory rate-limit store: Map<"ip:slug", timestamp>
@@ -28,11 +29,12 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ slug: string }> }
 ) {
+  const t = await getT()
   try {
     const { slug } = await params
 
     if (!slug) {
-      return NextResponse.json({ error: 'Slug is required' }, { status: 400 })
+      return NextResponse.json({ error: t('api.invalid_request') }, { status: 400 })
     }
 
     // Derive client IP (best-effort behind proxies / Vercel)
@@ -63,7 +65,7 @@ export async function POST(
 
     if (fetchError || !post) {
       viewRateLimit.delete(rateLimitKey)
-      return NextResponse.json({ error: 'Post not found' }, { status: 404 })
+      return NextResponse.json({ error: t('api.blog_post_not_found') }, { status: 404 })
     }
 
     // Increment views_count
@@ -75,12 +77,12 @@ export async function POST(
     if (updateError) {
       console.error('Blog view increment error:', updateError)
       viewRateLimit.delete(rateLimitKey)
-      return NextResponse.json({ error: 'Error incrementing views' }, { status: 500 })
+      return NextResponse.json({ error: t('api.blog_views_failed') }, { status: 500 })
     }
 
     return NextResponse.json({ success: true })
   } catch (err) {
     console.error('POST /api/blog/views/[slug] error:', err)
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
+    return NextResponse.json({ error: t('api.internal_error') }, { status: 500 })
   }
 }

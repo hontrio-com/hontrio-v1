@@ -3,12 +3,14 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/auth.config'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { stripe, CREDIT_PACKS } from '@/lib/stripe/client'
+import { getT } from '@/lib/i18n/server'
 
 export async function POST(request: Request) {
+  const t = await getT()
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user) {
-      return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
+      return NextResponse.json({ error: t('api.unauthorized') }, { status: 401 })
     }
 
     const { pack_id } = await request.json()
@@ -16,7 +18,7 @@ export async function POST(request: Request) {
     const userEmail = session.user.email
 
     if (!pack_id || !CREDIT_PACKS[pack_id]) {
-      return NextResponse.json({ error: 'Pachet invalid' }, { status: 400 })
+      return NextResponse.json({ error: t('api.invalid_pack') }, { status: 400 })
     }
 
     const packConfig = CREDIT_PACKS[pack_id]
@@ -54,9 +56,10 @@ export async function POST(request: Request) {
         {
           price_data: {
             currency: 'usd',
+            // Numele și descrierea apar pe pagina de plată Stripe, în limba omului
             product_data: {
-              name: `${packConfig.credits} HONTRIO Credits`,
-              description: `Pack of ${packConfig.credits} credits for AI generation`,
+              name: t('api.checkout_pack_name', { count: packConfig.credits }),
+              description: t('api.checkout_pack_description', { count: packConfig.credits }),
             },
             unit_amount: packConfig.priceInCents,
           },
@@ -77,7 +80,7 @@ export async function POST(request: Request) {
   } catch (error: any) {
     console.error('Stripe credits checkout error:', error)
     return NextResponse.json(
-      { error: error.message || 'Eroare la crearea sesiunii de plată' },
+      { error: error.message || t('api.checkout_failed') },
       { status: 500 }
     )
   }

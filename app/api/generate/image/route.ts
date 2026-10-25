@@ -7,6 +7,8 @@ import { KieClient } from '@/lib/kie/client'
 import { rateLimitExpensive } from '@/lib/security/rate-limit'
 // Note: rateLimitExpensive is now async but has sync fallback for backward compat
 import { canStartJob, markJobRunning, markJobDone } from '@/lib/security/ai-guard'
+import { getT } from '@/lib/i18n/server'
+import { storedMessage, translateStored } from '@/lib/i18n/stored'
 
 // ─── Cost per style ───────────────────────────────────────────────────────────
 const STYLE_COSTS: Record<string, number> = {
@@ -417,7 +419,8 @@ async function buildPromptWithGPT(params: {
   ]
   const variationHint = variationHints[Math.floor(Math.random() * variationHints.length)]
 
-  // Add brand context if available
+  // Add brand context if available (instrucțiuni pentru AI, în engleză, nu se afișează)
+  // i18n-ignore-start
   const brandContext = params.brandKit ? [
     '',
     '═══════════════════════════════════════════',
@@ -428,6 +431,7 @@ async function buildPromptWithGPT(params: {
     params.brandKit.tone ? `Brand tone: ${params.brandKit.tone} — let this influence the mood and atmosphere` : '',
     'IMPORTANT: Brand colors should appear in scene elements (background accents, props, lighting tint) but NEVER alter the product itself.',
   ].filter(Boolean) : []
+  // i18n-ignore-end
 
   // Add top-rated prompts feedback context if available
   const feedbackContext = (params.topRatedPrompts && params.topRatedPrompts.length > 0) ? [
@@ -522,10 +526,11 @@ async function buildPromptWithGPT(params: {
 }
 
 export async function POST(request: Request) {
+  const t = await getT()
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: t('api.unauthorized') }, { status: 401 })
     }
 
     const userId = (session.user as any).id
@@ -533,13 +538,13 @@ export async function POST(request: Request) {
     // Rate limit (async with Redis)
     const limit = await rateLimitExpensive(userId, 'image')
     if (!limit.success) {
-      return NextResponse.json({ error: 'Too many requests. Wait a minute.' }, { status: 429 })
+      return NextResponse.json({ error: t('api.rate_limited') }, { status: 429 })
     }
 
-    // Concurrent job limit
+    // Concurrent job limit (motivul din ai-guard e în engleză: omul primește mesajul tradus)
     const jobCheck = canStartJob(userId)
     if (!jobCheck.allowed) {
-      return NextResponse.json({ error: jobCheck.reason }, { status: 429 })
+      return NextResponse.json({ error: translateStored(t, jobCheck.reason) ?? t('api.jobs_busy') }, { status: 429 })
     }
 
     const body = await request.json()
@@ -552,10 +557,10 @@ export async function POST(request: Request) {
     } = body
 
     if (!style) {
-      return NextResponse.json({ error: 'Style is required' }, { status: 400 })
+      return NextResponse.json({ error: t('api.style_required') }, { status: 400 })
     }
     if (style === 'manual' && !manual_description?.trim()) {
-      return NextResponse.json({ error: 'Manual description is required for manual style' }, { status: 400 })
+      return NextResponse.json({ error: t('api.manual_description_required') }, { status: 400 })
     }
 
     const supabase = createAdminClient()
@@ -570,20 +575,20 @@ export async function POST(request: Request) {
 
     if (!user || user.credits < creditCost) {
       return NextResponse.json(
-        { error: `Insufficient credits. You need ${creditCost} credits.` },
+        { error: t('api.insufficient_credits_need', { count: creditCost }) },
         { status: 402 }
       )
     }
 
     // Atomically deduct credits via RPC — prevents race conditions
     const { data: newCreditsUpfront, error: deductError } = await supabase.rpc('deduct_credits', { p_user_id: userId, p_amount: creditCost })
-    if (deductError || newCreditsUpfront === null) return NextResponse.json({ error: 'Insufficient credits' }, { status: 402 })
+    if (deductError || newCreditsUpfront === null) return NextResponse.json({ error: t('api.insufficient_credits') }, { status: 402 })
     await supabase.from('credit_transactions').insert({
       user_id: userId,
       type: 'usage',
       amount: -creditCost,
       balance_after: newCreditsUpfront,
-      description: `AI Image Generation (reservation)`,
+      description: storedMessage('api.tx_image_reservation'),
       reference_type: 'image_generation',
     })
 
@@ -604,7 +609,7 @@ export async function POST(request: Request) {
         .single()
 
       if (!product) {
-        return NextResponse.json({ error: 'Product not found' }, { status: 404 })
+        return NextResponse.json({ error: t('api.product_not_found') }, { status: 404 })
       }
 
       productTitle = product.optimized_title || product.original_title || 'Product'
@@ -639,13 +644,13 @@ export async function POST(request: Request) {
         productTitle = 'Uploaded Product'
       } catch (err) {
         console.error('Upload error:', err)
-        return NextResponse.json({ error: 'Error uploading image' }, { status: 500 })
+        return NextResponse.json({ error: t('api.image_upload_failed') }, { status: 500 })
       }
     }
 
     if (!refImageUrl) {
       return NextResponse.json(
-        { error: 'Reference image is missing. Select or upload an image.' },
+        { error: t('api.reference_image_missing') },
         { status: 400 }
       )
     }
@@ -671,7 +676,7 @@ export async function POST(request: Request) {
     const jobKey = `${userId}:image:${productDbId || 'upload'}`
     if (!markJobRunning(jobKey)) {
       return NextResponse.json(
-        { error: 'An image is already being generated.' },
+        { error: t('api.image_already_generating') },
         { status: 409 }
       )
     }
@@ -700,7 +705,7 @@ export async function POST(request: Request) {
       markJobDone(jobKey)
       console.error('DB insert error:', insertError)
       return NextResponse.json(
-        { error: 'Error saving to the database: ' + (insertError?.message || 'unknown') },
+        { error: t('api.db_save_failed_detail', { detail: insertError?.message || t('api.unknown_error') }) },
         { status: 500 }
       )
     }
@@ -735,6 +740,7 @@ export async function POST(request: Request) {
         aspect_ratio: '1:1',
         resolution: '1K',
         output_format: 'png',
+        // i18n-ignore (instrucțiune pentru AI)
         negative_prompt: 'different product, redesigned product, generic product, wrong colors, wrong shape, wrong proportions, changed packaging, different labels, stylized product, cartoon, illustration, painting, wrong material finish, product alteration, product modification',
       })
 
@@ -771,7 +777,7 @@ export async function POST(request: Request) {
 
       console.error('Image generation error:', err)
       return NextResponse.json(
-        { error: 'Error generating image: ' + (err as Error).message },
+        { error: t('api.image_generation_failed_detail', { detail: (err as Error).message }) },
         { status: 500 }
       )
     }
@@ -780,7 +786,7 @@ export async function POST(request: Request) {
   } catch (err) {
     console.error('Generate image route error:', err)
     return NextResponse.json(
-      { error: 'Internal error: ' + (err as Error).message },
+      { error: t('api.internal_error_detail', { detail: (err as Error).message }) },
       { status: 500 }
     )
   }

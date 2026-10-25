@@ -2,15 +2,17 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/auth.config'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { KieClient } from '@/lib/kie/client'
+import { getT } from '@/lib/i18n/server'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 // GET /api/generate/progress?task_id=xxx&image_record_id=xxx
 export async function GET(request: Request) {
+  const t = await getT()
   const session = await getServerSession(authOptions)
   if (!session?.user) {
-    return new Response('Unauthorized', { status: 401 })
+    return new Response(t('api.unauthorized'), { status: 401 })
   }
 
   const { searchParams } = new URL(request.url)
@@ -18,7 +20,7 @@ export async function GET(request: Request) {
   const imageRecordId = searchParams.get('image_record_id')
 
   if (!taskId) {
-    return new Response('task_id required', { status: 400 })
+    return new Response(t('api.invalid_request'), { status: 400 })
   }
 
   const encoder = new TextEncoder()
@@ -36,9 +38,9 @@ export async function GET(request: Request) {
 
       // Phase labels for UI
       const phases = [
-        { state: 'waiting',    pct: 5,  label: 'Se asazã în coadã...' },
-        { state: 'queuing',    pct: 15, label: 'Se pregateste generarea...' },
-        { state: 'generating', pct: 40, label: 'AI construieste imaginea...' },
+        { state: 'waiting',    pct: 5,  label: t('api.generation_queued') },
+        { state: 'queuing',    pct: 15, label: t('api.generation_preparing') },
+        { state: 'generating', pct: 40, label: t('api.generation_building') },
       ]
 
       // Send initial event
@@ -50,7 +52,7 @@ export async function GET(request: Request) {
       while (true) {
         const elapsed = Date.now() - startTime
         if (elapsed > maxWait) {
-          controller.enqueue(send({ type: 'timeout', message: 'Generarea dureaza prea mult. Revino in câteva minute.' }))
+          controller.enqueue(send({ type: 'timeout', message: t('api.generation_timeout') }))
           controller.close()
           return
         }
@@ -72,7 +74,7 @@ export async function GET(request: Request) {
               type: 'progress',
               state: task.state,
               pct: progressPct,
-              label: phase?.label || 'Se proceseaza...',
+              label: phase?.label || t('common.processing'),
             }))
             lastState = task.state
           } else if (task.state === 'generating') {
@@ -81,7 +83,7 @@ export async function GET(request: Request) {
               type: 'progress',
               state: task.state,
               pct: Math.round(progressPct),
-              label: 'AI construieste imaginea...',
+              label: t('api.generation_building'),
             }))
           }
 
@@ -122,14 +124,14 @@ export async function GET(request: Request) {
             }
             controller.enqueue(send({
               type: 'error',
-              message: task.failMsg || 'Generarea a eșuat',
+              message: task.failMsg || t('api.generation_failed'),
             }))
             controller.close()
             return
           }
 
         } catch (err: any) {
-          controller.enqueue(send({ type: 'error', message: err.message || 'Eroare la verificarea statusului' }))
+          controller.enqueue(send({ type: 'error', message: err.message || t('api.generation_status_failed') }))
           controller.close()
           return
         }

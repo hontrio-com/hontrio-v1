@@ -2,12 +2,14 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/auth.config'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { getT } from '@/lib/i18n/server'
 
 export async function POST(request: Request) {
+  const t = await getT()
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user) {
-      return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
+      return NextResponse.json({ error: t('api.unauthorized') }, { status: 401 })
     }
 
     const userId = (session.user as any).id
@@ -15,18 +17,18 @@ export async function POST(request: Request) {
     const file = (formData.get('file') || formData.get('avatar')) as File
 
     if (!file) {
-      return NextResponse.json({ error: 'Niciun fișier selectat' }, { status: 400 })
+      return NextResponse.json({ error: t('api.no_file') }, { status: 400 })
     }
 
     // Validate file type
     const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
     if (!allowedTypes.includes(file.type)) {
-      return NextResponse.json({ error: 'Format neacceptat. Folosește JPG, PNG, WebP sau GIF.' }, { status: 400 })
+      return NextResponse.json({ error: t('api.file_type_images') }, { status: 400 })
     }
 
     // Validate file size (max 2MB)
     if (file.size > 2 * 1024 * 1024) {
-      return NextResponse.json({ error: 'Fișierul este prea mare. Maxim 2MB.' }, { status: 400 })
+      return NextResponse.json({ error: t('api.file_too_large', { size: 2 }) }, { status: 400 })
     }
 
     const supabase = createAdminClient()
@@ -49,7 +51,7 @@ export async function POST(request: Request) {
 
     if (uploadError) {
       console.error('Upload error:', uploadError)
-      return NextResponse.json({ error: 'Eroare la încărcarea fișierului' }, { status: 500 })
+      return NextResponse.json({ error: t('api.upload_failed') }, { status: 500 })
     }
 
     // Get public URL
@@ -65,12 +67,12 @@ export async function POST(request: Request) {
 
     if (updateError) {
       console.error('Profile update error:', updateError)
-      return NextResponse.json({ error: 'Eroare la actualizarea profilului' }, { status: 500 })
+      return NextResponse.json({ error: t('api.profile_update_failed') }, { status: 500 })
     }
 
     return NextResponse.json({ url: publicUrl, avatar_url: publicUrl })
   } catch (err) {
     console.error('Avatar upload error:', err)
-    return NextResponse.json({ error: 'Eroare internă' }, { status: 500 })
+    return NextResponse.json({ error: t('api.internal_error') }, { status: 500 })
   }
 }

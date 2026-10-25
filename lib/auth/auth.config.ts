@@ -58,9 +58,10 @@ export const authOptions: NextAuthOptions = {
     }),
     CredentialsProvider({
       name: 'credentials',
+      // Etichetele apar doar în formularul implicit NextAuth, nefolosit (autentificarea are pagina ei, tradusă)
       credentials: {
-        email: { label: 'Email', type: 'email' },
-        password: { label: 'Password', type: 'password' },
+        email: { label: 'Email', type: 'email' }, // i18n-ignore
+        password: { label: 'Password', type: 'password' }, // i18n-ignore
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null
@@ -226,7 +227,7 @@ export const authOptions: NextAuthOptions = {
 
   pages: {
     signIn: '/login',
-    error: '/login',
+    error: '/login', // i18n-ignore (o adresă, nu un text)
   },
 
   session: {

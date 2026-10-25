@@ -2,15 +2,18 @@ import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
 import { stripe, STRIPE_PLANS, CREDIT_PACKS } from '@/lib/stripe/client'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { storedMessage } from '@/lib/i18n/stored'
 import Stripe from 'stripe'
 
+// Răspunsurile de aici sunt pentru Stripe, nu pentru oameni. Descrierile tranzacțiilor
+// de credite se salvează ca chei de traducere (omul le vede în limba lui).
 export async function POST(request: Request) {
   const body = await request.text()
   const headersList = await headers()
   const signature = headersList.get('stripe-signature')
 
   if (!signature || !process.env.STRIPE_WEBHOOK_SECRET) {
-    return NextResponse.json({ error: 'Missing signature or webhook secret' }, { status: 400 })
+    return NextResponse.json({ error: 'Missing signature or webhook secret' }, { status: 400 }) // i18n-ignore
   }
 
   let event: Stripe.Event
@@ -23,7 +26,7 @@ export async function POST(request: Request) {
     )
   } catch (err: any) {
     console.error('Webhook signature verification failed:', err.message)
-    return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
+    return NextResponse.json({ error: 'Invalid signature' }, { status: 400 }) // i18n-ignore
   }
 
   const supabase = createAdminClient()
@@ -69,7 +72,7 @@ export async function POST(request: Request) {
               type: 'purchase',
               amount: planConfig.credits,
               balance_after: newCredits,
-              description: `Abonament ${planConfig.name} — ${planConfig.credits} credite`,
+              description: storedMessage('api.tx_subscription', { plan: planConfig.name, count: planConfig.credits }),
               reference_type: 'subscription',
             })
           }
@@ -101,7 +104,7 @@ export async function POST(request: Request) {
               type: 'purchase',
               amount: credits,
               balance_after: newCredits,
-              description: `Pachet ${credits} credite cumpărat`,
+              description: storedMessage('api.tx_pack_purchased', { count: credits }),
               reference_type: 'credit_purchase',
             })
           }
@@ -139,7 +142,7 @@ export async function POST(request: Request) {
               type: 'purchase',
               amount: planCredits,
               balance_after: newCredits,
-              description: `Reînnoire abonament ${STRIPE_PLANS[user.plan].name} — ${planCredits} credite`,
+              description: storedMessage('api.tx_subscription_renewal', { plan: STRIPE_PLANS[user.plan].name, count: planCredits }),
               reference_type: 'subscription_renewal',
             })
           }
@@ -174,7 +177,7 @@ export async function POST(request: Request) {
             type: 'usage',
             amount: 0,
             balance_after: cancelledUser?.credits ?? 0,
-            description: 'Abonament anulat — plan schimbat la Free (creditele rămân)',
+            description: storedMessage('api.tx_subscription_cancelled'),
             reference_type: 'subscription_cancelled',
           })
         }
@@ -199,7 +202,7 @@ export async function POST(request: Request) {
               type: 'usage',
               amount: 0,
               balance_after: 0,
-              description: 'Plata abonamentului a eșuat',
+              description: storedMessage('api.tx_payment_failed'),
               reference_type: 'payment_failed',
             })
           }
@@ -209,7 +212,7 @@ export async function POST(request: Request) {
     }
   } catch (error) {
     console.error('Webhook processing error:', error)
-    return NextResponse.json({ error: 'Webhook processing error' }, { status: 500 })
+    return NextResponse.json({ error: 'Webhook processing error' }, { status: 500 }) // i18n-ignore
   }
 
   return NextResponse.json({ received: true })

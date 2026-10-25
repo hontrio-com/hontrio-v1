@@ -4,12 +4,14 @@ import { authOptions } from '@/lib/auth/auth.config'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import slugify from 'slugify'
+import { getT } from '@/lib/i18n/server'
 
 // ---------------------------------------------------------------------------
 // GET /api/blog/tags — Public
 // Returns all tags with a count of published posts.
 // ---------------------------------------------------------------------------
 export async function GET(request: Request) {
+  const t = await getT()
   try {
     const { searchParams } = new URL(request.url)
     const q = searchParams.get('q') || ''
@@ -29,7 +31,7 @@ export async function GET(request: Request) {
 
     if (error) {
       console.error('Blog tags fetch error:', error)
-      return NextResponse.json({ error: 'Error loading tags' }, { status: 500 })
+      return NextResponse.json({ error: t('api.blog_tags_load_failed') }, { status: 500 })
     }
 
     // To get an accurate published posts count per tag we run a dedicated query
@@ -59,7 +61,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ tags: result })
   } catch (err) {
     console.error('GET /api/blog/tags error:', err)
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
+    return NextResponse.json({ error: t('api.internal_error') }, { status: 500 })
   }
 }
 
@@ -68,18 +70,19 @@ export async function GET(request: Request) {
 // Body: { name, description?, color? }
 // ---------------------------------------------------------------------------
 export async function POST(request: Request) {
+  const t = await getT()
   try {
     const session = await getServerSession(authOptions)
     const userRole = (session?.user as any)?.role
     if (userRole !== 'admin') {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      return NextResponse.json({ error: t('api.forbidden') }, { status: 403 })
     }
 
     const body = await request.json()
     const { name, description, color } = body
 
     if (!name) {
-      return NextResponse.json({ error: 'Name is required' }, { status: 400 })
+      return NextResponse.json({ error: t('api.name_required') }, { status: 400 })
     }
 
     const supabase = createAdminClient()
@@ -111,13 +114,13 @@ export async function POST(request: Request) {
 
     if (error) {
       console.error('Blog tag insert error:', error)
-      return NextResponse.json({ error: 'Error creating tag' }, { status: 500 })
+      return NextResponse.json({ error: t('api.blog_tag_create_failed') }, { status: 500 })
     }
 
     return NextResponse.json({ tag }, { status: 201 })
   } catch (err) {
     console.error('POST /api/blog/tags error:', err)
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
+    return NextResponse.json({ error: t('api.internal_error') }, { status: 500 })
   }
 }
 
@@ -126,18 +129,19 @@ export async function POST(request: Request) {
 // Body: { id, name, description?, color?, slug? }
 // ---------------------------------------------------------------------------
 export async function PUT(request: Request) {
+  const t = await getT()
   try {
     const session = await getServerSession(authOptions)
     const userRole = (session?.user as any)?.role
     if (userRole !== 'admin') {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      return NextResponse.json({ error: t('api.forbidden') }, { status: 403 })
     }
 
     const body = await request.json()
     const { id, name, description, color, slug: slugOverride } = body
 
     if (!id) {
-      return NextResponse.json({ error: 'Tag id is required' }, { status: 400 })
+      return NextResponse.json({ error: t('api.invalid_request') }, { status: 400 })
     }
 
     const supabase = createAdminClient()
@@ -176,13 +180,13 @@ export async function PUT(request: Request) {
 
     if (error) {
       console.error('Blog tag update error:', error)
-      return NextResponse.json({ error: 'Error updating tag' }, { status: 500 })
+      return NextResponse.json({ error: t('api.blog_tag_update_failed') }, { status: 500 })
     }
 
     return NextResponse.json({ tag })
   } catch (err) {
     console.error('PUT /api/blog/tags error:', err)
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
+    return NextResponse.json({ error: t('api.internal_error') }, { status: 500 })
   }
 }
 
@@ -191,18 +195,19 @@ export async function PUT(request: Request) {
 // Body: { id }
 // ---------------------------------------------------------------------------
 export async function DELETE(request: Request) {
+  const t = await getT()
   try {
     const session = await getServerSession(authOptions)
     const userRole = (session?.user as any)?.role
     if (userRole !== 'admin') {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      return NextResponse.json({ error: t('api.forbidden') }, { status: 403 })
     }
 
     const body = await request.json()
     const { id } = body
 
     if (!id) {
-      return NextResponse.json({ error: 'Tag id is required' }, { status: 400 })
+      return NextResponse.json({ error: t('api.invalid_request') }, { status: 400 })
     }
 
     const supabase = createAdminClient()
@@ -215,19 +220,19 @@ export async function DELETE(request: Request) {
 
     if (unlinkError) {
       console.error('Blog tag unlink error:', unlinkError)
-      return NextResponse.json({ error: 'Error unlinking posts from tag' }, { status: 500 })
+      return NextResponse.json({ error: t('api.blog_tag_unlink_failed') }, { status: 500 })
     }
 
     const { error } = await supabase.from('blog_tags').delete().eq('id', id)
 
     if (error) {
       console.error('Blog tag delete error:', error)
-      return NextResponse.json({ error: 'Error deleting tag' }, { status: 500 })
+      return NextResponse.json({ error: t('api.blog_tag_delete_failed') }, { status: 500 })
     }
 
     return NextResponse.json({ success: true })
   } catch (err) {
     console.error('DELETE /api/blog/tags error:', err)
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
+    return NextResponse.json({ error: t('api.internal_error') }, { status: 500 })
   }
 }

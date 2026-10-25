@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/auth.config'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { getT } from '@/lib/i18n/server'
+import { translateStored } from '@/lib/i18n/stored'
 
 const STYLE_COSTS: Record<string, number> = {
   white_bg: 2, lifestyle: 3, premium_dark: 3, industrial: 3, seasonal: 4, manual: 3,
@@ -9,9 +11,10 @@ const STYLE_COSTS: Record<string, number> = {
 
 // POST — create bulk job
 export async function POST(request: Request) {
+  const t = await getT()
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (!session?.user) return NextResponse.json({ error: t('api.unauthorized') }, { status: 401 })
     const userId = (session.user as any).id
     const supabase = createAdminClient()
 
@@ -24,7 +27,7 @@ export async function POST(request: Request) {
       max_products = 100,
     } = await request.json()
 
-    if (!style) return NextResponse.json({ error: 'Style is required' }, { status: 400 })
+    if (!style) return NextResponse.json({ error: t('api.style_required') }, { status: 400 })
     const creditCost = STYLE_COSTS[style] || 3
 
     // FIX: Cap max_products server-side — clientul nu poate cere mai mult de 200
@@ -64,7 +67,7 @@ export async function POST(request: Request) {
     }
 
     if (products.length === 0) {
-      return NextResponse.json({ error: 'No products selected for processing' }, { status: 400 })
+      return NextResponse.json({ error: t('api.no_products_selected') }, { status: 400 })
     }
 
     const creditsEstimated = products.length * creditCost
@@ -73,7 +76,7 @@ export async function POST(request: Request) {
     const { data: user } = await supabase.from('users').select('credits').eq('id', userId).single()
     if (!user || user.credits < creditsEstimated) {
       return NextResponse.json({
-        error: `Insufficient credits. Estimated: ${creditsEstimated}, available: ${user?.credits || 0}`,
+        error: t('api.insufficient_credits_estimate', { needed: creditsEstimated, available: user?.credits || 0 }),
         credits_needed: creditsEstimated,
         credits_available: user?.credits || 0,
       }, { status: 400 })
@@ -95,7 +98,7 @@ export async function POST(request: Request) {
       .select()
       .single()
 
-    if (jobErr || !job) return NextResponse.json({ error: 'Error creating job' }, { status: 500 })
+    if (jobErr || !job) return NextResponse.json({ error: t('api.bulk_job_create_failed') }, { status: 500 })
 
     // Create items
     const items = products.map(p => ({
@@ -117,15 +120,16 @@ export async function POST(request: Request) {
     })
   } catch (err: any) {
     console.error('[BulkCreate]', err)
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
+    return NextResponse.json({ error: t('api.internal_error') }, { status: 500 })
   }
 }
 
 // GET — list jobs with progress
 export async function GET(request: Request) {
+  const t = await getT()
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (!session?.user) return NextResponse.json({ error: t('api.unauthorized') }, { status: 401 })
     const userId = (session.user as any).id
     const supabase = createAdminClient()
     const { searchParams } = new URL(request.url)
@@ -146,7 +150,8 @@ export async function GET(request: Request) {
         .eq('job_id', jobId)
         .order('created_at')
 
-      return NextResponse.json({ job, items: items || [] })
+      // Erorile produselor sunt salvate ca chei de traducere (de cron): se trimit în limba omului
+      return NextResponse.json({ job, items: (items || []).map(i => ({ ...i, error_message: translateStored(t, i.error_message) })) })
     }
 
     // List all jobs
@@ -159,15 +164,16 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ jobs: jobs || [] })
   } catch {
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
+    return NextResponse.json({ error: t('api.internal_error') }, { status: 500 })
   }
 }
 
 // DELETE — cancel a queued job
 export async function DELETE(request: Request) {
+  const t = await getT()
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (!session?.user) return NextResponse.json({ error: t('api.unauthorized') }, { status: 401 })
     const userId = (session.user as any).id
     const { id } = await request.json()
     const supabase = createAdminClient()
@@ -187,6 +193,6 @@ export async function DELETE(request: Request) {
 
     return NextResponse.json({ success: true })
   } catch {
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
+    return NextResponse.json({ error: t('api.internal_error') }, { status: 500 })
   }
 }

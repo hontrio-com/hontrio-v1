@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/auth.config'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { getT } from '@/lib/i18n/server'
 
 // ---------------------------------------------------------------------------
 // GET /api/blog/posts/[id]
@@ -11,6 +12,7 @@ export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const t = await getT()
   try {
     const { id } = await params
 
@@ -38,13 +40,13 @@ export async function GET(
     const { data: post, error } = await query.single()
 
     if (error || !post) {
-      return NextResponse.json({ error: 'Post not found' }, { status: 404 })
+      return NextResponse.json({ error: t('api.blog_post_not_found') }, { status: 404 })
     }
 
     return NextResponse.json({ post })
   } catch (err) {
     console.error('GET /api/blog/posts/[id] error:', err)
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
+    return NextResponse.json({ error: t('api.internal_error') }, { status: 500 })
   }
 }
 
@@ -55,13 +57,14 @@ export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const t = await getT()
   try {
     const { id } = await params
 
     const session = await getServerSession(authOptions)
     const userRole = (session?.user as any)?.role
     if (userRole !== 'admin') {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      return NextResponse.json({ error: t('api.forbidden') }, { status: 403 })
     }
 
     const body = await request.json()
@@ -92,7 +95,7 @@ export async function PUT(
       .single()
 
     if (fetchError || !existing) {
-      return NextResponse.json({ error: 'Post not found' }, { status: 404 })
+      return NextResponse.json({ error: t('api.blog_post_not_found') }, { status: 404 })
     }
 
     // Recalculate read time if content provided
@@ -146,7 +149,7 @@ export async function PUT(
 
     if (updateError) {
       console.error('Blog post update error:', updateError)
-      return NextResponse.json({ error: 'Error updating post' }, { status: 500 })
+      return NextResponse.json({ error: t('api.blog_post_update_failed') }, { status: 500 })
     }
 
     // Handle tags: replace all existing with new set
@@ -176,7 +179,7 @@ export async function PUT(
     return NextResponse.json({ post })
   } catch (err) {
     console.error('PUT /api/blog/posts/[id] error:', err)
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
+    return NextResponse.json({ error: t('api.internal_error') }, { status: 500 })
   }
 }
 
@@ -187,13 +190,14 @@ export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const t = await getT()
   try {
     const { id } = await params
 
     const session = await getServerSession(authOptions)
     const userRole = (session?.user as any)?.role
     if (userRole !== 'admin') {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      return NextResponse.json({ error: t('api.forbidden') }, { status: 403 })
     }
 
     const supabase = createAdminClient()
@@ -205,12 +209,12 @@ export async function DELETE(
 
     if (error) {
       console.error('Blog post delete error:', error)
-      return NextResponse.json({ error: 'Error deleting post' }, { status: 500 })
+      return NextResponse.json({ error: t('api.blog_post_delete_failed') }, { status: 500 })
     }
 
     return NextResponse.json({ success: true })
   } catch (err) {
     console.error('DELETE /api/blog/posts/[id] error:', err)
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
+    return NextResponse.json({ error: t('api.internal_error') }, { status: 500 })
   }
 }

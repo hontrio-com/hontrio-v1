@@ -2,13 +2,15 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/auth.config'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { getT } from '@/lib/i18n/server'
 
 // POST - generate before/after composite
 // Returns composite image URL saved to Supabase Storage
 export async function POST(request: Request) {
+  const t = await getT()
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user) return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
+    if (!session?.user) return NextResponse.json({ error: t('api.unauthorized') }, { status: 401 })
     const userId = (session.user as any).id
     const supabase = createAdminClient()
 
@@ -22,7 +24,7 @@ export async function POST(request: Request) {
       .single()
 
     if (!img || !img.generated_image_url || !img.original_image_url) {
-      return NextResponse.json({ error: 'Imaginea sau referința lipsesc' }, { status: 404 })
+      return NextResponse.json({ error: t('api.image_or_reference_missing') }, { status: 404 })
     }
 
     // Fetch both images
@@ -32,13 +34,17 @@ export async function POST(request: Request) {
     ])
 
     if (!beforeBuf || !afterBuf) {
-      return NextResponse.json({ error: 'Nu pot descărca imaginile' }, { status: 500 })
+      return NextResponse.json({ error: t('api.images_download_failed') }, { status: 500 })
     }
 
     // Build composite using pure JS (no canvas dependency needed)
     // We return the two URLs + metadata, let frontend render the slider
     // Server generates a static 2:1 side-by-side PNG using sharp if available
-    const composite = await buildComposite(beforeBuf, afterBuf, brand_name)
+    // Etichetele scrise pe imagine sunt în limba omului
+    const composite = await buildComposite(beforeBuf, afterBuf, brand_name, {
+      before: t('api.before_label'),
+      after: t('api.after_label'),
+    })
 
     if (composite) {
       // Upload composite to storage
@@ -67,7 +73,7 @@ export async function POST(request: Request) {
     })
   } catch (err: any) {
     console.error('[BeforeAfter]', err)
-    return NextResponse.json({ error: 'Eroare internă' }, { status: 500 })
+    return NextResponse.json({ error: t('api.internal_error') }, { status: 500 })
   }
 }
 
@@ -79,7 +85,7 @@ async function fetchImageBuffer(url: string): Promise<Buffer | null> {
   } catch { return null }
 }
 
-async function buildComposite(before: Buffer, after: Buffer, brandName?: string): Promise<Buffer | null> {
+async function buildComposite(before: Buffer, after: Buffer, brandName: string | undefined, labels: { before: string; after: string }): Promise<Buffer | null> {
   try {
     // Try to use sharp if available (it's a common Next.js dep)
     const sharp = require('sharp')
@@ -105,10 +111,10 @@ async function buildComposite(before: Buffer, after: Buffer, brandName?: string)
         <!-- Labels -->
         <text x="${SIZE / 2}" y="${SIZE + 26}" 
           font-family="system-ui,sans-serif" font-size="14" font-weight="600"
-          fill="#9ca3af" text-anchor="middle">ÎNAINTE</text>
+          fill="#9ca3af" text-anchor="middle">${labels.before}</text>
         <text x="${SIZE + GAP + SIZE / 2}" y="${SIZE + 26}" 
           font-family="system-ui,sans-serif" font-size="14" font-weight="600"
-          fill="#60a5fa" text-anchor="middle">DUPĂ — AI ${brandName ? `· ${brandName}` : ''}</text>
+          fill="#60a5fa" text-anchor="middle">${labels.after} ${brandName ? `· ${brandName}` : ''}</text>
         <!-- Divider line -->
         <rect x="${SIZE}" y="0" width="${GAP}" height="${SIZE}" fill="#374151"/>
       </svg>`

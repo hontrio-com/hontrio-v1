@@ -2,15 +2,17 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/auth.config'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { getT } from '@/lib/i18n/server'
 
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const t = await getT()
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: t('api.unauthorized') }, { status: 401 })
     }
 
     const { id } = await params
@@ -25,7 +27,7 @@ export async function GET(
       .order('variant_name', { ascending: true })
 
     if (error) {
-      return NextResponse.json({ error: 'Error' }, { status: 500 })
+      return NextResponse.json({ error: t('api.variations_load_failed') }, { status: 500 })
     }
 
     // Get generated images for variations
@@ -58,6 +60,6 @@ export async function GET(
 
     return NextResponse.json({ variations: enriched })
   } catch {
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
+    return NextResponse.json({ error: t('api.internal_error') }, { status: 500 })
   }
 }

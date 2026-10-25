@@ -3,12 +3,15 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/auth.config'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getActiveStore } from '@/lib/stores/active'
+import { getT } from '@/lib/i18n/server'
+import { translateStored } from '@/lib/i18n/stored'
 
 export async function GET() {
+  const t = await getT()
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user) {
-      return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
+      return NextResponse.json({ error: t('api.unauthorized') }, { status: 401 })
     }
 
     const supabase = createAdminClient()
@@ -100,12 +103,12 @@ export async function GET() {
       totalImages: imagesRes.count || 0,
       creditsRemaining: userRes.data?.credits || 0,
       recentProducts: (recentProductsRes.data || []).map(p => ({ id: p.id, original_title: p.original_title, optimized_title: p.optimized_title, status: p.status, original_images: p.original_images })),
-      recentTransactions: (transactionsRes.data || []).slice(0, 6).map((t: any) => ({ description: t.description, amount: t.amount, created_at: t.created_at, reference_type: t.reference_type, type: t.type })),
+      recentTransactions: (transactionsRes.data || []).slice(0, 6).map((tx: any) => ({ description: translateStored(t, tx.description), amount: tx.amount, created_at: tx.created_at, reference_type: tx.reference_type, type: tx.type })),
       store: storeRes.data ? { id: storeRes.data.id, store_url: storeRes.data.store_url, store_name: storeRes.data.store_url, sync_status: storeRes.data.sync_status, last_sync_at: storeRes.data.last_sync_at, products_count: storeRes.data.products_count, platform: storeRes.data.platform } : null,
       onboardingChecklist, onboardingProgress, onboardingComplete,
       aiInsight: insights[0] || null,
     })
   } catch {
-    return NextResponse.json({ error: 'Eroare internă' }, { status: 500 })
+    return NextResponse.json({ error: t('api.internal_error') }, { status: 500 })
   }
 }

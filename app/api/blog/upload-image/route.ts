@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/auth.config'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { getT } from '@/lib/i18n/server'
 
 const ALLOWED_TYPES: Record<string, string> = {
   'image/jpeg': 'jpg',
@@ -18,25 +19,26 @@ const MAX_SIZE_BYTES = 5 * 1024 * 1024 // 5 MB
 // Accepts multipart/form-data with a 'file' field.
 // ---------------------------------------------------------------------------
 export async function POST(request: Request) {
+  const t = await getT()
   try {
     const session = await getServerSession(authOptions)
     const userRole = (session?.user as any)?.role
     if (userRole !== 'admin') {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      return NextResponse.json({ error: t('api.forbidden') }, { status: 403 })
     }
 
     const formData = await request.formData()
     const file = formData.get('file') as File | null
 
     if (!file) {
-      return NextResponse.json({ error: 'No file provided' }, { status: 400 })
+      return NextResponse.json({ error: t('api.no_file') }, { status: 400 })
     }
 
     // Validate MIME type
     const ext = ALLOWED_TYPES[file.type]
     if (!ext) {
       return NextResponse.json(
-        { error: 'Invalid file type. Only JPG, PNG, WebP and GIF are allowed.' },
+        { error: t('api.file_type_images') },
         { status: 400 }
       )
     }
@@ -44,7 +46,7 @@ export async function POST(request: Request) {
     // Validate file size
     if (file.size > MAX_SIZE_BYTES) {
       return NextResponse.json(
-        { error: 'File exceeds maximum size of 5 MB.' },
+        { error: t('api.file_too_large', { size: 5 }) },
         { status: 400 }
       )
     }
@@ -71,7 +73,7 @@ export async function POST(request: Request) {
 
     if (error) {
       console.error('Blog image upload error:', error)
-      return NextResponse.json({ error: 'Upload failed: ' + error.message }, { status: 500 })
+      return NextResponse.json({ error: t('api.upload_failed_detail', { detail: error.message }) }, { status: 500 })
     }
 
     const { data: urlData } = supabase.storage
@@ -84,6 +86,6 @@ export async function POST(request: Request) {
     })
   } catch (err) {
     console.error('POST /api/blog/upload-image error:', err)
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
+    return NextResponse.json({ error: t('api.internal_error') }, { status: 500 })
   }
 }

@@ -2,13 +2,15 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/auth.config'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { getT } from '@/lib/i18n/server'
 
 // GET - fetch notifications for the logged-in user (personal + global)
 export async function GET() {
+  const t = await getT()
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user) {
-      return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
+      return NextResponse.json({ error: t('api.unauthorized') }, { status: 401 })
     }
 
     const userId = (session.user as any).id
@@ -24,7 +26,7 @@ export async function GET() {
 
     if (error) {
       console.error('Notifications fetch error:', error)
-      return NextResponse.json({ error: 'Eroare la încărcare' }, { status: 500 })
+      return NextResponse.json({ error: t('api.notifications_load_failed') }, { status: 500 })
     }
 
     const unreadCount = (notifications || []).filter(n => !n.is_read).length
@@ -34,23 +36,24 @@ export async function GET() {
       unreadCount,
     })
   } catch {
-    return NextResponse.json({ error: 'Eroare internă' }, { status: 500 })
+    return NextResponse.json({ error: t('api.internal_error') }, { status: 500 })
   }
 }
 
 // POST - send a notification (admin only)
 export async function POST(request: Request) {
+  const t = await getT()
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user || (session.user as any).role !== 'admin') {
-      return NextResponse.json({ error: 'Acces interzis' }, { status: 403 })
+      return NextResponse.json({ error: t('api.forbidden') }, { status: 403 })
     }
 
     const adminId = (session.user as any).id
     const { user_id, title, message, type, is_global } = await request.json()
 
     if (!title || !message) {
-      return NextResponse.json({ error: 'Titlul și mesajul sunt obligatorii' }, { status: 400 })
+      return NextResponse.json({ error: t('api.title_message_required') }, { status: 400 })
     }
 
     const supabase = createAdminClient()
@@ -72,14 +75,14 @@ export async function POST(request: Request) {
 
       if (error) {
         console.error('Global notification error:', error)
-        return NextResponse.json({ error: 'Eroare la trimitere' }, { status: 500 })
+        return NextResponse.json({ error: t('api.notification_send_failed') }, { status: 500 })
       }
 
-      return NextResponse.json({ notification: data, message: 'Notificare globală trimisă cu succes!' })
+      return NextResponse.json({ notification: data, message: t('api.notification_sent_global') })
     } else {
       // Personal notification to specific user
       if (!user_id) {
-        return NextResponse.json({ error: 'ID utilizator lipsă' }, { status: 400 })
+        return NextResponse.json({ error: t('api.user_id_missing') }, { status: 400 })
       }
 
       // Verify user exists
@@ -90,7 +93,7 @@ export async function POST(request: Request) {
         .single()
 
       if (!user) {
-        return NextResponse.json({ error: 'Utilizatorul nu a fost găsit' }, { status: 404 })
+        return NextResponse.json({ error: t('api.user_not_found') }, { status: 404 })
       }
 
       const { data, error } = await supabase
@@ -108,22 +111,23 @@ export async function POST(request: Request) {
 
       if (error) {
         console.error('Notification error:', error)
-        return NextResponse.json({ error: 'Eroare la trimitere' }, { status: 500 })
+        return NextResponse.json({ error: t('api.notification_send_failed') }, { status: 500 })
       }
 
-      return NextResponse.json({ notification: data, message: 'Notificare trimisă cu succes!' })
+      return NextResponse.json({ notification: data, message: t('api.notification_sent') })
     }
   } catch {
-    return NextResponse.json({ error: 'Eroare internă' }, { status: 500 })
+    return NextResponse.json({ error: t('api.internal_error') }, { status: 500 })
   }
 }
 
 // PATCH - mark notifications as read
 export async function PATCH(request: Request) {
+  const t = await getT()
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user) {
-      return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
+      return NextResponse.json({ error: t('api.unauthorized') }, { status: 401 })
     }
 
     const userId = (session.user as any).id
@@ -150,8 +154,8 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ success: true })
     }
 
-    return NextResponse.json({ error: 'Nimic de actualizat' }, { status: 400 })
+    return NextResponse.json({ error: t('api.nothing_to_update') }, { status: 400 })
   } catch {
-    return NextResponse.json({ error: 'Eroare internă' }, { status: 500 })
+    return NextResponse.json({ error: t('api.internal_error') }, { status: 500 })
   }
 }

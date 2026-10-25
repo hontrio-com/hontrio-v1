@@ -3,15 +3,19 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { rateLimit, getClientIp } from '@/lib/security/rate-limit'
 import { sendEmail, buildResetEmail } from '@/lib/email'
 import crypto from 'crypto'
+import { getLocale, tFor } from '@/lib/i18n/server'
 
 export async function POST(request: Request) {
+  // Limba cererii: și pentru mesajele de aici, și pentru e-mailul de resetare
+  const locale = await getLocale()
+  const t = tFor(locale)
   try {
     // Rate limit: 3 attempts per 15 min per IP
     const ip = getClientIp(request)
     const limit = rateLimit(`forgot:${ip}`, 3, 15 * 60 * 1000)
     if (!limit.success) {
       return NextResponse.json(
-        { error: 'Too many requests. Please try again later.' },
+        { error: t('api.too_many_attempts') },
         { status: 429 }
       )
     }
@@ -19,7 +23,7 @@ export async function POST(request: Request) {
     const { email } = await request.json()
 
     if (!email) {
-      return NextResponse.json({ error: 'Email is required' }, { status: 400 })
+      return NextResponse.json({ error: t('api.email_required') }, { status: 400 })
     }
 
     const supabase = createAdminClient()
@@ -60,17 +64,16 @@ export async function POST(request: Request) {
       // Send email
       await sendEmail({
         to: cleanEmail,
-        subject: 'Reset your password — Hontrio',
-        html: buildResetEmail(resetUrl),
+        ...buildResetEmail(resetUrl, locale),
       })
     }
 
     return NextResponse.json({
       success: true,
-      message: 'If this email exists in our system, you will receive reset instructions.',
+      message: t('api.reset_email_sent'),
     })
   } catch (err) {
     console.error('[Forgot Password]', err)
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
+    return NextResponse.json({ error: t('api.internal_error') }, { status: 500 })
   }
 }

@@ -3,12 +3,14 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/auth.config'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { rateLimitExpensive } from '@/lib/security/rate-limit'
+import { getT } from '@/lib/i18n/server'
 
 export async function POST(request: Request) {
+  const t = await getT()
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user) {
-      return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
+      return NextResponse.json({ error: t('api.unauthorized') }, { status: 401 })
     }
 
     const userId = (session.user as any).id
@@ -16,17 +18,17 @@ export async function POST(request: Request) {
     // Rate limit: max 5 password changes per hour
     const limit = await rateLimitExpensive(userId, 'change-password')
     if (!limit.success) {
-      return NextResponse.json({ error: 'Prea multe încercări. Așteaptă câteva minute.' }, { status: 429 })
+      return NextResponse.json({ error: t('api.too_many_attempts') }, { status: 429 })
     }
 
     const { currentPassword, newPassword } = await request.json()
 
     if (!currentPassword || !newPassword) {
-      return NextResponse.json({ error: 'Completează toate câmpurile' }, { status: 400 })
+      return NextResponse.json({ error: t('api.fields_required') }, { status: 400 })
     }
 
     if (newPassword.length < 6) {
-      return NextResponse.json({ error: 'Parola nouă trebuie să aibă minim 6 caractere' }, { status: 400 })
+      return NextResponse.json({ error: t('api.password_too_short') }, { status: 400 })
     }
 
     const supabase = createAdminClient()
@@ -39,7 +41,7 @@ export async function POST(request: Request) {
       .single()
 
     if (!user) {
-      return NextResponse.json({ error: 'Utilizator negăsit' }, { status: 404 })
+      return NextResponse.json({ error: t('api.user_not_found') }, { status: 404 })
     }
 
     const { error: signInError } = await supabase.auth.signInWithPassword({
@@ -48,7 +50,7 @@ export async function POST(request: Request) {
     })
 
     if (signInError) {
-      return NextResponse.json({ error: 'Parola curentă este incorectă' }, { status: 400 })
+      return NextResponse.json({ error: t('api.current_password_wrong') }, { status: 400 })
     }
 
     // Update password using admin client
@@ -58,11 +60,11 @@ export async function POST(request: Request) {
 
     if (updateError) {
       console.error('Password update error:', updateError)
-      return NextResponse.json({ error: 'Eroare la actualizarea parolei' }, { status: 500 })
+      return NextResponse.json({ error: t('api.password_update_failed') }, { status: 500 })
     }
 
-    return NextResponse.json({ message: 'Parola a fost schimbată cu succes!' })
+    return NextResponse.json({ message: t('api.password_changed') })
   } catch {
-    return NextResponse.json({ error: 'Eroare internă' }, { status: 500 })
+    return NextResponse.json({ error: t('api.internal_error') }, { status: 500 })
   }
 }

@@ -2,15 +2,17 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/auth.config'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { getT } from '@/lib/i18n/server'
 
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const t = await getT()
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user) {
-      return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
+      return NextResponse.json({ error: t('api.unauthorized') }, { status: 401 })
     }
 
     const { id } = await params
@@ -25,7 +27,7 @@ export async function GET(
       .single()
 
     if (error || !ticket) {
-      return NextResponse.json({ error: 'Tichet negăsit' }, { status: 404 })
+      return NextResponse.json({ error: t('api.ticket_not_found') }, { status: 404 })
     }
 
     // Get replies
@@ -37,6 +39,6 @@ export async function GET(
 
     return NextResponse.json({ ticket, replies: replies || [] })
   } catch {
-    return NextResponse.json({ error: 'Eroare internă' }, { status: 500 })
+    return NextResponse.json({ error: t('api.internal_error') }, { status: 500 })
   }
 }

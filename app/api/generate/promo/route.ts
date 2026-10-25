@@ -7,11 +7,16 @@ import { KieClient } from '@/lib/kie/client'
 import { rateLimitExpensive } from '@/lib/security/rate-limit'
 import { canStartJob, markJobRunning, markJobDone } from '@/lib/security/ai-guard'
 import { getActiveStore } from '@/lib/stores/active'
+import { getT } from '@/lib/i18n/server'
+import { storedMessage, translateStored } from '@/lib/i18n/stored'
 
 const PROMO_COST = 4
 
 
 
+// Nefolosită în interfață (pagina Imagini are lista ei de stiluri, tradusă); textele
+// de aici nu ajung la om.
+// i18n-ignore-start
 export const PROMO_STYLES = {
   modern_minimalist: {
     label: 'Modern Minimalist',
@@ -50,6 +55,7 @@ export const PROMO_STYLES = {
     description: 'Instagram/TikTok story style, sticker elements, Gen-Z colors, fun and authentic',
   },
 }
+// i18n-ignore-end
 
 // ─── Language detection heuristic ────────────────────────────────────────────
 function detectLanguage(title: string, description: string | null): string {
@@ -69,6 +75,8 @@ function detectLanguage(title: string, description: string | null): string {
 }
 
 // ─── System prompt text generation ───────────────────────────────────────────
+// Instrucțiuni pentru AI (în engleză), nu se afișează
+// i18n-ignore-start
 function buildTextGenerationSystem(language: string): string {
   return [
     `You are an expert e-commerce copywriter and marketing specialist writing for ${language}-speaking consumers.`,
@@ -116,6 +124,7 @@ async function generatePromoText(params: {
     editorial_magazine: 'bold, exclusive, fashion-forward — editorial prestige',
     social_story: 'fun, authentic, relatable — Gen-Z energy, not corporate',
   }
+  // i18n-ignore-end
 
   const cleanDesc = params.productDescription
     ? params.productDescription.replace(/<[^>]*>/g, '').substring(0, 400)
@@ -728,10 +737,11 @@ async function buildPromoImagePrompt(params: {
 }
 
 export async function POST(request: Request) {
+  const t = await getT()
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user) {
-      return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
+      return NextResponse.json({ error: t('api.unauthorized') }, { status: 401 })
     }
 
     const userId = (session.user as any).id
@@ -751,7 +761,7 @@ export async function POST(request: Request) {
         .single()
 
       if (!product) {
-        return NextResponse.json({ error: 'Produs negasit' }, { status: 404 })
+        return NextResponse.json({ error: t('api.product_not_found') }, { status: 404 })
       }
 
       // Prefer sale_price when available and non-zero
@@ -789,17 +799,18 @@ export async function POST(request: Request) {
     } = body
 
     if (!style || !promo_text) {
-      return NextResponse.json({ error: 'Stilul si textul sunt obligatorii' }, { status: 400 })
+      return NextResponse.json({ error: t('api.promo_style_text_required') }, { status: 400 })
     }
 
     const limit = await rateLimitExpensive(userId, 'promo')
     if (!limit.success) {
-      return NextResponse.json({ error: 'Prea multe cereri. Asteapta un minut.' }, { status: 429 })
+      return NextResponse.json({ error: t('api.rate_limited') }, { status: 429 })
     }
 
+    // Motivul din ai-guard e în engleză: omul primește mesajul tradus
     const jobCheck = canStartJob(userId)
     if (!jobCheck.allowed) {
-      return NextResponse.json({ error: jobCheck.reason }, { status: 429 })
+      return NextResponse.json({ error: translateStored(t, jobCheck.reason) ?? t('api.jobs_busy') }, { status: 429 })
     }
 
     const supabase = createAdminClient()
@@ -812,7 +823,7 @@ export async function POST(request: Request) {
 
     if (!user || user.credits < PROMO_COST) {
       return NextResponse.json(
-        { error: 'Credite insuficiente. Ai nevoie de ' + PROMO_COST + ' credite.' },
+        { error: t('api.insufficient_credits_need', { count: PROMO_COST }) },
         { status: 400 }
       )
     }
@@ -843,7 +854,7 @@ export async function POST(request: Request) {
         .single()
 
       if (!product) {
-        return NextResponse.json({ error: 'Produs negasit' }, { status: 404 })
+        return NextResponse.json({ error: t('api.product_not_found') }, { status: 404 })
       }
 
       productTitle = product.optimized_title || product.original_title
@@ -871,18 +882,18 @@ export async function POST(request: Request) {
         refImageUrl = urlData.publicUrl
         productTitle = 'Uploaded Product'
       } catch {
-        return NextResponse.json({ error: 'Eroare la upload imaginii' }, { status: 500 })
+        return NextResponse.json({ error: t('api.image_upload_failed') }, { status: 500 })
       }
     }
 
     if (!refImageUrl) {
-      return NextResponse.json({ error: 'Imaginea de referinta lipseste' }, { status: 400 })
+      return NextResponse.json({ error: t('api.reference_image_missing') }, { status: 400 })
     }
 
     const jobKey = userId + ':promo:' + (productDbId || 'upload')
     if (!markJobRunning(jobKey)) {
       return NextResponse.json(
-        { error: 'O imagine promotionala este deja in curs de generare.' },
+        { error: t('api.promo_already_generating') },
         { status: 409 }
       )
     }
@@ -905,7 +916,7 @@ export async function POST(request: Request) {
     if (insertError || !imageRecord) {
       markJobDone(jobKey)
       return NextResponse.json(
-        { error: 'Eroare la salvarea in baza de date: ' + insertError?.message },
+        { error: t('api.db_save_failed_detail', { detail: insertError?.message || t('api.unknown_error') }) },
         { status: 500 }
       )
     }
@@ -936,18 +947,20 @@ export async function POST(request: Request) {
         aspect_ratio: '1:1',
         resolution: '1K',
         output_format: 'png',
+        // i18n-ignore (instrucțiune pentru AI)
         negative_prompt: 'different product, wrong colors, wrong shape, redesigned product, generic product, changed packaging, different labels, product alteration, wrong proportions, wrong material finish',
       })
 
       const resultUrls = await kie.waitForTask(taskId)
-      if (!resultUrls || resultUrls.length === 0) throw new Error('Nu s-a generat nicio imagine')
+      // Mesajul ajunge la om (prin catch-ul de mai jos), deci e tradus
+      if (!resultUrls || resultUrls.length === 0) throw new Error(t('api.no_image_generated'))
 
       generatedUrl = resultUrls[0]
     } catch (err) {
       markJobDone(jobKey)
       await supabase.from('generated_images').update({ status: 'failed' }).eq('id', imageRecord.id)
       return NextResponse.json(
-        { error: 'Eroare la generare: ' + (err as Error).message },
+        { error: t('api.image_generation_failed_detail', { detail: (err as Error).message }) },
         { status: 500 }
       )
     }
@@ -972,7 +985,10 @@ export async function POST(request: Request) {
       type: 'usage',
       amount: -PROMO_COST,
       balance_after: newCredits,
-      description: 'Imagine promotionala ' + style + ': ' + productTitle,
+      // Fără produs (imagine încărcată) titlul de mai sus e doar pentru AI, în engleză: descrierea are cheia ei
+      description: productDbId
+        ? storedMessage('api.tx_promo_image', { style, title: productTitle })
+        : storedMessage('api.tx_promo_image_upload', { style }),
       reference_type: 'promo_generation',
       reference_id: imageRecord.id,
     })
@@ -992,7 +1008,7 @@ export async function POST(request: Request) {
   } catch (err) {
     console.error('Promo generate error:', err)
     return NextResponse.json(
-      { error: 'Eroare interna: ' + (err as Error).message },
+      { error: t('api.internal_error_detail', { detail: (err as Error).message }) },
       { status: 500 }
     )
   }

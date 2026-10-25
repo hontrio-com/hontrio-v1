@@ -3,15 +3,17 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/auth.config'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { rateLimitApi } from '@/lib/security/rate-limit'
+import { getT } from '@/lib/i18n/server'
 
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const t = await getT()
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user) {
-      return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
+      return NextResponse.json({ error: t('api.unauthorized') }, { status: 401 })
     }
 
     const { id } = await params
@@ -19,19 +21,19 @@ export async function POST(
 
     const limit = await rateLimitApi(userId, 'ticket-reply')
     if (!limit.success) {
-      return NextResponse.json({ error: 'Prea multe mesaje. Așteaptă puțin.' }, { status: 429 })
+      return NextResponse.json({ error: t('api.too_many_messages') }, { status: 429 })
     }
 
     const { message, attachments } = await request.json()
 
     if (!message && (!attachments || attachments.length === 0)) {
-      return NextResponse.json({ error: 'Mesajul sau un atașament este obligatoriu' }, { status: 400 })
+      return NextResponse.json({ error: t('api.reply_empty') }, { status: 400 })
     }
     if (message && message.length > 5000) {
-      return NextResponse.json({ error: 'Mesajul nu poate depăși 5000 caractere' }, { status: 400 })
+      return NextResponse.json({ error: t('api.message_too_long') }, { status: 400 })
     }
     if (attachments && attachments.length > 5) {
-      return NextResponse.json({ error: 'Maxim 5 atașamente per mesaj' }, { status: 400 })
+      return NextResponse.json({ error: t('api.too_many_attachments') }, { status: 400 })
     }
 
     const supabase = createAdminClient()
@@ -44,10 +46,10 @@ export async function POST(
       .single()
 
     if (!ticket) {
-      return NextResponse.json({ error: 'Tichet negăsit' }, { status: 404 })
+      return NextResponse.json({ error: t('api.ticket_not_found') }, { status: 404 })
     }
     if (ticket.status === 'closed') {
-      return NextResponse.json({ error: 'Tichetul este închis' }, { status: 400 })
+      return NextResponse.json({ error: t('api.ticket_closed') }, { status: 400 })
     }
 
     const { data: reply, error } = await supabase
@@ -63,7 +65,7 @@ export async function POST(
       .single()
 
     if (error) {
-      return NextResponse.json({ error: 'Eroare la trimiterea răspunsului' }, { status: 500 })
+      return NextResponse.json({ error: t('api.reply_send_failed') }, { status: 500 })
     }
 
     if (ticket.status === 'resolved') {
@@ -74,6 +76,6 @@ export async function POST(
 
     return NextResponse.json({ reply }, { status: 201 })
   } catch {
-    return NextResponse.json({ error: 'Eroare internă' }, { status: 500 })
+    return NextResponse.json({ error: t('api.internal_error') }, { status: 500 })
   }
 }

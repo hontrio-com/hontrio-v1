@@ -3,27 +3,31 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/auth.config'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { openai } from '@/lib/openai/client'
+import { getLocale, tFor, getT } from '@/lib/i18n/server'
+import { getAILanguage } from '@/lib/i18n/ai-languages'
 
 // GET - load brand kit
 export async function GET() {
+  const t = await getT()
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user) return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
+    if (!session?.user) return NextResponse.json({ error: t('api.unauthorized') }, { status: 401 })
     const userId = (session.user as any).id
     const supabase = createAdminClient()
 
     const { data } = await supabase.from('brand_kits').select('*').eq('user_id', userId).maybeSingle()
     return NextResponse.json({ brand_kit: data || null })
   } catch {
-    return NextResponse.json({ error: 'Eroare internă' }, { status: 500 })
+    return NextResponse.json({ error: t('api.internal_error') }, { status: 500 })
   }
 }
 
 // POST/PUT - save brand kit
 export async function POST(request: Request) {
+  const t = await getT()
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user) return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
+    if (!session?.user) return NextResponse.json({ error: t('api.unauthorized') }, { status: 401 })
     const userId = (session.user as any).id
     const supabase = createAdminClient()
 
@@ -67,18 +71,21 @@ export async function POST(request: Request) {
       .select()
       .single()
 
-    if (error) return NextResponse.json({ error: 'Eroare la salvare' }, { status: 500 })
+    if (error) return NextResponse.json({ error: t('api.save_failed') }, { status: 500 })
     return NextResponse.json({ brand_kit: data, logo_url: finalLogoUrl })
   } catch (err: any) {
-    return NextResponse.json({ error: 'Eroare internă' }, { status: 500 })
+    return NextResponse.json({ error: t('api.internal_error') }, { status: 500 })
   }
 }
 
 // PATCH - AI style detector: analyzes existing product images and detects brand style
 export async function PATCH(request: Request) {
+  // Limba omului: și pentru mesajele de aici, și pentru textele scrise de AI (motivul, rezumatul stilului)
+  const locale = await getLocale()
+  const t = tFor(locale)
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user) return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
+    if (!session?.user) return NextResponse.json({ error: t('api.unauthorized') }, { status: 401 })
     const userId = (session.user as any).id
     const supabase = createAdminClient()
 
@@ -119,11 +126,12 @@ export async function PATCH(request: Request) {
     const categories = [...new Set((products || []).map(p => p.category).filter(Boolean))]
     const imageCount = products?.reduce((n, p) => n + (p.original_images?.length || 0), 0) || 0
 
-    // AI analysis
+    // AI analysis (instrucțiuni pentru AI, nu se afișează; răspunsul vine în limba omului)
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [{
         role: 'user',
+        // i18n-ignore-start
         content: `Analizează un magazin eCommerce și recomandă stilul vizual optim.
 
 Date magazin:
@@ -141,7 +149,10 @@ Răspunde STRICT JSON:
   "font_suggestion": "modern|classic|bold|minimal",
   "tone_suggestion": "professional|friendly|luxury|playful",
   "color_suggestion": { "primary": "#hex", "secondary": "#hex", "accent": "#hex" }
-}`,
+}
+
+${getAILanguage(locale).intelLanguageInstruction}`,
+        // i18n-ignore-end
       }],
       temperature: 0.3,
       max_tokens: 300,
@@ -165,6 +176,6 @@ Răspunde STRICT JSON:
 
     return NextResponse.json({ success: true, detected })
   } catch (err: any) {
-    return NextResponse.json({ error: 'Eroare internă' }, { status: 500 })
+    return NextResponse.json({ error: t('api.internal_error') }, { status: 500 })
   }
 }

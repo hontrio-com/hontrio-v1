@@ -2,6 +2,7 @@
 // Prevents paying multiple times for identical requests
 // FIX: Job tracking cu Redis (fallback in-memory cu TTL strict)
 
+import { storedMessage } from '@/lib/i18n/stored'
 import { createAdminClient } from '@/lib/supabase/admin'
 
 const MAX_PROMPT_CHARS = 10000
@@ -72,19 +73,20 @@ export function markJobDone(key: string): void {
   runningJobs.delete(key)
 }
 
+// Motivele întoarse mai jos sunt chei de traducere (storedMessage): ruta le traduce cu translateStored
 export function validateAiInput(input: {
   title?: string
   description?: string
   prompt?: string
 }): { valid: boolean; error?: string } {
   if (input.title && input.title.length > MAX_TITLE_CHARS) {
-    return { valid: false, error: `Title exceeds ${MAX_TITLE_CHARS} characters` }
+    return { valid: false, error: storedMessage('api.title_too_long', { max: MAX_TITLE_CHARS }) }
   }
   if (input.description && input.description.length > MAX_DESCRIPTION_CHARS) {
-    return { valid: false, error: `Description exceeds ${MAX_DESCRIPTION_CHARS} characters` }
+    return { valid: false, error: storedMessage('api.description_too_long', { max: MAX_DESCRIPTION_CHARS }) }
   }
   if (input.prompt && input.prompt.length > MAX_PROMPT_CHARS) {
-    return { valid: false, error: `Input exceeds ${MAX_PROMPT_CHARS} characters` }
+    return { valid: false, error: storedMessage('api.input_too_long', { max: MAX_PROMPT_CHARS }) }
   }
   return { valid: true }
 }
@@ -116,10 +118,10 @@ export const MAX_CONCURRENT_JOBS_GLOBAL = 10
 export function canStartJob(userId: string): { allowed: boolean; reason?: string } {
   const userJobs = countUserJobs(userId)
   if (userJobs >= MAX_CONCURRENT_JOBS_PER_USER) {
-    return { allowed: false, reason: `You already have ${userJobs} active operations. Wait for them to finish.` }
+    return { allowed: false, reason: storedMessage('api.jobs_running', { count: userJobs }) }
   }
   if (runningJobs.size >= MAX_CONCURRENT_JOBS_GLOBAL) {
-    return { allowed: false, reason: 'The system is busy. Try again in a few seconds.' }
+    return { allowed: false, reason: storedMessage('api.system_busy') }
   }
   return { allowed: true }
 }

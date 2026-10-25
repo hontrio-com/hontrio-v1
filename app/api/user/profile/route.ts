@@ -2,13 +2,15 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/auth.config'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { getT } from '@/lib/i18n/server'
 
 // GET - fetch full profile
 export async function GET() {
+  const t = await getT()
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user) {
-      return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
+      return NextResponse.json({ error: t('api.unauthorized') }, { status: 401 })
     }
 
     const userId = (session.user as any).id
@@ -21,21 +23,22 @@ export async function GET() {
       .single()
 
     if (error || !user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 })
+      return NextResponse.json({ error: t('api.user_not_found') }, { status: 404 })
     }
 
     return NextResponse.json({ user })
   } catch {
-    return NextResponse.json({ error: 'Eroare internă' }, { status: 500 })
+    return NextResponse.json({ error: t('api.internal_error') }, { status: 500 })
   }
 }
 
 // PUT - update profile
 export async function PUT(request: Request) {
+  const t = await getT()
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user) {
-      return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
+      return NextResponse.json({ error: t('api.unauthorized') }, { status: 401 })
     }
 
     const userId = (session.user as any).id
@@ -53,7 +56,7 @@ export async function PUT(request: Request) {
     }
 
     if (Object.keys(allowedFields).length === 0) {
-      return NextResponse.json({ error: 'Nicio modificare de salvat' }, { status: 400 })
+      return NextResponse.json({ error: t('api.nothing_to_save') }, { status: 400 })
     }
 
     allowedFields.updated_at = new Date().toISOString()
@@ -67,11 +70,11 @@ export async function PUT(request: Request) {
 
     if (error) {
       console.error('Profile update error:', error)
-      return NextResponse.json({ error: 'Eroare la salvare' }, { status: 500 })
+      return NextResponse.json({ error: t('api.save_failed') }, { status: 500 })
     }
 
     return NextResponse.json({ user })
   } catch {
-    return NextResponse.json({ error: 'Eroare internă' }, { status: 500 })
+    return NextResponse.json({ error: t('api.internal_error') }, { status: 500 })
   }
 }

@@ -4,24 +4,27 @@ import { authOptions } from '@/lib/auth/auth.config'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { openai } from '@/lib/openai/client'
 import { KieClient } from '@/lib/kie/client'
+import { getT } from '@/lib/i18n/server'
+import { storedMessage } from '@/lib/i18n/stored'
 
 const BANNER_COST = 5
 
 export async function POST(request: Request) {
+  const t = await getT()
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user) return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
+    if (!session?.user) return NextResponse.json({ error: t('api.unauthorized') }, { status: 401 })
     const userId = (session.user as any).id
     const supabase = createAdminClient()
 
     const { category, banner_style = 'modern', aspect_ratio = '16:9', reference_product_id } = await request.json()
 
-    if (!category) return NextResponse.json({ error: 'Categoria este obligatorie' }, { status: 400 })
+    if (!category) return NextResponse.json({ error: t('api.category_required') }, { status: 400 })
 
     // Check credits
     const { data: user } = await supabase.from('users').select('credits').eq('id', userId).single()
     if (!user || user.credits < BANNER_COST) {
-      return NextResponse.json({ error: `Credite insuficiente (necesare: ${BANNER_COST})` }, { status: 400 })
+      return NextResponse.json({ error: t('api.insufficient_credits_need', { count: BANNER_COST }) }, { status: 400 })
     }
 
     // Get top products from this category
@@ -52,9 +55,11 @@ export async function POST(request: Request) {
     }
 
     if (!refImageUrl) {
-      return NextResponse.json({ error: 'Niciun produs cu imagine în această categorie' }, { status: 400 })
+      return NextResponse.json({ error: t('api.no_product_image_in_category') }, { status: 400 })
     }
 
+    // Instrucțiuni pentru AI (în engleză), nu se afișează
+    // i18n-ignore-start
     const productNames = (products || []).map(p => p.optimized_title || p.original_title).slice(0, 3)
     const brandColors = brandKit ? `Primary: ${brandKit.primary_color}, Accent: ${brandKit.accent_color}` : 'neutral professional'
 
@@ -91,6 +96,7 @@ Write a detailed 200-300 word prompt. Start with "Reproduce the EXACT products f
     })
 
     const bannerPrompt = prompt.choices[0].message.content?.trim() || `Professional ecommerce banner for ${category} category`
+    // i18n-ignore-end
 
     // Generate with KIE
     const kie = new KieClient()
@@ -121,7 +127,7 @@ Write a detailed 200-300 word prompt. Start with "Reproduce the EXACT products f
     await supabase.from('users').update({ credits: newBalance }).eq('id', userId)
     await supabase.from('credit_transactions').insert({
       user_id: userId, type: 'usage', amount: -BANNER_COST, balance_after: newBalance,
-      description: `Banner categorie: ${category}`,
+      description: storedMessage('api.tx_category_banner', { category }),
       reference_type: 'image_generation',
       reference_id: imgRecord?.id,
     })
@@ -135,6 +141,6 @@ Write a detailed 200-300 word prompt. Start with "Reproduce the EXACT products f
     })
   } catch (err: any) {
     console.error('[Banner]', err)
-    return NextResponse.json({ error: 'Eroare internă: ' + err.message }, { status: 500 })
+    return NextResponse.json({ error: t('api.internal_error_detail', { detail: err.message }) }, { status: 500 })
   }
 }

@@ -3,20 +3,22 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/auth.config'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { logApiError } from '@/lib/logger'
+import { getT } from '@/lib/i18n/server'
 
 export async function GET() {
   const ROUTE = '/api/user/me'
+  const t = await getT()
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user) {
       logApiError(ROUTE, 401, 'Sesiune lipsă')
-      return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
+      return NextResponse.json({ error: t('api.unauthorized') }, { status: 401 })
     }
 
     const userId = (session.user as any).id
     if (!userId) {
       logApiError(ROUTE, 400, 'userId lipsă din token', { sessionUser: JSON.stringify(session.user) })
-      return NextResponse.json({ error: 'ID utilizator lipsă din sesiune' }, { status: 400 })
+      return NextResponse.json({ error: t('api.session_invalid') }, { status: 400 })
     }
 
     const supabase = createAdminClient()
@@ -28,7 +30,7 @@ export async function GET() {
 
     if (error) {
       logApiError(ROUTE, 500, 'DB error la user/me', { userId, dbError: error.message })
-      return NextResponse.json({ error: 'Eroare la citirea profilului' }, { status: 500 })
+      return NextResponse.json({ error: t('api.profile_load_failed') }, { status: 500 })
     }
 
     if (!user) {
@@ -39,7 +41,7 @@ export async function GET() {
         .insert({
           id: userId,
           email: (session.user as any).email || '',
-          name: session.user.name || 'Utilizator',
+          name: session.user.name || t('api.default_user_name'),
           role: 'user',
           credits: 20,
           plan: 'free',
@@ -49,7 +51,7 @@ export async function GET() {
         .single()
 
       if (createErr || !newUser) {
-        return NextResponse.json({ error: 'Utilizatorul nu a fost găsit și nu s-a putut crea' }, { status: 404 })
+        return NextResponse.json({ error: t('api.profile_missing') }, { status: 404 })
       }
 
       return NextResponse.json({
@@ -74,6 +76,6 @@ export async function GET() {
     })
   } catch (err) {
     logApiError(ROUTE, 500, 'Eroare neașteptată', { error: String(err) })
-    return NextResponse.json({ error: 'Eroare internă' }, { status: 500 })
+    return NextResponse.json({ error: t('api.internal_error') }, { status: 500 })
   }
 }

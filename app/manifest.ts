@@ -1,10 +1,13 @@
 import type { MetadataRoute } from 'next'
+import { getT } from '@/lib/i18n/server'
 
-export default function manifest(): MetadataRoute.Manifest {
+// Descrierea aplicației la instalare (PWA), în limba vizitatorului
+export default async function manifest(): Promise<MetadataRoute.Manifest> {
+  const t = await getT()
   return {
     name: 'Hontrio',
     short_name: 'Hontrio',
-    description: 'AI Growth Platform for eCommerce',
+    description: t('marketing.manifest_description'),
     start_url: '/',
     display: 'standalone',
     background_color: '#ffffff',

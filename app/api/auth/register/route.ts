@@ -2,15 +2,19 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { rateLimitRegister, getClientIp } from '@/lib/security/rate-limit'
 import { sendEmail, buildWelcomeEmail } from '@/lib/email'
+import { getLocale, tFor } from '@/lib/i18n/server'
 
 export async function POST(request: Request) {
+  // Limba cererii: și pentru mesajele de aici, și pentru e-mailul de bun venit
+  const locale = await getLocale()
+  const t = tFor(locale)
   try {
     // Rate limit by IP
     const ip = getClientIp(request)
     const limit = await rateLimitRegister(ip)
     if (!limit.success) {
       return NextResponse.json(
-        { error: 'Too many attempts. Please try again later.' },
+        { error: t('api.too_many_attempts') },
         { status: 429 }
       )
     }
@@ -19,14 +23,14 @@ export async function POST(request: Request) {
 
     if (!email || !password || !name) {
       return NextResponse.json(
-        { error: 'All fields are required' },
+        { error: t('api.fields_required') },
         { status: 400 }
       )
     }
 
     if (password.length < 6) {
       return NextResponse.json(
-        { error: 'Password must be at least 6 characters' },
+        { error: t('api.password_too_short') },
         { status: 400 }
       )
     }
@@ -44,12 +48,12 @@ export async function POST(request: Request) {
       // Anti user enumeration: generic message for duplicate email
       if (authError.message.includes('already been registered') || authError.message.includes('already exists')) {
         return NextResponse.json(
-          { error: 'An account with this email already exists.' },
+          { error: t('api.email_taken') },
           { status: 400 }
         )
       }
       return NextResponse.json(
-        { error: 'Error creating account: ' + authError.message },
+        { error: t('api.account_create_failed', { detail: authError.message }) },
         { status: 500 }
       )
     }
@@ -70,7 +74,7 @@ export async function POST(request: Request) {
       console.error('Profile insert error:', profileError.message, profileError.code, profileError.details)
       await supabase.auth.admin.deleteUser(authData.user.id)
       return NextResponse.json(
-        { error: 'Error creating profile: ' + profileError.message },
+        { error: t('api.profile_create_failed', { detail: profileError.message }) },
         { status: 500 }
       )
     }
@@ -78,18 +82,17 @@ export async function POST(request: Request) {
     // Send welcome email (async — don't block response)
     sendEmail({
       to: email,
-      subject: 'Welcome to Hontrio!',
-      html: buildWelcomeEmail(name),
+      ...buildWelcomeEmail(name, locale),
     }).catch(err => console.error('[Register] Welcome email error:', err))
 
     return NextResponse.json(
-      { message: 'Account created successfully' },
+      { message: t('api.account_created') },
       { status: 201 }
     )
   } catch (err) {
     console.error('Unexpected error:', err)
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: t('api.internal_error') },
       { status: 500 }
     )
   }

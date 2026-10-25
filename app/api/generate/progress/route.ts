@@ -2,20 +2,23 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/auth.config'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { KieClient } from '@/lib/kie/client'
+import { getT } from '@/lib/i18n/server'
+import { storedMessage } from '@/lib/i18n/stored'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 export async function GET(request: Request) {
+  const t = await getT()
   const session = await getServerSession(authOptions)
-  if (!session?.user) return new Response('Unauthorized', { status: 401 })
+  if (!session?.user) return new Response(t('api.unauthorized'), { status: 401 })
   const userId = (session.user as any).id
 
   const { searchParams } = new URL(request.url)
   const taskId = searchParams.get('task_id')
   const imageRecordId = searchParams.get('image_record_id')
 
-  if (!taskId) return new Response('task_id required', { status: 400 })
+  if (!taskId) return new Response(t('api.invalid_request'), { status: 400 })
 
   const encoder = new TextEncoder()
   function send(data: object) {
@@ -39,7 +42,7 @@ export async function GET(request: Request) {
         if (aborted) { try { controller.close() } catch {} return }
         const elapsed = Date.now() - startTime
         if (elapsed > maxWait) {
-          controller.enqueue(send({ type: 'timeout', message: 'Generation is taking too long. Come back in a few minutes.' }))
+          controller.enqueue(send({ type: 'timeout', message: t('api.generation_timeout') }))
           controller.close()
           return
         }
@@ -49,14 +52,14 @@ export async function GET(request: Request) {
 
           if (task.state !== lastState) {
             const labels: Record<string, string> = {
-              waiting: 'Queuing...',
-              queuing: 'Preparing generation...',
-              generating: 'AI is building the image...',
+              waiting: t('api.generation_queued'),
+              queuing: t('api.generation_preparing'),
+              generating: t('api.generation_building'),
             }
             controller.enqueue(send({
               type: 'progress',
               state: task.state,
-              label: labels[task.state] || 'Processing...',
+              label: labels[task.state] || t('common.processing'),
             }))
             lastState = task.state
           }
@@ -120,19 +123,19 @@ export async function GET(request: Request) {
                   await supabase.from('credit_transactions').insert({
                     user_id: userId, type: 'refund', amount: failedImg.credits_used,
                     balance_after: newBalance,
-                    description: 'Refund — failed image generation',
+                    description: storedMessage('api.tx_refund_image_failed'),
                     reference_type: 'image_generation_refund', reference_id: imageRecordId,
                   })
                 }
               }
             }
-            controller.enqueue(send({ type: 'error', message: task.failMsg || 'Generation failed' }))
+            controller.enqueue(send({ type: 'error', message: task.failMsg || t('api.generation_failed') }))
             controller.close()
             return
           }
 
         } catch (err: any) {
-          controller.enqueue(send({ type: 'error', message: err.message || 'Error checking task status' }))
+          controller.enqueue(send({ type: 'error', message: err.message || t('api.generation_status_failed') }))
           controller.close()
           return
         }

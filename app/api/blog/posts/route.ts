@@ -4,12 +4,14 @@ import { authOptions } from '@/lib/auth/auth.config'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import slugify from 'slugify'
+import { getT } from '@/lib/i18n/server'
 
 // ---------------------------------------------------------------------------
 // GET /api/blog/posts
 // Query params: status, category, tag, q, featured, page, limit
 // ---------------------------------------------------------------------------
 export async function GET(request: Request) {
+  const t = await getT()
   try {
     const session = await getServerSession(authOptions)
     const userRole = (session?.user as any)?.role
@@ -111,7 +113,7 @@ export async function GET(request: Request) {
 
     if (error) {
       console.error('Blog posts fetch error:', error)
-      return NextResponse.json({ error: 'Error loading posts' }, { status: 500 })
+      return NextResponse.json({ error: t('api.blog_posts_load_failed') }, { status: 500 })
     }
 
     const total = count ?? 0
@@ -120,7 +122,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ posts: posts ?? [], total, page, totalPages })
   } catch (err) {
     console.error('GET /api/blog/posts error:', err)
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
+    return NextResponse.json({ error: t('api.internal_error') }, { status: 500 })
   }
 }
 
@@ -128,11 +130,12 @@ export async function GET(request: Request) {
 // POST /api/blog/posts — Admin only
 // ---------------------------------------------------------------------------
 export async function POST(request: Request) {
+  const t = await getT()
   try {
     const session = await getServerSession(authOptions)
     const userRole = (session?.user as any)?.role
     if (userRole !== 'admin') {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      return NextResponse.json({ error: t('api.forbidden') }, { status: 403 })
     }
 
     const body = await request.json()
@@ -154,7 +157,7 @@ export async function POST(request: Request) {
     } = body
 
     if (!title) {
-      return NextResponse.json({ error: 'Title is required' }, { status: 400 })
+      return NextResponse.json({ error: t('api.title_required') }, { status: 400 })
     }
 
     const supabase = createAdminClient()
@@ -216,7 +219,7 @@ export async function POST(request: Request) {
 
     if (error) {
       console.error('Blog post insert error:', error)
-      return NextResponse.json({ error: 'Error creating post' }, { status: 500 })
+      return NextResponse.json({ error: t('api.blog_post_create_failed') }, { status: 500 })
     }
 
     // Insert tags if provided
@@ -231,6 +234,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ post }, { status: 201 })
   } catch (err) {
     console.error('POST /api/blog/posts error:', err)
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
+    return NextResponse.json({ error: t('api.internal_error') }, { status: 500 })
   }
 }

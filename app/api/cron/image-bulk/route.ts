@@ -5,6 +5,10 @@ import { KieClient } from '@/lib/kie/client'
 import { decrypt } from '@/lib/security/encryption'
 import { createAdapter } from '@/lib/integrations/types'
 import { getActiveStore } from '@/lib/stores/active'
+import { storedMessage } from '@/lib/i18n/stored'
+
+// Răspunsurile JSON de aici sunt pentru Vercel, nu pentru oameni. Ce vede omul mai
+// târziu (eroarea unui produs, descrierea tranzacției) se salvează ca cheie de traducere.
 
 const STYLE_COSTS: Record<string, number> = {
   white_bg: 2, lifestyle: 3, premium_dark: 3, industrial: 3, seasonal: 4, manual: 3,
@@ -18,7 +22,7 @@ export async function GET(request: Request) {
   if (cronSecret) {
     const authHeader = request.headers.get('authorization')
     if (authHeader !== `Bearer ${cronSecret}`) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) // i18n-ignore
     }
   }
 
@@ -35,7 +39,7 @@ export async function GET(request: Request) {
       .limit(10)
 
     if (!activeJobs?.length) {
-      return NextResponse.json({ message: 'No active jobs', processed: 0 })
+      return NextResponse.json({ message: 'No active jobs', processed: 0 }) // i18n-ignore
     }
 
     const activeJobIds = activeJobs.map((j: any) => j.id)
@@ -53,7 +57,7 @@ export async function GET(request: Request) {
       .limit(3) // Process max 3 per run
 
     if (!items?.length) {
-      return NextResponse.json({ message: 'No items to process', processed: 0 })
+      return NextResponse.json({ message: 'No items to process', processed: 0 }) // i18n-ignore
     }
 
     for (const item of items) {
@@ -86,7 +90,7 @@ export async function GET(request: Request) {
         // Check credits
         const { data: user } = await supabase.from('users').select('credits').eq('id', userId).single()
         if (!user || user.credits < creditCost) {
-          await supabase.from('image_bulk_items').update({ status: 'failed', error_message: 'Insufficient credits' }).eq('id', item.id)
+          await supabase.from('image_bulk_items').update({ status: 'failed', error_message: storedMessage('api.insufficient_credits') }).eq('id', item.id)
           await supabase.from('image_bulk_jobs').update({ status: 'failed' }).eq('id', item.job_id)
           failed++
           continue
@@ -95,7 +99,7 @@ export async function GET(request: Request) {
         // Get reference image
         const refImageUrl = product.original_images?.[0]
         if (!refImageUrl) {
-          await supabase.from('image_bulk_items').update({ status: 'skipped', error_message: 'No reference image found' }).eq('id', item.id)
+          await supabase.from('image_bulk_items').update({ status: 'skipped', error_message: storedMessage('api.bulk_no_reference_image') }).eq('id', item.id)
           await incrementJobCounters(supabase, item.job_id, 'completed')
           continue
         }
@@ -152,7 +156,7 @@ export async function GET(request: Request) {
         await supabase.from('users').update({ credits: newBalance }).eq('id', userId)
         await supabase.from('credit_transactions').insert({
           user_id: userId, type: 'usage', amount: -creditCost, balance_after: newBalance,
-          description: `Bulk imagine ${style}: ${productTitle}`,
+          description: storedMessage('api.tx_bulk_image', { style, title: productTitle }),
           reference_type: 'image_generation', reference_id: imgRecord.id,
         })
         await supabase.rpc('increment_bulk_credits', { job_id: item.job_id, amount: creditCost })
@@ -269,6 +273,8 @@ async function autoPublishToStore(supabase: any, userId: string, product: any, i
   }
 }
 
+// Instrucțiuni pentru AI (în engleză), nu se afișează
+// i18n-ignore-start
 async function buildPromptForBulk(title: string, category: string | null, description: string | null, style: string): Promise<string> {
   const cleanDesc = description?.replace(/<[^>]*>/g, '').substring(0, 500) || 'Not available'
   const styleMap: Record<string, string> = {
@@ -296,3 +302,4 @@ Be specific about lighting, camera angle, materials. 200-300 words only.`,
 
   return prompt.choices[0].message.content?.trim() || `Professional product photo of ${title}`
 }
+// i18n-ignore-end

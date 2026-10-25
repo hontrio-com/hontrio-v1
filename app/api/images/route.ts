@@ -2,12 +2,14 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/auth.config'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { getT } from '@/lib/i18n/server'
 
 export async function GET() {
+  const t = await getT()
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: t('api.unauthorized') }, { status: 401 })
     }
 
     const supabase = createAdminClient()
@@ -26,34 +28,35 @@ export async function GET() {
 
     if (error) {
       console.error('Images error:', error)
-      return NextResponse.json({ error: 'Error loading images' }, { status: 500 })
+      return NextResponse.json({ error: t('api.images_load_failed') }, { status: 500 })
     }
 
     // Formateaza pentru frontend
     const formatted = (images || []).map((img: any) => ({
       ...img,
-      product_title: img.products?.optimized_title || img.products?.original_title || 'Produs necunoscut',
+      product_title: img.products?.optimized_title || img.products?.original_title || t('api.unknown_product'),
       products: undefined,
     }))
 
     return NextResponse.json({ images: formatted })
   } catch {
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
+    return NextResponse.json({ error: t('api.internal_error') }, { status: 500 })
   }
 }
 // DELETE — șterge una sau mai multe imagini
 export async function DELETE(request: Request) {
+  const t = await getT()
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: t('api.unauthorized') }, { status: 401 })
     }
 
     const userId = (session.user as any).id
     const { image_ids } = await request.json()
 
     if (!Array.isArray(image_ids) || image_ids.length === 0) {
-      return NextResponse.json({ error: 'image_ids missing' }, { status: 400 })
+      return NextResponse.json({ error: t('api.no_images_selected') }, { status: 400 })
     }
 
     // Cap la 50 imagini per cerere
@@ -69,7 +72,7 @@ export async function DELETE(request: Request) {
       .in('id', ids)
 
     if (!images || images.length === 0) {
-      return NextResponse.json({ error: 'No images found' }, { status: 404 })
+      return NextResponse.json({ error: t('api.images_not_found') }, { status: 404 })
     }
 
     // Șterge din DB
@@ -81,7 +84,7 @@ export async function DELETE(request: Request) {
 
     if (error) {
       console.error('[Images DELETE]', error)
-      return NextResponse.json({ error: 'Delete error' }, { status: 500 })
+      return NextResponse.json({ error: t('api.delete_failed') }, { status: 500 })
     }
 
     return NextResponse.json({
@@ -90,6 +93,6 @@ export async function DELETE(request: Request) {
     })
   } catch (err) {
     console.error('[Images DELETE]', err)
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
+    return NextResponse.json({ error: t('api.internal_error') }, { status: 500 })
   }
 }

@@ -3,12 +3,14 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/auth.config'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { stripe } from '@/lib/stripe/client'
+import { getT } from '@/lib/i18n/server'
 
 export async function POST() {
+  const t = await getT()
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user) {
-      return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
+      return NextResponse.json({ error: t('api.unauthorized') }, { status: 401 })
     }
 
     const userId = (session.user as any).id
@@ -21,7 +23,7 @@ export async function POST() {
       .single()
 
     if (!user?.stripe_customer_id) {
-      return NextResponse.json({ error: 'Nu ai un abonament activ' }, { status: 400 })
+      return NextResponse.json({ error: t('api.no_active_subscription') }, { status: 400 })
     }
 
     // Create a billing portal session
@@ -34,7 +36,7 @@ export async function POST() {
   } catch (error: any) {
     console.error('Stripe portal error:', error)
     return NextResponse.json(
-      { error: error.message || 'Eroare' },
+      { error: error.message || t('api.internal_error') },
       { status: 500 }
     )
   }

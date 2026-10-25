@@ -4,12 +4,14 @@ import { authOptions } from '@/lib/auth/auth.config'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import slugify from 'slugify'
+import { getT } from '@/lib/i18n/server'
 
 // ---------------------------------------------------------------------------
 // GET /api/blog/categories — Public
 // Returns all categories with a count of published posts.
 // ---------------------------------------------------------------------------
 export async function GET() {
+  const t = await getT()
   try {
     const supabase = await createServerSupabaseClient()
 
@@ -27,7 +29,7 @@ export async function GET() {
 
     if (error) {
       console.error('Blog categories fetch error:', error)
-      return NextResponse.json({ error: 'Error loading categories' }, { status: 500 })
+      return NextResponse.json({ error: t('api.blog_categories_load_failed') }, { status: 500 })
     }
 
     // Normalise: expose posts_count as a flat number
@@ -42,7 +44,7 @@ export async function GET() {
     return NextResponse.json({ categories: result })
   } catch (err) {
     console.error('GET /api/blog/categories error:', err)
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
+    return NextResponse.json({ error: t('api.internal_error') }, { status: 500 })
   }
 }
 
@@ -51,18 +53,19 @@ export async function GET() {
 // Body: { name, description?, color? }
 // ---------------------------------------------------------------------------
 export async function POST(request: Request) {
+  const t = await getT()
   try {
     const session = await getServerSession(authOptions)
     const userRole = (session?.user as any)?.role
     if (userRole !== 'admin') {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      return NextResponse.json({ error: t('api.forbidden') }, { status: 403 })
     }
 
     const body = await request.json()
     const { name, description, color } = body
 
     if (!name) {
-      return NextResponse.json({ error: 'Name is required' }, { status: 400 })
+      return NextResponse.json({ error: t('api.name_required') }, { status: 400 })
     }
 
     const supabase = createAdminClient()
@@ -94,13 +97,13 @@ export async function POST(request: Request) {
 
     if (error) {
       console.error('Blog category insert error:', error)
-      return NextResponse.json({ error: 'Error creating category' }, { status: 500 })
+      return NextResponse.json({ error: t('api.blog_category_create_failed') }, { status: 500 })
     }
 
     return NextResponse.json({ category }, { status: 201 })
   } catch (err) {
     console.error('POST /api/blog/categories error:', err)
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
+    return NextResponse.json({ error: t('api.internal_error') }, { status: 500 })
   }
 }
 
@@ -109,18 +112,19 @@ export async function POST(request: Request) {
 // Body: { id, name, description?, color?, slug? }
 // ---------------------------------------------------------------------------
 export async function PUT(request: Request) {
+  const t = await getT()
   try {
     const session = await getServerSession(authOptions)
     const userRole = (session?.user as any)?.role
     if (userRole !== 'admin') {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      return NextResponse.json({ error: t('api.forbidden') }, { status: 403 })
     }
 
     const body = await request.json()
     const { id, name, description, color, slug: slugOverride } = body
 
     if (!id) {
-      return NextResponse.json({ error: 'Category id is required' }, { status: 400 })
+      return NextResponse.json({ error: t('api.invalid_request') }, { status: 400 })
     }
 
     const supabase = createAdminClient()
@@ -159,13 +163,13 @@ export async function PUT(request: Request) {
 
     if (error) {
       console.error('Blog category update error:', error)
-      return NextResponse.json({ error: 'Error updating category' }, { status: 500 })
+      return NextResponse.json({ error: t('api.blog_category_update_failed') }, { status: 500 })
     }
 
     return NextResponse.json({ category })
   } catch (err) {
     console.error('PUT /api/blog/categories error:', err)
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
+    return NextResponse.json({ error: t('api.internal_error') }, { status: 500 })
   }
 }
 
@@ -174,18 +178,19 @@ export async function PUT(request: Request) {
 // Body: { id }
 // ---------------------------------------------------------------------------
 export async function DELETE(request: Request) {
+  const t = await getT()
   try {
     const session = await getServerSession(authOptions)
     const userRole = (session?.user as any)?.role
     if (userRole !== 'admin') {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      return NextResponse.json({ error: t('api.forbidden') }, { status: 403 })
     }
 
     const body = await request.json()
     const { id } = body
 
     if (!id) {
-      return NextResponse.json({ error: 'Category id is required' }, { status: 400 })
+      return NextResponse.json({ error: t('api.invalid_request') }, { status: 400 })
     }
 
     const supabase = createAdminClient()
@@ -198,19 +203,19 @@ export async function DELETE(request: Request) {
 
     if (unlinkError) {
       console.error('Blog category unlink error:', unlinkError)
-      return NextResponse.json({ error: 'Error unlinking posts from category' }, { status: 500 })
+      return NextResponse.json({ error: t('api.blog_category_unlink_failed') }, { status: 500 })
     }
 
     const { error } = await supabase.from('blog_categories').delete().eq('id', id)
 
     if (error) {
       console.error('Blog category delete error:', error)
-      return NextResponse.json({ error: 'Error deleting category' }, { status: 500 })
+      return NextResponse.json({ error: t('api.blog_category_delete_failed') }, { status: 500 })
     }
 
     return NextResponse.json({ success: true })
   } catch (err) {
     console.error('DELETE /api/blog/categories error:', err)
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
+    return NextResponse.json({ error: t('api.internal_error') }, { status: 500 })
   }
 }
