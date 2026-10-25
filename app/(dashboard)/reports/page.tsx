@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react
 import Link from 'next/link'
 import { useT } from '@/lib/i18n/context'
 import { AlertCircle, ImageIcon, Info, Store } from 'lucide-react'
+import { campaignKindKey } from '@/components/campaigns/live-campaigns'
 
 // =============================================
 // Rapoarte — ce aduc reclamele Google Ads (din cronul zilnic): cheltuiala,
@@ -22,7 +23,13 @@ type Data = {
     total: Kpi
     hontrio: Kpi | null
     daily: { date: string; cost: number; value: number }[]
-    campaigns: { id: string; name: string; channel: string; hontrio: boolean; cost: number; clicks: number; conversions: number; value: number; roas: number | null; profit: number | null }[]
+    campaigns: {
+      id: string; name: string; channel: string; hontrio: boolean
+      /** Felul campaniei Hontrio (pornire, PMax, segment de marjă); null la ale omului. */
+      kind: { type: 'shopping' | 'performance_max'; segment: string | null } | null
+      break_even: number | null
+      cost: number; clicks: number; conversions: number; value: number; roas: number | null; profit: number | null
+    }[]
     products: { item_id: string; title: string; image_url: string | null; cost: number; clicks: number; conversions: number; value: number; roas: number | null; break_even: number | null; verdict: 'loses' | 'profitable' | 'no_sales' | 'none' }[]
     search_terms: { term: string; cost: number; clicks: number; conversions: number; value: number }[]
   } | null
@@ -196,16 +203,23 @@ export default function ReportsPage() {
           {/* Campaniile */}
           <Table title={t('reports.campaigns_title')} empty={t('reports.empty')}
             head={[t('reports.col_campaign'), t('reports.kpi_spend'), t('reports.kpi_value'), t('reports.kpi_roas'), t('reports.kpi_conversions'), t('reports.kpi_profit')]}
-            rows={ads.campaigns.map(c => [
-              <div key="n" className="min-w-0">
-                <p className="text-[13px] font-medium text-neutral-900 truncate">{c.name}</p>
-                <p className="text-[11px] text-neutral-400">{t.has(`reports.channel_${c.channel.toLowerCase()}`) ? t(`reports.channel_${c.channel.toLowerCase()}`) : c.channel}{c.hontrio ? ` · ${t('reports.by_hontrio')}` : ''}</p>
-              </div>,
-              fmt.format(c.cost), fmt.format(c.value),
-              <span key="r" className={c.roas !== null && be !== null && c.roas < be ? 'text-red-600 font-semibold' : ''}>{c.roas === null ? '—' : fmtNum.format(c.roas)}</span>,
-              fmtNum.format(c.conversions),
-              <span key="p" className={c.profit !== null && c.profit < 0 ? 'text-red-600' : ''}>{c.profit === null ? '—' : fmt.format(c.profit)}</span>,
-            ])} />
+            rows={ads.campaigns.map(c => {
+              // Campaniile pe marje au pragul lor
+              const cbe = c.break_even ?? be
+              return [
+                <div key="n" className="min-w-0">
+                  <p className="text-[13px] font-medium text-neutral-900 truncate">{c.name}</p>
+                  <p className="text-[11px] text-neutral-400">
+                    {c.kind ? t(campaignKindKey(c.kind)) : t.has(`reports.channel_${c.channel.toLowerCase()}`) ? t(`reports.channel_${c.channel.toLowerCase()}`) : c.channel}
+                    {c.hontrio ? ` · ${t('reports.by_hontrio')}` : ''}
+                  </p>
+                </div>,
+                fmt.format(c.cost), fmt.format(c.value),
+                <span key="r" className={c.roas !== null && cbe !== null && c.roas < cbe ? 'text-red-600 font-semibold' : ''}>{c.roas === null ? '—' : fmtNum.format(c.roas)}</span>,
+                fmtNum.format(c.conversions),
+                <span key="p" className={c.profit !== null && c.profit < 0 ? 'text-red-600' : ''}>{c.profit === null ? '—' : fmt.format(c.profit)}</span>,
+              ]
+            })} />
 
           {/* Produsele */}
           <Table title={t('reports.products_title')} hint={t('reports.products_hint')} empty={t('reports.empty')}

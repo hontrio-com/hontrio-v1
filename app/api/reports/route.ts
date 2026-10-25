@@ -6,13 +6,16 @@ import { logApiError } from '@/lib/logger'
 import { isCommercePlatform } from '@/lib/commerce/sync'
 import { getActiveStore } from '@/lib/stores/active'
 import { loadPlanContext, STORE_PLAN_COLUMNS, type PlanStore } from '@/lib/campaigns/context'
+import { CAMPAIGN_COLUMNS, parseCampaign } from '@/lib/ads/apply'
+import { campaignBreakEvens, profitByCampaign, segmentSplits } from '@/lib/ads/campaign-economics'
 import { getT } from '@/lib/i18n/server'
 
 // =============================================
 // GET /api/reports?days=7|30|90
 // Rapoartele: cheltuiala și valoarea din Google Ads (din cronul zilnic), pe
 // zi, campanie, produs și termen de căutare, cu profitul estimat după
-// pragul magazinului; plus vânzările de pe site pe sursă.
+// pragul fiecărei campanii (al magazinului, la cele care nu sunt Hontrio);
+// plus vânzările de pe site pe sursă.
 // =============================================
 
 const ROUTE = '/api/reports'
@@ -64,10 +67,11 @@ export async function GET(request: Request) {
   const from = new Date(Date.parse(`${to}T00:00:00Z`) - (days - 1) * 86_400_000).toISOString().slice(0, 10)
 
   try {
-    const [{ context }, salesRes, campaignsRes, metrics, productRows, termsRes] = await Promise.all([
+    const [{ context }, salesRes, campaignsRes, segmentsRes, metrics, productRows, termsRes] = await Promise.all([
       loadPlanContext(supabase, userId, store),
       supabase.rpc('commerce_sales_report', { p_store_id: store.id, p_days: days, p_tz: store.timezone || 'Europe/Bucharest' }),
-      supabase.from('ad_campaigns').select('google_campaign_id').eq('store_id', store.id).not('google_campaign_id', 'is', null),
+      supabase.from('ad_campaigns').select(CAMPAIGN_COLUMNS).eq('store_id', store.id).not('google_campaign_id', 'is', null),
+      supabase.from('ad_actions').select('kind, status, ad_campaign_id, applied_at').eq('store_id', store.id).eq('kind', 'segment').eq('status', 'applied'),
       readAll<{ google_campaign_id: string; date: string; campaign_name: string | null; channel_type: string | null; cost: number; clicks: number; impressions: number; conversions: number; conversions_value: number }>(
         f => supabase.from('ad_metrics_daily').select('google_campaign_id, date, campaign_name, channel_type, cost, clicks, impressions, conversions, conversions_value')
           .eq('store_id', store.id).gte('date', from).lte('date', to).order('date').range(f, f + 999)),
@@ -80,7 +84,13 @@ export async function GET(request: Request) {
 
     const plan = context?.plan ?? null
     const breakEven = plan?.economics.break_even ?? null
-    const ours = new Set((campaignsRes.data ?? []).map(r => String(r.google_campaign_id)))
+    const campaignRows = (campaignsRes.data ?? []).map(r => parseCampaign(r as Record<string, unknown>))
+    const ours = new Set(campaignRows.map(c => String(c.google_campaign_id)))
+    // Segmentele de marjă au pragul lor: profitul se socotește pe campanie și pe zi, iar totalurile îl adună
+    const breakEvens = plan ? campaignBreakEvens(campaignRows, plan) : new Map<string, number | null>()
+    const beOf = (id: string) => breakEvens.get(id) ?? breakEven
+    const splits = segmentSplits(campaignRows, segmentsRes.data ?? [])
+    const kindOf = new Map(campaignRows.map(c => [String(c.google_campaign_id), { type: c.type, segment: c.segment }]))
 
     // ── Google Ads ─────────────────────────────────────────────────────────
     let total = ZERO
@@ -94,7 +104,11 @@ export async function GET(request: Request) {
       const prev = byCampaign.get(m.google_campaign_id)
       byCampaign.set(m.google_campaign_id, { ...add(prev ?? ZERO, m), name: m.campaign_name || m.google_campaign_id, channel: m.channel_type || 'UNKNOWN' })
     }
-    const profit = (s: Sum) => (breakEven ? round2(s.value / breakEven - s.cost) : null)
+    const profits = profitByCampaign(
+      metrics.map(m => ({ google_campaign_id: m.google_campaign_id, date: m.date, cost: Number(m.cost) || 0, value: Number(m.conversions_value) || 0 })),
+      breakEvens, breakEven, splits)
+    const profitOf = (ids: string[]) => (profits ? round2(ids.reduce((sum, id) => sum + (profits.get(id) ?? 0), 0)) : null)
+    const campaignIds = [...byCampaign.keys()]
 
     // Produsele: legate de ofertele magazinului prin ID-ul din Merchant Center
     const offers = new Map((plan?.offers ?? []).filter(o => o.item_id).map(o => [o.item_id!.toLowerCase(), o]))
@@ -129,12 +143,12 @@ export async function GET(request: Request) {
       },
       break_even: breakEven,
       ads: hasAds ? {
-        total: { ...total, cost: round2(total.cost), value: round2(total.value), roas: roasOf(total), profit: profit(total) },
-        hontrio: ours.size ? { ...hontrio, cost: round2(hontrio.cost), value: round2(hontrio.value), roas: roasOf(hontrio), profit: profit(hontrio) } : null,
+        total: { ...total, cost: round2(total.cost), value: round2(total.value), roas: roasOf(total), profit: profitOf(campaignIds) },
+        hontrio: ours.size ? { ...hontrio, cost: round2(hontrio.cost), value: round2(hontrio.value), roas: roasOf(hontrio), profit: profitOf(campaignIds.filter(id => ours.has(id))) } : null,
         daily: [...daily.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([date, s]) => ({ date, cost: round2(s.cost), value: round2(s.value) })),
         campaigns: [...byCampaign.entries()].sort((a, b) => b[1].cost - a[1].cost).map(([id, s]) => ({
-          id, name: s.name, channel: s.channel, hontrio: ours.has(id),
-          cost: round2(s.cost), clicks: s.clicks, conversions: round2(s.conversions), value: round2(s.value), roas: roasOf(s), profit: profit(s),
+          id, name: s.name, channel: s.channel, hontrio: ours.has(id), kind: kindOf.get(id) ?? null, break_even: beOf(id),
+          cost: round2(s.cost), clicks: s.clicks, conversions: round2(s.conversions), value: round2(s.value), roas: roasOf(s), profit: profitOf([id]),
         })),
         products,
         search_terms: (termsRes.data ?? []).map(r => ({

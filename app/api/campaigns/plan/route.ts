@@ -8,6 +8,7 @@ import { getActiveStore } from '@/lib/stores/active'
 import { GOALS, MODES, type Goal, type Mode } from '@/lib/campaigns/plan'
 import { loadPlanContext, STORE_PLAN_COLUMNS, type PlanStore } from '@/lib/campaigns/context'
 import { CAMPAIGN_COLUMNS, parseCampaign } from '@/lib/ads/apply'
+import { campaignBreakEvens, profitByCampaign, segmentSplits } from '@/lib/ads/campaign-economics'
 import { AUDIT_FRESH_MS } from '@/lib/google/audit'
 import { getT } from '@/lib/i18n/server'
 
@@ -47,21 +48,26 @@ export async function GET() {
     return NextResponse.json({ store: { platform: store.platform, supported: false }, plan: null })
   }
 
-  const [{ context, errors }, campaignsRes, actionsRes] = await Promise.all([
+  const [{ context, errors }, campaignsRes, actionsRes, segmentsRes] = await Promise.all([
     loadPlanContext(supabase, userId, store),
-    supabase.from('ad_campaigns').select(CAMPAIGN_COLUMNS).eq('store_id', store.id).in('status', ['active', 'paused', 'ended']).not('google_campaign_id', 'is', null).order('launched_at', { ascending: false }),
+    supabase.from('ad_campaigns').select(`${CAMPAIGN_COLUMNS}, paused_reason, updated_at`).eq('store_id', store.id).in('status', ['active', 'paused', 'ended']).not('google_campaign_id', 'is', null).order('launched_at', { ascending: false }),
     supabase.from('ad_actions').select('id, ad_campaign_id, kind, params, reason, status, source, error, created_at, decided_at, applied_at')
       .eq('store_id', store.id).order('created_at', { ascending: false }).limit(JOURNAL + 20),
+    // Împărțirea pe marje, oricât de veche: de la ea „restul" are pragul lui
+    supabase.from('ad_actions').select('kind, status, ad_campaign_id, applied_at').eq('store_id', store.id).eq('kind', 'segment').eq('status', 'applied'),
   ])
   for (const error of errors) logApiError(ROUTE, 500, 'Eroare la citirea datelor magazinului', { userId, error })
   if (!context) return NextResponse.json({ error: t('sync.products_read_failed') }, { status: 500 })
 
   // Cifrele campaniilor Hontrio pe ultimele 30 de zile (din cronul zilnic)
-  const campaigns = (campaignsRes.data ?? []).map(r => parseCampaign(r as Record<string, unknown>))
+  const campaignRows = (campaignsRes.data ?? []) as Record<string, unknown>[]
+  const campaigns = campaignRows.map(r => parseCampaign(r))
+  // De ce e oprită sau încheiată o campanie, și de când
+  const stateOf = new Map(campaignRows.map(r => [String(r.id), { paused_reason: (r.paused_reason as string | null) ?? null, updated_at: (r.updated_at as string | null) ?? null }]))
   const ids = campaigns.map(c => c.google_campaign_id!).filter(Boolean)
   const since = new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10)
   const { data: metrics } = ids.length
-    ? await supabase.from('ad_metrics_daily').select('google_campaign_id, cost, clicks, conversions, conversions_value').eq('store_id', store.id).in('google_campaign_id', ids).gte('date', since)
+    ? await supabase.from('ad_metrics_daily').select('google_campaign_id, date, cost, clicks, conversions, conversions_value').eq('store_id', store.id).in('google_campaign_id', ids).gte('date', since)
     : { data: [] }
   const totals = new Map<string, { cost: number; clicks: number; conversions: number; value: number }>()
   for (const m of metrics ?? []) {
@@ -74,6 +80,11 @@ export async function GET() {
 
   const actions = actionsRes.data ?? []
   const audit = context.audit
+  // Segmentele de marjă au pragul lor: profitul fiecărei campanii se socotește cu el, pe zi
+  const breakEvens = campaignBreakEvens(campaigns, context.plan)
+  const profits = profitByCampaign(
+    (metrics ?? []).map(m => ({ google_campaign_id: m.google_campaign_id, date: m.date, cost: Number(m.cost) || 0, value: Number(m.conversions_value) || 0 })),
+    breakEvens, context.plan.economics.break_even, segmentSplits(campaigns, segmentsRes.data ?? []))
 
   return NextResponse.json({
     store: {
@@ -96,7 +107,13 @@ export async function GET() {
       google_campaign_id: c.google_campaign_id, daily_budget: c.daily_budget, target_roas: c.target_roas,
       cpc_ceiling: c.cpc_ceiling, launched_at: c.launched_at, excluded: c.excluded_item_ids.length,
       included: c.included_item_ids?.length ?? null,
-      last30: totals.get(c.google_campaign_id!) ?? { cost: 0, clicks: 0, conversions: 0, value: 0 },
+      paused_reason: c.status === 'active' ? null : stateOf.get(c.id)?.paused_reason ?? null,
+      ended_at: c.status === 'ended' ? stateOf.get(c.id)?.updated_at ?? null : null,
+      break_even: breakEvens.get(c.google_campaign_id!) ?? context.plan.economics.break_even,
+      last30: {
+        ...(totals.get(c.google_campaign_id!) ?? { cost: 0, clicks: 0, conversions: 0, value: 0 }),
+        profit: profits ? Math.round((profits.get(c.google_campaign_id!) ?? 0) * 100) / 100 : null,
+      },
     })),
     proposals: actions.filter(a => a.status === 'proposed'),
     journal: actions.filter(a => a.status !== 'proposed').slice(0, JOURNAL),

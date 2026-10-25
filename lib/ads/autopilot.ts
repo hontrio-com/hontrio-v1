@@ -1,7 +1,6 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { storedMessage } from '@/lib/i18n/stored'
 import { logError } from '@/lib/logger'
-import { round1 } from '@/lib/ads/economics'
 import { GoogleAdsApiError } from '@/lib/google/ads'
 import { storeAdsAccount } from '@/lib/google/accounts'
 import { getAccessTokenForUser, GoogleAuthError } from '@/lib/google/oauth'
@@ -12,8 +11,9 @@ import { runAudit } from '@/lib/ads/audit-run'
 import { logAction, notify, type ActionKind } from '@/lib/ads/journal'
 import { applyAction, ApplyError, CAMPAIGN_COLUMNS, parseCampaign, syncCampaignProducts, type CampaignRow } from '@/lib/ads/apply'
 import { optimize, sumWindows, windowOf, EMPTY, type OptCampaign, type OptProduct, type Proposal, type Window } from '@/lib/ads/optimizer'
+import { campaignEconomics } from '@/lib/ads/campaign-economics'
 import { loadPlanContext, STORE_PLAN_COLUMNS, type PlanContext, type PlanStore } from '@/lib/campaigns/context'
-import { brandTerms, CAMPAIGN_EXCLUSIONS, GOAL_KEEP, type Plan } from '@/lib/campaigns/plan'
+import { brandTerms, CAMPAIGN_EXCLUSIONS } from '@/lib/campaigns/plan'
 import { syncMerchant } from '@/lib/merchant/sync'
 import { AUDIT_FRESH_MS } from '@/lib/google/audit'
 
@@ -41,22 +41,6 @@ export async function loadCampaigns(supabase: Supabase, storeId: string): Promis
   const { data } = await supabase.from('ad_campaigns').select(CAMPAIGN_COLUMNS)
     .eq('store_id', storeId).in('status', ['active', 'paused']).not('google_campaign_id', 'is', null)
   return (data ?? []).map(r => parseCampaign(r as Record<string, unknown>))
-}
-
-/** Pragul și ținta pentru produsele unei campanii (segmentul de marjă mare are pragul lui). */
-function campaignEconomics(c: CampaignRow, plan: Plan, all: CampaignRow[]): { break_even: number | null; goal_target: number | null } {
-  const be = plan.economics.break_even
-  if (be === null) return { break_even: null, goal_target: plan.target_roas }
-  const highIds = new Set(all.filter(x => x.included_item_ids).flatMap(x => x.included_item_ids!.map(normalizeItemId)))
-  const inCampaign = c.included_item_ids
-    ? (o: Plan['offers'][number]) => !!o.item_id && highIds.has(normalizeItemId(o.item_id))
-    : c.segment === 'rest' ? (o: Plan['offers'][number]) => !o.item_id || !highIds.has(normalizeItemId(o.item_id)) : null
-  if (!inCampaign) return { break_even: be, goal_target: plan.target_roas }
-  const list = plan.offers.filter(o => o.reason === null && o.break_even !== null && inCampaign(o))
-  const weight = list.reduce((s, o) => s + (o.revenue || o.price), 0)
-  if (!list.length || weight <= 0) return { break_even: be, goal_target: plan.target_roas }
-  const segBe = list.reduce((s, o) => s + o.break_even! * (o.revenue || o.price), 0) / weight
-  return { break_even: round1(segBe), goal_target: round1(segBe / (1 - GOAL_KEEP[plan.goal])) }
 }
 
 /** O propunere deschisă de același fel se reîmprospătează, nu se dublează. */

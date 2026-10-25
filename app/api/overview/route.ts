@@ -7,6 +7,8 @@ import { storeSetup } from '@/lib/commerce/setup'
 import { getActiveStore } from '@/lib/stores/active'
 import { loadPlanContext, STORE_PLAN_COLUMNS, type PlanStore } from '@/lib/campaigns/context'
 import { storeAdsAccount } from '@/lib/google/accounts'
+import { CAMPAIGN_COLUMNS, parseCampaign } from '@/lib/ads/apply'
+import { campaignBreakEvens, profitByCampaign, segmentSplits } from '@/lib/ads/campaign-economics'
 import { getT } from '@/lib/i18n/server'
 
 type StoreRow = PlanStore & {
@@ -80,19 +82,31 @@ export async function GET(request: Request) {
     if (ads.context) {
       const since = new Date(Date.now() - days * 86_400_000).toISOString().slice(0, 10)
       const sums = { cost: 0, value: 0, conversions: 0 }
+      const dayRows: { google_campaign_id: string; date: string; cost: number; value: number }[] = []
       for (let from = 0; ; from += 1000) {
-        const { data: rows } = await supabase.from('ad_metrics_daily').select('cost, conversions, conversions_value')
+        const { data: rows } = await supabase.from('ad_metrics_daily').select('google_campaign_id, date, cost, conversions, conversions_value')
           .eq('store_id', store.id).gte('date', since).range(from, from + 999)
-        for (const r of rows ?? []) { sums.cost += Number(r.cost); sums.value += Number(r.conversions_value); sums.conversions += Number(r.conversions) }
+        for (const r of rows ?? []) {
+          sums.cost += Number(r.cost); sums.value += Number(r.conversions_value); sums.conversions += Number(r.conversions)
+          dayRows.push({ google_campaign_id: r.google_campaign_id, date: r.date, cost: Number(r.cost) || 0, value: Number(r.conversions_value) || 0 })
+        }
         if (!rows || rows.length < 1000) break
       }
       if (sums.cost > 0 || sums.value > 0) {
         const be = ads.context.plan.economics.break_even
+        // Segmentele de marjă au pragul lor: profitul se socotește pe campanie și pe zi, ca în Rapoarte
+        const [campaignsRes, segmentsRes] = await Promise.all([
+          supabase.from('ad_campaigns').select(CAMPAIGN_COLUMNS).eq('store_id', store.id).not('google_campaign_id', 'is', null),
+          supabase.from('ad_actions').select('kind, status, ad_campaign_id, applied_at').eq('store_id', store.id).eq('kind', 'segment').eq('status', 'applied'),
+        ])
+        const campaignRows = (campaignsRes.data ?? []).map(r => parseCampaign(r as Record<string, unknown>))
+        const profits = profitByCampaign(dayRows, campaignBreakEvens(campaignRows, ads.context.plan), be, segmentSplits(campaignRows, segmentsRes.data ?? []))
+        const profit = profits ? [...profits.values()].reduce((sum, p) => sum + p, 0) : null
         googleAds = {
           cost: Math.round(sums.cost * 100) / 100, value: Math.round(sums.value * 100) / 100, conversions: Math.round(sums.conversions * 10) / 10,
           roas: sums.cost > 0 ? Math.round((sums.value / sums.cost) * 100) / 100 : null,
           break_even: be,
-          profit: be ? Math.round((sums.value / be - sums.cost) * 100) / 100 : null,
+          profit: profit === null ? null : Math.round(profit * 100) / 100,
         }
       }
       const { economics } = ads.context.plan

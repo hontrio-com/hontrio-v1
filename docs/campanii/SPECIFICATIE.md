@@ -207,6 +207,15 @@ Ferestre: 30 de zile fără ultimele 2, ca evaluare; 14 zile, ca semnal recent.
 Fiecare acțiune se scrie în `ad_actions`: tipul, parametrii, motivul (cheie de
 traducere), starea (`proposed`, `applied`, `rejected`, `failed`, `expired`) și cine a decis.
 
+**Profitul arătat** (Campanii, Rapoarte, Prezentarea generală) folosește același prag ca pilotul
+(`lib/ads/campaign-economics.ts`). Se socotește pe campanie și pe zi: valoarea împărțită la prag,
+minus cheltuiala.
+- Segmentele au pragul produselor lor, ponderat cu vânzările.
+- Campania devenită „restul" are pragul magazinului în zilele dinainte de împărțire (din jurnal),
+  când vindea tot catalogul.
+- Campaniile omului au pragul magazinului.
+- Totalurile adună profitul campaniilor.
+
 ## 7. Profitul în Google
 
 Google raportează profitul brut și poate licita pe profit (în beta) doar dacă are două lucruri:

@@ -332,7 +332,7 @@ export default function CampaignsPage() {
       )}
       {running && (
         <AutopilotPanel mode={plan.settings.mode} maxDailyBudget={plan.settings.max_daily_budget} currency={currency}
-          proposals={data.proposals ?? []} journal={data.journal ?? []} fmt={fmt} fmtNum={fmtNum}
+          proposals={data.proposals ?? []} journal={data.journal ?? []} campaigns={live} fmt={fmt} fmtNum={fmtNum}
           onSaveSettings={saveSettings} onChanged={load} onError={setNotice} />
       )}
 

@@ -5,6 +5,7 @@ import { useT } from '@/lib/i18n/context'
 import { translateStored } from '@/lib/i18n/stored'
 import { Bot, Check, CheckCircle2, Loader2, X } from 'lucide-react'
 import type { Mode } from '@/lib/campaigns/plan'
+import { campaignKindKey, type LiveCampaign } from '@/components/campaigns/live-campaigns'
 
 // =============================================
 // Pilotul: cum lucrează (cu aprobare sau automat), până unde poate urca
@@ -30,6 +31,8 @@ type Props = {
   currency: string
   proposals: ActionItem[]
   journal: ActionItem[]
+  /** Campaniile Hontrio: cu mai multe, fiecare propunere spune la care se referă. */
+  campaigns: LiveCampaign[]
   fmt: Intl.NumberFormat
   fmtNum: Intl.NumberFormat
   onSaveSettings: (body: { mode?: Mode; max_daily_budget?: number | null }) => Promise<boolean>
@@ -45,7 +48,7 @@ const STATUS_STYLE: Record<ActionItem['status'], string> = {
   expired: 'bg-neutral-100 text-neutral-400',
 }
 
-export function AutopilotPanel({ mode, maxDailyBudget, currency, proposals, journal, fmt, fmtNum, onSaveSettings, onChanged, onError }: Props) {
+export function AutopilotPanel({ mode, maxDailyBudget, currency, proposals, journal, campaigns, fmt, fmtNum, onSaveSettings, onChanged, onError }: Props) {
   const { t, intlLocale } = useT()
   const [deciding, setDeciding] = useState<string | null>(null)
   const [savingMode, setSavingMode] = useState<Mode | null>(null)
@@ -80,6 +83,13 @@ export function AutopilotPanel({ mode, maxDailyBudget, currency, proposals, jour
     if (value !== null && (!Number.isFinite(value) || value <= 0)) { onError(t('campaigns.budget_invalid')); return }
     if (value === maxDailyBudget) return
     await onSaveSettings({ max_daily_budget: value === null ? null : Math.round(value * 100) / 100 })
+  }
+
+  /** Campania la care se referă (doar când sunt mai multe; declarația UE și pauza privesc campaniile omului). */
+  function campaignLabel(a: ActionItem): string | null {
+    if (campaigns.length < 2 || !a.ad_campaign_id || a.kind === 'declare_eu' || a.kind === 'pause_existing') return null
+    const c = campaigns.find(x => x.id === a.ad_campaign_id)
+    return c ? t(campaignKindKey(c)) : null
   }
 
   /** Ce schimbă propunerea, pe scurt, din parametrii ei. */
@@ -163,7 +173,10 @@ export function AutopilotPanel({ mode, maxDailyBudget, currency, proposals, jour
               <div key={a.id} className="rounded-lg border border-sky-100 bg-sky-50/40 p-3.5">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                   <div className="min-w-0">
-                    <p className="text-[13px] font-medium text-neutral-900">{t(`campaigns.kind_action_${a.kind}`)}</p>
+                    <p className="text-[13px] font-medium text-neutral-900">
+                      {t(`campaigns.kind_action_${a.kind}`)}
+                      {campaignLabel(a) && <span className="ml-1.5 align-middle text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-white border border-sky-100 text-neutral-600">{campaignLabel(a)}</span>}
+                    </p>
                     {a.reason && <p className="mt-0.5 text-[12px] text-neutral-600 leading-relaxed">{translateStored(t, a.reason, num)}</p>}
                     {detail(a) && <p className="mt-0.5 text-[12px] font-medium text-neutral-800 tabular-nums">{detail(a)}</p>}
                   </div>
@@ -208,6 +221,7 @@ export function AutopilotPanel({ mode, maxDailyBudget, currency, proposals, jour
                   <p className="text-[12px] text-neutral-800">
                     <span className={`mr-1.5 inline-flex text-[10px] font-medium px-1.5 py-0.5 rounded-md ${STATUS_STYLE[a.status]}`}>{t(`campaigns.action_status_${a.status}`)}</span>
                     {t(`campaigns.kind_action_${a.kind}`)}
+                    {campaignLabel(a) && <span className="ml-1.5 text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-neutral-100 text-neutral-600">{campaignLabel(a)}</span>}
                     <span className="text-neutral-400"> · {t(a.source === 'user' ? 'campaigns.by_you' : 'campaigns.by_pilot')}</span>
                   </p>
                   {(a.error || a.reason || detail(a)) && (
