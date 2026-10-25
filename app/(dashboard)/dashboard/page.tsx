@@ -1,285 +1,426 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
-import { useT } from '@/lib/i18n/context'
-import { useSession } from 'next-auth/react'
-import { motion } from 'framer-motion'
-import { Package, ImageIcon, TrendingUp, Sparkles, ArrowRight, ArrowUpRight, Zap, CheckCircle, Clock, CreditCard, Store, RefreshCw, Circle, ExternalLink } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
+import { useSession } from 'next-auth/react'
+import { useT } from '@/lib/i18n/context'
+import {
+  AlertCircle, ArrowDownRight, ArrowRight, ArrowUpRight, CheckCircle2, Circle, ExternalLink, ImageIcon,
+  Megaphone, Receipt, RefreshCw, ShoppingBag, Store, Wallet,
+} from 'lucide-react'
 
-type DashboardData = {
-  totalProducts: number; optimizedProducts: number; publishedProducts: number; draftProducts: number
-  totalImages: number
-  creditsRemaining: number
-  recentProducts: { id: string; original_title: string | null; optimized_title: string | null; status: string; original_images: string[] | null }[]
-  recentTransactions: { description: string; amount: number; created_at: string; reference_type: string; type: string }[]
-  store: { id: string; store_url: string; store_name: string | null; sync_status: string; last_sync_at: string | null; products_count: number; platform: string } | null
-  onboardingChecklist: { id: string; label: string; done: boolean; href: string }[]
-  onboardingProgress: number; onboardingComplete: boolean
-  aiInsight: { type: string; message: string; action: string; actionUrl: string; stat: string; params?: Record<string, any> } | null
+// =============================================
+// Prezentarea generală — cât de pregătit e contul pentru campanii și ce
+// vinde magazinul pe site (comparat cu perioada dinainte).
+// =============================================
+
+type Totals = { revenue: number; orders: number; google_ads_orders: number; google_ads_revenue: number }
+type Overview = {
+  current: Totals; previous: Totals
+  daily: { day: string; revenue: number; orders: number }[]
+  sources: { source: string; orders: number; revenue: number }[]
+}
+type StoreInfo = {
+  id: string; platform: string; store_name: string | null; store_url: string; currency: string; timezone: string
+  connection_status: string | null; sync_status: string | null; last_sync_at: string | null
+  offers_count: number; orders_count: number; supported: boolean
+}
+type TopProduct = {
+  offer_id: string; title: string; variant_title: string | null; image_url: string | null
+  price: number | null; cost_price: number | null; units: number; revenue: number
+}
+type Data = {
+  days: number
+  store: StoreInfo | null
+  google: { connected: boolean; status: string | null; account: { id: string; name: string | null; currency: string | null } | null }
+  checklist: { id: string; done: boolean; href: string; external: boolean }[]
+  costs: { with_cost: number; total: number }
+  overview: Overview | null
+  top_products: TopProduct[]
+}
+type Period = 7 | 30 | 90 | 365
+
+const PERIODS: Period[] = [7, 30, 90, 365]
+const SOURCE_ORDER = ['google_ads', 'google_organic', 'meta', 'email', 'other_campaigns', 'referral', 'direct']
+
+function change(cur: number, prev: number): number | 'new' | null {
+  if (prev === 0) return cur > 0 ? 'new' : null
+  return ((cur - prev) / prev) * 100
 }
 
-function AnimatedNumber({ value, suffix = '' }: { value: number; suffix?: string }) {
-  const [display, setDisplay] = useState(0)
-  const prev = useRef(0)
-  useEffect(() => {
-    const start = prev.current; prev.current = value; if (start === value) return
-    const t0 = performance.now()
-    const step = (now: number) => { const p = Math.min((now - t0) / 700, 1); setDisplay(Math.round(start + (value - start) * (1 - Math.pow(1 - p, 3)))); if (p < 1) requestAnimationFrame(step) }
-    requestAnimationFrame(step)
-  }, [value])
-  return <>{display}{suffix}</>
+/** Ziua de azi în fusul magazinului, ca `AAAA-LL-ZZ`. */
+function todayIn(tz: string): string {
+  try {
+    return new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
+  } catch {
+    return new Date().toISOString().slice(0, 10)
+  }
 }
 
-function Skeleton({ className }: { className?: string }) { return <div className={`animate-pulse bg-neutral-100 rounded-xl ${className || ''}`} /> }
+/**
+ * Seria pe zile cu zilele fără vânzări puse pe 0. Peste 90 de zile, pe
+ * săptămâni: 365 de bare nu mai spun nimic.
+ */
+function buildSeries(daily: Overview['daily'], days: number, tz: string) {
+  const byDay = new Map(daily.map(d => [d.day, d]))
+  const [y, m, d] = todayIn(tz).split('-').map(Number)
+  const out: { day: string; revenue: number; orders: number }[] = []
+  for (let i = days - 1; i >= 0; i--) {
+    const key = new Date(Date.UTC(y, m - 1, d - i)).toISOString().slice(0, 10)
+    const v = byDay.get(key)
+    out.push({ day: key, revenue: v ? Number(v.revenue) : 0, orders: v ? Number(v.orders) : 0 })
+  }
+  if (days <= 90) return out
+  const weeks: typeof out = []
+  for (let i = out.length; i > 0; i -= 7) {
+    const chunk = out.slice(Math.max(0, i - 7), i)
+    weeks.unshift({ day: chunk[0].day, revenue: chunk.reduce((s, x) => s + x.revenue, 0), orders: chunk.reduce((s, x) => s + x.orders, 0) })
+  }
+  return weeks
+}
 
-const stagger = { container: { animate: { transition: { staggerChildren: 0.07 } } }, item: { initial: { y: 16 }, animate: { y: 0, transition: { duration: 0.35 } } } }
+function Delta({ value }: { value: number | 'new' | null }) {
+  const { t } = useT()
+  if (value === null) return null
+  if (value === 'new') return <span className="text-[11px] font-medium text-emerald-600">{t('overview.new')}</span>
+  const up = value >= 0
+  const Icon = up ? ArrowUpRight : ArrowDownRight
+  return (
+    <span className={`inline-flex items-center gap-0.5 text-[11px] font-medium ${up ? 'text-emerald-600' : 'text-red-500'}`}>
+      <Icon className="h-3 w-3" />{Math.abs(Math.round(value))}%
+    </span>
+  )
+}
+
+function Skeleton({ className }: { className?: string }) {
+  return <div className={`animate-pulse bg-neutral-100 rounded-xl ${className || ''}`} />
+}
 
 export default function DashboardPage() {
   const { data: session } = useSession()
-  const [data, setData] = useState<DashboardData | null>(null)
+  const { t, locale } = useT()
+  const [days, setDays] = useState<Period>(30)
+  const [data, setData] = useState<Data | null>(null)
   const [loading, setLoading] = useState(true)
-  const { t } = useT()
-  const userName = session?.user?.name?.split(' ')[0] || 'User'
-  const userPlan = (session?.user as any)?.plan || 'free'
+  const [failed, setFailed] = useState(false)
 
-  useEffect(() => { fetch('/api/dashboard').then(r => r.json()).then(setData).catch(() => {}).finally(() => setLoading(false)) }, [])
+  const load = useCallback(async (period: Period) => {
+    setFailed(false)
+    try {
+      const r = await fetch(`/api/overview?days=${period}`)
+      if (!r.ok) throw new Error()
+      setData(await r.json())
+    } catch {
+      setFailed(true)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
 
-  const getGreeting = () => { const h = new Date().getHours(); return h < 12 ? t('dashboard.good_morning') : h < 18 ? t('dashboard.good_afternoon') : t('dashboard.good_evening') }
-  const formatTime = (iso: string) => new Date(iso).toLocaleDateString('ro-RO', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
-  const optRate = data && data.totalProducts > 0 ? Math.round((data.optimizedProducts + data.publishedProducts) / data.totalProducts * 100) : 0
+  useEffect(() => { load(days) }, [days, load])
 
-  if (loading) return (
-    <div className="space-y-6">
-      <Skeleton className="h-8 w-72" />
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">{[1,2,3,4].map(i => <Skeleton key={i} className="h-32" />)}</div>
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6"><Skeleton className="lg:col-span-2 h-80" /><div className="space-y-4"><Skeleton className="h-36" /><Skeleton className="h-40" /></div></div>
+  const numberLocale = locale === 'en' ? 'en-GB' : 'ro-RO'
+  const currency = data?.store?.currency || 'RON'
+  const fmt = useMemo(() => {
+    try { return new Intl.NumberFormat(numberLocale, { style: 'currency', currency, maximumFractionDigits: 0 }) }
+    catch { return new Intl.NumberFormat(numberLocale, { maximumFractionDigits: 0 }) }
+  }, [numberLocale, currency])
+  const fmtInt = useMemo(() => new Intl.NumberFormat(numberLocale, { maximumFractionDigits: 0 }), [numberLocale])
+  const fmtDay = useCallback((iso: string, withYear = false) =>
+    new Date(`${iso}T12:00:00Z`).toLocaleDateString(numberLocale, { day: 'numeric', month: 'short', ...(withYear ? { year: 'numeric' } : {}), timeZone: 'UTC' }), [numberLocale])
+
+  const series = useMemo(
+    () => (data?.overview ? buildSeries(data.overview.daily, data.days, data.store?.timezone || 'Europe/Bucharest') : []),
+    [data],
+  )
+  const maxRevenue = Math.max(0, ...series.map(s => s.revenue))
+
+  const userName = session?.user?.name?.split(' ')[0] || ''
+  const hour = new Date().getHours()
+  const greeting = hour < 12 ? t('dashboard.good_morning') : hour < 18 ? t('dashboard.good_afternoon') : t('dashboard.good_evening')
+
+  const header = (
+    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+      <div>
+        <h1 className="text-[22px] font-semibold text-neutral-900 tracking-tight">{greeting}{userName ? `, ${userName}` : ''}</h1>
+        <p className="text-neutral-400 mt-0.5 text-[13px]">
+          {data?.store?.supported ? t('overview.subtitle_store', { store: data.store.store_name || '' }) : t('overview.subtitle')}
+        </p>
+      </div>
+      {data?.store?.supported && (
+        <select value={days} onChange={e => setDays(Number(e.target.value) as Period)} aria-label={t('overview.period')}
+          className="h-9 px-3 rounded-xl border border-neutral-200 bg-white text-[12px] font-medium text-neutral-600 focus:outline-none focus:border-neutral-400 self-start sm:self-auto">
+          {PERIODS.map(p => <option key={p} value={p}>{t(`overview.period_${p}`)}</option>)}
+        </select>
+      )}
     </div>
   )
 
-  const noProducts = !data || data.totalProducts === 0
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <Skeleton className="h-8 w-72" />
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">{[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-28" />)}</div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5"><Skeleton className="lg:col-span-2 h-72" /><Skeleton className="h-72" /></div>
+      </div>
+    )
+  }
+
+  if (failed && !data) {
+    return (
+      <div className="space-y-6">
+        {header}
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-neutral-200 bg-white py-16 text-center">
+          <AlertCircle className="h-6 w-6 text-neutral-400" />
+          <p className="mt-3 text-[14px] font-medium text-neutral-900">{t('overview.load_error')}</p>
+          <button onClick={() => load(days)} className="mt-4 h-9 px-4 rounded-xl bg-neutral-900 text-white text-[13px] font-medium hover:bg-neutral-800">
+            {t('catalog.retry')}
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  const done = data?.checklist.filter(c => c.done).length ?? 0
+  const totalSteps = data?.checklist.length ?? 0
+  const ready = totalSteps > 0 && done === totalSteps
+  const cur = data?.overview?.current
+  const prev = data?.overview?.previous
+  const aov = cur && cur.orders ? cur.revenue / cur.orders : 0
+  const prevAov = prev && prev.orders ? prev.revenue / prev.orders : 0
+  const adsShare = cur && cur.revenue ? Math.round((cur.google_ads_revenue / cur.revenue) * 100) : 0
+  const sources = [...(data?.overview?.sources ?? [])].sort((a, b) => SOURCE_ORDER.indexOf(a.source) - SOURCE_ORDER.indexOf(b.source))
+  const sourceTotal = sources.reduce((s, x) => s + Number(x.revenue), 0)
+
+  const checklistCard = data && !ready && (
+    <div className="bg-white border border-neutral-200 rounded-xl p-5">
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <p className="text-[15px] font-semibold text-neutral-900">{t('overview.checklist_title')}</p>
+          <p className="text-[12px] text-neutral-400 mt-0.5">{t('overview.checklist_progress', { done: String(done), total: String(totalSteps) })}</p>
+        </div>
+        <div className="h-1.5 w-28 rounded-full bg-neutral-100 overflow-hidden">
+          <div className="h-full rounded-full bg-neutral-900 transition-all" style={{ width: `${totalSteps ? (done / totalSteps) * 100 : 0}%` }} />
+        </div>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        {data.checklist.map(c => {
+          const label = c.id === 'costs'
+            ? t('overview.check_costs', { with: fmtInt.format(data.costs.with_cost), total: fmtInt.format(data.costs.total) })
+            : t(`overview.check_${c.id}`)
+          const inner = (
+            <div className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg border transition-all ${c.done ? 'border-neutral-100 bg-neutral-50' : 'border-neutral-200 hover:border-neutral-300 bg-white'}`}>
+              {c.done ? <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" /> : <Circle className="h-4 w-4 text-neutral-300 shrink-0" />}
+              <span className={`flex-1 text-[13px] ${c.done ? 'text-neutral-400' : 'text-neutral-800'}`}>{label}</span>
+              {!c.done && (c.external ? <ExternalLink className="h-3.5 w-3.5 text-neutral-300" /> : <ArrowRight className="h-3.5 w-3.5 text-neutral-300" />)}
+            </div>
+          )
+          if (c.done) return <div key={c.id}>{inner}</div>
+          return c.external
+            ? <a key={c.id} href={c.href} target="_blank" rel="noopener">{inner}</a>
+            : <Link key={c.id} href={c.href}>{inner}</Link>
+        })}
+      </div>
+    </div>
+  )
+
+  if (!data?.store || !data.store.supported) {
+    return (
+      <div className="space-y-6">
+        {header}
+        {checklistCard}
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-neutral-200 bg-white py-16 px-6 text-center">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-neutral-100"><Store className="h-6 w-6 text-neutral-500" /></div>
+          <p className="mt-4 text-[15px] font-semibold text-neutral-900">{data?.store ? t('catalog.unsupported_title') : t('overview.no_store_title')}</p>
+          <p className="mt-1 max-w-md text-[13px] text-neutral-400 leading-relaxed">{data?.store ? t('catalog.unsupported_desc') : t('overview.no_store_desc')}</p>
+          {!data?.store && (
+            <Link href="/settings?tab=integrations" className="mt-5 inline-flex items-center gap-1.5 h-9 px-4 rounded-xl bg-neutral-900 text-white text-[13px] font-medium hover:bg-neutral-800">
+              {t('catalog.connect_store')}
+            </Link>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  const store = data.store
+  const kpis = [
+    { key: 'revenue', icon: Wallet, label: t('overview.kpi_revenue'), value: fmt.format(cur?.revenue ?? 0), delta: change(cur?.revenue ?? 0, prev?.revenue ?? 0), sub: null as string | null },
+    { key: 'orders', icon: ShoppingBag, label: t('overview.kpi_orders'), value: fmtInt.format(cur?.orders ?? 0), delta: change(cur?.orders ?? 0, prev?.orders ?? 0), sub: null },
+    { key: 'aov', icon: Receipt, label: t('overview.kpi_aov'), value: fmt.format(aov), delta: change(aov, prevAov), sub: null },
+    {
+      key: 'ads', icon: Megaphone, label: t('overview.kpi_google_ads'), value: fmt.format(cur?.google_ads_revenue ?? 0),
+      delta: change(cur?.google_ads_revenue ?? 0, prev?.google_ads_revenue ?? 0),
+      sub: t('overview.kpi_google_ads_sub', { orders: fmtInt.format(cur?.google_ads_orders ?? 0), share: String(adsShare) }),
+    },
+  ]
 
   return (
-    <motion.div className="space-y-6" variants={stagger.container} initial="initial" animate="animate">
+    <div className="space-y-6">
+      {header}
 
-      {/* ── Header ──────────────────────────────────────────────────────────── */}
-      <motion.div variants={stagger.item}>
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-3">
-              <h1 className="text-[22px] font-semibold text-neutral-900 tracking-tight">{getGreeting()}, {userName}</h1>
-              <span className="text-[11px] font-medium px-2.5 py-0.5 rounded-full bg-neutral-100 text-neutral-500 uppercase tracking-wide">{userPlan}</span>
-            </div>
-            <p className="text-neutral-400 mt-0.5 text-[14px]">{t('dashboard.welcome')}</p>
-          </div>
-          <Link href="/products">
-            <motion.button whileTap={{ scale: 0.985 }} className="h-10 px-5 rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white text-[13px] font-medium inline-flex items-center gap-2 transition-all cursor-pointer">
-              <Sparkles className="h-4 w-4" />{t('dashboard.optimize_products')}
-            </motion.button>
-          </Link>
+      {store.connection_status === 'revoked' && (
+        <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl text-[12px] leading-relaxed bg-amber-50 border border-amber-100 text-amber-800">
+          <AlertCircle className="h-4 w-4 shrink-0 mt-px" />
+          <span className="flex-1">{t('catalog.revoked')}</span>
+          <Link href="/settings?tab=integrations" className="font-medium underline underline-offset-2">{t('edinio.reconnect')}</Link>
         </div>
-      </motion.div>
-
-      {/* ── Onboarding checklist ────────────────────────────────────────────── */}
-      {data && !data.onboardingComplete && (
-        <motion.div variants={stagger.item}>
-          <div className="bg-neutral-900 text-white rounded-xl p-5 relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-40 h-40 bg-white/[0.03] rounded-full -translate-y-1/2 translate-x-1/2 pointer-events-none" />
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <p className="font-semibold text-[15px]">{t('onboarding.title')}</p>
-                <p className="text-neutral-400 text-[13px]">{data.onboardingProgress} / {data.onboardingChecklist.length}</p>
-              </div>
-              <div className="relative h-12 w-12">
-                <svg className="rotate-[-90deg]" viewBox="0 0 36 36" width="48" height="48">
-                  <circle cx="18" cy="18" r="15" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="3" />
-                  <motion.circle cx="18" cy="18" r="15" fill="none" stroke="#34d399" strokeWidth="3" strokeDasharray={`${2 * Math.PI * 15}`}
-                    initial={{ strokeDashoffset: 2 * Math.PI * 15 }} animate={{ strokeDashoffset: 2 * Math.PI * 15 * (1 - data.onboardingProgress / data.onboardingChecklist.length) }}
-                    transition={{ duration: 0.8, delay: 0.3 }} strokeLinecap="round" />
-                </svg>
-                <span className="absolute inset-0 flex items-center justify-center text-xs font-bold">{Math.round(data.onboardingProgress / data.onboardingChecklist.length * 100)}%</span>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              {data.onboardingChecklist.map(s => (
-                <Link key={s.id} href={s.href}>
-                  <div className={`flex items-center gap-2 px-2.5 py-2 rounded-lg text-sm transition-all cursor-pointer ${s.done ? 'bg-white/10' : 'bg-white/5 hover:bg-white/10'}`}>
-                    {s.done ? <CheckCircle className="h-3.5 w-3.5 text-emerald-400 shrink-0" /> : <Circle className="h-3.5 w-3.5 text-white/30 shrink-0" />}
-                    <span className={`text-[12px] truncate ${s.done ? 'text-white/80' : 'text-white/40'}`}>{t('dashboard.' + s.label)}</span>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </div>
-        </motion.div>
       )}
 
-      {/* ── AI Insight ─────────────────────────────────────────────────────── */}
-      {data?.aiInsight && (
-        <motion.div variants={stagger.item}>
-          <div className="bg-white rounded-xl border border-neutral-200 p-4">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-              <div className="h-10 w-10 rounded-xl bg-neutral-900 flex items-center justify-center shrink-0"><Sparkles className="h-4 w-4 text-white" /></div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-0.5">
-                  <span className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500">{t('dashboard.ai_insight')}</span>
-                  <span className="text-[11px] text-neutral-400 bg-neutral-100 px-2 py-0.5 rounded-full">{t('dashboard.' + data.aiInsight.stat, data.aiInsight.params)}</span>
-                </div>
-                <p className="text-[13px] text-neutral-600 leading-relaxed">{t('dashboard.' + data.aiInsight.message, data.aiInsight.params)}</p>
-              </div>
-              <Link href={data.aiInsight.actionUrl} className="shrink-0">
-                <button className="group flex items-center gap-2 bg-neutral-900 hover:bg-neutral-800 text-white text-[13px] font-medium px-4 py-2 rounded-xl transition-all">
-                  {t('dashboard.' + data.aiInsight.action, data.aiInsight.params)}<ArrowRight className="h-3.5 w-3.5 group-hover:translate-x-0.5 transition-transform" />
-                </button>
-              </Link>
+      {checklistCard}
+
+      {/* Cifrele perioadei, cu schimbarea față de perioada dinainte */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {kpis.map(k => (
+          <div key={k.key} className="bg-white border border-neutral-200 rounded-xl p-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="h-8 w-8 rounded-lg bg-neutral-100 flex items-center justify-center"><k.icon className="h-4 w-4 text-neutral-500" /></div>
+              <Delta value={k.delta} />
             </div>
+            <p className="text-[20px] font-bold text-neutral-900 tabular-nums leading-tight">{k.value}</p>
+            <p className="text-[12px] text-neutral-400 mt-0.5">{k.label}</p>
+            {k.sub && <p className="text-[11px] text-neutral-400 mt-0.5">{k.sub}</p>}
           </div>
-        </motion.div>
-      )}
-
-      {/* ── Stats ──────────────────────────────────────────────────────────── */}
-      <motion.div variants={stagger.item}>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          {[
-            { label: t('dashboard.total_products'), value: data?.totalProducts || 0, icon: Package, href: '/products' },
-            { label: t('dashboard.ai_images'), value: data?.totalImages || 0, icon: ImageIcon, href: '/images' },
-            { label: t('dashboard.optimized_products'), value: (data?.optimizedProducts || 0) + (data?.publishedProducts || 0), icon: TrendingUp, href: '/products' },
-            { label: t('dashboard.credits_remaining'), value: data?.creditsRemaining || 0, icon: CreditCard, href: '/credits', bar: true },
-          ].map((stat, i) => (
-            <motion.div key={stat.label} initial={{ y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 + i * 0.06 }}>
-              <Link href={stat.href}>
-                <div className="bg-white border border-neutral-200 hover:border-neutral-300 rounded-xl p-5 cursor-pointer transition-all group">
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="h-9 w-9 rounded-lg bg-neutral-100 flex items-center justify-center"><stat.icon className="h-[18px] w-[18px] text-neutral-500" /></div>
-                    <ArrowUpRight className="h-4 w-4 text-neutral-300 group-hover:text-neutral-500 transition-colors" />
-                  </div>
-                  <p className="text-[22px] font-bold text-neutral-900 tabular-nums"><AnimatedNumber value={stat.value} /></p>
-                  <p className="text-[13px] text-neutral-400 mt-0.5">{stat.label}</p>
-                  {(stat as any).bar && (
-                    <div className="mt-2 h-1 bg-neutral-100 rounded-full overflow-hidden">
-                      <motion.div className={`h-full rounded-full ${(data?.creditsRemaining || 0) <= 5 ? 'bg-red-400' : (data?.creditsRemaining || 0) <= 20 ? 'bg-amber-400' : 'bg-emerald-400'}`}
-                        initial={{ width: 0 }} animate={{ width: `${Math.min(((data?.creditsRemaining || 0) / 100) * 100, 100)}%` }} transition={{ duration: 0.8, delay: 0.4 }} />
-                    </div>
-                  )}
-                </div>
-              </Link>
-            </motion.div>
-          ))}
-        </div>
-      </motion.div>
-
-      {/* ── Main grid ──────────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-
-        {/* LEFT */}
-        <motion.div variants={stagger.item} className="lg:col-span-2 space-y-5">
-          {/* Optimization progress */}
-          <div className="bg-white border border-neutral-200 rounded-xl p-5">
-            <div className="flex items-center justify-between mb-4">
-              <p className="text-[15px] font-semibold text-neutral-900">{t('dashboard.optimized_products')}</p>
-              <Link href="/products" className="text-[12px] text-neutral-400 hover:text-neutral-700 flex items-center gap-1 transition-colors">{t('common.view')} {t('common.all')}<ArrowRight className="h-3 w-3" /></Link>
-            </div>
-            {noProducts ? (
-              <div className="text-center py-10">
-                <div className="h-14 w-14 rounded-xl bg-neutral-100 flex items-center justify-center mx-auto mb-3"><Package className="h-7 w-7 text-neutral-300" /></div>
-                <p className="text-neutral-400 text-[14px] mb-3">{t('products.no_products')}</p>
-                <Link href="/settings"><button className="h-9 px-4 rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white text-[13px] font-medium transition-all">{t('onboarding.connect_store')}</button></Link>
-              </div>
-            ) : (<>
-              <div className="grid grid-cols-3 gap-3 mb-5">
-                {[{ label: t('dashboard.draft'), value: data?.draftProducts }, { label: t('dashboard.optimized'), value: data?.optimizedProducts }, { label: t('dashboard.published'), value: data?.publishedProducts }].map(s => (
-                  <div key={s.label} className="text-center p-3 rounded-lg bg-neutral-50">
-                    <p className="text-[20px] font-bold text-neutral-900">{s.value}</p>
-                    <p className="text-[12px] text-neutral-400 mt-0.5">{s.label}</p>
-                  </div>
-                ))}
-              </div>
-              <div className="space-y-3 mb-5">
-                {[{ label: t('dashboard.optimized_products'), pct: optRate, delay: 0.4 }, { label: t('dashboard.published_in_store'), pct: data && data.totalProducts > 0 ? Math.round(data.publishedProducts / data.totalProducts * 100) : 0, delay: 0.5 }].map(b => (
-                  <div key={b.label}>
-                    <div className="flex justify-between text-[13px] mb-1.5"><span className="text-neutral-500">{b.label}</span><span className="font-medium text-neutral-800">{b.pct}%</span></div>
-                    <div className="h-[6px] bg-neutral-100 rounded-full overflow-hidden">
-                      <motion.div initial={{ width: 0 }} animate={{ width: `${b.pct}%` }} transition={{ duration: 0.9, delay: b.delay }} className="h-full bg-neutral-900 rounded-full" />
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <p className="text-[11px] font-medium text-neutral-400 uppercase tracking-wider mb-2">{t('dashboard.recent_activity')}</p>
-              <div className="space-y-1">
-                {(data?.recentProducts || []).map(p => (
-                  <Link key={p.id} href="/products">
-                    <div className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-neutral-50 transition-colors group cursor-pointer">
-                      <div className="h-9 w-9 rounded-lg bg-neutral-100 overflow-hidden shrink-0">
-                        {p.original_images?.[0] ? <img src={p.original_images[0]} alt="" className="h-full w-full object-cover" /> : <div className="h-full w-full flex items-center justify-center"><Package className="h-4 w-4 text-neutral-300" /></div>}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[13px] font-medium text-neutral-900 truncate">{p.optimized_title || p.original_title}</p>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-md ${p.status === 'published' ? 'bg-emerald-50 text-emerald-700' : p.status === 'optimized' ? 'bg-amber-50 text-amber-700' : 'bg-neutral-100 text-neutral-500'}`}>
-                            {p.status === 'published' ? t('dashboard.published') : p.status === 'optimized' ? t('dashboard.optimized') : t('dashboard.draft')}
-                          </span>
-                        </div>
-                      </div>
-                      <ArrowRight className="h-3.5 w-3.5 text-neutral-300 group-hover:text-neutral-500 transition-colors" />
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            </>)}
-          </div>
-        </motion.div>
-
-        {/* RIGHT */}
-        <motion.div variants={stagger.item} className="space-y-5">
-          {/* Store */}
-          <div className="bg-white border border-neutral-200 rounded-xl p-5">
-            <p className="text-[15px] font-semibold text-neutral-900 flex items-center gap-2 mb-3"><Store className="h-4 w-4 text-neutral-400" />{t('sidebar.settings')}</p>
-            {data?.store ? (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className={`h-2 w-2 rounded-full ${data.store.sync_status === 'active' ? 'bg-emerald-500' : 'bg-neutral-300'}`} />
-                    <span className="text-[13px] font-medium text-neutral-800 truncate max-w-[140px]">{data.store.store_name || data.store.store_url}</span>
-                  </div>
-                  <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${data.store.sync_status === 'active' ? 'bg-emerald-50 text-emerald-700' : 'bg-neutral-100 text-neutral-600'}`}>{data.store.sync_status === 'active' ? t('common.active_label') : data.store.sync_status}</span>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="bg-neutral-50 rounded-lg p-2.5 text-center"><p className="text-[15px] font-bold text-neutral-900">{data.store.products_count}</p><p className="text-[11px] text-neutral-400">{t('dashboard.products_label')}</p></div>
-                  <div className="bg-neutral-50 rounded-lg p-2.5 text-center"><p className="text-[12px] font-semibold text-neutral-600 capitalize">{data.store.platform}</p><p className="text-[11px] text-neutral-400">{t('dashboard.platform')}</p></div>
-                </div>
-                {data.store.last_sync_at && <p className="text-[11px] text-neutral-400 flex items-center gap-1"><RefreshCw className="h-3 w-3" />{t('dashboard.last_sync_label')}: {formatTime(data.store.last_sync_at)}</p>}
-                <Link href="/settings"><button className="w-full text-[12px] text-neutral-500 hover:text-neutral-900 flex items-center justify-center gap-1 py-1 transition-colors">{t('common.settings')}<ExternalLink className="h-3 w-3" /></button></Link>
-              </div>
-            ) : (
-              <div className="text-center py-4">
-                <div className="h-10 w-10 rounded-lg bg-neutral-100 flex items-center justify-center mx-auto mb-2"><Store className="h-5 w-5 text-neutral-300" /></div>
-                <p className="text-[13px] text-neutral-400 mb-3">{t('products.no_products_desc')}</p>
-                <Link href="/settings"><button className="h-8 px-4 rounded-lg border border-neutral-200 text-[12px] font-medium text-neutral-600 hover:bg-neutral-50 transition-all">{t('onboarding.connect_store')}</button></Link>
-              </div>
-            )}
-          </div>
-
-          {/* Activity */}
-          <div className="bg-white border border-neutral-200 rounded-xl p-5">
-            <p className="text-[15px] font-semibold text-neutral-900 flex items-center gap-2 mb-3"><Clock className="h-4 w-4 text-neutral-400" />{t('dashboard.recent_activity')}</p>
-            {data?.recentTransactions?.length ? (
-              <div className="space-y-2.5">
-                {data.recentTransactions.map((tx, i) => (
-                  <div key={i} className="flex items-start gap-2.5">
-                    <div className="h-7 w-7 rounded-md bg-neutral-100 flex items-center justify-center shrink-0 mt-0.5">
-                      {tx.reference_type === 'image_generation' ? <ImageIcon className="h-3 w-3 text-neutral-500" /> : tx.type === 'purchase' ? <CreditCard className="h-3 w-3 text-neutral-500" /> : <Sparkles className="h-3 w-3 text-neutral-500" />}
-                    </div>
-                    <div className="flex-1 min-w-0"><p className="text-[12px] text-neutral-700 truncate">{tx.description}</p><p className="text-[11px] text-neutral-400">{formatTime(tx.created_at)}</p></div>
-                    <span className={`text-[12px] font-medium shrink-0 ${tx.amount > 0 ? 'text-emerald-600' : 'text-red-500'}`}>{tx.amount > 0 ? '+' : ''}{tx.amount} cr</span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-5"><Clock className="h-7 w-7 text-neutral-200 mx-auto mb-2" /><p className="text-[13px] text-neutral-400">{t('dashboard.no_activity')}</p></div>
-            )}
-          </div>
-        </motion.div>
+        ))}
       </div>
-    </motion.div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        {/* Venitul pe zile (pe săptămâni la 12 luni) */}
+        <div className="lg:col-span-2 bg-white border border-neutral-200 rounded-xl p-5">
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-[15px] font-semibold text-neutral-900">{data.days > 90 ? t('overview.chart_title_weekly') : t('overview.chart_title')}</p>
+            <p className="text-[12px] text-neutral-400">{t('overview.chart_hint')}</p>
+          </div>
+          {maxRevenue === 0 ? (
+            <div className="h-44 flex flex-col items-center justify-center text-center">
+              <ShoppingBag className="h-6 w-6 text-neutral-200" />
+              <p className="mt-2 text-[13px] text-neutral-400">{t('overview.no_sales')}</p>
+            </div>
+          ) : (
+            <>
+              <div className="h-44 flex items-end gap-[2px]">
+                {series.map(s => (
+                  <div key={s.day} className="flex-1 h-full flex items-end group"
+                    title={t('overview.bar_tooltip', { day: fmtDay(s.day, true), revenue: fmt.format(s.revenue), orders: fmtInt.format(s.orders) })}>
+                    <div className={`w-full rounded-t-sm transition-colors ${s.revenue > 0 ? 'bg-neutral-900 group-hover:bg-neutral-600' : 'bg-neutral-100'}`}
+                      style={{ height: s.revenue > 0 ? `${Math.max(2, (s.revenue / maxRevenue) * 100)}%` : '2px' }} />
+                  </div>
+                ))}
+              </div>
+              <div className="mt-2 flex justify-between text-[11px] text-neutral-400">
+                <span>{series[0] && fmtDay(series[0].day)}</span>
+                <span>{series.length > 2 && fmtDay(series[Math.floor(series.length / 2)].day)}</span>
+                <span>{series.length > 1 && fmtDay(series[series.length - 1].day)}</span>
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* De unde vin vânzările */}
+        <div className="bg-white border border-neutral-200 rounded-xl p-5">
+          <p className="text-[15px] font-semibold text-neutral-900 mb-4">{t('overview.sources_title')}</p>
+          {sources.length === 0 ? (
+            <p className="text-[13px] text-neutral-400 py-8 text-center">{t('overview.no_sales')}</p>
+          ) : (
+            <div className="space-y-3">
+              {sources.map(s => {
+                const pct = sourceTotal ? (Number(s.revenue) / sourceTotal) * 100 : 0
+                return (
+                  <div key={s.source}>
+                    <div className="flex items-center justify-between text-[12px] mb-1">
+                      <span className={s.source === 'google_ads' ? 'font-semibold text-neutral-900' : 'text-neutral-600'}>{t(`overview.source_${s.source}`)}</span>
+                      <span className="tabular-nums text-neutral-500">{fmt.format(Number(s.revenue))} · {fmtInt.format(s.orders)}</span>
+                    </div>
+                    <div className="h-1.5 rounded-full bg-neutral-100 overflow-hidden">
+                      <div className={`h-full rounded-full ${s.source === 'google_ads' ? 'bg-neutral-900' : 'bg-neutral-300'}`} style={{ width: `${pct}%` }} />
+                    </div>
+                  </div>
+                )
+              })}
+              <p className="text-[11px] text-neutral-400 pt-1">{t('overview.sources_hint')}</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        {/* Cele mai vândute produse */}
+        <div className="lg:col-span-2 bg-white border border-neutral-200 rounded-xl p-5">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-[15px] font-semibold text-neutral-900">{t('overview.top_title')}</p>
+            <Link href="/products" className="text-[12px] text-neutral-400 hover:text-neutral-700 flex items-center gap-1">
+              {t('overview.view_products')}<ArrowRight className="h-3 w-3" />
+            </Link>
+          </div>
+          {data.top_products.length === 0 ? (
+            <p className="text-[13px] text-neutral-400 py-8 text-center">{t('overview.no_sales')}</p>
+          ) : (
+            <div className="divide-y divide-neutral-50">
+              {data.top_products.map((p, i) => {
+                const margin = p.cost_price !== null && p.price ? Math.round(((p.price - p.cost_price) / p.price) * 100) : null
+                return (
+                  <div key={p.offer_id} className="flex items-center gap-3 py-2.5">
+                    <span className="w-4 text-[12px] text-neutral-300 tabular-nums">{i + 1}</span>
+                    <div className="h-9 w-9 shrink-0 overflow-hidden rounded-lg border border-neutral-100 bg-neutral-50 flex items-center justify-center">
+                      {p.image_url
+                        // eslint-disable-next-line @next/next/no-img-element
+                        ? <img src={p.image_url} alt="" loading="lazy" className="h-full w-full object-cover" />
+                        : <ImageIcon className="h-4 w-4 text-neutral-300" />}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[13px] font-medium text-neutral-900 truncate">{p.title}</p>
+                      <p className="text-[11px] text-neutral-400">
+                        {p.variant_title ? `${p.variant_title} · ` : ''}{t('catalog.units', { count: fmtInt.format(p.units) })}
+                        {margin !== null && <> · {t('overview.margin', { pct: String(margin) })}</>}
+                      </p>
+                    </div>
+                    <p className="text-[13px] font-semibold text-neutral-900 tabular-nums">{fmt.format(p.revenue)}</p>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Magazinul */}
+        <div className="bg-white border border-neutral-200 rounded-xl p-5">
+          <p className="text-[15px] font-semibold text-neutral-900 flex items-center gap-2 mb-3"><Store className="h-4 w-4 text-neutral-400" />{t('overview.store_title')}</p>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <a href={store.store_url} target="_blank" rel="noopener" className="text-[13px] font-medium text-neutral-800 truncate hover:text-neutral-950">
+                {store.store_name || store.store_url}
+              </a>
+              <span className={`shrink-0 text-[11px] font-medium px-2 py-0.5 rounded-full ${store.connection_status === 'revoked' ? 'bg-red-50 text-red-600' : 'bg-emerald-50 text-emerald-700'}`}>
+                {store.connection_status === 'revoked' ? t('edinio.revoked') : t('settings.connected')}
+              </span>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <Link href="/products" className="bg-neutral-50 hover:bg-neutral-100 rounded-lg p-2.5 text-center transition-colors">
+                <p className="text-[15px] font-bold text-neutral-900 tabular-nums">{fmtInt.format(store.offers_count)}</p>
+                <p className="text-[11px] text-neutral-400">{t('overview.offers')}</p>
+              </Link>
+              <div className="bg-neutral-50 rounded-lg p-2.5 text-center">
+                <p className="text-[15px] font-bold text-neutral-900 tabular-nums">{fmtInt.format(store.orders_count)}</p>
+                <p className="text-[11px] text-neutral-400">{t('overview.orders')}</p>
+              </div>
+            </div>
+            <p className="text-[11px] text-neutral-400 flex items-center gap-1">
+              <RefreshCw className="h-3 w-3" />
+              {store.last_sync_at
+                ? t('overview.last_sync', { time: new Date(store.last_sync_at).toLocaleString(numberLocale, { dateStyle: 'short', timeStyle: 'short' }) })
+                : t('edinio.syncing')}
+            </p>
+            <div className="pt-1 border-t border-neutral-100">
+              <p className="text-[12px] text-neutral-500 flex items-center gap-1.5 pt-2">
+                <Megaphone className="h-3.5 w-3.5 text-neutral-400" />
+                {data.google.connected
+                  ? t('overview.google_connected', { account: data.google.account?.name || data.google.account?.id || '—' })
+                  : t('overview.google_not_connected')}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   )
 }

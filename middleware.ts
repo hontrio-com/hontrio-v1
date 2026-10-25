@@ -158,6 +158,7 @@ export const config = {
     '/api/integrations/:path*',
     '/api/products/:path*',
     '/api/catalog/:path*',
+    '/api/overview/:path*',
     '/api/images/:path*',
     '/api/generate/:path*',
     '/api/dashboard/:path*',
