@@ -216,7 +216,7 @@ export function buildPlan(input: PlanInput): Plan {
   if (setup.merchant.status === 'missing') blockers.push({ id: 'merchant', href: setup.merchant.href, external: true, variant: setup.platform })
   if (setup.conversion.status === 'missing') blockers.push({ id: 'conversion', href: setup.conversion.href, external: true, variant: setup.platform })
   if (!included.length) blockers.push({ id: 'no_offers', href: '/products', external: false })
-  else if (margin === null) blockers.push({ id: 'costs', href: '/products', external: false, params: { pct: Math.round(coverage * 100) } })
+  else if (margin === null) blockers.push({ id: 'costs', href: '/products?view=no_cost', external: false, params: { pct: Math.round(coverage * 100) } })
 
   return {
     platform: { id: setup.platform, name: setup.platformName },

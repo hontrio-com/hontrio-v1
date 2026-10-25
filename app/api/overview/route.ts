@@ -135,7 +135,7 @@ export async function GET(request: Request) {
         href: step?.href ?? '/settings?tab=integrations', external: !!step,
       }
     }),
-    { id: 'costs', done: costs.ready, href: '/products', external: false },
+    { id: 'costs', done: costs.ready, href: '/products?view=no_cost', external: false },
   ]
 
   return NextResponse.json({

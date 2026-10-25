@@ -40,6 +40,7 @@ type Sort = 'sales' | 'revenue' | 'margin' | 'price' | 'name'
 const PER_PAGE = 50
 const PERIODS: Period[] = [30, 90, 365]
 const SORTS: Sort[] = ['sales', 'revenue', 'margin', 'price', 'name']
+const QUICKS: Quick[] = ['all', 'out', 'no_cost', 'google_issue']
 // Stări la Google cu care oferta nu poate rula în reclame
 const GOOGLE_PROBLEMS = ['disapproved', 'error', 'expirat', 'exclus']
 
@@ -294,11 +295,16 @@ function ProductsView() {
   const [bulkOpen, setBulkOpen] = useState(false)
   const loadedOnce = useRef(false)
 
-  // Căutarea din antet trimite aici cu ?search=
-  const urlSearch = useSearchParams().get('search')
+  // Căutarea din antet trimite aici cu ?search=; pașii și recomandările cu ?view= (ex. no_cost)
+  const params = useSearchParams()
+  const urlSearch = params.get('search')
+  const urlView = params.get('view')
   useEffect(() => {
     if (urlSearch !== null) { setSearch(urlSearch); setQuick('all') }
   }, [urlSearch])
+  useEffect(() => {
+    if (urlView && QUICKS.includes(urlView as Quick)) setQuick(urlView as Quick)
+  }, [urlView])
 
   const load = useCallback(async (period: Period) => {
     if (!loadedOnce.current) setLoading(true)

@@ -210,7 +210,7 @@ export function buildRecommendations(input: EngineInput): Recommendation[] {
         key: 'recs.note_sold', params: { units: sold(o).units, revenue: sold(o).revenue }, money: ['revenue'],
       })),
       total_items: sellersNoCost.length,
-      action: { href: '/products', external: false, label_key: 'recs.action_add_costs' },
+      action: { href: '/products?view=no_cost', external: false, label_key: 'recs.action_add_costs' },
     })
   } else {
     const noCost = offers.filter(o => o.cost_price === null)
@@ -220,7 +220,7 @@ export function buildRecommendations(input: EngineInput): Recommendation[] {
         title: { key: 'recs.missing_costs_generic_title', params: { count: noCost.length } },
         body: { key: 'recs.missing_costs_body' },
         impact_revenue: null, items: [], total_items: noCost.length,
-        action: { href: '/products', external: false, label_key: 'recs.action_add_costs' },
+        action: { href: '/products?view=no_cost', external: false, label_key: 'recs.action_add_costs' },
       })
     }
   }
