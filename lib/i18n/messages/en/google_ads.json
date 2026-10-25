@@ -11,7 +11,7 @@
   "refresh": "Refresh",
   "disconnect": "Disconnect",
   "disconnect_confirm": "Disconnect your Google account? Hontrio will no longer be able to manage your campaigns.",
-  "error_access_denied": "You cancelled the Google connection.",
+  "error_access_denied": "You canceled the Google connection.",
   "error_missing_scope": "Google Ads access must be checked on the Google screen. Please try again.",
   "error_no_refresh_token": "Google did not grant permanent access. Please try again.",
   "error_state": "The connection session expired. Please try again.",

@@ -2,5 +2,9 @@
   "title": "Notifications",
   "mark_read": "Mark as read",
   "mark_all_read": "Mark all as read",
-  "no_notifications": "No new notifications"
+  "no_notifications": "No notifications",
+  "all_caught_up": "You're all caught up.",
+  "unread_count_one": "{{count}} new",
+  "unread_count_other": "{{count}} new",
+  "announcement": "Announcement"
 }

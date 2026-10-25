@@ -1,6 +1,7 @@
 'use client'
 
 import { useT } from '@/lib/i18n/context'
+import type { TFunction } from '@/lib/i18n/translate'
 
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -29,15 +30,15 @@ type Attachment = { url: string; name: string; size: number; type: string }
 // ─── Config ───────────────────────────────────────────────────────────────────
 
 const getStatus = (t: (k: string) => string): Record<string, { label: string; bg: string; text: string; dot: string }> => ({
-  open:        { label: t('support.open'), bg: 'bg-neutral-100', text: 'text-neutral-700', dot: 'bg-neutral-900' },
+  open:        { label: t('support.status_open'), bg: 'bg-neutral-100', text: 'text-neutral-700', dot: 'bg-neutral-900' },
   in_progress: { label: t('support.status_in_progress'), bg: 'bg-amber-50',    text: 'text-amber-700',   dot: 'bg-amber-400' },
-  resolved:    { label: t('support.reply'),  bg: 'bg-neutral-900', text: 'text-white',        dot: 'bg-white' },
+  resolved:    { label: t('support.status_resolved'),  bg: 'bg-neutral-900', text: 'text-white',        dot: 'bg-white' },
   closed:      { label: t('support.status_closed'),   bg: 'bg-neutral-100', text: 'text-neutral-400',  dot: 'bg-neutral-300' },
 })
 
 const getCategory = (t: (k: string) => string): Record<string, { label: string; icon: any }> => ({
   general:     { label: t('support.general'),   icon: HelpCircle },
-  bug:         { label: 'Bug',       icon: Bug },
+  bug:         { label: t('support.category_bug'), icon: Bug },
   feature:     { label: t('support.feature'),  icon: Lightbulb },
   billing:     { label: t('support.billing'),  icon: CreditCard },
   integration: { label: t('settings.tab_integrations'), icon: Link2 },
@@ -58,19 +59,19 @@ const ACCEPTED  = 'image/jpeg,image/png,image/webp,image/gif,application/pdf,tex
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function timeAgo(iso: string) {
+function timeAgo(iso: string, t: TFunction, intlLocale: string) {
   const diff = Date.now() - new Date(iso).getTime()
   const m = Math.floor(diff / 60000), h = Math.floor(diff / 3600000), d = Math.floor(diff / 86400000)
-  if (m < 2)   return 'just now'
-  if (m < 60)  return `${m}m ago`
-  if (h < 24)  return `${h}h ago`
-  if (d === 1) return 'yesterday'
-  if (d < 7)   return `${d}d ago`
-  return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+  if (m < 2)   return t('common.time_just_now')
+  if (m < 60)  return t('common.time_minutes_ago', { count: m })
+  if (h < 24)  return t('common.time_hours_ago', { count: h })
+  if (d === 1) return t('common.time_yesterday')
+  if (d < 7)   return t('common.time_days_ago', { count: d })
+  return new Date(iso).toLocaleDateString(intlLocale, { day: 'numeric', month: 'short' })
 }
 
-function formatFull(iso: string) {
-  return new Date(iso).toLocaleDateString('ro-RO', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+function formatFull(iso: string, intlLocale: string) {
+  return new Date(iso).toLocaleDateString(intlLocale, { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 
 function isImage(t: string) { return t.startsWith('image/') }
@@ -92,7 +93,7 @@ function useAttachments() {
   async function addFiles(files: FileList) {
     const toAdd = Array.from(files).slice(0, MAX_FILES - pending.length)
     for (const file of toAdd) {
-      if (file.size > MAX_SIZE) { alert(`"${file.name}" ${t('support.max_size')}`); continue }
+      if (file.size > MAX_SIZE) { alert(t('support.file_too_large', { name: file.name })); continue }
       const localId = Math.random().toString(36).slice(2)
       const preview = isImage(file.type) ? URL.createObjectURL(file) : ''
       setPending(p => [...p, { localId, name: file.name, size: file.size, type: file.type, url: preview, uploading: true }])
@@ -170,7 +171,7 @@ function DropZone({ onFiles, disabled }: { onFiles: (f: FileList) => void; disab
       <Upload className="h-3.5 w-3.5 text-neutral-400 shrink-0" />
       <div>
         <p className="text-[12px] font-medium text-neutral-600">{t('common.add_files')} <span className="text-neutral-900 underline underline-offset-2">{t('common.or_drag')}</span></p>
-        <p className="text-[10px] text-neutral-400 mt-0.5">{t('support.dropzone_hint').replace('{count}', String(MAX_FILES))}</p>
+        <p className="text-[10px] text-neutral-400 mt-0.5">{t('support.dropzone_hint', { count: MAX_FILES })}</p>
       </div>
       <input ref={ref} type="file" multiple accept={ACCEPTED} className="hidden" onChange={e => e.target.files && onFiles(e.target.files)} />
     </div>
@@ -216,7 +217,7 @@ function StatusBadge({ status }: { status: string }) {
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 export default function SupportPage() {
-  const { t } = useT()
+  const { t, intlLocale } = useT()
   const STATUS = getStatus(t)
   const CATEGORY = getCategory(t)
   const FAQ = getFaq(t)
@@ -423,7 +424,7 @@ export default function SupportPage() {
             <span className="flex items-center gap-1 bg-neutral-100 px-2 py-0.5 rounded-md text-neutral-500 font-medium">
               <CatIcon className="h-3 w-3" />{cat.label}
             </span>
-            <span title={formatFull(selected.created_at)}>{formatFull(selected.created_at)}</span>
+            <span title={formatFull(selected.created_at, intlLocale)}>{formatFull(selected.created_at, intlLocale)}</span>
           </div>
         </div>
 
@@ -435,7 +436,7 @@ export default function SupportPage() {
             <div className="flex-1 bg-white border border-neutral-200 rounded-xl p-4 min-w-0">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-[12px] font-semibold text-neutral-700">{t('support.you')}</span>
-                <span className="text-[11px] text-neutral-400" title={formatFull(selected.created_at)}>{timeAgo(selected.created_at)}</span>
+                <span className="text-[11px] text-neutral-400" title={formatFull(selected.created_at, intlLocale)}>{timeAgo(selected.created_at, t, intlLocale)}</span>
               </div>
               <p className="text-[13px] text-neutral-700 whitespace-pre-wrap leading-relaxed">{selected.message}</p>
               {(selected as any).attachments?.length > 0 && <AttachGallery attachments={(selected as any).attachments} />}
@@ -454,7 +455,7 @@ export default function SupportPage() {
                   <span className="text-[12px] font-semibold text-neutral-700">
                     {reply.is_admin ? t('support.hontrio_team') : t('support.you')}
                   </span>
-                  <span className="text-[11px] text-neutral-400" title={formatFull(reply.created_at)}>{timeAgo(reply.created_at)}</span>
+                  <span className="text-[11px] text-neutral-400" title={formatFull(reply.created_at, intlLocale)}>{timeAgo(reply.created_at, t, intlLocale)}</span>
                 </div>
                 <p className="text-[13px] text-neutral-700 whitespace-pre-wrap leading-relaxed">{reply.message}</p>
                 {(reply.attachments?.length ?? 0) > 0 && <AttachGallery attachments={reply.attachments!} />}
@@ -512,10 +513,10 @@ export default function SupportPage() {
           <h1 className="text-[22px] font-semibold text-neutral-900 tracking-tight">
             {t('support.title')}
             {unread > 0 && (
-              <span className="ml-2 text-[11px] font-semibold bg-neutral-900 text-white px-1.5 py-0.5 rounded-md align-middle">{unread} {t('support.new_badge')}</span>
+              <span className="ml-2 text-[11px] font-semibold bg-neutral-900 text-white px-1.5 py-0.5 rounded-md align-middle">{t('support.unread_count', { count: unread })}</span>
             )}
           </h1>
-          <p className="text-[13px] text-neutral-400 mt-0.5">{tickets.length === 1 ? t('support.ticket_count_one').replace('{count}', String(tickets.length)) : t('support.ticket_count_other').replace('{count}', String(tickets.length))}</p>
+          <p className="text-[13px] text-neutral-400 mt-0.5">{t('support.ticket_count', { count: tickets.length })}</p>
         </div>
         <button onClick={() => setView('create')}
           className="flex items-center gap-1.5 h-9 px-4 rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white text-[13px] font-medium transition-all">
@@ -606,7 +607,7 @@ export default function SupportPage() {
                         <div className="flex items-center gap-2 mb-1">
                           <p className="text-[13px] font-medium text-neutral-900 truncate">{ticket.subject}</p>
                           {ticket.has_unread && (
-                            <span className="text-[9px] font-bold bg-neutral-900 text-white px-1.5 py-0.5 rounded-md shrink-0">NOI</span>
+                            <span className="text-[9px] font-bold bg-neutral-900 text-white px-1.5 py-0.5 rounded-md shrink-0">{t('support.new_badge').toUpperCase()}</span>
                           )}
                         </div>
                         <div className="flex items-center gap-2">
@@ -616,8 +617,8 @@ export default function SupportPage() {
                               <MessageSquare className="h-3 w-3" />{ticket.replies_count}
                             </span>
                           )}
-                          <span className="text-[11px] text-neutral-400" title={formatFull(ticket.updated_at)}>
-                            {timeAgo(ticket.updated_at)}
+                          <span className="text-[11px] text-neutral-400" title={formatFull(ticket.updated_at, intlLocale)}>
+                            {timeAgo(ticket.updated_at, t, intlLocale)}
                           </span>
                         </div>
                       </div>

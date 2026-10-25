@@ -23,12 +23,14 @@ type Data = {
   recommendations: Recommendation[]
 }
 
+// Clase CSS, nu text  i18n-ignore-start
 const SEVERITY_STYLE: Record<Severity, { dot: string; badge: string }> = {
   critical: { dot: 'bg-red-500', badge: 'bg-red-50 text-red-600' },
   high: { dot: 'bg-orange-500', badge: 'bg-orange-50 text-orange-700' },
   medium: { dot: 'bg-amber-400', badge: 'bg-amber-50 text-amber-700' },
   low: { dot: 'bg-neutral-300', badge: 'bg-neutral-100 text-neutral-500' },
 }
+// i18n-ignore-end
 const COLLAPSED_ITEMS = 3
 
 function RecCard({ rec, render, fmt }: { rec: Recommendation; render: (t: Text) => string; fmt: Intl.NumberFormat }) {
@@ -59,12 +61,12 @@ function RecCard({ rec, render, fmt }: { rec: Recommendation; render: (t: Text) 
           rec.action.external ? (
             <a href={rec.action.href} target="_blank" rel="noopener"
               className="shrink-0 inline-flex items-center gap-1.5 h-9 px-3.5 rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white text-[12px] font-medium transition-all self-start">
-              {t(rec.action.label_key)}<ExternalLink className="h-3.5 w-3.5" />
+              {t(t.has(rec.action.label_key) ? rec.action.label_key : 'recs.action_open')}<ExternalLink className="h-3.5 w-3.5" />
             </a>
           ) : (
             <Link href={rec.action.href}
               className="shrink-0 inline-flex items-center gap-1.5 h-9 px-3.5 rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white text-[12px] font-medium transition-all self-start">
-              {t(rec.action.label_key)}<ArrowRight className="h-3.5 w-3.5" />
+              {t(t.has(rec.action.label_key) ? rec.action.label_key : 'recs.action_open')}<ArrowRight className="h-3.5 w-3.5" />
             </Link>
           )
         )}
@@ -108,7 +110,7 @@ function RecCard({ rec, render, fmt }: { rec: Recommendation; render: (t: Text) 
 }
 
 export default function RecommendationsPage() {
-  const { t, locale } = useT()
+  const { t, intlLocale: numberLocale } = useT()
   const [data, setData] = useState<Data | null>(null)
   const [loading, setLoading] = useState(true)
   const [failed, setFailed] = useState(false)
@@ -128,7 +130,6 @@ export default function RecommendationsPage() {
 
   useEffect(() => { load() }, [load])
 
-  const numberLocale = locale === 'en' ? 'en-GB' : 'ro-RO'
   const currency = data?.store?.currency || 'RON'
   const fmt = useMemo(() => {
     try { return new Intl.NumberFormat(numberLocale, { style: 'currency', currency, maximumFractionDigits: 0 }) }
@@ -138,6 +139,8 @@ export default function RecommendationsPage() {
 
   /** Un text al motorului: sumele de bani în moneda magazinului, restul numerelor după limbă. */
   const render = useCallback((txt: Text) => {
+    // Cheia vine de la server: una necunoscută nu se arată ca text
+    if (!t.has(txt.key)) return ''
     const params: Record<string, string> = {}
     for (const [k, v] of Object.entries(txt.params ?? {})) {
       params[k] = typeof v === 'number' ? (txt.money?.includes(k) ? fmt.format(v) : fmtNum.format(v)) : v

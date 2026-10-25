@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useT } from '@/lib/i18n/context'
 
 declare global {
   interface Window {
@@ -21,6 +22,7 @@ function updateConsent(granted: boolean) {
 }
 
 export function CookieConsent() {
+  const { t } = useT()
   const [show, setShow] = useState(false)
 
   useEffect(() => {
@@ -55,11 +57,11 @@ export function CookieConsent() {
           className="fixed bottom-4 left-4 right-4 sm:left-auto sm:right-6 sm:bottom-6 sm:max-w-sm z-50"
         >
           <div className="bg-white border border-neutral-200 rounded-2xl shadow-[0_8px_40px_rgba(0,0,0,0.12)] p-5">
-            <p className="text-[13px] font-semibold text-neutral-900 mb-1">🍪 Cookie-uri</p>
+            <p className="text-[13px] font-semibold text-neutral-900 mb-1">🍪 {t('common.cookie_title')}</p>
             <p className="text-[12px] text-neutral-500 leading-relaxed mb-4">
-              Folosim cookie-uri pentru a analiza traficul si a imbunatati experienta. Poti accepta sau refuza.{' '}
+              {t('common.cookie_text')}{' '}
               <a href="/legal/cookies" className="underline hover:text-neutral-700 transition-colors">
-                Politica cookies
+                {t('common.cookie_policy')}
               </a>
             </p>
             <div className="flex gap-2">
@@ -67,13 +69,13 @@ export function CookieConsent() {
                 onClick={decline}
                 className="flex-1 py-2 text-[12px] font-medium text-neutral-600 border border-neutral-200 rounded-xl hover:bg-neutral-50 transition-colors"
               >
-                Refuz
+                {t('common.cookie_decline')}
               </button>
               <button
                 onClick={accept}
                 className="flex-1 py-2 text-[12px] font-semibold text-white bg-neutral-900 rounded-xl hover:bg-neutral-800 transition-colors"
               >
-                Accept
+                {t('common.cookie_accept')}
               </button>
             </div>
           </div>

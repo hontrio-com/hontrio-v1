@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useT } from '@/lib/i18n/context'
+import { translateStored } from '@/lib/i18n/stored'
 import { AlertCircle, CheckCircle2, ExternalLink, Loader2, RefreshCw, Unplug } from 'lucide-react'
 
 // =============================================
@@ -63,7 +64,7 @@ export function EdinioStoreCard({ store, onChanged, onDisconnected }: {
   onChanged: () => void
   onDisconnected: () => void
 }) {
-  const { t } = useT()
+  const { t, intlLocale } = useT()
   const [syncing, setSyncing] = useState(false)
   const [disconnecting, setDisconnecting] = useState(false)
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null)
@@ -88,7 +89,7 @@ export function EdinioStoreCard({ store, onChanged, onDisconnected }: {
       const r = await fetch(`/api/stores/${store.id}/sync`, { method: 'POST' })
       const d = await r.json()
       if (!r.ok) setNotice({ ok: false, text: d.error || t('edinio.error_generic') })
-      else setNotice({ ok: true, text: t('edinio.sync_done', { offers: String(d.synced ?? 0), orders: String(d.orders ?? 0) }) })
+      else setNotice({ ok: true, text: t('edinio.sync_done', { offers: t('common.offers_count', { count: Number(d.synced ?? 0) }), orders: t('common.orders_count', { count: Number(d.orders ?? 0) }) }) })
       onChanged()
     } catch { setNotice({ ok: false, text: t('edinio.error_generic') }) }
     finally { setSyncing(false) }
@@ -122,7 +123,7 @@ export function EdinioStoreCard({ store, onChanged, onDisconnected }: {
       label: t('settings.last_sync'),
       value: (
         <span className="text-[13px] text-neutral-600">
-          {running ? t('edinio.syncing') : store.last_sync_at ? new Date(store.last_sync_at).toLocaleString('ro-RO') : t('settings.never_synced')}
+          {running ? t('edinio.syncing') : store.last_sync_at ? new Date(store.last_sync_at).toLocaleString(intlLocale) : t('settings.never_synced')}
         </span>
       ),
     },
@@ -178,7 +179,8 @@ export function EdinioStoreCard({ store, onChanged, onDisconnected }: {
           )}
           {store.last_error && !running && (
             <p className="text-[12px] text-amber-800 leading-relaxed p-3 mb-3 bg-amber-50 border border-amber-100 rounded-xl">
-              {t('edinio.last_error', { error: store.last_error })}
+              {/* Mesajul salvat e o propoziție întreagă, în limba omului */}
+              {translateStored(t, store.last_error)}
             </p>
           )}
         </>

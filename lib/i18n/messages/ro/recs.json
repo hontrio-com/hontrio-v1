@@ -79,5 +79,6 @@
   "break_even_vat_assumed": "Pragul presupune TVA de {{vat}}%, cota standard a țării, fiindcă în comenzi nu apare TVA: Google Ads raportează valoarea comenzii cu TVA, dar ție îți rămâne suma fără.",
   "merchant_fix_shopify": "În Shopify, cel mai simplu e aplicația gratuită Google & YouTube: trimite produsele la Merchant Center și ține feedul la zi.",
   "conversion_fix_shopify": "În Shopify, aplicația Google & YouTube o pune singură când legi contul Google Ads.",
-  "action_open_shopify": "Deschide în Shopify"
+  "action_open_shopify": "Deschide în Shopify",
+  "action_open": "Deschide"
 }

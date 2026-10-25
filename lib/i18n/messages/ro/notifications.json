@@ -1,6 +1,11 @@
 {
   "title": "Notificări",
   "mark_read": "Marchează ca citit",
-  "mark_all_read": "Marchează toate ca citite",
-  "no_notifications": "Nicio notificare nouă"
+  "mark_all_read": "Marchează tot ca citit",
+  "no_notifications": "Nicio notificare",
+  "all_caught_up": "Ești la curent cu tot.",
+  "unread_count_one": "{{count}} nouă",
+  "unread_count_few": "{{count}} noi",
+  "unread_count_other": "{{count}} noi",
+  "announcement": "Anunț"
 }

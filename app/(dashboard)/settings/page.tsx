@@ -1,6 +1,7 @@
 'use client'
 
 import { useT } from '@/lib/i18n/context'
+import { translateStored } from '@/lib/i18n/stored'
 import LanguageSwitcher from '@/components/language-switcher'
 import GoogleAdsCard from '@/components/integrations/google-ads-card'
 import { EdinioConnectCard, EdinioStoreCard, type EdinioStore } from '@/components/integrations/edinio-card'
@@ -55,7 +56,7 @@ const PLANS = [
 ]
 
 const getTabs = (t: (k: string, p?: Record<string, string | number>) => string) => [
-  { value: 'general',      label: 'General',    icon: User },
+  { value: 'general',      label: t('settings.tab_general'), icon: User },
   { value: 'brand',        label: t('settings.brand_ai'), icon: Sparkles },
   { value: 'integrations', label: t('settings.tab_integrations'),  icon: Plug },
   { value: 'credits',      label: t('common.credits_label'),    icon: CreditCard },
@@ -140,7 +141,7 @@ function Toast({ type, text, onClose }: { type: string; text: string; onClose: (
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 export default function SettingsPage() {
-  const { t } = useT()
+  const { t, intlLocale } = useT()
   const TABS = getTabs(t)
   const pwStrength = getPwStrength(t)
   const { data: session } = useSession()
@@ -312,8 +313,8 @@ export default function SettingsPage() {
       if (!r.ok) { toast('error', d.error); return }
       // Un magazin mare nu încape într-o rulare: restul vine la sincronizările următoare
       toast('success', d.complete === false
-        ? t('catalog.sync_partial', { offers: String(d.synced ?? 0), orders: String(d.orders ?? 0) })
-        : t('settings.sync_complete', { count: d.synced })); fetchStore()
+        ? t('catalog.sync_partial', { offers: t('common.offers_count', { count: Number(d.synced ?? 0) }), orders: t('common.orders_count', { count: Number(d.orders ?? 0) }) })
+        : t('settings.sync_complete', { count: Number(d.synced ?? 0) })); fetchStore()
     } catch { toast('error', t('settings.error_sync')) } finally { setSyncingId(null) }
   }
 
@@ -329,10 +330,10 @@ export default function SettingsPage() {
 
   function handleConnectShopify() {
     const raw = shopifyUrl.trim().toLowerCase()
-    if (!raw) { toast('error', 'Introdu URL-ul magazinului Shopify'); return }
+    if (!raw) { toast('error', t('settings.shopify_url_required')); return }
     const shop = raw.replace(/^https?:\/\//, '').replace(/\/$/, '')
     if (!shop.includes('.myshopify.com')) {
-      toast('error', 'URL-ul trebuie să fie yourstore.myshopify.com')
+      toast('error', t('onboarding.shopify_url_invalid'))
       return
     }
     setConnectingShopify(true)
@@ -367,7 +368,8 @@ export default function SettingsPage() {
   const userName   = profile?.name || session?.user?.name || t('settings.default_user')
   const userEmail  = profile?.email || session?.user?.email || ''
   const userPlan   = profile?.plan || (session?.user as any)?.plan || 'free'
-  const memberSince = profile?.created_at ? new Date(profile.created_at).toLocaleDateString('ro-RO', { year: 'numeric', month: 'long' }) : ''
+  const memberSince = profile?.created_at ? new Date(profile.created_at).toLocaleDateString(intlLocale, { year: 'numeric', month: 'long' }) : ''
+  const planName = t.has(`credits.plan_${userPlan}`) ? t(`credits.plan_${userPlan}`) : userPlan
   const pw         = pwStrength(pwForm.new)
 
   if (loading) return (
@@ -460,10 +462,10 @@ export default function SettingsPage() {
               <div className="space-y-2.5">
                 <div className="flex items-center justify-between">
                   <span className="text-[13px] text-neutral-500">{t('common.plan')}</span>
-                  <span className="text-[12px] font-medium bg-neutral-100 text-neutral-700 px-2 py-0.5 rounded-md capitalize">{userPlan}</span>
+                  <span className="text-[12px] font-medium bg-neutral-100 text-neutral-700 px-2 py-0.5 rounded-md capitalize">{planName}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-[13px] text-neutral-500">{t('settings.credits_billing')}</span>
+                  <span className="text-[13px] text-neutral-500">{t('settings.credits_available')}</span>
                   <span className="text-[13px] font-semibold text-neutral-900">{credits}</span>
                 </div>
                 {memberSince && (
@@ -506,13 +508,13 @@ export default function SettingsPage() {
                   <Field label={t('settings.business_name')}>
                     <Inp value={brandForm.businessName} onChange={e => setBrandForm(p => ({ ...p, businessName: e.target.value }))} placeholder={t('settings.store_name_placeholder')} />
                   </Field>
-                  <Field label="Website">
-                    <Inp value={brandForm.website} onChange={e => setBrandForm(p => ({ ...p, website: e.target.value }))} placeholder="https://magazin.ro" />
+                  <Field label={t('settings.website')}>
+                    <Inp value={brandForm.website} onChange={e => setBrandForm(p => ({ ...p, website: e.target.value }))} placeholder={t('onboarding.store_url_placeholder')} />
                   </Field>
                 </div>
 
                 <Field label={t('settings.niche_label')}>
-                  <Inp value={brandForm.niche} onChange={e => setBrandForm(p => ({ ...p, niche: e.target.value }))} placeholder="ex: Fashion feminin, Electronice, Cosmetice..." />
+                  <Inp value={brandForm.niche} onChange={e => setBrandForm(p => ({ ...p, niche: e.target.value }))} placeholder={t('settings.niche_placeholder')} />
                   <p className="text-[11px] text-neutral-400 mt-1">{t('settings.niche_help')}</p>
                 </Field>
 
@@ -636,18 +638,18 @@ export default function SettingsPage() {
 
                     {/* Ce a răspuns magazinul la ultima sincronizare, ca omul să știe ce să repare */}
                     {(s.connection_status === 'revoked' || s.connection_status === 'error') && s.last_error && (
-                      <p className="mb-4 px-3 py-2.5 rounded-xl bg-amber-50 border border-amber-100 text-[12px] text-amber-800 leading-relaxed">{s.last_error}</p>
+                      <p className="mb-4 px-3 py-2.5 rounded-xl bg-amber-50 border border-amber-100 text-[12px] text-amber-800 leading-relaxed">{translateStored(t, s.last_error)}</p>
                     )}
 
                     <div className="space-y-2 mb-4">
                       {[
                         { icon: Globe,     label: t('settings.store_url_label'),          value: <a href={s.platform === 'shopify' ? `https://${s.store_url}` : s.store_url} target="_blank" rel="noopener" className="text-[13px] text-neutral-600 flex items-center gap-1 hover:text-neutral-900">{s.store_url.replace(/^https?:\/\//, '')}<ExternalLink className="h-3 w-3" /></a> },
                         { icon: Package,   label: t('settings.products_synced'), value: <span className="text-[13px] font-semibold text-neutral-900">{s.products_count}</span> },
-                        { icon: RefreshCw, label: t('settings.last_sync'),  value: <span className="text-[13px] text-neutral-600">{s.last_sync_at ? new Date(s.last_sync_at).toLocaleString('ro-RO') : t('settings.never_synced')}</span> },
+                        { icon: RefreshCw, label: t('settings.last_sync'),  value: <span className="text-[13px] text-neutral-600">{s.last_sync_at ? new Date(s.last_sync_at).toLocaleString(intlLocale) : t('settings.never_synced')}</span> },
                         // Shopify: afișăm "OAuth 2.0" badge în loc de chei API
                         ...(s.platform === 'shopify' ? [{
                           icon: Key,
-                          label: 'Access Token',
+                          label: t('settings.access_token'),
                           value: (
                             <div className="flex items-center gap-2">
                               <span className="text-[13px] font-mono text-neutral-500">••••••••••••••••</span>
@@ -705,7 +707,7 @@ export default function SettingsPage() {
                 <div className="space-y-3">
                   {/* Nu e un formular de autentificare: managerul de parole nu are ce completa aici */}
                   <Field label={t('settings.store_url_label')}>
-                    <Inp value={storeForm.store_url} onChange={e => { setStoreForm(p => ({ ...p, store_url: e.target.value })); setConnTest(null) }} placeholder="https://magazin.ro"
+                    <Inp value={storeForm.store_url} onChange={e => { setStoreForm(p => ({ ...p, store_url: e.target.value })); setConnTest(null) }} placeholder={t('onboarding.store_url_placeholder')}
                       name="woo_store_url" autoComplete="url" />
                   </Field>
 
@@ -757,22 +759,22 @@ export default function SettingsPage() {
                   </div>
                   <div>
                     <p className="text-[13px] font-semibold text-neutral-900">Shopify</p>
-                    <p className="text-[11px] text-neutral-400">OAuth 2.0 — simplu și sigur</p>
+                    <p className="text-[11px] text-neutral-400">{t('onboarding.shopify_subtitle')}</p>
                   </div>
                 </div>
 
                 <div className="space-y-3">
                   <div className="p-3 bg-neutral-50 rounded-xl">
                     <p className="text-[12px] text-neutral-500 leading-relaxed">
-                      Vei fi redirecționat către Shopify pentru autorizare. Nicio cheie API de copiat manual.
+                      {t('onboarding.shopify_desc')}
                     </p>
                   </div>
 
-                  <Field label="URL Magazin Shopify">
+                  <Field label={t('onboarding.shopify_url_label')}>
                     <Inp
                       value={shopifyUrl}
                       onChange={e => setShopifyUrl(e.target.value)}
-                      placeholder="mystore.myshopify.com"
+                      placeholder={t('onboarding.shopify_url_placeholder')}
                     />
                   </Field>
 
@@ -785,7 +787,7 @@ export default function SettingsPage() {
                       ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
                       : <Zap className="h-3.5 w-3.5" />
                     }
-                    {connectingShopify ? 'Se redirecționează...' : 'Conectează cu Shopify'}
+                    {connectingShopify ? t('common.redirecting') : t('onboarding.shopify_connect')}
                   </Btn>
                 </div>
               </Card>
@@ -823,7 +825,7 @@ export default function SettingsPage() {
                 <div>
                   <p className="text-[11px] font-medium text-neutral-400 uppercase tracking-wide mb-1">{t('settings.credits_available')}</p>
                   <p className="text-4xl font-bold text-neutral-900 tabular-nums">{credits}</p>
-                  <p className="text-[12px] text-neutral-400 mt-1">{t('settings.plan_label')} <span className="text-neutral-700 font-medium capitalize">{userPlan}</span></p>
+                  <p className="text-[12px] text-neutral-400 mt-1">{t('settings.plan_label')} <span className="text-neutral-700 font-medium capitalize">{planName}</span></p>
                 </div>
                 <div className="h-14 w-14 rounded-xl bg-neutral-100 flex items-center justify-center">
                   <Zap className="h-7 w-7 text-neutral-400" />
@@ -848,7 +850,7 @@ export default function SettingsPage() {
                     {pack.popular && (
                       <span className="absolute -top-2.5 left-3 text-[9px] font-bold bg-neutral-900 text-white px-2 py-0.5 rounded-full">{t('settings.popular')}</span>
                     )}
-                    <p className="text-[16px] font-bold text-neutral-900">{pack.credits} <span className="text-[13px] font-normal text-neutral-400">cr.</span></p>
+                    <p className="text-[16px] font-bold text-neutral-900">{pack.credits} <span className="text-[13px] font-normal text-neutral-400">{t('common.credits_short')}</span></p>
                     <p className="text-[13px] font-semibold text-neutral-700 mt-0.5">{pack.price} RON</p>
                     <p className="text-[10px] text-neutral-400 mt-1">{(pack.price / pack.credits * 100).toFixed(0)} {t('settings.bani_per_credit')}</p>
                     {buyingPack === pack.id && (
@@ -877,8 +879,8 @@ export default function SettingsPage() {
                         {tx.amount > 0 ? <TrendingUp className="h-3.5 w-3.5 text-emerald-600" /> : <TrendingDown className="h-3.5 w-3.5 text-neutral-400" />}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-[13px] text-neutral-700 truncate">{tx.description}</p>
-                        <p className="text-[11px] text-neutral-400">{new Date(tx.created_at).toLocaleDateString('ro-RO', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</p>
+                        <p className="text-[13px] text-neutral-700 truncate">{translateStored(t, tx.description)}</p>
+                        <p className="text-[11px] text-neutral-400">{new Date(tx.created_at).toLocaleDateString(intlLocale, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</p>
                       </div>
                       <div className="text-right shrink-0">
                         <p className={`text-[13px] font-semibold tabular-nums ${tx.amount > 0 ? 'text-emerald-600' : 'text-neutral-700'}`}>
@@ -902,7 +904,7 @@ export default function SettingsPage() {
                 ].map((item, i) => (
                   <div key={i} className="flex items-center justify-between py-1.5">
                     <span className="text-[13px] text-neutral-600 flex items-center gap-2"><span>{item.icon}</span>{item.label}</span>
-                    <span className="text-[11px] font-semibold text-neutral-700 bg-neutral-100 px-2 py-0.5 rounded-md tabular-nums">{item.cost} cr.</span>
+                    <span className="text-[11px] font-semibold text-neutral-700 bg-neutral-100 px-2 py-0.5 rounded-md tabular-nums">{item.cost} {t('common.credits_short')}</span>
                   </div>
                 ))}
               </div>
@@ -915,7 +917,7 @@ export default function SettingsPage() {
                   <div key={plan.id} className={`flex items-center justify-between text-[12px] px-2 py-1.5 rounded-lg
                     ${userPlan === plan.id ? 'bg-neutral-900 text-white' : 'text-neutral-500'}`}>
                     <span className="font-medium">{plan.name}</span>
-                    <span className="tabular-nums">{plan.credits} cr. / {plan.price} RON</span>
+                    <span className="tabular-nums">{plan.credits} {t('common.credits_short')} / {plan.price} RON</span>
                   </div>
                 ))}
               </div>

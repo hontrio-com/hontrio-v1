@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useSession } from 'next-auth/react'
 import { useT } from '@/lib/i18n/context'
+import { translateStored } from '@/lib/i18n/stored'
 import {
   AlertCircle, ArrowDownRight, ArrowRight, ArrowUpRight, CheckCircle2, Circle, ExternalLink, ImageIcon,
   Megaphone, Receipt, RefreshCw, ShoppingBag, Store, Wallet,
@@ -99,7 +100,7 @@ function Skeleton({ className }: { className?: string }) {
 
 export default function DashboardPage() {
   const { data: session } = useSession()
-  const { t, locale } = useT()
+  const { t, intlLocale: numberLocale } = useT()
   const [days, setDays] = useState<Period>(30)
   const [data, setData] = useState<Data | null>(null)
   const [loading, setLoading] = useState(true)
@@ -120,7 +121,6 @@ export default function DashboardPage() {
 
   useEffect(() => { load(days) }, [days, load])
 
-  const numberLocale = locale === 'en' ? 'en-GB' : 'ro-RO'
   const currency = data?.store?.currency || 'RON'
   const fmt = useMemo(() => {
     try { return new Intl.NumberFormat(numberLocale, { style: 'currency', currency, maximumFractionDigits: 0 }) }
@@ -206,10 +206,13 @@ export default function DashboardPage() {
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
         {data.checklist.map(c => {
-          // Costurile se măsoară ca în planul campaniei: pe vânzări, când există
-          const label = c.id !== 'costs' ? t(`overview.check_${c.id}${c.variant ? `_${c.variant}` : ''}`)
+          // Costurile se măsoară ca în planul campaniei: pe vânzări, când există.
+          // Textul pasului vine din date: fără platformă dacă varianta nu are text, altfel unul generic
+          const step = `${c.id}${c.variant ? `_${c.variant}` : ''}`
+          const label = c.id !== 'costs'
+            ? (t.has(`overview.check_${step}`) ? t(`overview.check_${step}`) : t.has(`overview.check_${c.id}`) ? t(`overview.check_${c.id}`) : t('overview.check_generic'))
             : data.costs.basis === 'sales' ? t('overview.check_costs_sales', { pct: String(Math.round(data.costs.coverage * 100)) })
-            : t('overview.check_costs', { with: fmtInt.format(data.costs.with_cost), total: fmtInt.format(data.costs.total) })
+            : t('overview.check_costs', { with: fmtInt.format(data.costs.with_cost), count: data.costs.total })
           const inner = (
             <div className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg border transition-all ${c.done ? 'border-neutral-100 bg-neutral-50' : 'border-neutral-200 hover:border-neutral-300 bg-white'}`}>
               {c.done ? <CheckCircle2 className={`h-4 w-4 shrink-0 ${c.unverified ? 'text-neutral-300' : 'text-emerald-500'}`} /> : <Circle className="h-4 w-4 text-neutral-300 shrink-0" />}
@@ -256,7 +259,7 @@ export default function DashboardPage() {
     {
       key: 'ads', icon: Megaphone, label: t('overview.kpi_google_ads'), value: fmt.format(cur?.google_ads_revenue ?? 0),
       delta: change(cur?.google_ads_revenue ?? 0, prev?.google_ads_revenue ?? 0),
-      sub: t('overview.kpi_google_ads_sub', { orders: fmtInt.format(cur?.google_ads_orders ?? 0), share: String(adsShare) }),
+      sub: t('overview.kpi_google_ads_sub', { orders: t('common.orders_count', { count: cur?.google_ads_orders ?? 0 }), share: String(adsShare) }),
     },
   ]
 
@@ -269,7 +272,7 @@ export default function DashboardPage() {
           <AlertCircle className="h-4 w-4 shrink-0 mt-px" />
           <span className="flex-1">
             {store.connection_status === 'revoked' ? t('catalog.revoked', { platform: store.platform_name }) : t('catalog.store_error', { platform: store.platform_name })}
-            {store.connection_status === 'error' && store.last_error && <span className="block text-amber-700/70">{store.last_error}</span>}
+            {store.connection_status === 'error' && store.last_error && <span className="block text-amber-700/70">{translateStored(t, store.last_error)}</span>}
           </span>
           {store.connection_status === 'revoked' && (
             <Link href="/settings?tab=integrations" className="font-medium underline underline-offset-2">{t('catalog.reconnect')}</Link>
@@ -311,7 +314,7 @@ export default function DashboardPage() {
               <div className="h-44 flex items-end gap-[2px]">
                 {series.map(s => (
                   <div key={s.day} className="flex-1 h-full flex items-end group"
-                    title={t('overview.bar_tooltip', { day: fmtDay(s.day, true), revenue: fmt.format(s.revenue), orders: fmtInt.format(s.orders) })}>
+                    title={t('overview.bar_tooltip', { day: fmtDay(s.day, true), revenue: fmt.format(s.revenue), orders: t('common.orders_count', { count: s.orders }) })}>
                     <div className={`w-full rounded-t-sm transition-colors ${s.revenue > 0 ? 'bg-neutral-900 group-hover:bg-neutral-600' : 'bg-neutral-100'}`}
                       style={{ height: s.revenue > 0 ? `${Math.max(2, (s.revenue / maxRevenue) * 100)}%` : '2px' }} />
                   </div>
@@ -338,7 +341,7 @@ export default function DashboardPage() {
                 return (
                   <div key={s.source}>
                     <div className="flex items-center justify-between text-[12px] mb-1">
-                      <span className={s.source === 'google_ads' ? 'font-semibold text-neutral-900' : 'text-neutral-600'}>{t(`overview.source_${s.source}`)}</span>
+                      <span className={s.source === 'google_ads' ? 'font-semibold text-neutral-900' : 'text-neutral-600'}>{t.has(`overview.source_${s.source}`) ? t(`overview.source_${s.source}`) : t('overview.source_unknown')}</span>
                       <span className="tabular-nums text-neutral-500">{fmt.format(Number(s.revenue))} · {fmtInt.format(s.orders)}</span>
                     </div>
                     <div className="h-1.5 rounded-full bg-neutral-100 overflow-hidden">
@@ -380,7 +383,7 @@ export default function DashboardPage() {
                     <div className="flex-1 min-w-0">
                       <p className="text-[13px] font-medium text-neutral-900 truncate">{p.title}</p>
                       <p className="text-[11px] text-neutral-400">
-                        {p.variant_title ? `${p.variant_title} · ` : ''}{t('catalog.units', { count: fmtInt.format(p.units) })}
+                        {p.variant_title ? `${p.variant_title} · ` : ''}{t('catalog.units', { count: Number(p.units) })}
                         {margin !== null && <> · {t('overview.margin', { pct: String(margin) })}</>}
                       </p>
                     </div>

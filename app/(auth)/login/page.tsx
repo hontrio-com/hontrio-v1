@@ -60,7 +60,7 @@ function LoginContent() {
     setTimeout(() => router.push(onboarding ? '/onboarding' : '/dashboard'), 800)
   }
 
-  const handleGoogle = async () => { setGLoading(true); try { await signIn('google', { callbackUrl: '/dashboard' }) } catch { showToast(t('common.error') + ' Google', 'error'); setGLoading(false) } }
+  const handleGoogle = async () => { setGLoading(true); try { await signIn('google', { callbackUrl: '/dashboard' }) } catch { showToast(t('auth.google_error'), 'error'); setGLoading(false) } }
 
   const ic = (n: string) => `relative rounded-xl border transition-all duration-200 ${focused === n ? 'border-neutral-900 ring-1 ring-neutral-900/5' : 'border-neutral-200 hover:border-neutral-300'}`
   const ii = (n: string) => `absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 transition-colors duration-200 ${focused === n ? 'text-neutral-900' : 'text-neutral-300'}`

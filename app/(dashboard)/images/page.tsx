@@ -50,19 +50,19 @@ type PromoText   = { headline: string; subtitle: string; benefits: string[]; cta
 
 const getProductStyles = (t: (k: string, p?: Record<string, string | number>) => string) => [
   { value: 'white_bg',     label: t('images.style_simple'),       desc: t('images.white_bg_desc'), cost: 2 },
-  { value: 'lifestyle',    label: 'Lifestyle',    desc: t('images.lifestyle_desc'),          cost: 3 },
-  { value: 'premium_dark', label: 'Premium Dark', desc: t('images.premium_desc'),               cost: 3 },
-  { value: 'industrial',   label: 'Industrial',   desc: t('images.style_industrial_desc'),           cost: 3 },
+  { value: 'lifestyle',    label: t('images.style_lifestyle'), desc: t('images.lifestyle_desc'),          cost: 3 },
+  { value: 'premium_dark', label: t('images.style_premium'), desc: t('images.premium_desc'),               cost: 3 },
+  { value: 'industrial',   label: t('images.style_industrial'), desc: t('images.style_industrial_desc'),           cost: 3 },
   { value: 'seasonal',     label: t('images.style_seasonal_label'),     desc: t('images.style_seasonal_short'),                 cost: 4 },
-  { value: 'manual',       label: 'Manual',       desc: t('images.manual_desc'),         cost: 3 },
+  { value: 'manual',       label: t('images.style_manual'), desc: t('images.manual_desc'),         cost: 3 },
 ]
 const getPromoStyles = (t: (k: string, p?: Record<string, string | number>) => string) => [
-  { value: 'modern_minimalist', label: 'Modern Minimalist', desc: t('images.promo_modern_desc'),          cost: 4 },
-  { value: 'bold_dynamic',      label: 'Bold & Dynamic',    desc: t('images.promo_bold_desc'),    cost: 4 },
-  { value: 'elegant_luxury',    label: 'Elegant Luxury',    desc: t('images.promo_elegant_desc'),  cost: 4 },
-  { value: 'vibrant_sale',      label: 'Vibrant Sale',      desc: t('images.seasonal_desc'),     cost: 4 },
-  { value: 'dark_premium',      label: 'Dark Premium',      desc: t('images.promo_dark_desc'),          cost: 4 },
-  { value: 'gradient_pop',      label: 'Gradient Pop',      desc: t('images.promo_gradient_desc'),         cost: 4 },
+  { value: 'modern_minimalist', label: t('images.promo_modern_label'), desc: t('images.promo_modern_desc'),          cost: 4 },
+  { value: 'bold_dynamic',      label: t('images.promo_bold_label'), desc: t('images.promo_bold_desc'),    cost: 4 },
+  { value: 'elegant_luxury',    label: t('images.promo_elegant_label'), desc: t('images.promo_elegant_desc'),  cost: 4 },
+  { value: 'vibrant_sale',      label: t('images.promo_vibrant_label'), desc: t('images.seasonal_desc'),     cost: 4 },
+  { value: 'dark_premium',      label: t('images.promo_dark_label'), desc: t('images.promo_dark_desc'),          cost: 4 },
+  { value: 'gradient_pop',      label: t('images.promo_gradient_label'), desc: t('images.promo_gradient_desc'),         cost: 4 },
   { value: 'retro_vintage',     label: t('images.promo_retro_vintage_label'),     desc: t('images.promo_retro_vintage_desc'),     cost: 4 },
   { value: 'editorial_magazine', label: t('images.promo_editorial_magazine_label'), desc: t('images.promo_editorial_magazine_desc'), cost: 4 },
   { value: 'social_story',      label: t('images.promo_social_story_label'),      desc: t('images.promo_social_story_desc'),      cost: 4 },
@@ -73,9 +73,9 @@ function getStyleLabel(t: (k: string, p?: Record<string, string | number>) => st
 
 function getCurrentSeason(t: (k: string, p?: Record<string, string | number>) => string) {
   const m = new Date().getMonth() + 1
-  if (m === 11) return { label: 'Black Friday', style: 'bold_dynamic', reason: t('images.november_season_reason') }
+  if (m === 11) return { label: t('images.season_black_friday'), style: 'bold_dynamic', reason: t('images.november_season_reason') }
   if (m === 12) return { label: t('images.season_christmas'),      style: 'seasonal',    reason: t('images.season_christmas_reason') }
-  if (m === 2)  return { label: 'Valentine',    style: 'elegant_luxury', reason: t('images.february_season_reason') }
+  if (m === 2)  return { label: t('images.season_valentine'), style: 'elegant_luxury', reason: t('images.february_season_reason') }
   if (m >= 3 && m <= 5) return { label: t('images.season_spring'), style: 'lifestyle', reason: t('images.season_spring_reason') }
   if (m >= 6 && m <= 8) return { label: t('images.season_summer'),      style: 'lifestyle', reason: t('images.season_summer_reason') }
   return null
@@ -97,7 +97,7 @@ function Btn({ onClick, disabled, children, variant = 'primary', size = 'md', cl
     primary: 'bg-neutral-900 hover:bg-neutral-800 text-white',
     outline: 'border border-neutral-200 text-neutral-600 hover:bg-neutral-50',
     ghost:   'text-neutral-500 hover:text-neutral-700 hover:bg-neutral-100',
-    success: 'bg-emerald-600 text-white',
+    success: 'bg-emerald-600 text-white', // i18n-ignore: clase CSS
   }
   return <button onClick={onClick} disabled={disabled} className={`${base} ${sizes[size]} ${vars[variant]} ${className}`}>{children}</button>
 }
@@ -320,7 +320,7 @@ function GeneratingScreen({ taskId, imageRecordId, onDone, onError, variantCount
       <p className="text-[17px] font-semibold text-neutral-900 mb-2">{t('images.ai_generating')}</p>
       <p className="text-[13px] text-neutral-400 mb-6">
         {t('images.gpt_builds_prompt')}
-        {variantCount > 1 && <span className="ml-1 font-semibold text-neutral-700">{t('images.variant_count_label', { count: String(variantCount) })}</span>}
+        {variantCount > 1 && <span className="ml-1 font-semibold text-neutral-700">{t('images.variant_count_label', { count: variantCount })}</span>}
       </p>
       <div className="flex items-center gap-2 px-4 py-2 bg-neutral-50 rounded-full border border-neutral-100">
         <Loader2 className="h-4 w-4 animate-spin text-neutral-400" />
@@ -362,7 +362,7 @@ function StyleSelector({ styles, selected, onSelect, credits, season }: {
               {sel && <div className="absolute top-2.5 right-2.5 h-4 w-4 rounded-full bg-neutral-900 flex items-center justify-center"><Check className="h-2.5 w-2.5 text-white" /></div>}
               <p className="text-[12px] font-semibold text-neutral-900 mb-0.5">{style.label}</p>
               <p className="text-[11px] text-neutral-400 leading-snug">{style.desc}</p>
-              <Badge className="mt-2 bg-neutral-100 text-neutral-600">{style.cost} cr</Badge>
+              <Badge className="mt-2 bg-neutral-100 text-neutral-600">{style.cost} {t('common.credits_short')}</Badge>
             </button>
           )
         })}
@@ -532,7 +532,7 @@ function ProductGenerator({ onImageGenerated, brandKit }: { onImageGenerated: (i
                     className="h-7 w-7 rounded-lg border border-neutral-200 flex items-center justify-center hover:bg-neutral-100 disabled:opacity-40 transition-colors">
                     <Plus className="h-3 w-3" />
                   </button>
-                  {styleDef && <span className="text-[11px] text-neutral-400 ml-1 tabular-nums">{styleDef.cost * variantCount} cr</span>}
+                  {styleDef && <span className="text-[11px] text-neutral-400 ml-1 tabular-nums">{styleDef.cost * variantCount} {t('common.credits_short')}</span>}
                 </div>
               </div>
 
@@ -551,7 +551,7 @@ function ProductGenerator({ onImageGenerated, brandKit }: { onImageGenerated: (i
               <div className="flex items-center justify-between pt-1">
                 <Btn variant="ghost" onClick={() => { setStep('select_image'); setError(null) }}>{t('common.back_label')}</Btn>
                 <Btn onClick={handleGenerate} disabled={!selectedStyle || credits < (styleDef?.cost || 0) * variantCount || (selectedStyle === 'manual' && !manualDesc.trim())}>
-                  <Wand2 className="h-3.5 w-3.5" />{t('images.gen_generate_btn')} {styleDef && <Badge className="ml-1 bg-white/20 text-white">{styleDef.cost * variantCount} {t('images.gen_cr')}</Badge>}
+                  <Wand2 className="h-3.5 w-3.5" />{t('images.gen_generate_btn')} {styleDef && <Badge className="ml-1 bg-white/20 text-white">{styleDef.cost * variantCount} {t('common.credits_short')}</Badge>}
                 </Btn>
               </div>
             </motion.div>
@@ -569,7 +569,7 @@ function ProductGenerator({ onImageGenerated, brandKit }: { onImageGenerated: (i
             <motion.div key="done" initial={{ y: 6 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
               <div className="flex items-center gap-2 p-3 bg-emerald-50 border border-emerald-100 rounded-xl">
                 <CheckCircle className="h-4 w-4 text-emerald-600 shrink-0" />
-                <p className="text-[13px] font-medium text-emerald-700">{lastUrls.length > 1 ? t('images.gen_variants_success', { count: String(lastUrls.length) }) : t('images.gen_image_success')}</p>
+                <p className="text-[13px] font-medium text-emerald-700">{lastUrls.length > 1 ? t('images.gen_variants_success', { count: lastUrls.length }) : t('images.gen_image_success')}</p>
               </div>
 
               {lastUrls.length > 1 && (
@@ -717,7 +717,7 @@ function PromoGenerator({ onImageGenerated, brandKit }: { onImageGenerated: (img
         if (found) { onImageGenerated(found); setStep('done'); return }
       } catch {}
     }
-    onImageGenerated({ id: finalId || Date.now().toString(), product_id: selectedProduct?.id || '', style: `promo_${selectedStyle}`, generated_image_url: urls[0], original_image_url: activeImage, status: 'completed', credits_used: PROMO_COST, created_at: new Date().toISOString(), product_title: selectedProduct?.optimized_title || selectedProduct?.original_title || 'Upload' })
+    onImageGenerated({ id: finalId || Date.now().toString(), product_id: selectedProduct?.id || '', style: `promo_${selectedStyle}`, generated_image_url: urls[0], original_image_url: activeImage, status: 'completed', credits_used: PROMO_COST, created_at: new Date().toISOString(), product_title: selectedProduct?.optimized_title || selectedProduct?.original_title || t('images.gen_upload_manual') })
     setStep('done')
   }
 
@@ -825,7 +825,7 @@ function PromoGenerator({ onImageGenerated, brandKit }: { onImageGenerated: (img
               <div className="flex items-center justify-between pt-1">
                 <Btn variant="ghost" onClick={() => setStep('select_style')}>{t('images.back')}</Btn>
                 <Btn onClick={handleGenerate} disabled={credits < PROMO_COST}>
-                  <Wand2 className="h-3.5 w-3.5" />{t('images.gen_generate_btn')} <Badge className="ml-1 bg-white/20 text-white">{PROMO_COST} {t('images.gen_cr')}</Badge>
+                  <Wand2 className="h-3.5 w-3.5" />{t('images.gen_generate_btn')} <Badge className="ml-1 bg-white/20 text-white">{PROMO_COST} {t('common.credits_short')}</Badge>
                 </Btn>
               </div>
             </motion.div>
@@ -881,7 +881,7 @@ function PromoGenerator({ onImageGenerated, brandKit }: { onImageGenerated: (img
 // ─── BULK TAB ─────────────────────────────────────────────────────────────────
 
 function BulkTab() {
-  const { t, locale } = useT()
+  const { t, intlLocale } = useT()
   const PRODUCT_STYLES = getProductStyles(t)
   const styleLabel = getStyleLabel(t)
   const { credits }   = useCredits()
@@ -956,7 +956,7 @@ function BulkTab() {
                 <button key={s.value} onClick={() => setStyle(s.value)}
                   className={`p-3 rounded-xl border-2 text-left transition-all ${style === s.value ? 'border-neutral-900 bg-neutral-50' : 'border-neutral-200 hover:border-neutral-400'}`}>
                   <p className="text-[11px] font-semibold text-neutral-900">{s.label}</p>
-                  <Badge className="mt-1 bg-neutral-100 text-neutral-500">{s.cost} cr</Badge>
+                  <Badge className="mt-1 bg-neutral-100 text-neutral-500">{s.cost} {t('common.credits_short')}</Badge>
                 </button>
               ))}
             </div>
@@ -980,7 +980,7 @@ function BulkTab() {
               {loadingProds ? <div className="flex items-center gap-2 text-[12px] text-neutral-400 py-2"><Loader2 className="h-4 w-4 animate-spin" />{t('images.loading')}</div>
               : <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <p className="text-[11px] text-neutral-500">{t('images.products_selected', { count: String(selectedIds.length) })}</p>
+                    <p className="text-[11px] text-neutral-500">{t('images.products_selected', { count: selectedIds.length })}</p>
                     <button onClick={() => setSelectedIds(selectedIds.length === products.length ? [] : products.map(p => p.id))} className="text-[11px] text-neutral-500 hover:text-neutral-800 transition-colors">
                       {selectedIds.length === products.length ? t('images.deselect_all_images') : t('images.select_all_images')}
                     </button>
@@ -1021,7 +1021,7 @@ function BulkTab() {
 
           <div className="flex items-center justify-between pt-1">
             <p className="text-[11px] text-neutral-400 tabular-nums">
-              ~{((selectedIds.length || maxProducts) * creditCost).toLocaleString()} {t('images.credits_label_short')} {t('images.credits_estimated_short')} · {credits} {t('images.credits_available')}
+              {t('images.credits_estimated', { count: (selectedIds.length || maxProducts) * creditCost, available: credits })}
             </p>
             <Btn onClick={() => { const count = selectedIds.length || maxProducts; setEstimate({ credits: count * creditCost, products: count, minutes: Math.ceil(count * 1.5) }); setShowConfirm(true) }}
               disabled={submitting || credits < creditCost}>
@@ -1042,7 +1042,7 @@ function BulkTab() {
                     </div>
                   ))}
                 </div>
-                {estimate.credits > credits && <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-100 rounded-xl text-[12px] text-red-600"><AlertCircle className="h-4 w-4 shrink-0" />{t('images.credits_insufficient', { count: String(estimate.credits - credits) })}</div>}
+                {estimate.credits > credits && <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-100 rounded-xl text-[12px] text-red-600"><AlertCircle className="h-4 w-4 shrink-0" />{t('images.credits_insufficient', { count: estimate.credits - credits })}</div>}
                 <div className="flex gap-2">
                   <button onClick={() => setShowConfirm(false)} className="flex-1 text-[12px] text-neutral-500 border border-neutral-200 rounded-xl py-2 hover:bg-neutral-50 transition-colors">{t('common.cancel_label')}</button>
                   <button onClick={handleSubmit} disabled={estimate.credits > credits || submitting}
@@ -1072,9 +1072,9 @@ function BulkTab() {
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-[13px] font-semibold text-neutral-800">{styleLabel(job.style)}</span>
                         <Badge className={jobStatusColor(job.status)}>{jobStatusLabel(job.status)}</Badge>
-                        {job.auto_publish && <Badge className="text-emerald-600 bg-emerald-50">Auto-publish</Badge>}
+                        {job.auto_publish && <Badge className="text-emerald-600 bg-emerald-50">{t('images.auto_publish')}</Badge>}
                       </div>
-                      <p className="text-[10px] text-neutral-400 mt-0.5">{job.completed_count}/{job.total_products} {t('images.bulk_completed_of')} · {job.credits_used} cr · {new Date(job.created_at).toLocaleDateString(locale === 'ro' ? 'ro-RO' : 'en-US')}</p>
+                      <p className="text-[10px] text-neutral-400 mt-0.5">{job.completed_count}/{job.total_products} {t('images.bulk_completed_of')} · {job.credits_used} {t('common.credits_short')} · {new Date(job.created_at).toLocaleDateString(intlLocale)}</p>
                     </div>
                     {(job.status === 'queued' || job.status === 'processing') && (
                       <Btn variant="ghost" size="sm" onClick={() => cancelJob(job.id)}>
@@ -1149,7 +1149,11 @@ function BrandTab() {
     setDetecting(false)
   }
 
-  const STYLE_LABELS: Record<string, string> = { white_bg: t('images.style_simple'), lifestyle: 'Lifestyle', premium_dark: 'Premium Dark', industrial: 'Industrial', seasonal: t('images.style_seasonal_label'), manual: 'Manual' }
+  const STYLE_LABELS: Record<string, string> = { white_bg: t('images.style_simple'), lifestyle: t('images.style_lifestyle'), premium_dark: t('images.style_premium'), industrial: t('images.style_industrial'), seasonal: t('images.style_seasonal_label'), manual: t('images.style_manual') }
+  /** Opțiunile se salvează ca atare; doar eticheta se traduce (o valoare propusă de AI apare cum e). */
+  const optLabel = (field: string, o: string) => field === 'tone'
+    ? (t.has(`images.tone_${o}`) ? t(`images.tone_${o}`) : o)
+    : (t.has(`images.font_style_${o}`) ? t(`images.font_style_${o}`) : o)
 
   if (loading) return <Card className="p-8 flex items-center gap-3"><Loader2 className="h-5 w-5 animate-spin text-neutral-400" /><span className="text-[12px] text-neutral-500">{t('images.loading')}</span></Card>
   if (!kit) return null
@@ -1159,7 +1163,7 @@ function BrandTab() {
       <Card className="p-5 flex items-start justify-between gap-4">
         <div>
           <p className="text-[13px] font-semibold text-neutral-900">{t('images.brand_kit')}</p>
-          <p className="text-[11px] text-neutral-400 mt-0.5">{t('images.brand_kit')}</p>
+          <p className="text-[11px] text-neutral-400 mt-0.5">{t('images.brand_kit_desc')}</p>
         </div>
         <Btn variant="outline" onClick={handleDetect} disabled={detecting}>
           {detecting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <TrendingUp className="h-3.5 w-3.5" />}{t('images.brand_ai_detect')}
@@ -1208,14 +1212,14 @@ function BrandTab() {
         {/* Stil & Ton */}
         <Card className="p-5 space-y-4">
           <SectionLabel>{t('images.brand_style_tone')}</SectionLabel>
-          {[{ field: 'font_style', label: 'Font style', opts: ['modern', 'classic', 'bold', 'minimal'] }, { field: 'tone', label: t('images.brand_tone_label'), opts: ['professional', 'friendly', 'luxury', 'playful'] }].map(({ field, label, opts }) => (
+          {[{ field: 'font_style', label: t('images.font_style_label'), opts: ['modern', 'classic', 'bold', 'minimal'] }, { field: 'tone', label: t('images.brand_tone_label'), opts: ['professional', 'friendly', 'luxury', 'playful'] }].map(({ field, label, opts }) => (
             <div key={field}>
               <SectionLabel className="mb-2 block">{label}</SectionLabel>
               <div className="flex gap-2 flex-wrap">
                 {opts.map(o => (
                   <button key={o} onClick={() => setKit(k => k ? { ...k, [field]: o } : k)}
                     className={`h-7 px-3 rounded-lg border text-[11px] font-medium transition-all capitalize ${(kit as any)[field] === o ? 'border-neutral-900 bg-neutral-900 text-white' : 'border-neutral-200 text-neutral-600 hover:border-neutral-400'}`}>
-                    {o}
+                    {optLabel(field, o)}
                   </button>
                 ))}
               </div>
@@ -1264,7 +1268,7 @@ function BrandTab() {
 // ─── GALLERY TAB ──────────────────────────────────────────────────────────────
 
 function GalleryTab({ gallery, onUpdate }: { gallery: GeneratedImage[]; onUpdate: () => void }) {
-  const { t, locale } = useT()
+  const { t, intlLocale } = useT()
   const styleLabel = getStyleLabel(t)
   const [filter, setFilter]   = useState<'all' | 'product' | 'promo' | 'published'>('all')
   const [search, setSearch]   = useState('')
@@ -1274,7 +1278,7 @@ function GalleryTab({ gallery, onUpdate }: { gallery: GeneratedImage[]; onUpdate
 
   const handleDelete = async (img: GeneratedImage, e: React.MouseEvent) => {
     e.stopPropagation()
-    if (!confirm(t('common.delete') + '?')) return
+    if (!confirm(t('images.delete_confirm'))) return
     setDeleting(img.id)
     await fetch('/api/images', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ image_ids: [img.id] }) })
     setDeleting(null)
@@ -1321,7 +1325,7 @@ function GalleryTab({ gallery, onUpdate }: { gallery: GeneratedImage[]; onUpdate
               await new Promise(r => setTimeout(r, 400))
             }
           }}>
-            <Download className="h-3 w-3" />Export ({Math.min(filtered.length, 25)})
+            <Download className="h-3 w-3" />{t('images.export_count', { count: Math.min(filtered.length, 25) })}
           </Btn>
         )}
       </div>
@@ -1341,8 +1345,8 @@ function GalleryTab({ gallery, onUpdate }: { gallery: GeneratedImage[]; onUpdate
                     <div className="relative aspect-square bg-neutral-50 overflow-hidden">
                       <img src={img.generated_image_url} alt={img.product_title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                       <div className="absolute top-2 left-2 flex gap-1 flex-wrap">
-                        <Badge className="bg-black/50 text-white backdrop-blur">{isPromo ? 'Promo' : styleLabel(img.style)}</Badge>
-                        {isPublished && <Badge className="bg-emerald-600/80 text-white backdrop-blur">Live</Badge>}
+                        <Badge className="bg-black/50 text-white backdrop-blur">{isPromo ? t('images.gallery_promo') : styleLabel(img.style)}</Badge>
+                        {isPublished && <Badge className="bg-emerald-600/80 text-white backdrop-blur">{t('images.live_badge')}</Badge>}
                       </div>
                       <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all flex items-center justify-center gap-2">
                         <button onClick={e => { e.stopPropagation(); window.open(img.generated_image_url, '_blank') }}
@@ -1364,7 +1368,7 @@ function GalleryTab({ gallery, onUpdate }: { gallery: GeneratedImage[]; onUpdate
                     <div className="p-2.5">
                       <p className="text-[11px] font-medium text-neutral-900 line-clamp-1">{img.product_title}</p>
                       <div className="flex items-center justify-between mt-1">
-                        <span className="text-[10px] text-neutral-400">{new Date(img.created_at).toLocaleDateString('ro-RO')}</span>
+                        <span className="text-[10px] text-neutral-400">{new Date(img.created_at).toLocaleDateString(intlLocale)}</span>
                         <div className="flex gap-0.5">
                           {[1, 2, 3, 4, 5].map(n => (
                             <button key={n} onClick={e => { e.stopPropagation(); fetch('/api/images/rate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ image_id: img.id, rating: n }) }).then(() => onUpdate()) }}>
@@ -1393,7 +1397,7 @@ function GalleryTab({ gallery, onUpdate }: { gallery: GeneratedImage[]; onUpdate
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="text-[14px] font-semibold text-neutral-900">{preview.product_title}</p>
-                    <p className="text-[10px] text-neutral-400 mt-0.5">{styleLabel(preview.style)} · {preview.credits_used} {t('images.credits_label_short')} · {new Date(preview.created_at).toLocaleDateString(locale === 'ro' ? 'ro-RO' : 'en-US')}</p>
+                    <p className="text-[10px] text-neutral-400 mt-0.5">{styleLabel(preview.style)} · {preview.credits_used} {t('images.credits_label_short', { count: preview.credits_used })} · {new Date(preview.created_at).toLocaleDateString(intlLocale)}</p>
                   </div>
                   <StarRating value={preview.rating || null} onChange={async r => { await fetch('/api/images/rate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ image_id: preview.id, rating: r }) }); setPreview(p => p ? { ...p, rating: r } : p); onUpdate() }} />
                 </div>
@@ -1444,9 +1448,9 @@ export default function ImagesPage() {
   const { t } = useT()
 
   const MAIN_TABS: { value: MainTab; label: string; icon: any }[] = [
-    { value: 'generator', label: 'Generator', icon: Wand2     },
+    { value: 'generator', label: t('images.tab_generator'), icon: Wand2 },
     { value: 'bulk',      label: t('images.tab_bulk'),      icon: Layers    },
-    { value: 'brand',     label: 'Brand Kit', icon: Palette   },
+    { value: 'brand',     label: t('images.brand_kit'), icon: Palette },
     { value: 'gallery',   label: t('images.gallery_label'),   icon: ImageIcon },
   ]
   const { credits }     = useCredits()
@@ -1476,7 +1480,7 @@ export default function ImagesPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-[22px] font-semibold text-neutral-900 tracking-tight">{t('images.title')}</h1>
-          <p className="text-[13px] text-neutral-400 mt-0.5">AI Images</p>
+          <p className="text-[13px] text-neutral-400 mt-0.5">{t('images.page_subtitle')}</p>
         </div>
         <div className="flex items-center gap-2">
           {season && (
@@ -1488,7 +1492,7 @@ export default function ImagesPage() {
           <div className="flex items-center gap-1.5 bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-1.5">
             <Coins className="h-3.5 w-3.5 text-neutral-500" />
             <span className="text-[14px] font-bold text-neutral-700 tabular-nums">{credits}</span>
-            <span className="text-[11px] text-neutral-400">{t('images.credits_label_short')}</span>
+            <span className="text-[11px] text-neutral-400">{t('images.credits_label_short', { count: credits })}</span>
           </div>
         </div>
       </div>

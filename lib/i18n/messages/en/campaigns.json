@@ -17,7 +17,7 @@
   "blocker_currency": "The Google Ads account is in {{account}}, your store in {{store}}: choose an account in {{store}}",
   "blocker_no_offers": "No product can enter the campaign right now",
   "blocker_costs": "Add cost prices (now: {{pct}}% of sales)",
-  "existing_ads": "Your store already runs Google ads: {{orders}} orders ({{total}}) in the last 90 days. At launch, Hontrio checks which campaigns run in the account, so the new one does not compete with them for the same products.",
+  "existing_ads": "Your store already runs Google ads: {{orders}} ({{total}}) in the last 90 days. At launch, Hontrio checks which campaigns run in the account, so the new one does not compete with them for the same products.",
   "goal_title": "Campaign goal",
   "goal_hint": "Out of the profit on a sale, how much you keep after paying for the ad. With a lower target, Google brings more sales, but each one leaves less profit.",
   "goal_growth": "Growth",
@@ -35,7 +35,8 @@
   "type_pmax": "Performance Max, from your Merchant Center catalog",
   "type_pmax_hint": "One campaign for the whole eligible catalog: Google shows your products in Search, Shopping, YouTube, Gmail and Discover and learns where they sell. With few sales, one campaign learns faster than several small ones.",
   "row_products": "Products",
-  "products_value": "{{included}} of {{total}} offers",
+  "products_value_one": "{{included}} of {{count}} offer",
+  "products_value_other": "{{included}} of {{count}} offers",
   "row_where": "Where",
   "row_account": "Google Ads account",
   "account_missing": "Not chosen yet",
@@ -75,7 +76,7 @@
   "tab_excluded": "Excluded ({{count}})",
   "empty_included": "No product enters the campaign right now.",
   "empty_excluded": "All products enter the campaign.",
-  "col_sales": "Sales 90 days",
+  "col_sales": "Sales (90 days)",
   "col_break_even": "Min. ROAS",
   "col_break_even_hint": "The ROAS from which a sale of the product pays for its ad",
   "col_reason": "Reason",
@@ -116,5 +117,9 @@
   "blocker_merchant_shopify": "Send your products to Merchant Center (Google & YouTube app)",
   "blocker_conversion_shopify": "Measure purchases in Google Ads (Google & YouTube app)",
   "verified_at_launch_shopify": "Shopify doesn't tell apps which sales channels a store has (Google & YouTube): we check at launch, from the Google account.",
-  "blocker_costs_catalog": "Add cost prices (now: {{pct}}% of offers)"
+  "blocker_costs_catalog": "Add cost prices (now: {{pct}}% of offers)",
+  "blocker_merchant": "Send your products to Merchant Center",
+  "blocker_conversion": "Measure purchases in Google Ads",
+  "blocker_generic": "A setup step is missing",
+  "reason_generic": "Excluded"
 }

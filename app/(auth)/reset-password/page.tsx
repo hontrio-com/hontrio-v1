@@ -108,7 +108,7 @@ function ResetContent() {
               <CheckCircle className="h-7 w-7 text-neutral-700" />
             </div>
             <h1 className="text-[26px] font-semibold text-neutral-900 tracking-tight mb-3">{t('auth.reset_success')}</h1>
-            <p className="text-neutral-400 text-[14px] leading-relaxed mb-8 font-light">{t('auth.reset_success')}</p>
+            <p className="text-neutral-400 text-[14px] leading-relaxed mb-8 font-light">{t('auth.reset_success_desc')}</p>
             <Link href="/login">
               <motion.button whileTap={{ scale: 0.985 }}
                 className="w-full h-[46px] rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white text-[14px] font-medium flex items-center justify-center gap-2 transition-all cursor-pointer">

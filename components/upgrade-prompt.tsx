@@ -5,6 +5,7 @@ import { Zap, CreditCard, ArrowRight, Sparkles, AlertTriangle } from 'lucide-rea
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import Link from 'next/link'
+import { useT } from '@/lib/i18n/context'
 
 type UpgradePromptProps = {
   credits: number
@@ -18,9 +19,10 @@ export function UpgradePrompt({
   credits,
   plan,
   variant = 'banner',
-  action = 'această acțiune',
+  action,
   creditsNeeded = 0,
 }: UpgradePromptProps) {
+  const { t } = useT()
   const isOutOfCredits = credits <= 0
   const isLowCredits = credits > 0 && credits <= 5
   const isFree = plan === 'free'
@@ -45,12 +47,12 @@ export function UpgradePrompt({
         )}
         <span className="flex-1">
           {isOutOfCredits
-            ? `Nu ai suficiente credite pentru ${action}.`
-            : `Mai ai doar ${credits} credite rămase.`}
+            ? t('credits.prompt_not_enough', { action: action || t('credits.prompt_this_action') })
+            : t('credits.prompt_few_left', { count: credits })}
         </span>
         <Link href="/credits">
           <Button size="sm" className="rounded-lg bg-blue-600 hover:bg-blue-700 text-white h-7 px-3 text-xs">
-            {isFree ? 'Upgrade' : 'Cumpără credite'}
+            {isFree ? t('common.upgrade') : t('credits.buy_credits')}
           </Button>
         </Link>
       </motion.div>
@@ -72,12 +74,12 @@ export function UpgradePrompt({
             </div>
             <div>
               <h3 className="font-semibold">
-                {isOutOfCredits ? 'Creditele s-au epuizat' : 'Credite aproape epuizate'}
+                {isOutOfCredits ? t('credits.prompt_out_title') : t('credits.prompt_low_title')}
               </h3>
               <p className="text-blue-200 text-sm">
                 {isOutOfCredits
-                  ? 'Fă upgrade pentru a continua să optimizezi produse'
-                  : `Mai ai doar ${credits} credite disponibile`}
+                  ? t('credits.prompt_out_desc')
+                  : t('credits.prompt_few_left', { count: credits })}
               </p>
             </div>
           </div>
@@ -91,8 +93,8 @@ export function UpgradePrompt({
               ].map(p => (
                 <div key={p.name} className="bg-white/10 backdrop-blur rounded-xl p-2.5 text-center">
                   <p className="text-xs font-medium">{p.name}</p>
-                  <p className="text-sm font-bold">{p.credits} cr</p>
-                  <p className="text-[10px] text-blue-200">{p.price} RON/lună</p>
+                  <p className="text-sm font-bold">{p.credits} {t('common.credits_short')}</p>
+                  <p className="text-[10px] text-blue-200">{p.price} RON{t('common.per_month')}</p>
                 </div>
               ))}
             </div>
@@ -102,7 +104,7 @@ export function UpgradePrompt({
             <Link href="/credits" className="flex-1">
               <Button className="w-full bg-white text-blue-700 hover:bg-white/90 rounded-xl h-10 font-medium">
                 <Zap className="h-4 w-4 mr-2" />
-                {isFree ? 'Alege un plan' : 'Cumpără credite'}
+                {isFree ? t('credits.select_plan') : t('credits.buy_credits')}
               </Button>
             </Link>
           </div>
@@ -135,15 +137,15 @@ export function UpgradePrompt({
         <div>
           <p className={`text-sm font-medium ${isOutOfCredits ? 'text-red-900' : 'text-yellow-900'}`}>
             {isOutOfCredits
-              ? 'Nu mai ai credite disponibile'
-              : `Atenție — mai ai doar ${credits} credite`}
+              ? t('credits.prompt_none_left')
+              : t('credits.prompt_warning_left', { count: credits })}
           </p>
           <p className={`text-xs ${isOutOfCredits ? 'text-red-600' : 'text-yellow-600'}`}>
             {isOutOfCredits
               ? (isFree
-                  ? 'Free trial-ul tău s-a încheiat. Fă upgrade pentru a continua.'
-                  : 'Cumpără credite suplimentare pentru a continua generările.')
-              : 'Recomandăm să îți suplimentezi creditele pentru a nu fi întrerupt.'}
+                  ? t('credits.prompt_trial_ended')
+                  : t('credits.prompt_buy_more'))
+              : t('credits.prompt_top_up')}
           </p>
         </div>
       </div>
@@ -156,7 +158,7 @@ export function UpgradePrompt({
               : 'bg-yellow-600 hover:bg-yellow-700 text-white'
           }`}
         >
-          {isFree ? 'Fă upgrade' : 'Cumpără credite'}
+          {isFree ? t('common.upgrade') : t('credits.buy_credits')}
           <ArrowRight className="h-3.5 w-3.5 ml-1.5" />
         </Button>
       </Link>

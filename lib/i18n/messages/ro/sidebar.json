@@ -4,20 +4,11 @@
   "ai_recommendations": "Recomandări AI",
   "reports": "Rapoarte",
   "products": "Produse",
-  "ai_agent": "AI Agent",
   "ai_images": "Imagini AI",
-  "seo": "SEO",
-  "risk_shield": "Risk Shield",
   "subscription": "Abonament",
   "settings": "Setări",
   "support": "Suport",
-  "config": "Configurare",
-  "triggers": "Triggeri",
-  "inbox": "Inbox",
-  "insights": "Insights",
-  "seo_optimize": "Optimizare SEO",
-  "seo_competitors": "Analiză Competitori",
-  "agent_triggers": "Triggeri Agent",
-  "agent_inbox": "Inbox Agent",
-  "brand_settings": "Setări Brand"
+  "brand_settings": "Setări de brand",
+  "admin": "Admin",
+  "blog": "Blog"
 }

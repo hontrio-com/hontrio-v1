@@ -1,6 +1,7 @@
 'use client'
 
 import { useT } from '@/lib/i18n/context'
+import { translateStored } from '@/lib/i18n/stored'
 
 import { useState, useEffect, Suspense } from 'react'
 import { useSession } from 'next-auth/react'
@@ -24,31 +25,31 @@ type Transaction = {
 
 const getPlans = (t: (k: string, p?: Record<string, string | number>) => string) => [
   {
-    id: 'free', name: 'Free Trial', price: 0, period: '',
+    id: 'free', name: t('credits.plan_free'), price: 0, period: '',
     description: t('credits.test_platform'),
     icon: Gift, credits: 20,
-    features: [t('credits.credits_included'), t('credits.ai_text_gen'), t('credits.ai_image_gen'), t('credits.store_connected'), t('credits.email_support')],
+    features: [t('credits.credits_included', { count: 20 }), t('credits.ai_text_gen'), t('credits.ai_image_gen'), t('credits.feat_1_store'), t('credits.email_support')],
     limitations: [t('credits.no_bulk_gen'), t('credits.no_priority_support')],
   },
   {
-    id: 'starter', name: 'Starter', price: 19, period: t('credits.per_month_label'),
+    id: 'starter', name: t('credits.plan_starter'), price: 19, period: t('credits.per_month_label'),
     description: t('credits.test_platform'),
     icon: Zap, credits: 150,
-    features: [t('credits.feat_credits_month', { count: '150' }), t('credits.feat_unlimited_text'), t('credits.feat_all_styles'), t('credits.feat_1_store'), t('credits.feat_priority_support'), t('credits.feat_full_seo')],
+    features: [t('credits.feat_credits_month', { count: 150 }), t('credits.feat_unlimited_text'), t('credits.feat_all_styles'), t('credits.feat_1_store'), t('credits.feat_priority_support'), t('credits.feat_full_seo')],
     limitations: [],
   },
   {
-    id: 'professional', name: 'Professional', price: 49, period: t('credits.per_month_label'),
+    id: 'professional', name: t('credits.plan_professional'), price: 49, period: t('credits.per_month_label'),
     description: t('credits.plan_for_growing'),
     icon: Rocket, credits: 400,
-    features: [t('credits.feat_credits_month', { count: '400' }), t('credits.feat_includes_starter'), t('credits.feat_batch_gen'), t('credits.feat_3_stores'), t('credits.feat_priority_247'), t('credits.feat_advanced_reports')],
+    features: [t('credits.feat_credits_month', { count: 400 }), t('credits.feat_includes_starter'), t('credits.feat_batch_gen'), t('credits.feat_3_stores'), t('credits.feat_priority_247'), t('credits.feat_advanced_reports')],
     limitations: [], popular: true,
   },
   {
-    id: 'enterprise', name: 'Enterprise', price: 99, period: t('credits.per_month_label'),
+    id: 'enterprise', name: t('credits.plan_enterprise'), price: 99, period: t('credits.per_month_label'),
     description: t('credits.plan_for_scale'),
     icon: Crown, credits: 900,
-    features: [t('credits.feat_credits_month', { count: '900' }), t('credits.feat_includes_pro'), t('credits.feat_unlimited_stores'), t('credits.feat_dedicated_manager'), t('credits.feat_sla'), t('credits.feat_personal_training')],
+    features: [t('credits.feat_credits_month', { count: 900 }), t('credits.feat_includes_pro'), t('credits.feat_unlimited_stores'), t('credits.feat_dedicated_manager'), t('credits.feat_sla'), t('credits.feat_personal_training')],
     limitations: [],
   },
 ]
@@ -62,12 +63,12 @@ const PACKS = [
 ]
 
 const getCosts = (t: (k: string, p?: Record<string, string | number>) => string) => [
-  { label: t('credits.ai_text_gen'),          cost: '3 cr.', icon: FileText  },
-  { label: t('credits.image_white'),          cost: '6 cr.', icon: ImageIcon },
-  { label: t('credits.image_lifestyle'),      cost: '7 cr.', icon: ImageIcon },
-  { label: t('credits.image_premium'),        cost: '7 cr.', icon: ImageIcon },
-  { label: t('credits.image_seasonal'),       cost: '8 cr.', icon: ImageIcon },
-  { label: t('credits.auto_gen_3x_label'),    cost: '18 cr.', icon: Sparkles  },
+  { label: t('credits.ai_text_gen'),          cost: `3 ${t('common.credits_short')}`, icon: FileText  },
+  { label: t('credits.image_white'),          cost: `6 ${t('common.credits_short')}`, icon: ImageIcon },
+  { label: t('credits.image_lifestyle'),      cost: `7 ${t('common.credits_short')}`, icon: ImageIcon },
+  { label: t('credits.image_premium'),        cost: `7 ${t('common.credits_short')}`, icon: ImageIcon },
+  { label: t('credits.image_seasonal'),       cost: `8 ${t('common.credits_short')}`, icon: ImageIcon },
+  { label: t('credits.auto_gen_3x_label'),    cost: `18 ${t('common.credits_short')}`, icon: Sparkles  },
 ]
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -94,7 +95,7 @@ function Btn({ onClick, disabled, children, variant = 'primary', className = '' 
 // ─── Inner page ───────────────────────────────────────────────────────────────
 
 function SubscriptionPageInner() {
-  const { t } = useT()
+  const { t, intlLocale } = useT()
   const PLANS = getPlans(t)
   const COSTS = getCosts(t)
   const { data: session, update: updateSession } = useSession()
@@ -210,7 +211,7 @@ function SubscriptionPageInner() {
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <p className="text-[15px] font-semibold text-neutral-900">Plan {currentPlan.name}</p>
+                <p className="text-[15px] font-semibold text-neutral-900">{t('credits.plan_name', { name: currentPlan.name })}</p>
                 {userPlan !== 'free' && (
                   <span className="text-[10px] font-semibold bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded-md">{t('common.active')}</span>
                 )}
@@ -284,10 +285,10 @@ function SubscriptionPageInner() {
 
                       <div className="mb-4">
                         {plan.price === 0
-                          ? <p className="text-[28px] font-bold text-neutral-900">{t('credits.free_trial')}</p>
+                          ? <p className="text-[28px] font-bold text-neutral-900">{t('credits.plan_free')}</p>
                           : <p className="text-[28px] font-bold text-neutral-900">${plan.price} <span className="text-[14px] font-normal text-neutral-400">{plan.period}</span></p>
                         }
-                        <p className="text-[11px] text-neutral-400 mt-0.5"><span className="font-medium text-neutral-600">{plan.credits} {t('credits.credits_word')}</span> {t('credits.included_word')}</p>
+                        <p className="text-[11px] text-neutral-400 mt-0.5"><span className="font-medium text-neutral-600">{t('credits.credits_count', { count: plan.credits })}</span> {t('credits.included_word', { count: plan.credits })}</p>
                       </div>
 
                       <div className="space-y-1.5 flex-1 mb-4">
@@ -361,7 +362,7 @@ function SubscriptionPageInner() {
                       </div>
                       <div>
                         <div className="flex items-center gap-2">
-                          <p className="text-[14px] font-semibold text-neutral-900">{pack.credits} {t('credits.credits_word')}</p>
+                          <p className="text-[14px] font-semibold text-neutral-900">{t('credits.credits_count', { count: pack.credits })}</p>
                           {pack.popular && <span className="text-[9px] font-bold bg-neutral-900 text-white px-1.5 py-0.5 rounded-md">{t('credits.popular').toUpperCase()}</span>}
                         </div>
                         <p className="text-[11px] text-neutral-400 tabular-nums">${pack.perCredit.toFixed(2)} / {t('credits.per_credit')}</p>
@@ -419,7 +420,7 @@ function SubscriptionPageInner() {
             <Card className="p-5">
               <div className="flex items-center justify-between mb-4">
                 <p className="text-[13px] font-semibold text-neutral-900">{t('credits.transaction_history')}</p>
-                <span className="text-[11px] text-neutral-400">{transactions.length} total</span>
+                <span className="text-[11px] text-neutral-400">{t('credits.transactions_total', { count: transactions.length })}</span>
               </div>
 
               {transactions.length === 0 ? (
@@ -431,24 +432,26 @@ function SubscriptionPageInner() {
               ) : (
                 <>
                   <div className="divide-y divide-neutral-50">
-                    {displayed.map(t => {
-                      const Icon = txIcon(t.reference_type)
+                    {displayed.map(tx => {
+                      const Icon = txIcon(tx.reference_type)
                       return (
-                        <div key={t.id} className="flex items-center gap-3 py-2.5">
-                          <div className={`h-8 w-8 rounded-xl flex items-center justify-center shrink-0 ${t.amount > 0 ? 'bg-emerald-50' : 'bg-neutral-100'}`}>
-                            <Icon className={`h-3.5 w-3.5 ${t.amount > 0 ? 'text-emerald-600' : 'text-neutral-400'}`} />
+                        <div key={tx.id} className="flex items-center gap-3 py-2.5">
+                          <div className={`h-8 w-8 rounded-xl flex items-center justify-center shrink-0 ${tx.amount > 0 ? 'bg-emerald-50' : 'bg-neutral-100'}`}>
+                            <Icon className={`h-3.5 w-3.5 ${tx.amount > 0 ? 'text-emerald-600' : 'text-neutral-400'}`} />
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="text-[13px] text-neutral-700 truncate">{t.description || t.type}</p>
+                            <p className="text-[13px] text-neutral-700 truncate">
+                              {translateStored(t, tx.description) || (t.has(`credits.tx_type_${tx.type}`) ? t(`credits.tx_type_${tx.type}`) : tx.type)}
+                            </p>
                             <p className="text-[11px] text-neutral-400">
-                              {new Date(t.created_at).toLocaleDateString('ro-RO', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                              {new Date(tx.created_at).toLocaleDateString(intlLocale, { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                             </p>
                           </div>
                           <div className="text-right shrink-0">
-                            <p className={`text-[13px] font-semibold tabular-nums ${t.amount > 0 ? 'text-emerald-600' : 'text-neutral-700'}`}>
-                              {t.amount > 0 ? '+' : ''}{t.amount}
+                            <p className={`text-[13px] font-semibold tabular-nums ${tx.amount > 0 ? 'text-emerald-600' : 'text-neutral-700'}`}>
+                              {tx.amount > 0 ? '+' : ''}{tx.amount}
                             </p>
-                            <p className="text-[10px] text-neutral-400 tabular-nums">sold: {t.balance_after}</p>
+                            <p className="text-[10px] text-neutral-400 tabular-nums">{t('settings.balance_label')} {tx.balance_after}</p>
                           </div>
                         </div>
                       )
@@ -459,7 +462,7 @@ function SubscriptionPageInner() {
                       className="w-full mt-3 py-2 text-[12px] text-neutral-500 hover:text-neutral-700 font-medium flex items-center justify-center gap-1 transition-colors">
                       {showAll
                         ? <><ChevronUp className="h-3 w-3" />{t('credits.show_less')}</>
-                        : <><ChevronDown className="h-3 w-3" />{t('credits.show_all', { count: String(transactions.length) })}</>}
+                        : <><ChevronDown className="h-3 w-3" />{t('credits.show_all', { count: transactions.length })}</>}
                     </button>
                   )}
                 </>
@@ -527,7 +530,6 @@ function SubscriptionPageInner() {
 }
 
 export default function SubscriptionPage() {
-  const { t } = useT()
   return (
     <Suspense fallback={<div className="flex items-center justify-center h-64"><Loader2 className="h-6 w-6 animate-spin text-neutral-300" /></div>}>
       <SubscriptionPageInner />

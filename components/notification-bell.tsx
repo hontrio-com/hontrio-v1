@@ -14,6 +14,7 @@ import {
   Loader2,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
+import { useT } from '@/lib/i18n/context'
 
 type Notification = {
   id: string
@@ -33,6 +34,7 @@ const typeConfig = {
 }
 
 export default function NotificationBell() {
+  const { t, intlLocale } = useT()
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
   const [open, setOpen] = useState(false)
@@ -115,11 +117,11 @@ export default function NotificationBell() {
     const diffH = Math.floor(diffMin / 60)
     const diffD = Math.floor(diffH / 24)
 
-    if (diffMin < 1) return 'just now'
-    if (diffMin < 60) return `${diffMin}m ago`
-    if (diffH < 24) return `${diffH}h ago`
-    if (diffD < 7) return `${diffD}d ago`
-    return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+    if (diffMin < 1) return t('common.time_just_now')
+    if (diffMin < 60) return t('common.time_minutes_ago', { count: diffMin })
+    if (diffH < 24) return t('common.time_hours_ago', { count: diffH })
+    if (diffD < 7) return t('common.time_days_ago', { count: diffD })
+    return date.toLocaleDateString(intlLocale, { day: 'numeric', month: 'short' })
   }
 
   return (
@@ -150,9 +152,9 @@ export default function NotificationBell() {
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
               <div className="flex items-center gap-2">
-                <h3 className="text-sm font-semibold text-gray-900">Notificări</h3>
+                <h3 className="text-sm font-semibold text-gray-900">{t('notifications.title')}</h3>
                 {unreadCount > 0 && (
-                  <Badge className="bg-red-100 text-red-600 border-0 text-[10px]">{unreadCount} noi</Badge>
+                  <Badge className="bg-red-100 text-red-600 border-0 text-[10px]">{t('notifications.unread_count', { count: unreadCount })}</Badge>
                 )}
               </div>
               <div className="flex items-center gap-1">
@@ -163,7 +165,7 @@ export default function NotificationBell() {
                     className="text-xs text-blue-600 hover:text-blue-700 px-2 py-1 rounded-lg hover:bg-blue-50 transition-colors flex items-center gap-1"
                   >
                     {markingAll ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCheck className="h-3.5 w-3.5" />}
-                    Citește tot
+                    {t('notifications.mark_all_read')}
                   </button>
                 )}
                 <button
@@ -180,8 +182,8 @@ export default function NotificationBell() {
               {notifications.length === 0 ? (
                 <div className="text-center py-10">
                   <Bell className="h-8 w-8 text-gray-200 mx-auto mb-2" />
-                  <p className="text-sm text-gray-400">Nicio notificare</p>
-                  <p className="text-xs text-gray-300 mt-0.5">Ești la curent cu tot!</p>
+                  <p className="text-sm text-gray-400">{t('notifications.no_notifications')}</p>
+                  <p className="text-xs text-gray-300 mt-0.5">{t('notifications.all_caught_up')}</p>
                 </div>
               ) : (
                 <div>
@@ -214,7 +216,7 @@ export default function NotificationBell() {
                           <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{notif.message}</p>
                           <div className="flex items-center gap-2 mt-1.5">
                             {notif.is_global && (
-                              <span className="text-[10px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">Global</span>
+                              <span className="text-[10px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">{t('notifications.announcement')}</span>
                             )}
                             {!notif.is_read && (
                               <button
@@ -222,7 +224,7 @@ export default function NotificationBell() {
                                 className="text-[10px] text-blue-600 hover:text-blue-700 flex items-center gap-0.5"
                               >
                                 <Check className="h-3 w-3" />
-                                Marchează citit
+                                {t('notifications.mark_read')}
                               </button>
                             )}
                           </div>

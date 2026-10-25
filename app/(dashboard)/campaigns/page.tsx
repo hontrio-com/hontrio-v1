@@ -78,7 +78,7 @@ function BudgetInput({ chosen, suggested, currency, onSave }: {
 }
 
 export default function CampaignsPage() {
-  const { t, locale } = useT()
+  const { t, intlLocale: numberLocale } = useT()
   const [data, setData] = useState<Data | null>(null)
   const [loading, setLoading] = useState(true)
   const [failed, setFailed] = useState(false)
@@ -106,7 +106,6 @@ export default function CampaignsPage() {
 
   useEffect(() => { load() }, [load])
 
-  const numberLocale = locale === 'en' ? 'en-GB' : 'ro-RO'
   const currency = data?.store?.currency || 'RON'
   const fmt = useMemo(() => {
     try { return new Intl.NumberFormat(numberLocale, { style: 'currency', currency, maximumFractionDigits: 0 }) }
@@ -229,7 +228,7 @@ export default function CampaignsPage() {
 
   const campaignRows: { label: string; value: ReactNode; hint?: string }[] = [
     { label: t('campaigns.row_type'), value: t('campaigns.type_pmax'), hint: t('campaigns.type_pmax_hint') },
-    { label: t('campaigns.row_products'), value: t('campaigns.products_value', { included: fmtInt.format(plan.counts.included), total: fmtInt.format(plan.offers.length) }) },
+    { label: t('campaigns.row_products'), value: t('campaigns.products_value', { included: fmtInt.format(plan.counts.included), count: plan.offers.length }) },
     { label: t('campaigns.row_where'), value: place || '—' },
     {
       label: t('campaigns.row_account'),
@@ -241,14 +240,18 @@ export default function CampaignsPage() {
       label: t('campaigns.row_merchant'),
       value: campaign.merchant.status === 'missing'
         ? <span className="text-neutral-400">{t('campaigns.merchant_missing')}</span>
-        : t(`campaigns.merchant_${campaign.merchant.status}${campaign.merchant.via ? '' : '_unknown'}`, { via: campaign.merchant.via ?? '' }),
+        : t.has(`campaigns.merchant_${campaign.merchant.status}`)
+          ? t(`campaigns.merchant_${campaign.merchant.status}${campaign.merchant.via ? '' : '_unknown'}`, { via: campaign.merchant.via ?? '' })
+          : t('campaigns.merchant_unverified_unknown'),
       hint: campaign.merchant.status === 'unverified' ? t(launchCheck) : undefined,
     },
     {
       label: t('campaigns.row_conversion'),
       value: campaign.conversion.status === 'missing'
         ? <span className="text-neutral-400">{t('campaigns.conversion_missing')}</span>
-        : t(`campaigns.conversion_${campaign.conversion.status}${campaign.conversion.via ? '' : '_unknown'}`, { via: campaign.conversion.via ?? '' }),
+        : t.has(`campaigns.conversion_${campaign.conversion.status}`)
+          ? t(`campaigns.conversion_${campaign.conversion.status}${campaign.conversion.via ? '' : '_unknown'}`, { via: campaign.conversion.via ?? '' })
+          : t('campaigns.conversion_unverified_unknown'),
       hint: campaign.conversion.status === 'unverified' ? t(launchCheck) : undefined,
     },
     {
@@ -289,10 +292,15 @@ export default function CampaignsPage() {
           <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-2">
             {plan.blockers.map(b => {
               const params = Object.fromEntries(Object.entries(b.params ?? {}).map(([k, v]) => [k, String(v)]))
+              // Textul pasului vine din date: fără variantă dacă ea nu are text, altfel unul generic
+              const step = `${b.id}${b.variant ? `_${b.variant}` : ''}`
+              const label = t.has(`campaigns.blocker_${step}`) ? t(`campaigns.blocker_${step}`, params)
+                : t.has(`campaigns.blocker_${b.id}`) ? t(`campaigns.blocker_${b.id}`, params)
+                : t('campaigns.blocker_generic')
               const inner = (
                 <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg border border-neutral-200 hover:border-neutral-300 bg-white transition-all">
                   <Circle className="h-4 w-4 text-neutral-300 shrink-0" />
-                  <span className="flex-1 text-[13px] text-neutral-800">{t(`campaigns.blocker_${b.id}${b.variant ? `_${b.variant}` : ''}`, params)}</span>
+                  <span className="flex-1 text-[13px] text-neutral-800">{label}</span>
                   {b.external ? <ExternalLink className="h-3.5 w-3.5 text-neutral-300" /> : <ArrowRight className="h-3.5 w-3.5 text-neutral-300" />}
                 </div>
               )
@@ -305,7 +313,7 @@ export default function CampaignsPage() {
         {plan.history.google_ads_orders > 0 && (
           <div className="mt-4 flex items-start gap-2 px-3 py-2.5 rounded-lg text-[12px] leading-relaxed bg-neutral-50 border border-neutral-100 text-neutral-600">
             <Info className="h-4 w-4 shrink-0 mt-px text-neutral-400" />
-            <span>{t('campaigns.existing_ads', { orders: fmtInt.format(plan.history.google_ads_orders), total: fmt.format(plan.history.google_ads_total) })}</span>
+            <span>{t('campaigns.existing_ads', { orders: t('common.orders_count', { count: plan.history.google_ads_orders }), total: fmt.format(plan.history.google_ads_total) })}</span>
           </div>
         )}
       </div>
@@ -493,7 +501,7 @@ export default function CampaignsPage() {
                       <td className="px-3 py-3 text-right whitespace-nowrap">
                         {o.units > 0 ? (
                           <>
-                            <p className="text-[13px] font-medium text-neutral-900 tabular-nums">{t('catalog.units', { count: fmtInt.format(o.units) })}</p>
+                            <p className="text-[13px] font-medium text-neutral-900 tabular-nums">{t('catalog.units', { count: Number(o.units) })}</p>
                             <p className="text-[11px] text-neutral-400 tabular-nums">{fmt.format(o.revenue)}</p>
                           </>
                         ) : <span className="text-[12px] text-neutral-300">—</span>}
@@ -519,7 +527,7 @@ export default function CampaignsPage() {
                       {tab === 'excluded' && (
                         <td className="px-3 py-3">
                           <span className={`inline-flex text-[11px] font-medium px-1.5 py-0.5 rounded-md ${FIXED.has(o.reason!) ? 'bg-red-50 text-red-600' : o.reason === 'manual' ? 'bg-neutral-100 text-neutral-600' : 'bg-amber-50 text-amber-700'}`}>
-                            {t(`campaigns.reason_${o.reason}`)}
+                            {t.has(`campaigns.reason_${o.reason}`) ? t(`campaigns.reason_${o.reason}`) : t('campaigns.reason_generic')}
                           </span>
                         </td>
                       )}

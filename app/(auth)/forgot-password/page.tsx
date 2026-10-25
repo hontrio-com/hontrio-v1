@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { useT, useLocale } from '@/lib/i18n/context'
+import { useT } from '@/lib/i18n/context'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -35,7 +35,6 @@ function LiquidBg() {
 
 export default function ForgotPasswordPage() {
   const { t } = useT()
-  const { locale, setLocale } = useLocale()
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)
   const [sent, setSent] = useState(false)
@@ -73,7 +72,7 @@ export default function ForgotPasswordPage() {
             <div className="h-16 w-16 rounded-2xl bg-neutral-100 flex items-center justify-center mx-auto mb-6">
               <CheckCircle className="h-7 w-7 text-neutral-700" />
             </div>
-            <h1 className="text-[26px] font-semibold text-neutral-900 tracking-tight mb-3">{t('auth.reset_success')}</h1>
+            <h1 className="text-[26px] font-semibold text-neutral-900 tracking-tight mb-3">{t('auth.reset_link_sent_title')}</h1>
             <p className="text-neutral-400 text-[14px] leading-relaxed mb-8 font-light">
               {t('auth.reset_email_sent', { email })}
             </p>

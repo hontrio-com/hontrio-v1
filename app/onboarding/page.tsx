@@ -77,9 +77,12 @@ function ErrorBox({ text }: { text: string }) {
 export default function OnboardingPage() {
   const { data: session } = useSession()
   const router = useRouter()
-  const { t, locale } = useT()
-  const numberLocale = locale === 'en' ? 'en-GB' : 'ro-RO'
-  const fmt = (n: number | null | undefined) => new Intl.NumberFormat(numberLocale).format(n ?? 0)
+  const { t } = useT()
+  /** „3 oferte și 20 de comenzi": numerele cu forma de plural potrivită */
+  const counts = (s: StoreInfo) => ({
+    offers: t('common.offers_count', { count: s.products_count ?? 0 }),
+    orders: t('common.orders_count', { count: s.orders_count ?? 0 }),
+  })
 
   const [step, setStep] = useState(0)
   const [dir, setDir] = useState(0)
@@ -197,8 +200,8 @@ export default function OnboardingPage() {
   const syncLine = store && (
     <p className="text-[12px] text-neutral-500 leading-relaxed">
       {syncing
-        ? <><Loader2 className="inline h-3 w-3 mr-1 animate-spin align-[-2px]" />{t('onboarding.sync_running', { offers: fmt(store.products_count), orders: fmt(store.orders_count) })}</>
-        : t('onboarding.sync_done', { offers: fmt(store.products_count), orders: fmt(store.orders_count) })}
+        ? <><Loader2 className="inline h-3 w-3 mr-1 animate-spin align-[-2px]" />{t('onboarding.sync_running', counts(store))}</>
+        : t('onboarding.sync_done', counts(store))}
     </p>
   )
 
@@ -340,7 +343,7 @@ export default function OnboardingPage() {
                         )}
                         {/* Nu e un formular de autentificare: managerul de parole nu are ce completa aici */}
                         <InputField label={t('onboarding.store_url')} value={woo.store_url} onChange={v => setWoo(p => ({ ...p, store_url: v }))}
-                          placeholder="https://magazinul-tau.ro" icon={Globe} name="woo_store_url" autoComplete="url" />
+                          placeholder={t('onboarding.store_url_placeholder')} icon={Globe} name="woo_store_url" autoComplete="url" />
                         <div>
                           <div className="flex items-center justify-between mb-1.5">
                             <label className="text-[12px] font-medium text-neutral-400 uppercase tracking-wide">{t('onboarding.api_key')}</label>
@@ -364,7 +367,7 @@ export default function OnboardingPage() {
                     {platform === 'shopify' && (
                       <div className="space-y-3.5">
                         <p className="text-[13px] text-neutral-500 leading-relaxed p-4 bg-neutral-50 rounded-xl">{t('onboarding.shopify_desc')}</p>
-                        <InputField label={t('onboarding.shopify_url_label')} value={shopifyUrl} onChange={setShopifyUrl} placeholder="magazin.myshopify.com" icon={Globe} name="shopify_domain" autoComplete="url" />
+                        <InputField label={t('onboarding.shopify_url_label')} value={shopifyUrl} onChange={setShopifyUrl} placeholder={t('onboarding.shopify_url_placeholder')} icon={Globe} name="shopify_domain" autoComplete="url" />
                         {error && <ErrorBox text={say(error)} />}
                         <button onClick={connectShopify} disabled={!!busy}
                           className="w-full h-[46px] rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white text-[14px] font-medium flex items-center justify-center gap-2 transition-all disabled:opacity-50">
@@ -393,7 +396,7 @@ export default function OnboardingPage() {
                     <h3 className="text-[16px] font-semibold text-neutral-900">{t('onboarding.google_connected', { email: google.email ?? '' })}</h3>
                     <p className="text-[12px] text-neutral-500">
                       {google.storeAccount ? t('onboarding.google_store_account', { account: google.storeAccount, store: storeLabel })
-                        : google.accounts ? t('onboarding.google_choose_later', { count: fmt(google.accounts) }) : t('google_ads.no_accounts')}
+                        : google.accounts ? t('onboarding.google_choose_later', { count: google.accounts }) : t('google_ads.no_accounts')}
                     </p>
                   </div>
                 ) : (
@@ -426,7 +429,7 @@ export default function OnboardingPage() {
                     {[
                       { label: t('onboarding.account_created'), done: true, badge: t('onboarding.active_label') },
                       { label: t('onboarding.summary_store'), done: !!store, badge: store ? storeLabel : t('onboarding.skipped_label') },
-                      { label: t('onboarding.summary_data'), done: !!store?.last_sync_at, badge: store ? t('onboarding.summary_data_value', { offers: fmt(store.products_count), orders: fmt(store.orders_count) }) : t('onboarding.skipped_label') },
+                      { label: t('onboarding.summary_data'), done: !!store?.last_sync_at, badge: store ? t('onboarding.summary_data_value', counts(store)) : t('onboarding.skipped_label') },
                       { label: 'Google Ads', done: google.connected, badge: google.connected ? t('onboarding.connected_label') : t('onboarding.skipped_label') },
                     ].map(item => (
                       <div key={item.label} className="flex items-center justify-between gap-3">

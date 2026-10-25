@@ -79,5 +79,6 @@
   "break_even_vat_assumed": "The threshold assumes {{vat}}% VAT, the country's standard rate, because orders show no VAT: Google Ads reports the order value with VAT, but you keep the amount without it.",
   "merchant_fix_shopify": "In Shopify, the easiest way is the free Google & YouTube app: it sends your products to Merchant Center and keeps the feed up to date.",
   "conversion_fix_shopify": "In Shopify, the Google & YouTube app sets it up when you link your Google Ads account.",
-  "action_open_shopify": "Open in Shopify"
+  "action_open_shopify": "Open in Shopify",
+  "action_open": "Open"
 }

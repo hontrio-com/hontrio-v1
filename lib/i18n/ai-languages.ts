@@ -1,7 +1,7 @@
 // ─── lib/i18n/ai-languages.ts ────────────────────────────────────────────────
 // Centralized AI language configuration for all AI functions.
 // This controls ONLY the AI output language (prompts, responses).
-// UI translation (i18n) is separate (Pas 3).
+// The interface text is translated separately: lib/i18n/messages (useT / getT).
 // ─────────────────────────────────────────────────────────────────────────────
 
 export type AILanguage = 'ro' | 'en' | 'es' | 'fr' | 'de' | 'it' | 'pt' | 'nl' | 'pl' | 'hu' | 'bg' | 'cs' | 'el' | 'tr'
@@ -39,19 +39,19 @@ export const AI_LANGUAGES: Record<AILanguage, {
     nativeName: 'Română',
     flag: '🇷🇴',
     agentGreeting: 'Bună! Cu ce te pot ajuta?',
-    agentReturning: 'Bună revenire! Cu ce te mai pot ajuta?',
-    agentPersonality: 'Vorbești ca un prieten helpful, nu ca un robot. Limbaj cald, natural, scurt.',
+    agentReturning: 'Bine ai revenit! Cu ce te mai pot ajuta?',
+    agentPersonality: 'Vorbești ca un prieten săritor, nu ca un robot. Limbaj cald, natural, scurt.',
     agentRulesPrefix: 'REGULI ABSOLUTE',
     agentNoProduct: 'Nu avem asta în stoc, dar pot să-ți sugerez ceva similar.',
     agentEscalate: 'Sigur! Te conectez cu echipa noastră acum.',
-    agentBuyGuide: 'Apasă pe butonul "Adaugă în coș" de la produs și finalizezi comanda!',
+    agentBuyGuide: 'Apasă pe butonul „Adaugă în coș” de la produs și finalizezi comanda!',
     agentOffTopic: 'Nu pot ajuta cu asta, dar te pot ajuta cu produsele noastre!',
-    orderNotFound: 'Nu am găsit comanda după "%s". Încearcă cu numărul exact al comenzii sau emailul folosit la comandă.',
-    productNotFound: 'Nu am găsit "%s" în catalog. Cum altfel ai descrie ce cauți?',
+    orderNotFound: 'Nu am găsit comanda „%s”. Încearcă cu numărul exact al comenzii sau cu emailul folosit la comandă.',
+    productNotFound: 'Nu am găsit „%s” în catalog. Cum ai descrie altfel ce cauți?',
     tryAgain: 'Încearcă din nou',
     talkToTeam: 'Vorbesc cu echipa',
     defaultQuickReplies: ['Caut un produs', 'Am o întrebare', 'Livrare & retur'],
-    seoExpertRole: 'Ești un expert SEO senior specializat în eCommerce, cu cunoștințe avansate despre Google Search Quality Guidelines, E-E-A-T, și optimizarea pentru magazine online.',
+    seoExpertRole: 'Ești un expert SEO senior specializat în eCommerce, cu cunoștințe avansate despre Google Search Quality Guidelines, E-E-A-T și optimizarea pentru magazine online.',
     seoLanguageInstruction: 'Scrie TOT conținutul în limba ROMÂNĂ.',
     intelLanguageInstruction: 'Scrie în română, natural, concis dar util.',
     stopWords: ['pentru','care','este','sunt','caut','vreau','unui','ceva','unul','mai','din','sau','bun','buna','cel','cea','cele','unde','cum','cat','cand','daca','dar','ori','fie','nici','tot','doar','chiar','foarte','prea','un','una','la','cu','si','pe','de','in','prin','spre'],
@@ -66,10 +66,10 @@ export const AI_LANGUAGES: Record<AILanguage, {
     agentRulesPrefix: 'ABSOLUTE RULES',
     agentNoProduct: "We don't have that in stock, but I can suggest something similar.",
     agentEscalate: "Sure! I'm connecting you with our team right now.",
-    agentBuyGuide: 'Click the "Add to Cart" button on the product and complete your order!',
+    agentBuyGuide: 'Click the "Add to cart" button on the product and complete your order!',
     agentOffTopic: "I can't help with that, but I can help you with our products!",
-    orderNotFound: 'Order not found for "%s". Try the exact order number or the email used at checkout.',
-    productNotFound: '"%s" not found in our catalog. How else would you describe what you\'re looking for?',
+    orderNotFound: 'I couldn\'t find order "%s". Try the exact order number or the email used at checkout.',
+    productNotFound: '"%s" isn\'t in our catalog. How else would you describe what you\'re looking for?',
     tryAgain: 'Try again',
     talkToTeam: 'Talk to the team',
     defaultQuickReplies: ['Looking for a product', 'I have a question', 'Shipping & returns'],

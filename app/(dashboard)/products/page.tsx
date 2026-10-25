@@ -4,6 +4,7 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'rea
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { useT } from '@/lib/i18n/context'
+import { translateStored } from '@/lib/i18n/stored'
 import {
   AlertCircle, ChevronLeft, ChevronRight, ExternalLink, ImageIcon, Info, Loader2,
   Package, Percent, RefreshCw, Search, Store, X,
@@ -51,7 +52,7 @@ const GOOGLE_STYLE: Record<string, string> = {
   pending: 'bg-amber-50 text-amber-700',
   expirat: 'bg-amber-50 text-amber-700',
   disapproved: 'bg-red-50 text-red-600',
-  error: 'bg-red-50 text-red-600',
+  error: 'bg-red-50 text-red-600', // i18n-ignore: clase CSS
   exclus: 'bg-neutral-100 text-neutral-500',
 }
 
@@ -144,7 +145,7 @@ function CostInput({ offer, fmt, siblings, platform, onSaved }: {
         <button onClick={applyToVariants} disabled={applying}
           title={t('catalog.apply_variants_hint', { cost: fmt.format(offer.cost_price) })}
           className="mt-0.5 text-[10px] text-neutral-400 hover:text-neutral-700 underline-offset-2 hover:underline disabled:opacity-50">
-          {applying ? t('catalog.applying') : t('catalog.apply_variants', { count: String(siblings + 1) })}
+          {applying ? t('catalog.applying') : t('catalog.apply_variants', { count: siblings + 1 })}
         </button>
       )}
     </div>
@@ -282,7 +283,7 @@ function BulkCostPanel({ offers, fmt, fmtInt, onClose, onApplied }: {
 }
 
 function ProductsView() {
-  const { t, locale } = useT()
+  const { t, intlLocale: numberLocale } = useT()
   const [days, setDays] = useState<Period>(30)
   const [store, setStore] = useState<StoreInfo | null>(null)
   const [offers, setOffers] = useState<Offer[]>([])
@@ -337,7 +338,6 @@ function ProductsView() {
   }, [firstSyncRunning, days, load])
 
   const currency = store?.currency || offers[0]?.currency || 'RON'
-  const numberLocale = locale === 'en' ? 'en-GB' : 'ro-RO'
   const fmt = useMemo(() => {
     try { return new Intl.NumberFormat(numberLocale, { style: 'currency', currency, maximumFractionDigits: 2 }) }
     catch { return new Intl.NumberFormat(numberLocale, { maximumFractionDigits: 2 }) }
@@ -407,7 +407,7 @@ function ProductsView() {
       const d = await r.json().catch(() => ({}))
       if (!r.ok) setNotice({ ok: false, text: d.error || t('catalog.sync_error') })
       // Un magazin mare nu încape într-o rulare: restul vine la sincronizările următoare
-      else setNotice({ ok: true, text: t(d.complete === false ? 'catalog.sync_partial' : 'edinio.sync_done', { offers: String(d.synced ?? 0), orders: String(d.orders ?? 0) }) })
+      else setNotice({ ok: true, text: t(d.complete === false ? 'catalog.sync_partial' : 'edinio.sync_done', { offers: t('common.offers_count', { count: Number(d.synced ?? 0) }), orders: t('common.orders_count', { count: Number(d.orders ?? 0) }) }) })
       await load(days)
     } catch {
       setNotice({ ok: false, text: t('catalog.sync_error') })
@@ -422,7 +422,7 @@ function ProductsView() {
         <h1 className="text-[22px] font-semibold text-neutral-900 tracking-tight">{t('catalog.title')}</h1>
         <p className="text-[13px] text-neutral-400 mt-0.5">
           {store?.supported && offers.length > 0
-            ? t('catalog.subtitle', { count: fmtInt.format(offers.length), store: store.store_name || '' })
+            ? t('catalog.subtitle', { count: offers.length, store: store.store_name || '' })
             : t('catalog.subtitle_empty')}
           {store?.last_sync_at && store.supported && (
             <> · {t('catalog.synced_at', { time: new Date(store.last_sync_at).toLocaleString(numberLocale, { dateStyle: 'short', timeStyle: 'short' }) })}</>
@@ -514,7 +514,7 @@ function ProductsView() {
           <AlertCircle className="h-4 w-4 shrink-0 mt-px" />
           <span className="flex-1">
             {store.connection_status === 'revoked' ? t('catalog.revoked', { platform: store.platform_name }) : t('catalog.store_error', { platform: store.platform_name })}
-            {store.connection_status === 'error' && store.last_error && <span className="block text-amber-700/70">{store.last_error}</span>}
+            {store.connection_status === 'error' && store.last_error && <span className="block text-amber-700/70">{translateStored(t, store.last_error)}</span>}
           </span>
           {store.connection_status === 'revoked' && (
             <Link href="/settings?tab=integrations" className="font-medium underline underline-offset-2">{t('catalog.reconnect')}</Link>
@@ -658,7 +658,7 @@ function ProductsView() {
                               <span className="text-[12px] text-neutral-500">{t('catalog.stock_untracked')}</span>
                             ) : (
                               <span className={`text-[12px] tabular-nums ${o.stock <= 3 ? 'text-amber-600 font-medium' : 'text-neutral-700'}`}>
-                                {t('catalog.stock_units', { count: fmtInt.format(o.stock) })}
+                                {t('catalog.stock_units', { count: o.stock })}
                               </span>
                             )}
                           </td>
@@ -676,7 +676,7 @@ function ProductsView() {
                           <td className="px-3 py-3 text-right whitespace-nowrap">
                             {o.sales.units > 0 ? (
                               <>
-                                <p className="text-[13px] font-medium text-neutral-900 tabular-nums">{t('catalog.units', { count: fmtInt.format(o.sales.units) })}</p>
+                                <p className="text-[13px] font-medium text-neutral-900 tabular-nums">{t('catalog.units', { count: Number(o.sales.units) })}</p>
                                 <p className="text-[11px] text-neutral-400 tabular-nums">{fmt.format(o.sales.revenue)}</p>
                               </>
                             ) : <span className="text-[12px] text-neutral-300">—</span>}
