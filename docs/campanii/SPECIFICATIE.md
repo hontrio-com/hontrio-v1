@@ -158,7 +158,8 @@ Notații din `lib/ads/economics.ts`:
   Oprirea se face și în modul cu aprobare, fiindcă e protecție, iar omul primește
   notificare. Dacă o repornește, socoteala începe de la zero.
 - **Ținta la creștere:** pornește de la ROAS-ul real din ultimele 30 de zile, fără ultimele
-  2 (întârzierea conversiilor), dar nu sub prag. Apoi se mută spre ținta obiectivului cu
+  2 (întârzierea conversiilor), dar nu sub prag și nici peste 1,5 × ținta obiectivului
+  (o țintă prea strictă ar lăsa campania nouă fără trafic). Apoi se mută spre ținta obiectivului cu
   cel mult 12% o dată (§6). Google cere ca ținta să plece din ROAS-ul istoric; una prea
   mare taie traficul.
 

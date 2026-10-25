@@ -11,6 +11,10 @@
     {
       "path": "/api/cron/commerce-sync",
       "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/cron/ads-sync",
+      "schedule": "15 * * * *"
     }
   ],
   "functions": {
@@ -24,6 +28,9 @@
       "maxDuration": 300
     },
     "app/api/integrations/edinio/callback/route.ts": {
+      "maxDuration": 300
+    },
+    "app/api/cron/ads-sync/route.ts": {
       "maxDuration": 300
     }
   }

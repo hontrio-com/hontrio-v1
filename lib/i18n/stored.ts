@@ -20,7 +20,11 @@ export function storedMessage(key: string, params?: Params): string {
   return params && Object.keys(params).length ? `${key}${SEPARATOR}${JSON.stringify(params)}` : key
 }
 
-export function translateStored(t: TFunction, value: string | null | undefined): string | null {
+/**
+ * `formatNumber`: cum se scriu numerele din parametri în limba omului (3,5 în
+ * română, 3.5 în engleză). `count` rămâne număr: alege forma de plural.
+ */
+export function translateStored(t: TFunction, value: string | null | undefined, formatNumber?: (n: number) => string): string | null {
   if (!value) return null
   const at = value.indexOf(SEPARATOR)
   const key = at === -1 ? value : value.slice(0, at)
@@ -28,6 +32,9 @@ export function translateStored(t: TFunction, value: string | null | undefined):
   let params: Params | undefined
   if (at !== -1) {
     try { params = JSON.parse(value.slice(at + 1)) as Params } catch { params = undefined }
+  }
+  if (params && formatNumber) {
+    for (const [k, v] of Object.entries(params)) if (typeof v === 'number' && k !== 'count') params[k] = formatNumber(v)
   }
   return t(key, params)
 }

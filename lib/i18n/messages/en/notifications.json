@@ -6,5 +6,15 @@
   "all_caught_up": "You're all caught up.",
   "unread_count_one": "{{count}} new",
   "unread_count_other": "{{count}} new",
-  "announcement": "Announcement"
+  "announcement": "Announcement",
+  "campaign_launched_title": "Your campaign is live",
+  "campaign_launched_starter": "“{{name}}” is in your Google Ads account: standard Shopping with a capped cost per click. The autopilot watches the figures daily.",
+  "campaign_launched_growth": "“{{name}}” is in your Google Ads account: a feed-only Performance Max. The autopilot watches the figures daily.",
+  "loss_limit_title": "A campaign was stopped at the loss limit",
+  "proposals_title": "The autopilot has new proposals",
+  "proposals_body_one": "One change is waiting for your approval, in Campaigns.",
+  "proposals_body_other": "{{count}} changes are waiting for your approval, in Campaigns.",
+  "applied_title": "The autopilot changed your campaigns",
+  "applied_body_one": "One change applied today; the details are in the log in Campaigns.",
+  "applied_body_other": "{{count}} changes applied today; the details are in the log in Campaigns."
 }

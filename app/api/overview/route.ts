@@ -3,19 +3,14 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/auth.config'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { logApiError } from '@/lib/logger'
-import { loadAdsData } from '@/lib/commerce/ads-data'
 import { storeSetup } from '@/lib/commerce/setup'
 import { getActiveStore } from '@/lib/stores/active'
-import { buildPlan } from '@/lib/campaigns/plan'
+import { loadPlanContext, STORE_PLAN_COLUMNS, type PlanStore } from '@/lib/campaigns/context'
 import { storeAdsAccount } from '@/lib/google/accounts'
 import { getT } from '@/lib/i18n/server'
 
-type StoreRow = {
-  id: string; platform: string; store_name: string | null; store_url: string; currency: string | null
-  country: string | null; language: string | null; timezone: string | null
-  connection_status: string | null; sync_status: string | null; last_sync_at: string | null; last_error: string | null
-  products_count: number | null; orders_count: number | null; platform_data: unknown
-  google_ads_customer_id: string | null
+type StoreRow = PlanStore & {
+  sync_status: string | null; last_error: string | null; products_count: number | null; orders_count: number | null
 }
 
 // =============================================
@@ -48,7 +43,7 @@ export async function GET(request: Request) {
   const supabase = createAdminClient()
   const [storeRes, googleRes] = await Promise.all([
     getActiveStore<StoreRow>(supabase, userId,
-      'id, platform, store_name, store_url, currency, country, language, timezone, connection_status, sync_status, last_sync_at, last_error, products_count, orders_count, platform_data, google_ads_customer_id'),
+      `${STORE_PLAN_COLUMNS}, sync_status, last_error, products_count, orders_count`),
     supabase.from('google_connections').select('status, google_email').eq('user_id', userId).maybeSingle(),
   ])
   if (storeRes.error) {
@@ -72,7 +67,7 @@ export async function GET(request: Request) {
     const [ovRes, salesRes, ads] = await Promise.all([
       supabase.rpc('commerce_overview', { p_store_id: store.id, p_days: days, p_tz: store.timezone || 'Europe/Bucharest' }),
       supabase.rpc('commerce_offer_sales', { p_store_id: store.id, p_since: since }),
-      loadAdsData(supabase, store.id),
+      loadPlanContext(supabase, userId, store),
     ])
     if (ovRes.error) logApiError(ROUTE, 500, 'Eroare la commerce_overview', { userId, error: ovRes.error.message })
     if (salesRes.error) logApiError(ROUTE, 500, 'Eroare la commerce_offer_sales', { userId, error: salesRes.error.message })
@@ -80,20 +75,11 @@ export async function GET(request: Request) {
     overview = (ovRes.data as Record<string, unknown> | null) ?? null
 
     // Pasul costurilor are regula planului de campanie, ca să nu se contrazică
-    if (ads.data) {
-      const { economics } = buildPlan({
-        store: { currency: store.currency || 'RON', connection_status: store.connection_status },
-        setup,
-        google: { connected: googleConnected, account: account ? { customer_id: account.customer_id, name: account.descriptive_name, currency: account.currency_code } : null },
-        offers: ads.data.offers,
-        sales90: ads.data.sales90,
-        orders90: ads.data.orders90,
-        googleAds90: ads.data.googleAds90,
-        settings: { goal: 'balanced', daily_budget: null },
-      })
+    if (ads.context) {
+      const { economics } = ads.context.plan
       costs = {
-        with_cost: ads.data.offers.filter(o => o.cost_price !== null).length,
-        total: ads.data.offers.length,
+        with_cost: ads.context.data.offers.filter(o => o.cost_price !== null).length,
+        total: ads.context.data.offers.length,
         coverage: economics.cost_coverage,
         basis: economics.cost_basis,
         ready: economics.margin !== null,

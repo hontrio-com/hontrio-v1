@@ -1,0 +1,76 @@
+import { NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth/auth.config'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { logApiError } from '@/lib/logger'
+import { getActiveStore } from '@/lib/stores/active'
+import { isCommercePlatform } from '@/lib/commerce/sync'
+import { loadPlanContext, STORE_PLAN_COLUMNS, type PlanStore } from '@/lib/campaigns/context'
+import { runAudit } from '@/lib/ads/audit-run'
+import { launchFromPlan } from '@/lib/google/launch'
+import { AUDIT_FRESH_MS } from '@/lib/google/audit'
+import { translateStored } from '@/lib/i18n/stored'
+import { getT } from '@/lib/i18n/server'
+
+// =============================================
+// POST /api/campaigns/launch
+// Lansează campania din plan în contul Google Ads al magazinului activ.
+// Planul se socotește din nou aici (nu se ia de la client), cu un audit
+// proaspăt. Body: { overlap: 'pause' | 'keep' | null, declare_eu: boolean }
+// =============================================
+
+const ROUTE = '/api/campaigns/launch'
+
+export const maxDuration = 120
+
+export async function POST(request: Request) {
+  const t = await getT()
+  const session = await getServerSession(authOptions)
+  if (!session?.user) return NextResponse.json({ error: t('api.unauthorized') }, { status: 401 })
+  const userId = session.user.id
+
+  let body: { overlap?: unknown; declare_eu?: unknown }
+  try {
+    body = await request.json()
+  } catch {
+    return NextResponse.json({ error: t('api.invalid_request') }, { status: 400 })
+  }
+  const overlap = body.overlap === 'pause' || body.overlap === 'keep' ? body.overlap : null
+  const declareEu = body.declare_eu === true
+
+  const supabase = createAdminClient()
+  const { data: store, error } = await getActiveStore<PlanStore>(supabase, userId, STORE_PLAN_COLUMNS)
+  if (error) {
+    logApiError(ROUTE, 500, 'Eroare la citirea magazinului', { userId, error: error.message })
+    return NextResponse.json({ error: t('sync.store_read_failed') }, { status: 500 })
+  }
+  if (!store || !isCommercePlatform(store.platform)) return NextResponse.json({ error: t('sync.platform_unsupported') }, { status: 400 })
+
+  // Lansarea se sprijină pe un audit proaspăt: contul s-ar putea să se fi schimbat de ieri
+  const { data: last } = await supabase.from('google_audits').select('checked_at, customer_id').eq('store_id', store.id).maybeSingle()
+  if (!last || Date.now() - Date.parse(last.checked_at) > AUDIT_FRESH_MS / 4 || last.customer_id !== store.google_ads_customer_id) {
+    await runAudit(supabase, store)
+  }
+
+  const { context, errors } = await loadPlanContext(supabase, userId, store)
+  for (const e of errors) logApiError(ROUTE, 500, 'Eroare la citirea datelor magazinului', { userId, error: e })
+  if (!context) return NextResponse.json({ error: t('sync.products_read_failed') }, { status: 500 })
+
+  const result = await launchFromPlan(supabase, userId, store, context, { overlap, declareEu })
+  if (!result.ok) {
+    if (result.reason === 'google_error' || result.reason === 'save_failed') {
+      logApiError(ROUTE, 502, 'Lansarea a eșuat', { userId, reason: result.reason, error: result.error, details: result.details })
+    }
+    return NextResponse.json({
+      error: translateStored(t, result.error),
+      reason: result.reason,
+      // Câmpul vinovat, din răspunsul Google (ajută la depanare; nu conține date ale omului)
+      details: result.details?.slice(0, 5) ?? [],
+    }, { status: ['blocked', 'audit_missing', 'eu_confirm', 'overlap_choice', 'no_merchant', 'already_active'].includes(result.reason) ? 409 : 502 })
+  }
+  return NextResponse.json({
+    ad_campaign_id: result.ad_campaign_id,
+    google_campaign_id: result.google_campaign_id,
+    warnings: result.warnings.map(w => translateStored(t, w)),
+  })
+}

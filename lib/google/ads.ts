@@ -6,12 +6,21 @@
 const API_VERSION = process.env.GOOGLE_ADS_API_VERSION || 'v26'
 const BASE_URL = `https://googleads.googleapis.com/${API_VERSION}`
 
+/** O eroare din lista `GoogleAdsFailure.errors`, cu operația și câmpul vinovat. */
+export type GoogleAdsErrorDetail = {
+  code: string | null
+  message: string
+  /** ex: 'mutate_operations[3].campaign_operation.create.shopping_setting.merchant_id' */
+  path: string | null
+}
+
 export class GoogleAdsApiError extends Error {
   constructor(
     message: string,
     public httpStatus: number,
     // ex: 'authorizationError.USER_PERMISSION_DENIED'
     public errorCode: string | null,
+    public details: GoogleAdsErrorDetail[] = [],
   ) {
     super(message)
   }
@@ -54,20 +63,106 @@ async function request<T>(
 type ApiErrorBody = {
   error?: {
     message?: string
-    details?: { errors?: { errorCode?: Record<string, string>; message?: string }[] }[]
+    details?: {
+      errors?: {
+        errorCode?: Record<string, string>
+        message?: string
+        location?: { fieldPathElements?: { fieldName?: string; index?: number }[] }
+      }[]
+    }[]
   }
+}
+
+function codeOf(errorCode: Record<string, string> | undefined): string | null {
+  const [group, value] = Object.entries(errorCode || {})[0] || []
+  return group ? `${group}.${value}` : null
 }
 
 function parseError(status: number, data: ApiErrorBody): GoogleAdsApiError {
   const failure = data?.error?.details?.find(d => Array.isArray(d?.errors))
-  const first = failure?.errors?.[0]
-  let errorCode: string | null = null
-  if (first?.errorCode) {
-    const [group, value] = Object.entries(first.errorCode)[0] || []
-    if (group) errorCode = `${group}.${value}`
-  }
+  const details: GoogleAdsErrorDetail[] = (failure?.errors || []).map(e => ({
+    code: codeOf(e.errorCode),
+    message: e.message || '',
+    path: e.location?.fieldPathElements?.length
+      ? e.location.fieldPathElements.map(p => `${p.fieldName ?? '?'}${p.index !== undefined ? `[${p.index}]` : ''}`).join('.')
+      : null,
+  }))
+  const first = details[0]
   const message = first?.message || data?.error?.message || `Google Ads API: HTTP ${status}` // i18n-ignore: detaliu tehnic (marcă + cod HTTP)
-  return new GoogleAdsApiError(message, status, errorCode)
+  return new GoogleAdsApiError(message, status, first?.code ?? null, details)
+}
+
+// ─── Modificări (GoogleAdsService.Mutate) ─────────────────────────────────────
+
+/** O operație din `mutateOperations`, în forma REST: `{ campaignOperation: { create: {...} } }`. */
+export type MutateOperation = Record<string, unknown>
+/** Răspunsul unei operații: `{ campaignResult: { resourceName } }`. */
+export type MutateOperationResponse = Record<string, { resourceName?: string } | undefined>
+
+/**
+ * Trimite operațiile într-o singură cerere. Implicit atomic (`partialFailure: false`):
+ * ori se aplică toate, ori niciuna. `validateOnly` verifică tot fără să creeze
+ * nimic și întoarce aceleași erori.
+ */
+export async function mutate(
+  accessToken: string,
+  customerId: string,
+  operations: MutateOperation[],
+  opts: { loginCustomerId?: string | null; validateOnly?: boolean } = {},
+): Promise<MutateOperationResponse[]> {
+  const data = await request<{ mutateOperationResponses?: MutateOperationResponse[] }>(
+    `customers/${customerId}/googleAds:mutate`,
+    accessToken,
+    {
+      method: 'POST',
+      body: { mutateOperations: operations, partialFailure: false, validateOnly: !!opts.validateOnly },
+      loginCustomerId: opts.loginCustomerId,
+    },
+  )
+  return data.mutateOperationResponses || []
+}
+
+/** Resursa creată de o operație, ex. 'customers/1/campaigns/22' → '22'. */
+export function idFromResourceName(resourceName: string | undefined): string | null {
+  if (!resourceName) return null
+  const last = resourceName.split('/').pop() || ''
+  // assetGroupListingGroupFilters/{grup}~{filtru}: ID-ul e partea de după „~"
+  return last.includes('~') ? last.split('~').pop() || null : last || null
+}
+
+/** micros (int64 ca text sau număr) → sumă în moneda contului. */
+export function fromMicros(v: string | number | null | undefined): number {
+  const n = Number(v)
+  return Number.isFinite(n) ? n / 1_000_000 : 0
+}
+
+/**
+ * Sumă → micros, multiplu de unitatea facturabilă a monedei
+ * (`currency_constant.billable_unit_micros`: 10.000 = 0,01 la RON și EUR).
+ */
+export function toMicros(amount: number, billableUnitMicros = 10_000): string {
+  const unit = billableUnitMicros > 0 ? billableUnitMicros : 10_000
+  return String(Math.max(1, Math.round((amount * 1_000_000) / unit)) * unit)
+}
+
+const unitCache = new Map<string, number>()
+
+/** Unitatea facturabilă a monedei contului; 0,01 dacă Google nu răspunde. */
+export async function billableUnitMicros(accessToken: string, customerId: string, currency: string, loginCustomerId?: string | null): Promise<number> {
+  const code = currency.toUpperCase()
+  const cached = unitCache.get(code)
+  if (cached) return cached
+  try {
+    const [row] = await search<{ currencyConstant?: { billableUnitMicros?: string } }>(accessToken, customerId,
+      // i18n-ignore: interogare tehnică (GAQL)
+      `SELECT currency_constant.code, currency_constant.billable_unit_micros FROM currency_constant WHERE currency_constant.code = '${code.replace(/[^A-Z]/g, '')}'`,
+      loginCustomerId)
+    const unit = Number(row?.currencyConstant?.billableUnitMicros) || 10_000
+    unitCache.set(code, unit)
+    return unit
+  } catch {
+    return 10_000
+  }
 }
 
 /** Rulează o interogare GAQL și întoarce toate rândurile (cu paginare). */

@@ -1,24 +1,41 @@
 import { breakEvenRoas, economicsOf, marginOf, round1, THIN_MARGIN, type OrderTotals } from '@/lib/ads/economics'
 import type { AdsMode, Offer, Sales } from '@/lib/commerce/ads-data'
 import type { SetupStatus, StoreSetup } from '@/lib/commerce/setup'
+import type { AuditResult } from '@/lib/google/audit'
+import { MAX_LISTING_ITEMS } from '@/lib/google/operations'
 
 // =============================================
 // Planul de campanie — ce va crea Hontrio în contul Google Ads al omului,
-// socotit din datele magazinului: ce produse intră, ROAS-ul țintă din pragul
-// de profit și bugetul zilnic. Funcție pură, ca motorul de recomandări.
+// socotit din datele magazinului și din auditul contului: treapta (pornire
+// sau creștere), ce produse intră, ROAS-ul țintă din pragul de profit,
+// bugetul, plafonul de CPC și limita de pierdere. Funcție pură, ca motorul
+// de recomandări. Vezi docs/campanii/SPECIFICATIE.md §2–§5.
 //
-// O singură campanie Performance Max pe tot catalogul eligibil: cu puține
-// conversii, o campanie învață mai repede decât mai multe mici.
+// O singură campanie pe tot catalogul eligibil: cu puține conversii, o
+// campanie învață mai repede decât mai multe mici. Segmentarea pe marje vine
+// mai târziu, din bucla de optimizare.
 // =============================================
 
 export type Goal = 'growth' | 'balanced' | 'profit'
+export type Mode = 'approve' | 'auto'
+export type Stage = 'starter' | 'growth'
 
 /** Din profitul unei vânzări (înainte de reclamă), cât rămâne comerciantului. */
 export const GOAL_KEEP: Record<Goal, number> = { growth: 0.1, balanced: 0.25, profit: 0.4 }
 export const GOALS = Object.keys(GOAL_KEEP) as Goal[]
+export const MODES: Mode[] = ['approve', 'auto']
 
 /** Google învață o campanie cu ~30 de conversii pe lună. */
 export const CONVERSIONS_PER_MONTH = 30
+/** Minimul Google pentru ROAS țintă la Shopping: 15 conversii în ultimele 30 de zile. */
+export const GROWTH_MIN_CONVERSIONS = 15
+/** Rata de conversie presupusă pentru plafonul de CPC la pornire (prudentă pentru Shopping). */
+export const ASSUMED_CONVERSION_RATE = 0.01
+/** Limita de pierdere: atâtea „costuri pe comandă la prag" fără nicio conversie / cu ROAS sub jumătate din prag. */
+export const LOSS_NO_CONVERSIONS = 3
+export const LOSS_LOW_ROAS = 6
+/** Sub plafonul ăsta (în moneda contului) campania de pornire va avea foarte puțin trafic. */
+const LOW_CPC = 0.05
 const DAYS_PER_MONTH = 30.4
 /** Sub partea asta din vânzări acoperită de costuri, marja medie nu e de încredere. */
 const MIN_COST_COVERAGE = 0.5
@@ -30,9 +47,16 @@ export type Reason =
   | 'manual'
   // Hotărârea Hontrio, pe care omul o poate întoarce
   | 'negative_margin' | 'thin_margin'
+  // Scoasă de pilot după cifrele din Google Ads (omul o poate include la loc)
+  | 'ads_no_sales' | 'ads_unprofitable'
+
+/** Motivele pentru care o ofertă care ar putea rula e scoasă din campanie (în arborele de produse). */
+export const CAMPAIGN_EXCLUSIONS: Reason[] = ['manual', 'negative_margin', 'thin_margin', 'ads_no_sales', 'ads_unprofitable']
 
 export type PlanOffer = {
   offer_id: string
+  /** ID-ul din Merchant Center, pe care se exclude produsul în campanie; null = nepotrivit încă. */
+  item_id: string | null
   title: string
   variant_title: string | null
   image_url: string | null
@@ -51,18 +75,36 @@ export type PlanOffer = {
   margin_issue: 'negative_margin' | 'thin_margin' | null
 }
 
-export type BlockerId = 'store' | 'google_ads' | 'ads_account' | 'currency' | 'merchant' | 'conversion' | 'no_offers' | 'costs'
+export type BlockerId =
+  | 'store' | 'google_ads' | 'ads_account' | 'currency' | 'merchant' | 'conversion' | 'no_offers' | 'costs'
+  // Din auditul contului Google Ads
+  | 'audit' | 'account_manager' | 'merchant_not_linked' | 'merchant_other' | 'merchant_choose'
+  | 'purchase_missing' | 'purchase_not_primary' | 'purchase_no_value' | 'too_many_exclusions'
 
 export type PlanInput = {
-  store: { currency: string; connection_status: string | null }
+  store: { currency: string; connection_status: string | null; name: string | null; url: string | null }
   /** Ce e pregătit în magazin și unde se repară ce lipsește, pe platforma lui. */
   setup: StoreSetup
   google: { connected: boolean; account: { customer_id: string; name: string | null; currency: string | null } | null }
+  /** Ultimul audit al contului Google Ads; null = încă nefăcut (sau eșuat). */
+  audit: AuditResult | null
+  merchant: {
+    id: string | null
+    feed_label: string | null
+    /**
+     * Starea ofertelor la Google e știută (de la Edinio cu Merchant legat, sau din Merchant
+     * Center la celelalte): o ofertă fără stare e atunci „netrimisă".
+     */
+    statuses_known: boolean
+    /** custom_label_N liber pentru Hontrio (cataloagele prea mari pentru lista de ID-uri). */
+    label_index: number | null
+  }
   offers: Offer[]
   sales90: Sales
   orders90: OrderTotals
   googleAds90: { orders: number; total: number }
-  settings: { goal: Goal; daily_budget: number | null }
+  googleAds30: { orders: number; total: number }
+  settings: { goal: Goal; daily_budget: number | null; mode: Mode; max_daily_budget: number | null }
 }
 
 export type Plan = {
@@ -73,6 +115,8 @@ export type Plan = {
    * Center, conversia); „catalog" la costuri, când acoperirea e pe oferte (fără vânzări).
    */
   blockers: { id: BlockerId; href: string; external: boolean; variant?: string; params?: Record<string, string | number> }[]
+  /** Pornire = Shopping standard cu CPC plafonat; creștere = Performance Max doar pe feed. */
+  stage: { id: Stage; conversions30: number; basis: 'google_ads' | 'store' }
   campaign: {
     country: string | null
     language: string | null
@@ -80,6 +124,19 @@ export type Plan = {
     account: { customer_id: string; name: string | null } | null
     merchant: { status: SetupStatus; via: string | null }
     conversion: { status: SetupStatus; via: string | null }
+  }
+  structure: {
+    type: 'shopping' | 'performance_max'
+    /** Ținta de pornire la creștere: ROAS-ul real din cont, dar nu sub prag. */
+    start_target: number | null
+    cpc_ceiling: number | null
+    cpc_ceiling_low: boolean
+    /** Cheltuiala la care pilotul oprește campania: fără nicio conversie / cu ROAS sub jumătate din prag. */
+    loss_limit: { no_conversions: number; low_roas: number } | null
+    merchant_id: string | null
+    feed_label: string | null
+    /** Numele magazinului ca cuvânt negativ, când contul are o campanie Search (căutările pe brand sunt ale ei). */
+    brand_negatives: string[]
   }
   economics: {
     /** Marja medie a produselor incluse: din vânzări sau, fără vânzări, din catalog. */
@@ -100,9 +157,12 @@ export type Plan = {
   targets: Record<Goal, number | null>
   target_roas: number | null
   budget: { suggested: number | null; chosen: number | null; daily: number | null }
+  settings: { mode: Mode; max_daily_budget: number | null }
   /** Pe lună, dacă campania atinge ROAS-ul țintă. */
   forecast: { spend: number; revenue: number; orders: number | null; profit: number } | null
   history: { google_ads_orders: number; google_ads_total: number }
+  /** Ce se exclude în campanie, după ID-ul din Merchant Center. */
+  exclusions: { item_ids: string[]; unmatched: number; mode: 'items' | 'label' | 'too_many' }
   offers: PlanOffer[]
   counts: { included: number; excluded: number }
 }
@@ -125,18 +185,46 @@ function reasonOf(o: Offer, issue: PlanOffer['margin_issue'], statusKnown: boole
   if (!o.available) return 'out_of_stock'
   if (o.google_status && REJECTED.includes(o.google_status)) return 'google_rejected'
   if (o.google_status === 'exclus') return 'price_unconfirmed'
-  // O ofertă fără stare e „netrimisă" doar dacă platforma știe starea și Merchant Center e legat;
+  // O ofertă fără stare e „netrimisă" doar dacă știm starea și Merchant Center e legat;
   // altfel lipsa lui e deja un pas de făcut, nu vina ofertei
   if (statusKnown && !o.google_status) return 'not_in_merchant'
   if (o.ads_mode === 'exclude') return 'manual'
   if (o.ads_mode === 'include') return null
+  if (o.ads_auto_reason) return o.ads_auto_reason === 'no_sales' ? 'ads_no_sales' : 'ads_unprofitable'
   return issue
 }
 
+/** O țintă de pornire peste atât din ținta obiectivului ar ține o campanie nouă fără trafic. */
+export const START_TARGET_CAP = 1.5
+
+/**
+ * Ținta cu care pornește o campanie PMax: ROAS-ul pe care contul îl face deja
+ * (Google cere să pleci din istoric), dar niciodată sub prag și nici peste
+ * 1,5 × ținta obiectivului; de acolo o mută bucla, treptat.
+ */
+export function startingTarget(historical: number | null, breakEven: number, goalTarget: number | null): number {
+  const goal = goalTarget ?? breakEven
+  const cap = Math.max(goal, breakEven) * START_TARGET_CAP
+  return round1(Math.min(cap, Math.max(breakEven, historical ?? goal)))
+}
+
+/** „Lampi LED SRL" + „https://www.lampi-led.ro" → ['lampi led'] (fără forma juridică, fără duplicate). */
+export function brandTerms(name: string | null, url: string | null): string[] {
+  const clean = (s: string) => s.toLowerCase()
+    .replace(/\b(s\.?r\.?l\.?|s\.?a\.?|pfa|ii|ltd|llc|gmbh|inc)\b/g, ' ')
+    .replace(/[^\p{L}\p{N}]+/gu, ' ').trim().replace(/\s+/g, ' ')
+  const terms = new Set<string>()
+  if (name) terms.add(clean(name))
+  if (url) {
+    try { terms.add(clean(new URL(url.startsWith('http') ? url : `https://${url}`).hostname.replace(/^www\./, '').split('.')[0])) } catch {}
+  }
+  return [...terms].filter(t => t.length >= 3).slice(0, 2)
+}
+
 export function buildPlan(input: PlanInput): Plan {
-  const { store, setup } = input
+  const { store, setup, audit } = input
   const econ = economicsOf(input.orders90, setup.pricesIncludeVat, setup.assumedVatRate)
-  const statusKnown = setup.googleStatusKnown && setup.merchant.status === 'ok'
+  const statusKnown = input.merchant.statuses_known
 
   const offers: PlanOffer[] = input.offers.map(o => {
     const s = input.sales90.get(o.offer_id) ?? { units: 0, revenue: 0 }
@@ -144,6 +232,7 @@ export function buildPlan(input: PlanInput): Plan {
     const issue = marginIssue(margin)
     return {
       offer_id: o.offer_id,
+      item_id: o.merchant_offer_id ?? (setup.platform === 'edinio' ? o.offer_id : null),
       title: o.product_name || o.title,
       variant_title: o.variant_title,
       image_url: o.image_url,
@@ -203,6 +292,38 @@ export function buildPlan(input: PlanInput): Plan {
     forecast = { spend, revenue, orders: aov ? revenue / aov : null, profit: revenue / breakEven - spend }
   }
 
+  // ── Treapta: Google cere 15 conversii în 30 de zile pentru ROAS țintă la Shopping ──
+  const conversions30 = audit ? audit.history.conversions30 : input.googleAds30.orders
+  const stageId: Stage = conversions30 >= GROWTH_MIN_CONVERSIONS ? 'growth' : 'starter'
+
+  // Ținta de pornire la creștere: ROAS-ul pe care contul îl face deja (Shopping/PMax, altfel tot contul)
+  let historical: number | null = null
+  if (audit) {
+    const h = audit.history
+    if (h.shopping_cost30 > 0 && h.shopping_conversions30 >= 5) historical = h.shopping_value30 / h.shopping_cost30
+    else if (h.cost30 > 0 && h.conversions30 >= 5) historical = h.value30 / h.cost30
+  }
+  const startTarget = stageId === 'growth' && breakEven !== null
+    ? startingTarget(historical, breakEven, target)
+    : null
+
+  // Plafonul de CPC la pornire: cât poate costa un click ca, la rata presupusă, comanda să nu piardă bani
+  const cpcCeiling = stageId === 'starter' && breakEven !== null && aov !== null
+    ? Math.max(0.01, Math.floor(((aov * ASSUMED_CONVERSION_RATE) / breakEven) * 100) / 100)
+    : null
+  const cpaAtBreakEven = breakEven !== null && aov !== null ? aov / breakEven : null
+  const lossLimit = cpaAtBreakEven !== null
+    ? { no_conversions: Math.ceil(LOSS_NO_CONVERSIONS * cpaAtBreakEven), low_roas: Math.ceil(LOSS_LOW_ROAS * cpaAtBreakEven) }
+    : null
+
+  // ── Excluderile din campanie, după ID-ul din Merchant Center ─────────────
+  const excludedOffers = offers.filter(o => o.reason !== null && CAMPAIGN_EXCLUSIONS.includes(o.reason))
+  const itemIds = [...new Set(excludedOffers.map(o => o.item_id).filter((x): x is string => !!x))]
+  const unmatched = excludedOffers.filter(o => !o.item_id).length
+  // Shopping standard duce 20.000 de noduri; PMax 1.000 pe grup, iar peste ele trece pe eticheta Hontrio
+  const exclusionMode: Plan['exclusions']['mode'] = stageId === 'starter' || itemIds.length <= MAX_LISTING_ITEMS
+    ? 'items' : input.merchant.label_index !== null ? 'label' : 'too_many'
+
   // ── Ce lipsește până la lansare ──────────────────────────────────────────
   const blockers: Plan['blockers'] = []
   const settingsPage = { href: '/settings?tab=integrations', external: false }
@@ -213,7 +334,7 @@ export function buildPlan(input: PlanInput): Plan {
     // Bugetul și valorile conversiilor sunt în moneda contului
     blockers.push({ id: 'currency', ...settingsPage, params: { account: input.google.account.currency, store: store.currency } })
   }
-  // „De verificat" nu oprește planul: pluginul se verifică la lansare
+  // „De verificat" nu oprește planul: pluginul se verifică la lansare, prin audit
   if (setup.merchant.status === 'missing') blockers.push({ id: 'merchant', href: setup.merchant.href, external: true, variant: setup.platform })
   if (setup.conversion.status === 'missing') blockers.push({ id: 'conversion', href: setup.conversion.href, external: true, variant: setup.platform })
   if (!included.length) blockers.push({ id: 'no_offers', href: '/products', external: false })
@@ -223,10 +344,28 @@ export function buildPlan(input: PlanInput): Plan {
       ...(soldRevenue > 0 ? {} : { variant: 'catalog' }), params: { pct: Math.round(coverage * 100) },
     })
   }
+  // Auditul contului: fără el nu știm dacă Merchant Center e legat și dacă există conversia
+  if (input.google.account) {
+    if (!audit) blockers.push({ id: 'audit', href: '/campaigns#audit', external: false })
+    else {
+      for (const c of audit.checks) {
+        // Moneda o spune deja pasul contului; valoarea conversiei contează doar la licitarea pe valoare
+        if (c.level !== 'blocker' || c.id === 'currency_mismatch') continue
+        blockers.push({ id: c.id as BlockerId, href: '/campaigns#audit', external: false, params: c.params })
+      }
+      if (stageId === 'growth' && audit.checks.some(c => c.id === 'purchase_no_value')) {
+        blockers.push({ id: 'purchase_no_value', href: '/campaigns#audit', external: false })
+      }
+    }
+  }
+  if (exclusionMode === 'too_many') blockers.push({ id: 'too_many_exclusions', href: '/campaigns', external: false, params: { count: itemIds.length } })
+
+  const merchantId = input.merchant.id ?? audit?.merchant_id ?? null
 
   return {
     platform: { id: setup.platform, name: setup.platformName },
     blockers,
+    stage: { id: stageId, conversions30: Math.round(conversions30 * 10) / 10, basis: audit ? 'google_ads' : 'store' },
     campaign: {
       country: setup.feed.country,
       language: setup.feed.language,
@@ -234,6 +373,16 @@ export function buildPlan(input: PlanInput): Plan {
       account: input.google.account ? { customer_id: input.google.account.customer_id, name: input.google.account.name } : null,
       merchant: { status: setup.merchant.status, via: setup.merchant.via },
       conversion: { status: setup.conversion.status, via: setup.conversion.via },
+    },
+    structure: {
+      type: stageId === 'starter' ? 'shopping' : 'performance_max',
+      start_target: startTarget,
+      cpc_ceiling: cpcCeiling,
+      cpc_ceiling_low: cpcCeiling !== null && cpcCeiling < LOW_CPC,
+      loss_limit: lossLimit,
+      merchant_id: merchantId,
+      feed_label: input.merchant.feed_label,
+      brand_negatives: audit?.search_active ? brandTerms(store.name, store.url) : [],
     },
     economics: {
       margin,
@@ -250,8 +399,10 @@ export function buildPlan(input: PlanInput): Plan {
     targets,
     target_roas: target,
     budget: { suggested, chosen, daily },
+    settings: { mode: input.settings.mode, max_daily_budget: input.settings.max_daily_budget },
     forecast,
     history: { google_ads_orders: input.googleAds90.orders, google_ads_total: input.googleAds90.total },
+    exclusions: { item_ids: itemIds, unmatched, mode: exclusionMode },
     offers,
     counts: { included: included.length, excluded: offers.length - included.length },
   }

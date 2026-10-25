@@ -3,35 +3,30 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/auth.config'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { logApiError } from '@/lib/logger'
-import { loadAdsData } from '@/lib/commerce/ads-data'
-import { storeSetup } from '@/lib/commerce/setup'
 import { isCommercePlatform } from '@/lib/commerce/sync'
 import { getActiveStore } from '@/lib/stores/active'
-import { buildPlan, GOALS, type Goal } from '@/lib/campaigns/plan'
-import { storeAdsAccount } from '@/lib/google/accounts'
+import { GOALS, MODES, type Goal, type Mode } from '@/lib/campaigns/plan'
+import { loadPlanContext, STORE_PLAN_COLUMNS, type PlanStore } from '@/lib/campaigns/context'
+import { CAMPAIGN_COLUMNS, parseCampaign } from '@/lib/ads/apply'
+import { AUDIT_FRESH_MS } from '@/lib/google/audit'
 import { getT } from '@/lib/i18n/server'
 
 // =============================================
-// GET   /api/campaigns/plan — planul campaniei, socotit acum din datele magazinului
-// PATCH /api/campaigns/plan — obiectivul și bugetul zilnic alese de om
-// Până la lansare, planul e ciorna din ad_campaigns (una pe magazin).
+// GET   /api/campaigns/plan — planul, socotit acum din datele magazinului, cu
+//       auditul contului, campaniile lansate, propunerile pilotului și jurnalul
+// PATCH /api/campaigns/plan — obiectivul, bugetul zilnic, modul pilotului și
+//       bugetul maxim (ciorna din ad_campaigns, una pe magazin)
 // =============================================
 
 const ROUTE = '/api/campaigns/plan'
 const MAX_DAILY_BUDGET = 1_000_000
+const JOURNAL = 30
 
 type Supabase = ReturnType<typeof createAdminClient>
 
-type StoreRow = {
-  id: string; platform: string; store_name: string | null; store_url: string; currency: string | null
-  country: string | null; language: string | null; connection_status: string | null; last_sync_at: string | null; platform_data: unknown
-  google_ads_customer_id: string | null
-}
-
 /** Planul e al magazinului activ al contului. */
 function readStore(supabase: Supabase, userId: string) {
-  return getActiveStore<StoreRow>(supabase, userId,
-    'id, platform, store_name, store_url, currency, country, language, connection_status, last_sync_at, platform_data, google_ads_customer_id')
+  return getActiveStore<PlanStore>(supabase, userId, STORE_PLAN_COLUMNS)
 }
 
 export async function GET() {
@@ -41,50 +36,44 @@ export async function GET() {
   const userId = session.user.id
 
   const supabase = createAdminClient()
-  const [storeRes, googleRes] = await Promise.all([
-    readStore(supabase, userId),
-    supabase.from('google_connections').select('status').eq('user_id', userId).maybeSingle(),
-  ])
+  const storeRes = await readStore(supabase, userId)
   if (storeRes.error) {
     logApiError(ROUTE, 500, 'Eroare la citirea magazinului', { userId, error: storeRes.error.message })
     return NextResponse.json({ error: t('sync.store_read_failed') }, { status: 500 })
   }
   const store = storeRes.data
   if (!store) return NextResponse.json({ store: null, plan: null })
-  const setup = storeSetup(store)
-  if (!setup) {
+  if (!isCommercePlatform(store.platform)) {
     return NextResponse.json({ store: { platform: store.platform, supported: false }, plan: null })
   }
 
-  const googleConnected = googleRes.data?.status === 'active'
-  const [{ data, errors }, draftRes, account] = await Promise.all([
-    loadAdsData(supabase, store.id),
-    supabase.from('ad_campaigns').select('goal, daily_budget').eq('store_id', store.id).eq('status', 'draft').maybeSingle(),
-    // Contul Google Ads e al magazinului
-    googleConnected ? storeAdsAccount(supabase, userId, store.google_ads_customer_id) : null,
+  const [{ context, errors }, campaignsRes, actionsRes] = await Promise.all([
+    loadPlanContext(supabase, userId, store),
+    supabase.from('ad_campaigns').select(CAMPAIGN_COLUMNS).eq('store_id', store.id).in('status', ['active', 'paused', 'ended']).not('google_campaign_id', 'is', null).order('launched_at', { ascending: false }),
+    supabase.from('ad_actions').select('id, ad_campaign_id, kind, params, reason, status, source, error, created_at, decided_at, applied_at')
+      .eq('store_id', store.id).order('created_at', { ascending: false }).limit(JOURNAL + 20),
   ])
   for (const error of errors) logApiError(ROUTE, 500, 'Eroare la citirea datelor magazinului', { userId, error })
-  if (draftRes.error) logApiError(ROUTE, 500, 'Eroare la citirea planului', { userId, error: draftRes.error.message })
-  if (!data) return NextResponse.json({ error: t('sync.products_read_failed') }, { status: 500 })
+  if (!context) return NextResponse.json({ error: t('sync.products_read_failed') }, { status: 500 })
 
-  const draft = draftRes.data
+  // Cifrele campaniilor Hontrio pe ultimele 30 de zile (din cronul zilnic)
+  const campaigns = (campaignsRes.data ?? []).map(r => parseCampaign(r as Record<string, unknown>))
+  const ids = campaigns.map(c => c.google_campaign_id!).filter(Boolean)
+  const since = new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10)
+  const { data: metrics } = ids.length
+    ? await supabase.from('ad_metrics_daily').select('google_campaign_id, cost, clicks, conversions, conversions_value').eq('store_id', store.id).in('google_campaign_id', ids).gte('date', since)
+    : { data: [] }
+  const totals = new Map<string, { cost: number; clicks: number; conversions: number; value: number }>()
+  for (const m of metrics ?? []) {
+    const prev = totals.get(m.google_campaign_id) ?? { cost: 0, clicks: 0, conversions: 0, value: 0 }
+    totals.set(m.google_campaign_id, {
+      cost: prev.cost + Number(m.cost), clicks: prev.clicks + Number(m.clicks),
+      conversions: prev.conversions + Number(m.conversions), value: prev.value + Number(m.conversions_value),
+    })
+  }
 
-  const plan = buildPlan({
-    store: { currency: store.currency || 'RON', connection_status: store.connection_status },
-    setup,
-    google: {
-      connected: googleConnected,
-      account: account ? { customer_id: account.customer_id, name: account.descriptive_name, currency: account.currency_code } : null,
-    },
-    offers: data.offers,
-    sales90: data.sales90,
-    orders90: data.orders90,
-    googleAds90: data.googleAds90,
-    settings: {
-      goal: GOALS.includes(draft?.goal as Goal) ? (draft!.goal as Goal) : 'balanced',
-      daily_budget: draft?.daily_budget === null || draft?.daily_budget === undefined ? null : Number(draft.daily_budget),
-    },
-  })
+  const actions = actionsRes.data ?? []
+  const audit = context.audit
 
   return NextResponse.json({
     store: {
@@ -95,7 +84,22 @@ export async function GET() {
       connection_status: store.connection_status,
       last_sync_at: store.last_sync_at,
     },
-    plan,
+    plan: context.plan,
+    audit: audit ? {
+      checked_at: audit.checked_at,
+      fresh: Date.now() - Date.parse(audit.checked_at) < AUDIT_FRESH_MS,
+      error: audit.error,
+      result: audit.result,
+    } : null,
+    campaigns: campaigns.map(c => ({
+      id: c.id, name: c.name, type: c.type, status: c.status, stage: c.stage, segment: c.segment,
+      google_campaign_id: c.google_campaign_id, daily_budget: c.daily_budget, target_roas: c.target_roas,
+      cpc_ceiling: c.cpc_ceiling, launched_at: c.launched_at, excluded: c.excluded_item_ids.length,
+      included: c.included_item_ids?.length ?? null,
+      last30: totals.get(c.google_campaign_id!) ?? { cost: 0, clicks: 0, conversions: 0, value: 0 },
+    })),
+    proposals: actions.filter(a => a.status === 'proposed'),
+    journal: actions.filter(a => a.status !== 'proposed').slice(0, JOURNAL),
   })
 }
 
@@ -105,28 +109,40 @@ export async function PATCH(request: Request) {
   if (!session?.user) return NextResponse.json({ error: t('api.unauthorized') }, { status: 401 })
   const userId = session.user.id
 
-  let body: { goal?: unknown; daily_budget?: unknown }
+  let body: { goal?: unknown; daily_budget?: unknown; mode?: unknown; max_daily_budget?: unknown }
   try {
     body = await request.json()
   } catch {
     return NextResponse.json({ error: t('api.invalid_request') }, { status: 400 })
   }
 
-  const fields: { goal?: Goal; daily_budget?: number | null } = {}
+  const amount = (v: unknown): number | null | 'invalid' => {
+    if (v === null) return null
+    const n = Number(v)
+    if (typeof v !== 'number' || !Number.isFinite(n) || n <= 0 || n > MAX_DAILY_BUDGET) return 'invalid'
+    return Math.round(n * 100) / 100
+  }
+
+  const fields: { goal?: Goal; daily_budget?: number | null; mode?: Mode; max_daily_budget?: number | null } = {}
   if (body.goal !== undefined) {
     if (!GOALS.includes(body.goal as Goal)) return NextResponse.json({ error: t('sync.goal_invalid') }, { status: 400 })
     fields.goal = body.goal as Goal
   }
   if (body.daily_budget !== undefined) {
     // null = bugetul propus de Hontrio
-    if (body.daily_budget === null) fields.daily_budget = null
-    else {
-      const n = Number(body.daily_budget)
-      if (typeof body.daily_budget !== 'number' || !Number.isFinite(n) || n <= 0 || n > MAX_DAILY_BUDGET) {
-        return NextResponse.json({ error: t('campaigns.budget_invalid') }, { status: 400 })
-      }
-      fields.daily_budget = Math.round(n * 100) / 100
-    }
+    const v = amount(body.daily_budget)
+    if (v === 'invalid') return NextResponse.json({ error: t('campaigns.budget_invalid') }, { status: 400 })
+    fields.daily_budget = v
+  }
+  if (body.mode !== undefined) {
+    if (!MODES.includes(body.mode as Mode)) return NextResponse.json({ error: t('sync.mode_invalid') }, { status: 400 })
+    fields.mode = body.mode as Mode
+  }
+  if (body.max_daily_budget !== undefined) {
+    // null = fără plafon: pilotul doar propune creșterile de buget
+    const v = amount(body.max_daily_budget)
+    if (v === 'invalid') return NextResponse.json({ error: t('campaigns.budget_invalid') }, { status: 400 })
+    fields.max_daily_budget = v
   }
   if (!Object.keys(fields).length) return NextResponse.json({ error: t('sync.nothing_to_save') }, { status: 400 })
 
@@ -139,17 +155,18 @@ export async function PATCH(request: Request) {
   if (!store || !isCommercePlatform(store.platform)) return NextResponse.json({ error: t('sync.platform_unsupported') }, { status: 400 })
 
   const now = new Date().toISOString()
+  const columns = 'goal, daily_budget, mode, max_daily_budget'
   const update = () => supabase.from('ad_campaigns')
     .update({ ...fields, updated_at: now })
     .eq('store_id', store.id).eq('status', 'draft')
-    .select('goal, daily_budget')
+    .select(columns)
 
   let { data: rows, error } = await update()
   if (!error && !rows?.length) {
     // Prima alegere: planul nu are încă ciornă
     const inserted = await supabase.from('ad_campaigns')
       .insert({ user_id: userId, store_id: store.id, currency: store.currency || 'RON', ...fields })
-      .select('goal, daily_budget')
+      .select(columns)
     // Două salvări deodată: cealaltă a creat ciorna între timp
     if (inserted.error?.code === '23505') ({ data: rows, error } = await update())
     else ({ data: rows, error } = inserted)
@@ -160,8 +177,6 @@ export async function PATCH(request: Request) {
   }
 
   const saved = rows[0]
-  return NextResponse.json({
-    goal: saved.goal,
-    daily_budget: saved.daily_budget === null ? null : Number(saved.daily_budget),
-  })
+  const n = (v: unknown) => (v === null || v === undefined ? null : Number(v))
+  return NextResponse.json({ goal: saved.goal, daily_budget: n(saved.daily_budget), mode: saved.mode, max_daily_budget: n(saved.max_daily_budget) })
 }

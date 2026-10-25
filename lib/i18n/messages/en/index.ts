@@ -22,7 +22,8 @@ import api from './api.json'
 import sync from './sync.json'
 import email from './email.json'
 import marketing from './marketing.json'
+import reports from './reports.json'
 
-const messages = { common, google_ads, edinio, catalog, overview, recs, campaigns, sidebar, auth, onboarding, dashboard, products, images, credits, settings, support, notifications, admin, api, sync, email, marketing }
+const messages = { common, google_ads, edinio, catalog, overview, recs, campaigns, sidebar, auth, onboarding, dashboard, products, images, credits, settings, support, notifications, admin, api, sync, email, marketing, reports }
 
 export default messages

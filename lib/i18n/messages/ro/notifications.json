@@ -7,5 +7,17 @@
   "unread_count_one": "{{count}} nouă",
   "unread_count_few": "{{count}} noi",
   "unread_count_other": "{{count}} noi",
-  "announcement": "Anunț"
+  "announcement": "Anunț",
+  "campaign_launched_title": "Campania a pornit",
+  "campaign_launched_starter": "„{{name}}” e în contul tău Google Ads: Shopping standard, cu cost pe click plafonat. Pilotul urmărește cifrele zilnic.",
+  "campaign_launched_growth": "„{{name}}” e în contul tău Google Ads: Performance Max doar pe feed. Pilotul urmărește cifrele zilnic.",
+  "loss_limit_title": "O campanie a fost oprită la limita de pierdere",
+  "proposals_title": "Pilotul are propuneri noi",
+  "proposals_body_one": "O schimbare așteaptă aprobarea ta, în Campanii.",
+  "proposals_body_few": "{{count}} schimbări așteaptă aprobarea ta, în Campanii.",
+  "proposals_body_other": "{{count}} de schimbări așteaptă aprobarea ta, în Campanii.",
+  "applied_title": "Pilotul a schimbat campaniile",
+  "applied_body_one": "O schimbare aplicată azi; detaliile sunt în jurnalul din Campanii.",
+  "applied_body_few": "{{count}} schimbări aplicate azi; detaliile sunt în jurnalul din Campanii.",
+  "applied_body_other": "{{count}} de schimbări aplicate azi; detaliile sunt în jurnalul din Campanii."
 }

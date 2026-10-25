@@ -1,0 +1,61 @@
+import { NextResponse } from 'next/server'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { logError } from '@/lib/logger'
+import { COMMERCE_PLATFORMS } from '@/lib/commerce/sync'
+import { runAutopilot } from '@/lib/ads/autopilot'
+
+// =============================================
+// Cron (din oră în oră): pilotul, o dată pe zi pe fiecare magazin al
+// oamenilor cu Google conectat — auditul contului, metricile, Merchant
+// Center, produsele din campanii și bucla de optimizare. Fiecare oră ia
+// magazinele netrecute de cel puțin 20 de ore, cele mai vechi primele.
+// =============================================
+
+export const maxDuration = 300
+
+const DUE_MS = 20 * 60 * 60 * 1000
+const START_MARGIN_MS = 60_000
+
+export async function GET(request: Request) {
+  const cronSecret = process.env.CRON_SECRET
+  if (!cronSecret || request.headers.get('authorization') !== `Bearer ${cronSecret}`) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) // i18n-ignore (răspuns pentru Vercel)
+  }
+
+  const deadline = Date.now() + 270_000
+  const supabase = createAdminClient()
+  const { data: connections, error: connError } = await supabase.from('google_connections').select('user_id').eq('status', 'active')
+  if (connError) {
+    logError('/api/cron/ads-sync', 'Nu am putut citi conexiunile Google', { error: connError.message })
+    return NextResponse.json({ error: 'db' }, { status: 500 })
+  }
+  const users = (connections ?? []).map(c => c.user_id)
+  if (!users.length) return NextResponse.json({ stores: 0, results: {} })
+
+  const due = new Date(Date.now() - DUE_MS).toISOString()
+  const { data: stores, error } = await supabase.from('stores')
+    .select('id')
+    .in('user_id', users)
+    .in('platform', [...COMMERCE_PLATFORMS])
+    .or(`ads_synced_at.is.null,ads_synced_at.lt.${due}`)
+    .order('ads_synced_at', { ascending: true, nullsFirst: true })
+    .limit(50)
+  if (error) {
+    logError('/api/cron/ads-sync', 'Nu am putut citi magazinele', { error: error.message })
+    return NextResponse.json({ error: 'db' }, { status: 500 })
+  }
+
+  const results: Record<string, string> = {}
+  for (const s of stores ?? []) {
+    if (Date.now() > deadline - START_MARGIN_MS) { results[s.id] = 'skipped_time'; continue }
+    try {
+      const r = await runAutopilot(s.id, { deadline: deadline - 30_000 })
+      results[s.id] = r.note
+    } catch (err) {
+      // Un magazin cu probleme nu oprește restul; se reîncearcă la ora următoare
+      logError('/api/cron/ads-sync', 'Pilotul a eșuat pe un magazin', { storeId: s.id, error: err instanceof Error ? err.message : String(err) })
+      results[s.id] = 'error'
+    }
+  }
+  return NextResponse.json({ stores: (stores ?? []).length, results })
+}
