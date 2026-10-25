@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth/auth.config'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { logApiError } from '@/lib/logger'
 import { loadAdsData } from '@/lib/commerce/ads-data'
+import { storeSetup } from '@/lib/commerce/setup'
 import { buildRecommendations } from '@/lib/recommendations/engine'
 
 // =============================================
@@ -14,12 +15,6 @@ import { buildRecommendations } from '@/lib/recommendations/engine'
 
 const ROUTE = '/api/recommendations'
 
-type PlatformData = {
-  prices_include_vat?: boolean | null
-  google_merchant?: { conectat?: boolean } | null
-  google_ads?: { conversie_id?: string | null } | null
-} | null
-
 export async function GET() {
   const session = await getServerSession(authOptions)
   if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -28,7 +23,7 @@ export async function GET() {
   const supabase = createAdminClient()
   const [storeRes, googleRes, accountRes] = await Promise.all([
     supabase.from('stores')
-      .select('id, platform, store_name, currency, connection_status, last_sync_at, platform_data')
+      .select('id, platform, store_name, store_url, currency, country, language, connection_status, last_sync_at, platform_data')
       .eq('user_id', userId).maybeSingle(),
     supabase.from('google_connections').select('status').eq('user_id', userId).maybeSingle(),
     supabase.from('google_ads_accounts').select('customer_id').eq('user_id', userId).eq('is_selected', true).maybeSingle(),
@@ -39,7 +34,8 @@ export async function GET() {
   }
   const store = storeRes.data
   if (!store) return NextResponse.json({ store: null, recommendations: [] })
-  if (store.platform !== 'edinio') {
+  const setup = storeSetup(store)
+  if (!setup) {
     return NextResponse.json({ store: { platform: store.platform, supported: false }, recommendations: [] })
   }
 
@@ -47,21 +43,15 @@ export async function GET() {
   for (const error of errors) logApiError(ROUTE, 500, 'Eroare la citirea datelor magazinului', { userId, error })
   if (!data) return NextResponse.json({ error: 'Nu am putut citi produsele' }, { status: 500 })
 
-  const pd = (store.platform_data ?? null) as PlatformData
   const googleConnected = googleRes.data?.status === 'active'
 
   const recommendations = buildRecommendations({
-    store: {
-      connection_status: store.connection_status,
-      prices_include_vat: pd?.prices_include_vat ?? null,
-      gmc_connected: !!pd?.google_merchant?.conectat,
-      conversion_id: pd?.google_ads?.conversie_id ?? null,
-    },
+    store: { connection_status: store.connection_status },
+    setup,
     google: { connected: googleConnected, account_selected: googleConnected && !!accountRes.data },
     offers: data.offers,
     sales90: data.sales90,
     orders90: data.orders90,
-    edinioBase: (process.env.EDINIO_BASE_URL || 'https://www.edinio.com').replace(/\/+$/, ''),
   })
 
   return NextResponse.json({

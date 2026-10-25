@@ -1,5 +1,6 @@
 import { breakEvenRoas, economicsOf, marginOf, round1, THIN_MARGIN, type OrderTotals } from '@/lib/ads/economics'
 import type { AdsMode, Offer, Sales } from '@/lib/commerce/ads-data'
+import type { SetupStatus, StoreSetup } from '@/lib/commerce/setup'
 
 // =============================================
 // Planul de campanie — ce va crea Hontrio în contul Google Ads al omului,
@@ -53,33 +54,31 @@ export type PlanOffer = {
 export type BlockerId = 'store' | 'google_ads' | 'ads_account' | 'currency' | 'merchant' | 'conversion' | 'no_offers' | 'costs'
 
 export type PlanInput = {
-  store: {
-    currency: string
-    country: string | null
-    language: string | null
-    connection_status: string | null
-    prices_include_vat: boolean | null
-    gmc_connected: boolean
-    conversion_id: string | null
-  }
+  store: { currency: string; connection_status: string | null }
+  /** Ce e pregătit în magazin și unde se repară ce lipsește, pe platforma lui. */
+  setup: StoreSetup
   google: { connected: boolean; account: { customer_id: string; name: string | null; currency: string | null } | null }
   offers: Offer[]
   sales90: Sales
   orders90: OrderTotals
   googleAds90: { orders: number; total: number }
   settings: { goal: Goal; daily_budget: number | null }
-  edinioBase: string
 }
 
 export type Plan = {
-  /** Ce mai trebuie făcut până la lansare, în ordinea în care se face. */
-  blockers: { id: BlockerId; href: string; external: boolean; params?: Record<string, string | number> }[]
+  platform: { id: StoreSetup['platform']; name: string }
+  /**
+   * Ce mai trebuie făcut până la lansare, în ordinea în care se face.
+   * `variant` = platforma, unde pasul se face altfel (Merchant Center, conversia).
+   */
+  blockers: { id: BlockerId; href: string; external: boolean; variant?: string; params?: Record<string, string | number> }[]
   campaign: {
     country: string | null
     language: string | null
     currency: string
     account: { customer_id: string; name: string | null } | null
-    conversion: boolean
+    merchant: { status: SetupStatus; via: string | null }
+    conversion: { status: SetupStatus; via: string | null }
   }
   economics: {
     /** Marja medie a produselor incluse: din vânzări sau, fără vânzări, din catalog. */
@@ -88,6 +87,8 @@ export type Plan = {
     /** Cât din vânzările (sau ofertele) incluse are preț de cost. */
     cost_coverage: number
     vat_pct: number
+    /** Cota de TVA e cea standard a țării (comenzile n-au TVA). */
+    vat_assumed: boolean
     discount_pct: number
     aov: number | null
     break_even: number | null
@@ -117,20 +118,22 @@ function marginIssue(margin: number | null): PlanOffer['margin_issue'] {
   return margin <= 0 ? 'negative_margin' : margin < THIN_MARGIN ? 'thin_margin' : null
 }
 
-function reasonOf(o: Offer, issue: PlanOffer['margin_issue'], gmcConnected: boolean): Reason | null {
+function reasonOf(o: Offer, issue: PlanOffer['margin_issue'], statusKnown: boolean): Reason | null {
   if (!o.available) return 'out_of_stock'
   if (o.google_status && REJECTED.includes(o.google_status)) return 'google_rejected'
   if (o.google_status === 'exclus') return 'price_unconfirmed'
-  // Fără Merchant Center legat, lipsa lui e deja un pas de făcut, nu vina ofertei
-  if (gmcConnected && !o.google_status) return 'not_in_merchant'
+  // O ofertă fără stare e „netrimisă" doar dacă platforma știe starea și Merchant Center e legat;
+  // altfel lipsa lui e deja un pas de făcut, nu vina ofertei
+  if (statusKnown && !o.google_status) return 'not_in_merchant'
   if (o.ads_mode === 'exclude') return 'manual'
   if (o.ads_mode === 'include') return null
   return issue
 }
 
 export function buildPlan(input: PlanInput): Plan {
-  const { store } = input
-  const econ = economicsOf(input.orders90, store.prices_include_vat)
+  const { store, setup } = input
+  const econ = economicsOf(input.orders90, setup.pricesIncludeVat, setup.assumedVatRate)
+  const statusKnown = setup.googleStatusKnown && setup.merchant.status === 'ok'
 
   const offers: PlanOffer[] = input.offers.map(o => {
     const s = input.sales90.get(o.offer_id) ?? { units: 0, revenue: 0 }
@@ -148,7 +151,7 @@ export function buildPlan(input: PlanInput): Plan {
       margin,
       break_even: margin === null ? null : breakEvenRoas(margin, econ),
       mode: o.ads_mode,
-      reason: reasonOf(o, issue, store.gmc_connected),
+      reason: reasonOf(o, issue, statusKnown),
       margin_issue: issue,
     }
   }).sort((a, b) => b.revenue - a.revenue || b.price - a.price)
@@ -207,25 +210,29 @@ export function buildPlan(input: PlanInput): Plan {
     // Bugetul și valorile conversiilor sunt în moneda contului
     blockers.push({ id: 'currency', ...settingsPage, params: { account: input.google.account.currency, store: store.currency } })
   }
-  if (!store.gmc_connected) blockers.push({ id: 'merchant', href: `${input.edinioBase}/dashboard/features/google-merchant`, external: true })
-  if (!store.conversion_id) blockers.push({ id: 'conversion', href: `${input.edinioBase}/dashboard/features/google-ads`, external: true })
+  // „De verificat" nu oprește planul: pluginul se verifică la lansare
+  if (setup.merchant.status === 'missing') blockers.push({ id: 'merchant', href: setup.merchant.href, external: true, variant: setup.platform })
+  if (setup.conversion.status === 'missing') blockers.push({ id: 'conversion', href: setup.conversion.href, external: true, variant: setup.platform })
   if (!included.length) blockers.push({ id: 'no_offers', href: '/products', external: false })
   else if (margin === null) blockers.push({ id: 'costs', href: '/products', external: false, params: { pct: Math.round(coverage * 100) } })
 
   return {
+    platform: { id: setup.platform, name: setup.platformName },
     blockers,
     campaign: {
-      country: store.country,
-      language: store.language,
+      country: setup.feed.country,
+      language: setup.feed.language,
       currency: input.google.account?.currency || store.currency,
       account: input.google.account ? { customer_id: input.google.account.customer_id, name: input.google.account.name } : null,
-      conversion: !!store.conversion_id,
+      merchant: { status: setup.merchant.status, via: setup.merchant.via },
+      conversion: { status: setup.conversion.status, via: setup.conversion.via },
     },
     economics: {
       margin,
       margin_basis: basis,
       cost_coverage: coverage,
       vat_pct: Math.round((econ.vatFactor - 1) * 100),
+      vat_assumed: econ.vatAssumed,
       discount_pct: Math.round(econ.discountRate * 100),
       aov,
       break_even: breakEven === null ? null : round1(breakEven),

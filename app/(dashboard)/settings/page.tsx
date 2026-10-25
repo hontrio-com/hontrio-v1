@@ -274,9 +274,10 @@ export default function SettingsPage() {
     if (!storeForm.store_url || !storeForm.consumer_key || !storeForm.consumer_secret) { setConnTest({ ok: false, msg: t('settings.pw_fill_all') }); return }
     setTestingConn(true); setConnTest(null)
     try {
-      const url = storeForm.store_url.replace(/\/$/, '')
-      const r = await fetch(`${url}/wp-json/wc/v3/products?per_page=1&consumer_key=${storeForm.consumer_key}&consumer_secret=${storeForm.consumer_secret}`)
-      setConnTest(r.ok ? { ok: true, msg: t('settings.conn_ok_full') } : { ok: false, msg: t('settings.conn_err_status', { status: String(r.status) }) })
+      // Verificarea se face pe server: cheia nu ajunge în adresă, iar CORS-ul magazinului nu contează
+      const r = await fetch('/api/stores/test', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(storeForm) })
+      const d = await r.json().catch(() => ({}))
+      setConnTest(d.ok ? { ok: true, msg: t('settings.conn_ok_full') } : { ok: false, msg: d.error || t('settings.conn_cant_connect') })
     } catch { setConnTest({ ok: false, msg: t('settings.conn_cant_connect') }) }
     finally { setTestingConn(false) }
   }
@@ -297,7 +298,10 @@ export default function SettingsPage() {
     try {
       const r = await fetch(`/api/stores/${store.id}/sync`, { method: 'POST' }); const d = await r.json()
       if (!r.ok) { toast('error', d.error); return }
-      toast('success', t('settings.sync_complete', { count: d.synced })); fetchStore()
+      // Un magazin mare nu încape într-o rulare: restul vine la sincronizările următoare
+      toast('success', d.complete === false
+        ? t('catalog.sync_partial', { offers: String(d.synced ?? 0), orders: String(d.orders ?? 0) })
+        : t('settings.sync_complete', { count: d.synced })); fetchStore()
     } catch { toast('error', t('settings.error_sync')) } finally { setSyncing(false) }
   }
 
@@ -574,10 +578,22 @@ export default function SettingsPage() {
                       {store.platform === 'shopify' ? 'Shopify — OAuth 2.0' : t('settings.woo_active')}
                     </p>
                   </div>
-                  <span className="flex items-center gap-1 text-[11px] font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md">
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />{t('settings.connected')}
-                  </span>
+                  {store.connection_status === 'revoked' || store.connection_status === 'error' ? (
+                    <span className={`flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-md ${store.connection_status === 'revoked' ? 'text-red-600 bg-red-50' : 'text-amber-700 bg-amber-50'}`}>
+                      <span className={`h-1.5 w-1.5 rounded-full ${store.connection_status === 'revoked' ? 'bg-red-500' : 'bg-amber-500'}`} />
+                      {store.connection_status === 'revoked' ? t('edinio.revoked') : t('catalog.store_unreachable')}
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-1 text-[11px] font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md">
+                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />{t('settings.connected')}
+                    </span>
+                  )}
                 </div>
+
+                {/* Ce a răspuns magazinul la ultima sincronizare, ca omul să știe ce să repare */}
+                {(store.connection_status === 'revoked' || store.connection_status === 'error') && store.last_error && (
+                  <p className="mb-4 px-3 py-2.5 rounded-xl bg-amber-50 border border-amber-100 text-[12px] text-amber-800 leading-relaxed">{store.last_error}</p>
+                )}
 
                 <div className="space-y-2 mb-4">
                   {[

@@ -22,6 +22,8 @@ export type OrderTotals = {
 export type Economics = {
   /** 1 + cota de TVA când prețurile includ TVA (dedusă din comenzi), altfel 1. */
   vatFactor: number
+  /** Cota nu vine din comenzi (magazinul nu calculează taxe): e cea standard a țării. */
+  vatAssumed: boolean
   /** Totalul comenzii față de valoarea produselor. */
   valueRatio: number
   /** Partea din valoarea produselor dată înapoi ca reducere. */
@@ -35,12 +37,19 @@ export const THIN_MARGIN = 0.2
 
 export const NO_ORDERS: OrderTotals = { orders: 0, total: 0, items: 0, discount: 0, tax: 0 }
 
-export function economicsOf(t: OrderTotals, pricesIncludeVat: boolean | null): Economics {
+/**
+ * `assumedVatRate`: cota standard a țării, folosită când comenzile n-au TVA
+ * (magazinul nu calculează taxe) dar prețurile pot să-l includă.
+ */
+export function economicsOf(t: OrderTotals, pricesIncludeVat: boolean | null, assumedVatRate: number | null = null): Economics {
   const net = t.total - t.tax
   const known = t.items > 0 && t.total > 0
+  const fromOrders = pricesIncludeVat === true && net > 0 && t.tax > 0 ? 1 + t.tax / net : null
+  // Cu prețuri fără TVA, TVA-ul adăugat la plată e deja în raportul valorii
+  const assumed = fromOrders === null && pricesIncludeVat !== false && !!assumedVatRate
   return {
-    // Cu prețuri fără TVA, TVA-ul adăugat la plată e deja în raportul valorii
-    vatFactor: pricesIncludeVat === true && net > 0 && t.tax > 0 ? 1 + t.tax / net : 1,
+    vatFactor: fromOrders ?? (assumed ? 1 + assumedVatRate! : 1),
+    vatAssumed: assumed,
     valueRatio: known ? t.total / t.items : 1,
     discountRate: known ? Math.max(0, t.discount) / t.items : 0,
     aov: t.orders > 0 && t.total > 0 ? t.total / t.orders : null,

@@ -21,8 +21,8 @@ type Overview = {
   sources: { source: string; orders: number; revenue: number }[]
 }
 type StoreInfo = {
-  id: string; platform: string; store_name: string | null; store_url: string; currency: string; timezone: string
-  connection_status: string | null; sync_status: string | null; last_sync_at: string | null
+  id: string; platform: string; platform_name: string; store_name: string | null; store_url: string; currency: string; timezone: string
+  connection_status: string | null; sync_status: string | null; last_sync_at: string | null; last_error: string | null
   offers_count: number; orders_count: number; supported: boolean
 }
 type TopProduct = {
@@ -33,7 +33,8 @@ type Data = {
   days: number
   store: StoreInfo | null
   google: { connected: boolean; status: string | null; account: { id: string; name: string | null; currency: string | null } | null }
-  checklist: { id: string; done: boolean; href: string; external: boolean }[]
+  /** `unverified`: un plugin pe care Hontrio nu-l poate întreba (se verifică la lansare); `variant`: platforma. */
+  checklist: { id: string; done: boolean; href: string; external: boolean; unverified?: boolean; variant?: string | null; via?: string | null }[]
   costs: { with_cost: number; total: number }
   overview: Overview | null
   top_products: TopProduct[]
@@ -207,11 +208,14 @@ export default function DashboardPage() {
         {data.checklist.map(c => {
           const label = c.id === 'costs'
             ? t('overview.check_costs', { with: fmtInt.format(data.costs.with_cost), total: fmtInt.format(data.costs.total) })
-            : t(`overview.check_${c.id}`)
+            : t(`overview.check_${c.id}${c.variant ? `_${c.variant}` : ''}`)
           const inner = (
             <div className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg border transition-all ${c.done ? 'border-neutral-100 bg-neutral-50' : 'border-neutral-200 hover:border-neutral-300 bg-white'}`}>
-              {c.done ? <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" /> : <Circle className="h-4 w-4 text-neutral-300 shrink-0" />}
-              <span className={`flex-1 text-[13px] ${c.done ? 'text-neutral-400' : 'text-neutral-800'}`}>{label}</span>
+              {c.done ? <CheckCircle2 className={`h-4 w-4 shrink-0 ${c.unverified ? 'text-neutral-300' : 'text-emerald-500'}`} /> : <Circle className="h-4 w-4 text-neutral-300 shrink-0" />}
+              <span className={`flex-1 text-[13px] ${c.done ? 'text-neutral-400' : 'text-neutral-800'}`}>
+                {label}
+                {c.unverified && <span className="block text-[11px]">{c.via ? t('overview.check_unverified_via', { via: c.via }) : t('overview.check_unverified')}</span>}
+              </span>
               {!c.done && (c.external ? <ExternalLink className="h-3.5 w-3.5 text-neutral-300" /> : <ArrowRight className="h-3.5 w-3.5 text-neutral-300" />)}
             </div>
           )
@@ -259,11 +263,16 @@ export default function DashboardPage() {
     <div className="space-y-6">
       {header}
 
-      {store.connection_status === 'revoked' && (
+      {(store.connection_status === 'revoked' || store.connection_status === 'error') && (
         <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl text-[12px] leading-relaxed bg-amber-50 border border-amber-100 text-amber-800">
           <AlertCircle className="h-4 w-4 shrink-0 mt-px" />
-          <span className="flex-1">{t('catalog.revoked')}</span>
-          <Link href="/settings?tab=integrations" className="font-medium underline underline-offset-2">{t('edinio.reconnect')}</Link>
+          <span className="flex-1">
+            {store.connection_status === 'revoked' ? t('catalog.revoked', { platform: store.platform_name }) : t('catalog.store_error', { platform: store.platform_name })}
+            {store.connection_status === 'error' && store.last_error && <span className="block text-amber-700/70">{store.last_error}</span>}
+          </span>
+          {store.connection_status === 'revoked' && (
+            <Link href="/settings?tab=integrations" className="font-medium underline underline-offset-2">{t('catalog.reconnect')}</Link>
+          )}
         </div>
       )}
 
@@ -390,8 +399,8 @@ export default function DashboardPage() {
               <a href={store.store_url} target="_blank" rel="noopener" className="text-[13px] font-medium text-neutral-800 truncate hover:text-neutral-950">
                 {store.store_name || store.store_url}
               </a>
-              <span className={`shrink-0 text-[11px] font-medium px-2 py-0.5 rounded-full ${store.connection_status === 'revoked' ? 'bg-red-50 text-red-600' : 'bg-emerald-50 text-emerald-700'}`}>
-                {store.connection_status === 'revoked' ? t('edinio.revoked') : t('settings.connected')}
+              <span className={`shrink-0 text-[11px] font-medium px-2 py-0.5 rounded-full ${store.connection_status === 'revoked' ? 'bg-red-50 text-red-600' : store.connection_status === 'error' ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'}`}>
+                {store.connection_status === 'revoked' ? t('edinio.revoked') : store.connection_status === 'error' ? t('catalog.store_unreachable') : t('settings.connected')}
               </span>
             </div>
             <div className="grid grid-cols-2 gap-2">

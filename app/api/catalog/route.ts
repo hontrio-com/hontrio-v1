@@ -3,12 +3,13 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/auth.config'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { logApiError } from '@/lib/logger'
+import { storeSetup } from '@/lib/commerce/setup'
 
 // =============================================
 // GET /api/catalog?days=30|90|365
 // Ofertele magazinului pe noul model (commerce_offers), cu vânzările de pe
-// site din perioada aleasă. Deocamdată le are doar Edinio; WooCommerce și
-// Shopify trec pe același model mai târziu.
+// site din perioada aleasă. Le au Edinio și WooCommerce; Shopify trece pe
+// același model mai târziu.
 // =============================================
 
 const ROUTE = '/api/catalog'
@@ -29,7 +30,7 @@ export async function GET(request: Request) {
   const supabase = createAdminClient()
   const { data: store, error: eStore } = await supabase
     .from('stores')
-    .select('id, platform, store_name, store_url, currency, connection_status, sync_status, last_sync_at, platform_data')
+    .select('id, platform, store_name, store_url, currency, country, language, connection_status, sync_status, last_sync_at, last_error, platform_data')
     .eq('user_id', userId)
     .maybeSingle()
   if (eStore) {
@@ -38,18 +39,23 @@ export async function GET(request: Request) {
   }
   if (!store) return NextResponse.json({ store: null, offers: [], days })
 
+  // Doar platformele mutate pe modelul comun au oferte de arătat
+  const setup = storeSetup(store)
   const storeOut = {
     id: store.id,
     platform: store.platform,
+    platform_name: setup?.platformName ?? store.platform,
     store_name: store.store_name,
     store_url: store.store_url,
     currency: store.currency || 'RON',
     connection_status: store.connection_status,
     sync_status: store.sync_status,
     last_sync_at: store.last_sync_at,
-    prices_include_vat: (store.platform_data as { prices_include_vat?: boolean } | null)?.prices_include_vat ?? null,
-    // Doar platformele mutate pe modelul comun au oferte de arătat
-    supported: store.platform === 'edinio',
+    last_error: store.last_error,
+    prices_include_vat: setup?.pricesIncludeVat ?? null,
+    // WooCommerce nu știe ce face Google cu ofertele: starea vine după legarea contului Google
+    google_status_known: setup?.googleStatusKnown ?? false,
+    supported: !!setup,
   }
   if (!storeOut.supported) return NextResponse.json({ store: storeOut, offers: [], days })
 

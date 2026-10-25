@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/auth.config'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { logApiError } from '@/lib/logger'
+import { isCommercePlatform } from '@/lib/commerce/sync'
 
 export async function GET() {
   const ROUTE = '/api/stores'
@@ -31,8 +32,9 @@ export async function GET() {
       return NextResponse.json({ error: 'Eroare la încărcarea magazinului' }, { status: 500 })
     }
 
-    // Dacă store.products_count e 0 dar avem produse, actualizăm din DB
-    if (store && store.products_count === 0) {
+    // Dacă store.products_count e 0 dar avem produse, actualizăm din DB.
+    // Nu și pe modelul de reclame: acolo numărul e al ofertelor, nu al tabelului vechi
+    if (store && store.products_count === 0 && !isCommercePlatform(store.platform)) {
       const { count } = await supabase
         .from('products')
         .select('id', { count: 'exact', head: true })

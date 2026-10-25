@@ -1,10 +1,15 @@
-import { NextResponse } from 'next/server'
+import { NextResponse, after } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/auth.config'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { encrypt } from '@/lib/security/encryption'
 import { validateStoreUrl } from '@/lib/security/validate-url'
 import { rateLimit } from '@/lib/security/rate-limit'
+import { logApiError } from '@/lib/logger'
+import { syncCommerceStore } from '@/lib/commerce/sync'
+
+// Prima sincronizare (produse și comenzi) rulează în `after`, în limita duratei rutei
+export const maxDuration = 300
 
 export async function POST(request: Request) {
   try {
@@ -149,11 +154,13 @@ export async function POST(request: Request) {
         api_key: encryptedKey,
         api_secret: encryptedSecret,
         sync_status: 'active',
+        connection_status: 'active',
         webhook_secret: crypto.randomUUID(),
         currency: detectedCurrency,
         ...(detectedStoreName ? { store_name: detectedStoreName } : {}),
       })
-      .select()
+      // Fără cheile API (nici criptate nu pleacă spre browser)
+      .select('id, platform, store_url, store_name, currency, sync_status, connection_status, last_sync_at, products_count, created_at')
       .single()
 
     if (error) {
@@ -163,6 +170,15 @@ export async function POST(request: Request) {
         { status: 500 }
       )
     }
+
+    // Prima sincronizare completă în modelul de reclame: după ce omul a primit răspunsul.
+    // Un magazin mare continuă la rulările cronului.
+    after(async () => {
+      const result = await syncCommerceStore(store.id, 'woocommerce', 'full')
+      if (!result.ok && result.reason !== 'locked') {
+        logApiError('/api/stores/connect', 500, 'Prima sincronizare WooCommerce a eșuat', { storeId: store.id, reason: result.reason, message: result.message })
+      }
+    })
 
     return NextResponse.json({ store })
   } catch (err) {

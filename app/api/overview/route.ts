@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/auth.config'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { logApiError } from '@/lib/logger'
+import { storeSetup } from '@/lib/commerce/setup'
 
 // =============================================
 // GET /api/overview?days=7|30|90|365
@@ -16,11 +17,6 @@ const TOP_PRODUSE = 5
 // Pragul de la care prețurile de cost sunt „destule" ca marjele să conteze
 const PRAG_COSTURI = 0.8
 
-type PlatformData = {
-  google_merchant?: { conectat?: boolean; cont_id?: string | null; nume_cont?: string | null } | null
-  google_ads?: { conversie_id?: string | null } | null
-} | null
-
 export async function GET(request: Request) {
   const session = await getServerSession(authOptions)
   if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -32,7 +28,7 @@ export async function GET(request: Request) {
   const supabase = createAdminClient()
   const [storeRes, googleRes, accountRes] = await Promise.all([
     supabase.from('stores')
-      .select('id, platform, store_name, store_url, currency, timezone, connection_status, sync_status, last_sync_at, products_count, orders_count, platform_data')
+      .select('id, platform, store_name, store_url, currency, country, language, timezone, connection_status, sync_status, last_sync_at, last_error, products_count, orders_count, platform_data')
       .eq('user_id', userId).maybeSingle(),
     supabase.from('google_connections').select('status, google_email').eq('user_id', userId).maybeSingle(),
     supabase.from('google_ads_accounts').select('customer_id, descriptive_name, currency_code').eq('user_id', userId).eq('is_selected', true).maybeSingle(),
@@ -43,9 +39,8 @@ export async function GET(request: Request) {
   }
 
   const store = storeRes.data
-  const supported = store?.platform === 'edinio'
-  const pd = (store?.platform_data ?? null) as PlatformData
-  const edinioBase = (process.env.EDINIO_BASE_URL || 'https://www.edinio.com').replace(/\/+$/, '')
+  const setup = store ? storeSetup(store) : null
+  const supported = !!setup
 
   let overview: Record<string, unknown> | null = null
   let topProducts: unknown[] = []
@@ -95,8 +90,15 @@ export async function GET(request: Request) {
     { id: 'store', done: !!store && supported && store.connection_status === 'active', href: '/settings?tab=integrations', external: false },
     { id: 'google_ads', done: googleConnected, href: '/settings?tab=integrations', external: false },
     { id: 'ads_account', done: googleConnected && !!accountRes.data, href: '/settings?tab=integrations', external: false },
-    { id: 'merchant', done: !!pd?.google_merchant?.conectat, href: supported ? `${edinioBase}/dashboard/features/google-merchant` : '/settings?tab=integrations', external: supported },
-    { id: 'conversion', done: !!pd?.google_ads?.conversie_id, href: supported ? `${edinioBase}/dashboard/features/google-ads` : '/settings?tab=integrations', external: supported },
+    // „De verificat" (un plugin pe care Hontrio nu-l poate întreba) trece, dar se spune
+    ...(['merchant', 'conversion'] as const).map(id => {
+      const step = setup?.[id]
+      return {
+        id, done: !!step && step.status !== 'missing', unverified: step?.status === 'unverified',
+        variant: setup?.platform ?? null, via: step?.via ?? null,
+        href: step?.href ?? '/settings?tab=integrations', external: !!step,
+      }
+    }),
     { id: 'costs', done: costs.total > 0 && costs.with_cost / costs.total >= PRAG_COSTURI, href: '/products', external: false },
   ]
 
@@ -105,6 +107,7 @@ export async function GET(request: Request) {
     store: store ? {
       id: store.id,
       platform: store.platform,
+      platform_name: setup?.platformName ?? store.platform,
       store_name: store.store_name,
       store_url: store.store_url,
       currency: store.currency || 'RON',
@@ -112,6 +115,7 @@ export async function GET(request: Request) {
       connection_status: store.connection_status,
       sync_status: store.sync_status,
       last_sync_at: store.last_sync_at,
+      last_error: store.last_error,
       offers_count: store.products_count ?? 0,
       orders_count: store.orders_count ?? 0,
       supported,

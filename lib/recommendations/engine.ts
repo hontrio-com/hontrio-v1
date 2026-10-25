@@ -1,5 +1,6 @@
 import { breakEvenRoas, economicsOf, marginOf, round1, THIN_MARGIN, type OrderTotals } from '@/lib/ads/economics'
 import type { Offer, Sales } from '@/lib/commerce/ads-data'
+import type { StoreSetup } from '@/lib/commerce/setup'
 
 // =============================================
 // Recomandările — reguli peste datele magazinului (oferte, vânzări, setări)
@@ -35,19 +36,15 @@ export type Recommendation = {
 }
 
 export type EngineInput = {
-  store: {
-    connection_status: string | null
-    prices_include_vat: boolean | null
-    gmc_connected: boolean
-    conversion_id: string | null
-  }
+  store: { connection_status: string | null }
+  /** Ce e pregătit în magazin și unde se repară ce lipsește, pe platforma lui. */
+  setup: StoreSetup
   google: { connected: boolean; account_selected: boolean }
   offers: Offer[]
   /** Vânzările de pe site pe ofertă, în ultimele 90 de zile. */
   sales90: Sales
   /** Comenzile de pe site din ultimele 90 de zile. */
   orders90: OrderTotals
-  edinioBase: string
 }
 
 const MAX_ITEMS = 8
@@ -68,11 +65,13 @@ export function buildRecommendations(input: EngineInput): Recommendation[] {
   const byRevenue = (a: Offer, b: Offer) => sold(b).revenue - sold(a).revenue
   const revenueOf = (list: Offer[]) => list.reduce((s, o) => s + sold(o).revenue, 0)
   const itemsRevenue = input.orders90.items
-  const econ = economicsOf(input.orders90, input.store.prices_include_vat)
-  const edinio = (path: string) => ({ href: `${input.edinioBase}${path}`, external: true })
-  // Pagina Merchant din Edinio se deschide pe „De reparat", cu motivul fiecărei respingeri,
+  const { setup } = input
+  const econ = economicsOf(input.orders90, setup.pricesIncludeVat, setup.assumedVatRate)
+  const openInStore = `recs.action_open_${setup.platform}`
+  // La Edinio, pagina Merchant se deschide pe „De reparat", cu motivul fiecărei respingeri,
   // și acolo se repară datele produsului
-  const merchantPage = { ...edinio('/dashboard/features/google-merchant'), label_key: 'recs.action_open_edinio' }
+  const merchantPage = { href: setup.merchant.href, external: true, label_key: openInStore }
+  const productsPage = { href: setup.productsHref, external: true, label_key: openInStore }
   const planPage = { href: '/campaigns', external: false, label_key: 'recs.action_view_plan' }
 
   // ── Ce blochează campaniile ──────────────────────────────────────────────
@@ -99,20 +98,23 @@ export function buildRecommendations(input: EngineInput): Recommendation[] {
       action: { href: '/settings?tab=integrations', external: false, label_key: 'recs.action_choose_account' },
     })
   }
-  if (!input.store.gmc_connected) {
+  // „De verificat" (un plugin pe care nu-l putem întreba) nu e o problemă: se verifică la lansare
+  if (setup.merchant.status === 'missing') {
     recs.push({
       id: 'merchant_missing', severity: 'high',
-      title: { key: 'recs.merchant_missing_title' }, body: { key: 'recs.merchant_missing_body' },
+      title: { key: 'recs.merchant_missing_title' },
+      body: [{ key: 'recs.merchant_missing_body' }, { key: `recs.merchant_fix_${setup.platform}` }],
       impact_revenue: null, items: [], total_items: 0,
       action: merchantPage,
     })
   }
-  if (!input.store.conversion_id) {
+  if (setup.conversion.status === 'missing') {
     recs.push({
       id: 'conversion_missing', severity: 'high',
-      title: { key: 'recs.conversion_missing_title' }, body: { key: 'recs.conversion_missing_body' },
+      title: { key: 'recs.conversion_missing_title' },
+      body: [{ key: 'recs.conversion_missing_body' }, { key: `recs.conversion_fix_${setup.platform}` }],
       impact_revenue: null, items: [], total_items: 0,
-      action: { ...edinio('/dashboard/features/google-ads'), label_key: 'recs.action_open_edinio' },
+      action: { href: setup.conversion.href, external: true, label_key: openInStore },
     })
   }
 
@@ -140,11 +142,12 @@ export function buildRecommendations(input: EngineInput): Recommendation[] {
       impact_revenue: revenueOf(excluded) || null,
       items: excluded.slice(0, MAX_ITEMS).map(o => item(o, null)),
       total_items: excluded.length,
-      action: { ...edinio('/dashboard/products'), label_key: 'recs.action_open_edinio' },
+      action: productsPage,
     })
   }
 
-  const notSent = input.store.gmc_connected ? offers.filter(o => !o.google_status) : []
+  // O ofertă fără stare e „netrimisă" doar acolo unde platforma știe starea (Edinio)
+  const notSent = setup.googleStatusKnown && setup.merchant.status === 'ok' ? offers.filter(o => !o.google_status) : []
   if (notSent.length) {
     recs.push({
       id: 'not_sent', severity: 'medium',
@@ -170,7 +173,7 @@ export function buildRecommendations(input: EngineInput): Recommendation[] {
         key: 'recs.note_sold', params: { units: sold(o).units, revenue: sold(o).revenue }, money: ['revenue'],
       })),
       total_items: soldOut.length,
-      action: { ...edinio('/dashboard/products'), label_key: 'recs.action_open_edinio' },
+      action: productsPage,
     })
   }
 
@@ -190,7 +193,7 @@ export function buildRecommendations(input: EngineInput): Recommendation[] {
         return item(x.o, { key: days === 1 ? 'recs.note_cover_one' : 'recs.note_cover', params: { days, stock: x.o.stock! } })
       }),
       total_items: lowStock.length,
-      action: { ...edinio('/dashboard/products'), label_key: 'recs.action_open_edinio' },
+      action: productsPage,
     })
   }
 
@@ -272,7 +275,7 @@ export function buildRecommendations(input: EngineInput): Recommendation[] {
         title: { key: 'recs.break_even_title', params: { roas: round1(roas) } },
         body: [
           { key: 'recs.break_even_body', params: { margin: Math.round(margin * 100), roas: round1(roas) } },
-          ...(econ.vatFactor > 1 ? [{ key: 'recs.break_even_vat', params: { vat: Math.round((econ.vatFactor - 1) * 100) } }] : []),
+          ...(econ.vatFactor > 1 ? [{ key: econ.vatAssumed ? 'recs.break_even_vat_assumed' : 'recs.break_even_vat', params: { vat: Math.round((econ.vatFactor - 1) * 100) } }] : []),
           ...(econ.discountRate >= 0.01 ? [{ key: 'recs.break_even_discount', params: { discount: Math.round(econ.discountRate * 100) } }] : []),
         ],
         impact_revenue: null, items: [], total_items: 0, action: planPage,
@@ -300,7 +303,7 @@ export function buildRecommendations(input: EngineInput): Recommendation[] {
       impact_revenue: null,
       items: noId.slice(0, MAX_ITEMS).map(o => item(o, null)),
       total_items: noId.length,
-      action: { ...edinio('/dashboard/products'), label_key: 'recs.action_open_edinio' },
+      action: productsPage,
     })
   }
 

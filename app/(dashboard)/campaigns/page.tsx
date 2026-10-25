@@ -221,7 +221,7 @@ export default function CampaignsPage() {
   const ready = plan.blockers.length === 0
   const place = [nameOf('region', campaign.country), nameOf('language', campaign.language)].filter(Boolean).join(' · ')
   const adjustments = [
-    econ.vat_pct > 0 ? t('campaigns.adjust_vat', { vat: String(econ.vat_pct) }) : null,
+    econ.vat_pct > 0 ? t(econ.vat_assumed ? 'campaigns.adjust_vat_assumed' : 'campaigns.adjust_vat', { vat: String(econ.vat_pct) }) : null,
     econ.discount_pct > 0 ? t('campaigns.adjust_discount', { discount: String(econ.discount_pct) }) : null,
   ].filter(Boolean) as string[]
 
@@ -236,8 +236,18 @@ export default function CampaignsPage() {
         : <span className="text-neutral-400">{t('campaigns.account_missing')}</span>,
     },
     {
+      label: t('campaigns.row_merchant'),
+      value: campaign.merchant.status === 'missing'
+        ? <span className="text-neutral-400">{t('campaigns.merchant_missing')}</span>
+        : t(`campaigns.merchant_${campaign.merchant.status}${campaign.merchant.via ? '' : '_unknown'}`, { via: campaign.merchant.via ?? '' }),
+      hint: campaign.merchant.status === 'unverified' ? t('campaigns.verified_at_launch') : undefined,
+    },
+    {
       label: t('campaigns.row_conversion'),
-      value: campaign.conversion ? t('campaigns.conversion_value') : <span className="text-neutral-400">{t('campaigns.conversion_missing')}</span>,
+      value: campaign.conversion.status === 'missing'
+        ? <span className="text-neutral-400">{t('campaigns.conversion_missing')}</span>
+        : t(`campaigns.conversion_${campaign.conversion.status}${campaign.conversion.via ? '' : '_unknown'}`, { via: campaign.conversion.via ?? '' }),
+      hint: campaign.conversion.status === 'unverified' ? t('campaigns.verified_at_launch') : undefined,
     },
     {
       label: t('campaigns.row_bidding'),
@@ -280,7 +290,7 @@ export default function CampaignsPage() {
               const inner = (
                 <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg border border-neutral-200 hover:border-neutral-300 bg-white transition-all">
                   <Circle className="h-4 w-4 text-neutral-300 shrink-0" />
-                  <span className="flex-1 text-[13px] text-neutral-800">{t(`campaigns.blocker_${b.id}`, params)}</span>
+                  <span className="flex-1 text-[13px] text-neutral-800">{t(`campaigns.blocker_${b.id}${b.variant ? `_${b.variant}` : ''}`, params)}</span>
                   {b.external ? <ExternalLink className="h-3.5 w-3.5 text-neutral-300" /> : <ArrowRight className="h-3.5 w-3.5 text-neutral-300" />}
                 </div>
               )
@@ -518,7 +528,7 @@ export default function CampaignsPage() {
                               ? <RowAction label={t('campaigns.action_auto')} onClick={() => setMode(o, 'auto')} />
                               : <RowAction label={t('campaigns.action_exclude')} onClick={() => setMode(o, 'exclude')} />
                           )
-                          : FIXED.has(o.reason) ? <span className="text-[11px] text-neutral-400">{t('campaigns.fix_in_store')}</span>
+                          : FIXED.has(o.reason) ? <span className="text-[11px] text-neutral-400">{t('campaigns.fix_in_store', { platform: plan.platform.name })}</span>
                           : o.reason === 'manual' ? <RowAction label={t('campaigns.action_restore')} onClick={() => setMode(o, 'auto')} />
                           : <RowAction label={t('campaigns.action_include')} onClick={() => setMode(o, 'include')} />}
                       </td>

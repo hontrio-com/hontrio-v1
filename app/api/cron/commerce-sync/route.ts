@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { logError } from '@/lib/logger'
-import { syncEdinioStore, type SyncMode } from '@/lib/edinio/sync'
+import { COMMERCE_PLATFORMS, syncCommerceStore, type SyncMode } from '@/lib/commerce/sync'
 
 // =============================================
-// Cron (la 15 minute): sincronizează magazinele Edinio conectate.
+// Cron (la 15 minute): sincronizează magazinele Edinio și WooCommerce.
 // Incremental de obicei; complet o dată pe zi, ca să prindă ștergerile.
+// O trecere completă rămasă la jumătate (magazin mare) continuă oricum.
 // =============================================
 
 export const maxDuration = 300
@@ -22,17 +23,18 @@ export async function GET(request: Request) {
 
   const deadline = Date.now() + 270_000
   const supabase = createAdminClient()
-  // Cele mai de mult nesincronizate primele, ca niciun magazin să nu rămână mereu la coadă
+  // Cele mai de mult nesincronizate primele, ca niciun magazin să nu rămână mereu la coadă.
+  // Un magazin care nu răspunde (eroare) se încearcă în continuare; unul cu cheia refuzată, nu.
   const { data: stores, error } = await supabase
     .from('stores')
-    .select('id, last_full_sync_at')
-    .eq('platform', 'edinio')
-    .eq('connection_status', 'active')
+    .select('id, platform, last_full_sync_at')
+    .in('platform', [...COMMERCE_PLATFORMS])
+    .or('connection_status.is.null,connection_status.neq.revoked')
     .order('last_sync_at', { ascending: true, nullsFirst: true })
     .limit(100)
 
   if (error) {
-    logError('/api/cron/edinio-sync', 'Nu am putut citi magazinele Edinio', { error: error.message })
+    logError('/api/cron/commerce-sync', 'Nu am putut citi magazinele', { error: error.message })
     return NextResponse.json({ error: 'db' }, { status: 500 })
   }
 
@@ -41,8 +43,10 @@ export async function GET(request: Request) {
     if (Date.now() > deadline - START_MARGIN_MS) { results[s.id] = 'skipped_time'; continue }
     const full = !s.last_full_sync_at || Date.now() - new Date(s.last_full_sync_at).getTime() > FULL_EVERY_MS
     const mode: SyncMode = full ? 'full' : 'incremental'
-    const r = await syncEdinioStore(s.id, mode, { deadline })
-    results[s.id] = r.ok ? `${r.mode}: ${r.offers} oferte, ${r.orders} comenzi` : r.reason
+    const r = await syncCommerceStore(s.id, s.platform, mode, { deadline })
+    results[s.id] = r.ok
+      ? `${r.mode}${r.complete ? '' : ' (continuă)'}: ${r.offers} oferte, ${r.orders} comenzi`
+      : r.reason
   }
 
   return NextResponse.json({ stores: (stores ?? []).length, results })

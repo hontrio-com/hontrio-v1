@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth/auth.config'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { logApiError } from '@/lib/logger'
 import type { AdsMode } from '@/lib/commerce/ads-data'
+import { isCommercePlatform } from '@/lib/commerce/sync'
 
 // =============================================
 // PATCH /api/campaigns/offers
@@ -38,7 +39,7 @@ export async function PATCH(request: Request) {
     logApiError(ROUTE, 500, 'Eroare la citirea magazinului', { userId, error: storeError.message })
     return NextResponse.json({ error: 'Nu am putut citi magazinul' }, { status: 500 })
   }
-  if (!store || store.platform !== 'edinio') return NextResponse.json({ error: 'Magazin nesuportat' }, { status: 400 })
+  if (!store || !isCommercePlatform(store.platform)) return NextResponse.json({ error: 'Magazin nesuportat' }, { status: 400 })
 
   const { data, error } = await supabase.from('commerce_offers')
     .update({ ads_mode: mode })

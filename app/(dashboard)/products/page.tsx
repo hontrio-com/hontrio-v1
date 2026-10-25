@@ -24,9 +24,11 @@ type Offer = {
   google_status: string | null; cost_price: number | null; sales: Sales
 }
 type StoreInfo = {
-  id: string; platform: string; store_name: string | null; currency: string
-  connection_status: string | null; sync_status: string | null; last_sync_at: string | null
+  id: string; platform: string; platform_name: string; store_name: string | null; currency: string
+  connection_status: string | null; sync_status: string | null; last_sync_at: string | null; last_error: string | null
   prices_include_vat: boolean | null; supported: boolean
+  /** Edinio știe ce face Google cu ofertele; la WooCommerce aflăm după legarea contului Google */
+  google_status_known: boolean
 }
 type Period = 30 | 90 | 365
 type Quick = 'all' | 'out' | 'no_cost' | 'google_issue'
@@ -241,7 +243,8 @@ export default function ProductsPage() {
       const r = await fetch(`/api/stores/${store.id}/sync`, { method: 'POST' })
       const d = await r.json().catch(() => ({}))
       if (!r.ok) setNotice({ ok: false, text: d.error || t('catalog.sync_error') })
-      else setNotice({ ok: true, text: t('edinio.sync_done', { offers: String(d.synced ?? 0), orders: String(d.orders ?? 0) }) })
+      // Un magazin mare nu încape într-o rulare: restul vine la sincronizările următoare
+      else setNotice({ ok: true, text: t(d.complete === false ? 'catalog.sync_partial' : 'edinio.sync_done', { offers: String(d.synced ?? 0), orders: String(d.orders ?? 0) }) })
       await load(days)
     } catch {
       setNotice({ ok: false, text: t('catalog.sync_error') })
@@ -338,11 +341,16 @@ export default function ProductsPage() {
     <div className="space-y-5">
       {header}
 
-      {store.connection_status === 'revoked' && (
+      {(store.connection_status === 'revoked' || store.connection_status === 'error') && (
         <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl text-[12px] leading-relaxed bg-amber-50 border border-amber-100 text-amber-800">
           <AlertCircle className="h-4 w-4 shrink-0 mt-px" />
-          <span className="flex-1">{t('catalog.revoked')}</span>
-          <Link href="/settings?tab=integrations" className="font-medium underline underline-offset-2">{t('edinio.reconnect')}</Link>
+          <span className="flex-1">
+            {store.connection_status === 'revoked' ? t('catalog.revoked', { platform: store.platform_name }) : t('catalog.store_error', { platform: store.platform_name })}
+            {store.connection_status === 'error' && store.last_error && <span className="block text-amber-700/70">{store.last_error}</span>}
+          </span>
+          {store.connection_status === 'revoked' && (
+            <Link href="/settings?tab=integrations" className="font-medium underline underline-offset-2">{t('catalog.reconnect')}</Link>
+          )}
         </div>
       )}
 
@@ -367,12 +375,14 @@ export default function ProductsPage() {
       ) : (
         <>
           {/* Cifrele de sus sunt și filtre */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className={`grid grid-cols-2 gap-3 ${store.google_status_known ? 'sm:grid-cols-4' : 'sm:grid-cols-3'}`}>
             {([
               { key: 'all', value: counts.all, label: t('catalog.stat_all'), accent: '' },
               { key: 'out', value: counts.out, label: t('catalog.stat_out'), accent: counts.out ? 'text-amber-600' : '' },
               { key: 'no_cost', value: counts.no_cost, label: t('catalog.stat_no_cost'), accent: counts.no_cost ? 'text-amber-600' : '' },
-              { key: 'google_issue', value: counts.google_issue, label: t('catalog.stat_google_issue'), accent: counts.google_issue ? 'text-red-600' : '' },
+              ...(store.google_status_known
+                ? [{ key: 'google_issue', value: counts.google_issue, label: t('catalog.stat_google_issue'), accent: counts.google_issue ? 'text-red-600' : '' }]
+                : []),
             ] as { key: Quick; value: number; label: string; accent: string }[]).map(s => {
               const active = quick === s.key
               return (
@@ -420,7 +430,7 @@ export default function ProductsPage() {
                       <th className="px-4 py-2.5">{t('catalog.col_product')}</th>
                       <th className="px-3 py-2.5 text-right">{t('catalog.col_price')}</th>
                       <th className="px-3 py-2.5">{t('catalog.col_stock')}</th>
-                      <th className="px-3 py-2.5">{t('catalog.col_google')}</th>
+                      {store.google_status_known && <th className="px-3 py-2.5">{t('catalog.col_google')}</th>}
                       <th className="px-3 py-2.5 text-right">{t('catalog.col_sales', { period: t(`catalog.period_short_${days}`) })}</th>
                       <th className="px-3 py-2.5">{t('catalog.col_cost')}</th>
                       <th className="px-4 py-2.5 text-right">{t('catalog.col_margin')}</th>
@@ -469,15 +479,17 @@ export default function ProductsPage() {
                               </span>
                             )}
                           </td>
-                          <td className="px-3 py-3 whitespace-nowrap">
-                            {o.google_status ? (
-                              <span className={`inline-flex text-[11px] font-medium px-1.5 py-0.5 rounded-md ${GOOGLE_STYLE[o.google_status] || 'bg-neutral-100 text-neutral-500'}`}>
-                                {t(`catalog.google_${GOOGLE_STYLE[o.google_status] ? o.google_status : 'other'}`)}
-                              </span>
-                            ) : (
-                              <span className="text-[12px] text-neutral-300" title={t('catalog.google_none_hint')}>{t('catalog.google_none')}</span>
-                            )}
-                          </td>
+                          {store.google_status_known && (
+                            <td className="px-3 py-3 whitespace-nowrap">
+                              {o.google_status ? (
+                                <span className={`inline-flex text-[11px] font-medium px-1.5 py-0.5 rounded-md ${GOOGLE_STYLE[o.google_status] || 'bg-neutral-100 text-neutral-500'}`}>
+                                  {t(`catalog.google_${GOOGLE_STYLE[o.google_status] ? o.google_status : 'other'}`)}
+                                </span>
+                              ) : (
+                                <span className="text-[12px] text-neutral-300" title={t('catalog.google_none_hint')}>{t('catalog.google_none')}</span>
+                              )}
+                            </td>
+                          )}
                           <td className="px-3 py-3 text-right whitespace-nowrap">
                             {o.sales.units > 0 ? (
                               <>

@@ -2,11 +2,10 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/auth.config'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { WooCommerceClient } from '@/lib/woocommerce/client'
 import { createAdapter } from '@/lib/integrations/types'
 import { decrypt } from '@/lib/security/encryption'
 import { rateLimitSync } from '@/lib/security/rate-limit'
-import { syncEdinioStore } from '@/lib/edinio/sync'
+import { isCommercePlatform, syncCommerceStore } from '@/lib/commerce/sync'
 
 import { stripHtml } from '@/lib/security/sanitize'
 
@@ -72,25 +71,27 @@ export async function POST(
       return NextResponse.json({ error: 'Magazin negăsit' }, { status: 404 })
     }
 
-    // ===== EDINIO: ofertele și comenzile, în modelul comun de reclame =====
-    if (store.platform === 'edinio') {
-      const result = await syncEdinioStore(store.id, 'full')
+    // ===== EDINIO, WOOCOMMERCE: ofertele și comenzile, în modelul comun de reclame =====
+    if (isCommercePlatform(store.platform)) {
+      const name = store.platform === 'edinio' ? 'Edinio' : 'WooCommerce'
+      // Un magazin WooCommerce mare continuă la sincronizările următoare (`complete: false`)
+      const result = await syncCommerceStore(store.id, store.platform, 'full', { deadline: Date.now() + 240_000 })
       if (!result.ok) {
         const error = result.reason === 'locked' ? 'O sincronizare e deja în curs. Revino peste câteva minute.'
-          : result.reason === 'revoked' ? 'Accesul la Edinio a fost revocat. Reconectează magazinul.'
-          : 'Sincronizarea cu Edinio a eșuat. Încearcă din nou.'
+          : result.reason === 'revoked' ? (store.platform === 'edinio'
+            ? 'Accesul la Edinio a fost revocat. Reconectează magazinul.'
+            : 'WooCommerce nu mai acceptă cheia API. Deconectează magazinul și conectează-l cu o cheie nouă.')
+          : `Sincronizarea cu ${name} a eșuat. Încearcă din nou.`
         return NextResponse.json({ error }, { status: result.reason === 'locked' ? 409 : result.reason === 'revoked' ? 401 : 502 })
       }
-      return NextResponse.json({ synced: result.offersTotal, total: result.offersTotal, orders: result.ordersTotal })
+      return NextResponse.json({ synced: result.offersTotal, total: result.offersTotal, orders: result.ordersTotal, complete: result.complete })
     }
 
     // Decrypt stored API keys
     let apiKey = store.api_key
-    let apiSecret = store.api_secret
     try {
       // Try to decrypt — if keys are already plain text (old data), use as-is
       if (apiKey.includes(':')) apiKey = decrypt(apiKey)
-      if (apiSecret.includes(':')) apiSecret = decrypt(apiSecret)
     } catch {
       // Keys might be stored in plain text (pre-encryption migration)
     }
@@ -100,379 +101,7 @@ export async function POST(
       return await syncShopifyProducts({ store, userId, supabase, accessToken: apiKey })
     }
 
-    const woo = new WooCommerceClient({
-      store_url: store.store_url,
-      consumer_key: apiKey,
-      consumer_secret: apiSecret,
-    })
-
-    // ===== PHASE 1: DOWNLOAD PRODUCTS (WooCommerce) =====
-    await supabase
-      .from('stores')
-      .update({
-        sync_status: 'syncing',
-        sync_started_at: new Date().toISOString(),
-        sync_progress: 0,
-        sync_total: 0,
-      })
-      .eq('id', store.id)
-
-    console.log('Starting sync for store:', store.store_url)
-
-    const firstResult = await woo.getProducts(1, 100)
-    const totalProducts = firstResult.total
-    const totalPages = firstResult.totalPages
-
-    await supabase
-      .from('stores')
-      .update({ sync_total: totalProducts, sync_progress: firstResult.data.length })
-      .eq('id', store.id)
-
-    let allProducts: any[] = [...firstResult.data]
-    let page = 2
-
-    console.log(`Total products: ${totalProducts}, pages: ${totalPages}`)
-
-    while (page <= totalPages) {
-      const result = await woo.getProducts(page, 100)
-      allProducts = [...allProducts, ...result.data]
-
-      if (page % 3 === 0 || page === totalPages) {
-        await supabase
-          .from('stores')
-          .update({ sync_progress: allProducts.length })
-          .eq('id', store.id)
-      }
-
-      console.log(`Page ${page}/${totalPages} (${allProducts.length}/${totalProducts})`)
-      page++
-    }
-
-    // Deduplicate products
-    const seenIds = new Set<string>()
-    const uniqueProducts: any[] = []
-
-    for (const product of allProducts) {
-      const pid = String(product.id)
-      if (seenIds.has(pid)) continue
-      seenIds.add(pid)
-      uniqueProducts.push(product)
-    }
-
-    console.log(`Download done: ${allProducts.length} entries, ${uniqueProducts.length} unique products`)
-
-    // ===== PHASE 1.5: DOWNLOAD VARIATIONS =====
-    const variableProducts = uniqueProducts.filter(p => p.type === 'variable')
-    console.log(`Variable products (with variations): ${variableProducts.length}`)
-
-    // Collect all variations: { parentProduct, variation }
-    const allVariations: { parent: any; variation: any }[] = []
-
-    if (variableProducts.length > 0) {
-      await supabase
-        .from('stores')
-        .update({ sync_total: uniqueProducts.length + variableProducts.length * 5 }) // estimate
-        .eq('id', store.id)
-
-      let varProgress = 0
-      for (const parent of variableProducts) {
-        try {
-          let varPage = 1
-          let varTotalPages = 1
-
-          while (varPage <= varTotalPages) {
-            const varResult = await woo.getVariations(String(parent.id), varPage, 50)
-            varTotalPages = varResult.totalPages
-
-            for (const variation of varResult.data) {
-              allVariations.push({ parent, variation })
-            }
-
-            varPage++
-          }
-
-          varProgress++
-          if (varProgress % 10 === 0) {
-            console.log(`Variations: ${varProgress}/${variableProducts.length} parents processed (${allVariations.length} variations found)`)
-          }
-        } catch (err: any) {
-          console.error(`Failed to get variations for product ${parent.id}: ${err?.message}`)
-        }
-      }
-
-      console.log(`Total variations downloaded: ${allVariations.length} from ${variableProducts.length} variable products`)
-    }
-
-    // ===== PHASE 2: SAVE PRODUCTS =====
-    const totalToSave = uniqueProducts.length + allVariations.length
-
-    await supabase
-      .from('stores')
-      .update({
-        sync_status: 'saving',
-        sync_progress: 0,
-        sync_total: totalToSave,
-      })
-      .eq('id', store.id)
-
-    let syncedCount = 0
-    let errorCount = 0
-    const errorDetails: string[] = []
-
-    // Map to track parent product DB IDs (external_id -> supabase uuid)
-    const parentDbIds: Record<string, string> = {}
-
-    // Save parent products first
-    for (let i = 0; i < uniqueProducts.length; i++) {
-      const product = uniqueProducts[i]
-
-      try {
-        const rawPrice = parseFloat(product.price)
-        const safePrice = isNaN(rawPrice) ? null : rawPrice
-
-        const title = sanitize(product.name, 500) || `Product ${product.id}`
-        const description = product.description || ''
-        const shortDescription = product.short_description || ''
-        const images = Array.isArray(product.images)
-          ? product.images.filter((img: any) => img && img.src).map((img: any) => String(img.src))
-          : []
-        const category = product.categories?.[0]?.name
-          ? sanitize(product.categories[0].name, 200)
-          : null
-
-        const productData = {
-          store_id: store.id,
-          user_id: userId,
-          external_id: String(product.id),
-          original_title: title,
-          original_description: description,
-          original_short_description: shortDescription || null,
-          original_images: images,
-          category,
-          price: safePrice,
-          status: 'draft' as const,
-          parent_id: null,
-          variant_name: null,
-        }
-
-        const { data: existing } = await supabaseRetry(() =>
-          supabase
-            .from('products')
-            .select('id')
-            .eq('store_id', store.id)
-            .eq('external_id', String(product.id))
-            .maybeSingle()
-        )
-
-        if (existing) {
-          // La re-sync: actualizeaza campurile originale din WooCommerce
-          const updatePayload: Record<string, any> = {
-            original_title: productData.original_title,
-            original_description: productData.original_description,
-            original_short_description: productData.original_short_description,
-            original_images: productData.original_images,
-            category: productData.category,
-            price: productData.price,
-            parent_id: null,
-            variant_name: null,
-          }
-
-          const { error: updErr } = await supabaseRetry(() =>
-            supabase
-              .from('products')
-              .update(updatePayload)
-              .eq('id', existing.id)
-          )
-
-          if (updErr) {
-            console.error(`UPDATE ERR WC#${product.id}: ${updErr.message}`)
-            errorCount++
-            errorDetails.push(`WC#${product.id}: update - ${updErr.message}`)
-          } else {
-            parentDbIds[String(product.id)] = existing.id
-            syncedCount++
-          }
-        } else {
-          const { data: inserted, error: err } = await supabaseRetry(() =>
-            supabase
-              .from('products')
-              .insert(productData)
-              .select('id')
-              .single()
-          )
-
-          if (err) {
-            console.error(`INSERT ERR WC#${product.id}: ${err.message}`)
-            errorCount++
-            errorDetails.push(`WC#${product.id}: ${err.message}`)
-          } else {
-            if (inserted) parentDbIds[String(product.id)] = inserted.id
-            syncedCount++
-          }
-        }
-      } catch (err: any) {
-        console.error(`EXCEPTION WC#${product.id}: ${err?.message}`)
-        errorCount++
-      }
-
-      if ((i + 1) % 50 === 0 || i === uniqueProducts.length - 1) {
-        await supabase
-          .from('stores')
-          .update({ sync_progress: i + 1 })
-          .eq('id', store.id)
-        console.log(`Products: ${i + 1}/${uniqueProducts.length} (${syncedCount} ok, ${errorCount} errors)`)
-      }
-    }
-
-    console.log(`Products saved. Now saving ${allVariations.length} variations...`)
-
-    // Save variations
-    for (let i = 0; i < allVariations.length; i++) {
-      const { parent, variation } = allVariations[i]
-
-      try {
-        const parentDbId = parentDbIds[String(parent.id)]
-        if (!parentDbId) {
-          console.error(`No parent DB ID for WC#${parent.id}, skipping variation ${variation.id}`)
-          errorCount++
-          continue
-        }
-
-        const rawPrice = parseFloat(variation.price)
-        const safePrice = isNaN(rawPrice) ? null : rawPrice
-
-        // Build variant name from attributes: "Culoare: Roșu, Mărime: XL"
-        const variantName = Array.isArray(variation.attributes)
-          ? variation.attributes
-              .map((a: any) => `${a.name || a.option}: ${a.option}`)
-              .join(', ')
-          : `Variație ${variation.id}`
-
-        const varImages = Array.isArray(variation.image) 
-          ? [variation.image].filter((img: any) => img && img.src).map((img: any) => String(img.src))
-          : variation.image?.src 
-            ? [String(variation.image.src)]
-            : []
-
-        // Use parent images if variation has none
-        const images = varImages.length > 0 
-          ? varImages
-          : (Array.isArray(parent.images) 
-              ? parent.images.filter((img: any) => img && img.src).map((img: any) => String(img.src))
-              : [])
-
-        const varExternalId = `${parent.id}_var_${variation.id}`
-
-        const varTitle = `${sanitize(parent.name, 400)} — ${variantName}`
-        const varDescription = variation.description || parent.description || ''
-        const varShortDesc = variation.short_description || parent.short_description || ''
-
-        const varData = {
-          store_id: store.id,
-          user_id: userId,
-          external_id: varExternalId,
-          original_title: varTitle,
-          original_description: varDescription,
-          original_short_description: varShortDesc || null,
-          original_images: images,
-          category: parent.categories?.[0]?.name
-            ? sanitize(parent.categories[0].name, 200)
-            : null,
-          price: safePrice,
-          status: 'draft' as const,
-          parent_id: parentDbId,
-          variant_name: variantName,
-        }
-
-        const { data: existing } = await supabaseRetry(() =>
-          supabase
-            .from('products')
-            .select('id')
-            .eq('store_id', store.id)
-            .eq('external_id', varExternalId)
-            .maybeSingle()
-        )
-
-        if (existing) {
-          const varUpdatePayload: Record<string, any> = {
-            original_title: varData.original_title,
-            original_description: varData.original_description,
-            original_short_description: varData.original_short_description,
-            original_images: varData.original_images,
-            category: varData.category,
-            price: varData.price,
-            parent_id: parentDbId,
-            variant_name: variantName,
-          }
-          await supabaseRetry(() =>
-            supabase.from('products').update(varUpdatePayload).eq('id', existing.id)
-          )
-          syncedCount++
-        } else {
-          const { error: err } = await supabaseRetry(() =>
-            supabase
-              .from('products')
-              .insert(varData)
-          )
-
-          if (err) {
-            console.error(`VAR INSERT ERR WC#${parent.id}_var_${variation.id}: ${err.message}`)
-            errorCount++
-            errorDetails.push(`VAR WC#${parent.id}_${variation.id}: ${err.message}`)
-          } else {
-            syncedCount++
-          }
-        }
-      } catch (err: any) {
-        console.error(`VAR EXCEPTION: ${err?.message}`)
-        errorCount++
-      }
-
-      if ((i + 1) % 50 === 0 || i === allVariations.length - 1) {
-        await supabase
-          .from('stores')
-          .update({ sync_progress: uniqueProducts.length + i + 1 })
-          .eq('id', store.id)
-        console.log(`Variations: ${i + 1}/${allVariations.length} (${syncedCount} total ok)`)
-      }
-    }
-
-    // ===== PHASE 3: COMPLETE =====
-    const { count: actualCount } = await supabase
-      .from('products')
-      .select('id', { count: 'exact', head: true })
-      .eq('store_id', store.id)
-
-    const realCount = actualCount || syncedCount
-
-    await supabase
-      .from('stores')
-      .update({
-        sync_status: 'active',
-        last_sync_at: new Date().toISOString(),
-        products_count: realCount,
-        sync_progress: totalToSave,
-        sync_total: totalToSave,
-      })
-      .eq('id', store.id)
-
-    console.log(`===== SYNC COMPLETE =====`)
-    console.log(`Products from WooCommerce: ${uniqueProducts.length}`)
-    console.log(`Variations downloaded: ${allVariations.length}`)
-    console.log(`Total in DB: ${realCount}`)
-    console.log(`Errors: ${errorCount}`)
-    if (errorDetails.length > 0) {
-      console.log(`Error details:`)
-      errorDetails.forEach(e => console.log(`  - ${e}`))
-    }
-
-    return NextResponse.json({
-      message: 'Sincronizare completă',
-      synced: realCount,
-      products: uniqueProducts.length,
-      variations: allVariations.length,
-      errors: errorCount,
-    })
+    return NextResponse.json({ error: 'Platformă nesuportată' }, { status: 400 })
   } catch (err) {
     console.error('Sync error:', err)
     return NextResponse.json({ error: 'Eroare la sincronizare' }, { status: 500 })

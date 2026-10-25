@@ -4,6 +4,8 @@ import { authOptions } from '@/lib/auth/auth.config'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { logApiError } from '@/lib/logger'
 import { loadAdsData } from '@/lib/commerce/ads-data'
+import { storeSetup } from '@/lib/commerce/setup'
+import { isCommercePlatform } from '@/lib/commerce/sync'
 import { buildPlan, GOALS, type Goal } from '@/lib/campaigns/plan'
 
 // =============================================
@@ -15,17 +17,11 @@ import { buildPlan, GOALS, type Goal } from '@/lib/campaigns/plan'
 const ROUTE = '/api/campaigns/plan'
 const MAX_DAILY_BUDGET = 1_000_000
 
-type PlatformData = {
-  prices_include_vat?: boolean | null
-  google_merchant?: { conectat?: boolean; tara?: string | null; limba?: string | null } | null
-  google_ads?: { conversie_id?: string | null } | null
-} | null
-
 type Supabase = ReturnType<typeof createAdminClient>
 
 function readStore(supabase: Supabase, userId: string) {
   return supabase.from('stores')
-    .select('id, platform, store_name, currency, country, language, connection_status, last_sync_at, platform_data')
+    .select('id, platform, store_name, store_url, currency, country, language, connection_status, last_sync_at, platform_data')
     .eq('user_id', userId).maybeSingle()
 }
 
@@ -47,7 +43,8 @@ export async function GET() {
   }
   const store = storeRes.data
   if (!store) return NextResponse.json({ store: null, plan: null })
-  if (store.platform !== 'edinio') {
+  const setup = storeSetup(store)
+  if (!setup) {
     return NextResponse.json({ store: { platform: store.platform, supported: false }, plan: null })
   }
 
@@ -59,22 +56,13 @@ export async function GET() {
   if (draftRes.error) logApiError(ROUTE, 500, 'Eroare la citirea planului', { userId, error: draftRes.error.message })
   if (!data) return NextResponse.json({ error: 'Nu am putut citi produsele' }, { status: 500 })
 
-  const pd = (store.platform_data ?? null) as PlatformData
   const draft = draftRes.data
   const googleConnected = googleRes.data?.status === 'active'
   const account = googleConnected && accountRes.data ? accountRes.data : null
 
   const plan = buildPlan({
-    store: {
-      currency: store.currency || 'RON',
-      // Campania merge unde merge feedul din Merchant Center
-      country: pd?.google_merchant?.tara || store.country || null,
-      language: pd?.google_merchant?.limba || store.language || null,
-      connection_status: store.connection_status,
-      prices_include_vat: pd?.prices_include_vat ?? null,
-      gmc_connected: !!pd?.google_merchant?.conectat,
-      conversion_id: pd?.google_ads?.conversie_id ?? null,
-    },
+    store: { currency: store.currency || 'RON', connection_status: store.connection_status },
+    setup,
     google: {
       connected: googleConnected,
       account: account ? { customer_id: account.customer_id, name: account.descriptive_name, currency: account.currency_code } : null,
@@ -87,7 +75,6 @@ export async function GET() {
       goal: GOALS.includes(draft?.goal as Goal) ? (draft!.goal as Goal) : 'balanced',
       daily_budget: draft?.daily_budget === null || draft?.daily_budget === undefined ? null : Number(draft.daily_budget),
     },
-    edinioBase: (process.env.EDINIO_BASE_URL || 'https://www.edinio.com').replace(/\/+$/, ''),
   })
 
   return NextResponse.json({
@@ -139,7 +126,7 @@ export async function PATCH(request: Request) {
     logApiError(ROUTE, 500, 'Eroare la citirea magazinului', { userId, error: storeError.message })
     return NextResponse.json({ error: 'Nu am putut citi magazinul' }, { status: 500 })
   }
-  if (!store || store.platform !== 'edinio') return NextResponse.json({ error: 'Magazin nesuportat' }, { status: 400 })
+  if (!store || !isCommercePlatform(store.platform)) return NextResponse.json({ error: 'Magazin nesuportat' }, { status: 400 })
 
   const now = new Date().toISOString()
   const update = () => supabase.from('ad_campaigns')
