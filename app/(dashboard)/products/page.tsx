@@ -1,560 +1,531 @@
 'use client'
 
-import { useT } from '@/lib/i18n/context'
-
-import { useState, useEffect, useCallback, useRef } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import {
-  Package, ImageIcon, Loader2, Search, X, RefreshCw,
-  ChevronLeft, ChevronRight, SlidersHorizontal, ArrowUpRight,
-  CheckCircle, AlertCircle, MinusCircle, Upload, Star,
-  LayoutGrid, List, Filter, Sparkles, Store, ArrowRight,
-  ChevronDown, Tag, TrendingUp, Zap,
-} from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
+import { useT } from '@/lib/i18n/context'
+import {
+  AlertCircle, ChevronLeft, ChevronRight, ExternalLink, ImageIcon, Info, Loader2,
+  Package, RefreshCw, Search, Store, X,
+} from 'lucide-react'
 
-type Product = {
-  id: string
-  original_title: string
-  optimized_title: string | null
-  original_images: string[] | null
-  thumbnail_url: string | null
-  category: string | null
-  price: number | null
-  status: string
-  variations_count: number
-  optimized_short_description: string | null
-  optimized_long_description: string | null
-  meta_description: string | null
+// =============================================
+// Produse — ofertele magazinului, cum ajung la Google, cu vânzările de pe
+// site și prețul de cost. Pe ele se vor sprijini campaniile: ce produse
+// merită promovate și cât poate costa o vânzare.
+// =============================================
+
+type Sales = { units: number; revenue: number; orders: number }
+type Offer = {
+  offer_id: string; external_product_id: string; item_group_id: string | null
+  title: string; product_name: string | null; variant_title: string | null; category: string | null
+  url: string | null; image_url: string | null
+  price: number; compare_at_price: number | null; currency: string
+  available: boolean; stock: number | null; sku: string | null; gtin: string | null; brand: string | null
+  google_status: string | null; cost_price: number | null; sales: Sales
+}
+type StoreInfo = {
+  id: string; platform: string; store_name: string | null; currency: string
+  connection_status: string | null; sync_status: string | null; last_sync_at: string | null
+  prices_include_vat: boolean | null; supported: boolean
+}
+type Period = 30 | 90 | 365
+type Quick = 'all' | 'out' | 'no_cost' | 'google_issue'
+type Sort = 'sales' | 'revenue' | 'margin' | 'price' | 'name'
+
+const PER_PAGE = 50
+const PERIODS: Period[] = [30, 90, 365]
+const SORTS: Sort[] = ['sales', 'revenue', 'margin', 'price', 'name']
+// Stări la Google cu care oferta nu poate rula în reclame
+const GOOGLE_PROBLEMS = ['disapproved', 'error', 'expirat', 'exclus']
+
+const GOOGLE_STYLE: Record<string, string> = {
+  active: 'bg-emerald-50 text-emerald-700',
+  pending: 'bg-amber-50 text-amber-700',
+  expirat: 'bg-amber-50 text-amber-700',
+  disapproved: 'bg-red-50 text-red-600',
+  error: 'bg-red-50 text-red-600',
+  exclus: 'bg-neutral-100 text-neutral-500',
 }
 
-type SortOption = 'newest' | 'oldest' | 'price_desc' | 'price_asc'
-
-type FilterState = {
-  status: 'all' | 'draft' | 'optimized' | 'published'
-  sort: SortOption
-  category: string
+function marginOf(o: Offer): { amount: number; pct: number } | null {
+  if (o.cost_price === null || !(o.price > 0)) return null
+  const amount = o.price - o.cost_price
+  return { amount, pct: (amount / o.price) * 100 }
 }
 
-function getStatusTier(status: string): 'published' | 'good' | 'unoptimized' {
-  if (status === 'published') return 'published'
-  if (status === 'optimized') return 'good'
-  return 'unoptimized'
-}
-
-const TIER = {
-  published:   { label: 'products.published_status',    bg: 'bg-neutral-900', text: 'text-white',        dot: 'bg-white' },
-  good:        { label: 'products.optimized_status',   bg: 'bg-neutral-100', text: 'text-neutral-700',  dot: 'bg-emerald-500' },
-  unoptimized: { label: 'products.unoptimized_status', bg: 'bg-neutral-100', text: 'text-neutral-400',  dot: 'bg-neutral-300' },
-}
-
-const SORT_OPTS: { value: SortOption; label: string }[] = [
-  { value: 'newest',     label: 'products.sort_newest' },
-  { value: 'oldest',    label: 'products.sort_oldest' },
-  { value: 'price_desc', label: 'products.sort_price_high' },
-  { value: 'price_asc',  label: 'products.sort_price_low' },
-]
-
-const STATUS_FILTERS = [
-  { value: 'all',       label: 'products.filter_all' },
-  { value: 'draft',     label: 'products.filter_unoptimized' },
-  { value: 'optimized', label: 'products.filter_optimized' },
-  { value: 'published', label: 'products.filter_published' },
-]
-
-function TierBadge({ status }: { status: string }) {
-  const { t: translate } = useT()
-  const tier = getStatusTier(status)
-  const cfg = TIER[tier]
-  return (
-    <span className={`inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-md ${cfg.bg} ${cfg.text}`}>
-      <span className={`h-1.5 w-1.5 rounded-full ${cfg.dot} shrink-0`} />
-      {translate(cfg.label)}
-    </span>
-  )
-}
-
-function NoImage({ size = 'md' }: { size?: 'sm' | 'md' | 'lg' }) {
-  const s = size === 'lg' ? 'h-10 w-10' : size === 'sm' ? 'h-4 w-4' : 'h-6 w-6'
-  return (
-    <div className="w-full h-full flex items-center justify-center bg-neutral-50">
-      <ImageIcon className={`${s} text-neutral-200`} />
-    </div>
-  )
-}
-
-function Skeleton({ className }: { className?: string }) {
-  return <div className={`animate-pulse bg-neutral-100 rounded-xl ${className || ''}`} />
-}
-
-function Dropdown({ label, options, value, onChange }: {
-  label: string
-  options: { value: string; label: string }[]
-  value: string
-  onChange: (v: string) => void
+function CostInput({ offer, fmt, siblings, onSaved }: {
+  offer: Offer
+  fmt: Intl.NumberFormat
+  siblings: number
+  onSaved: (offerIds: string[], cost: number | null) => void
 }) {
-  const { t: tr } = useT()
-  const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
-  const current = options.find(o => o.value === value)
-
-  useEffect(() => {
-    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false) }
-    document.addEventListener('mousedown', h)
-    return () => document.removeEventListener('mousedown', h)
-  }, [])
-
-  return (
-    <div ref={ref} className="relative">
-      <button onClick={() => setOpen(!open)}
-        className="flex items-center gap-1 h-9 px-2.5 rounded-xl border border-neutral-200 bg-white text-[12px] font-medium text-neutral-600 hover:border-neutral-300 hover:text-neutral-900 transition-all max-w-[140px]">
-        <span className="truncate">{current ? tr(current.label) : label}</span>
-        <ChevronDown className={`h-3.5 w-3.5 text-neutral-400 transition-transform shrink-0 ${open ? 'rotate-180' : ''}`} />
-      </button>
-      <AnimatePresence>
-        {open && (
-          <motion.div initial={{ y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 4 }}
-            className="absolute top-11 left-0 z-30 min-w-[160px] bg-white border border-neutral-200 rounded-xl shadow-lg overflow-hidden">
-            {options.map(o => (
-              <button key={o.value} onClick={() => { onChange(o.value); setOpen(false) }}
-                className={`w-full text-left px-3 py-2 text-[12px] transition-colors hover:bg-neutral-50 ${o.value === value ? 'text-neutral-900 font-semibold' : 'text-neutral-500'}`}>
-                {tr(o.label)}
-              </button>
-            ))}
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  )
-}
-
-function GridCard({ product, selected, onSelect }: {
-  product: Product
-  selected: boolean
-  onSelect: (id: string) => void
-}) {
-  const [hover, setHover] = useState(false)
-  const title = product.optimized_title || product.original_title
-  const img = product.thumbnail_url || product.original_images?.[0]
-
-  return (
-    <motion.div initial={{ y: 10 }} animate={{ opacity: 1, y: 0 }}
-      className={`group relative bg-white border rounded-xl overflow-hidden transition-all duration-200 cursor-pointer
-        ${selected ? 'border-neutral-900 ring-1 ring-neutral-900/10' : 'border-neutral-200 hover:border-neutral-300 hover:shadow-sm'}`}
-      onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}>
-
-      <div className={`absolute top-2.5 left-2.5 z-10 transition-opacity duration-150 ${hover || selected ? 'opacity-100' : 'opacity-0'}`}>
-        <button onClick={e => { e.preventDefault(); onSelect(product.id) }}
-          className={`h-5 w-5 rounded-md border flex items-center justify-center transition-all
-            ${selected ? 'bg-neutral-900 border-neutral-900' : 'bg-white/90 backdrop-blur-sm border-neutral-300 hover:border-neutral-500'}`}>
-          {selected && <span className="text-white text-[10px]">✓</span>}
-        </button>
-      </div>
-
-      <div>
-        <div className="aspect-square relative overflow-hidden bg-neutral-50">
-          {img
-            ? <img src={img} alt={title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-            : <NoImage size="lg" />
-          }
-        </div>
-
-        <div className="p-3">
-          <p className="text-[13px] font-medium text-neutral-900 line-clamp-2 leading-snug mb-2">{title}</p>
-          <div className="flex items-center justify-between">
-            <TierBadge status={product.status} />
-            {product.price != null && (
-              <span className="text-[12px] font-semibold text-neutral-900 tabular-nums">{product.price} lei</span>
-            )}
-          </div>
-          {product.category && (
-            <p className="text-[10px] text-neutral-400 mt-1.5 flex items-center gap-1 truncate">
-              <Tag className="h-2.5 w-2.5 shrink-0" />{product.category}
-            </p>
-          )}
-        </div>
-      </div>
-    </motion.div>
-  )
-}
-
-function ListRow({ product, selected, onSelect, index }: {
-  product: Product
-  selected: boolean
-  onSelect: (id: string) => void
-  index: number
-}) {
-  const title = product.optimized_title || product.original_title
-  const img = product.thumbnail_url || product.original_images?.[0]
-  const hasText = !!(product.optimized_short_description || product.optimized_long_description)
-  const hasImage = !!(product.thumbnail_url)
-
-  return (
-    <motion.div initial={{ y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.02 }}
-      className={`group flex items-center gap-3 px-4 py-3 border-b border-neutral-50 last:border-0 transition-colors
-        ${selected ? 'bg-neutral-50' : 'hover:bg-neutral-50/70'}`}>
-
-      <button onClick={() => onSelect(product.id)}
-        className={`h-5 w-5 rounded-md border flex items-center justify-center shrink-0 transition-all
-          ${selected ? 'bg-neutral-900 border-neutral-900' : 'border-neutral-200 group-hover:border-neutral-400'}`}>
-        {selected && <span className="text-white text-[10px]">✓</span>}
-      </button>
-
-      <div className="flex items-center gap-3 flex-1 min-w-0">
-        <div className="h-10 w-10 rounded-lg overflow-hidden bg-neutral-100 shrink-0">
-          {img ? <img src={img} alt={title} className="h-full w-full object-cover" /> : <NoImage size="sm" />}
-        </div>
-
-        <div className="flex-1 min-w-0">
-          <p className="text-[13px] font-medium text-neutral-900 truncate">{title}</p>
-          {product.category && (
-            <p className="text-[11px] text-neutral-400 truncate mt-0.5">{product.category}</p>
-          )}
-        </div>
-
-        <div className="hidden sm:flex items-center gap-3 shrink-0">
-          <div className="flex items-center gap-1">
-            <div className={`h-5 w-5 rounded-md flex items-center justify-center ${hasText ? 'bg-neutral-900' : 'bg-neutral-100'}`}>
-              <Sparkles className={`h-2.5 w-2.5 ${hasText ? 'text-white' : 'text-neutral-300'}`} />
-            </div>
-            <div className={`h-5 w-5 rounded-md flex items-center justify-center ${hasImage ? 'bg-neutral-900' : 'bg-neutral-100'}`}>
-              <ImageIcon className={`h-2.5 w-2.5 ${hasImage ? 'text-white' : 'text-neutral-300'}`} />
-            </div>
-          </div>
-
-          {product.price != null && (
-            <div className="w-16 text-right">
-              <span className="text-[12px] font-medium text-neutral-600 tabular-nums">{product.price} lei</span>
-            </div>
-          )}
-
-          <TierBadge status={product.status} />
-        </div>
-      </div>
-    </motion.div>
-  )
-}
-
-function EmptyState({ hasSearch, onClear }: { hasSearch: boolean; onClear: () => void }) {
   const { t } = useT()
-  if (hasSearch) return (
-    <div className="text-center py-20">
-      <div className="h-14 w-14 rounded-xl bg-neutral-100 flex items-center justify-center mx-auto mb-4">
-        <Search className="h-6 w-6 text-neutral-300" />
-      </div>
-      <p className="text-[14px] font-medium text-neutral-500 mb-1">{t('products.no_products_found')}</p>
-      <p className="text-[13px] text-neutral-400 mb-4">{t('products.try_other_search')}</p>
-      <button onClick={onClear} className="h-8 px-4 rounded-xl border border-neutral-200 text-[12px] font-medium text-neutral-600 hover:bg-neutral-50 transition-all">
-        {t('products.reset_search')}
-      </button>
-    </div>
-  )
+  const shown = offer.cost_price === null ? '' : String(offer.cost_price).replace('.', ',')
+  const [value, setValue] = useState(shown)
+  const [state, setState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const [applying, setApplying] = useState(false)
+
+  useEffect(() => { setValue(shown) }, [shown])
+
+  async function patch(body: Record<string, unknown>) {
+    const r = await fetch('/api/catalog/cost', {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+    })
+    const d = await r.json().catch(() => ({}))
+    if (!r.ok) throw new Error(d.error || 'error')
+    return d as { updated: string[]; cost_price: number | null }
+  }
+
+  async function save() {
+    const raw = value.trim().replace(/\s/g, '').replace(',', '.')
+    const next = raw === '' ? null : Number(raw)
+    if (next !== null && (!Number.isFinite(next) || next < 0)) { setState('error'); return }
+    const same = next === null ? offer.cost_price === null
+      : offer.cost_price !== null && Math.round(next * 100) === Math.round(offer.cost_price * 100)
+    if (same) { setState('idle'); return }
+    setState('saving')
+    try {
+      const d = await patch({ offer_id: offer.offer_id, cost_price: next })
+      onSaved(d.updated, d.cost_price)
+      setState('saved')
+      setTimeout(() => setState(s => (s === 'saved' ? 'idle' : s)), 1500)
+    } catch {
+      setState('error')
+    }
+  }
+
+  async function applyToVariants() {
+    setApplying(true)
+    try {
+      const d = await patch({ product_id: offer.external_product_id, cost_price: offer.cost_price })
+      onSaved(d.updated, d.cost_price)
+    } catch {
+      setState('error')
+    } finally {
+      setApplying(false)
+    }
+  }
 
   return (
-    <div className="text-center py-20">
-      <div className="h-16 w-16 rounded-xl bg-neutral-100 flex items-center justify-center mx-auto mb-4">
-        <Store className="h-7 w-7 text-neutral-300" />
+    <div className="w-[120px]">
+      <div className={`flex items-center h-8 rounded-lg border bg-white px-2 transition-colors
+        ${state === 'error' ? 'border-red-300' : state === 'saved' ? 'border-emerald-300' : 'border-neutral-200 focus-within:border-neutral-400'}`}>
+        <input
+          value={value}
+          inputMode="decimal"
+          aria-label={t('catalog.cost')}
+          placeholder="—"
+          onChange={e => { setValue(e.target.value); if (state === 'error') setState('idle') }}
+          onBlur={save}
+          onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); if (e.key === 'Escape') { setValue(shown); setState('idle') } }}
+          className="w-full min-w-0 bg-transparent text-[13px] text-neutral-900 tabular-nums text-right focus:outline-none placeholder:text-neutral-300"
+        />
+        <span className="ml-1 text-[11px] text-neutral-400 shrink-0">{offer.currency}</span>
+        {state === 'saving' && <Loader2 className="ml-1 h-3 w-3 animate-spin text-neutral-400 shrink-0" />}
       </div>
-      <p className="text-[15px] font-semibold text-neutral-700 mb-1">{t('products.no_products')}</p>
-      <p className="text-[13px] text-neutral-400 mb-5">{t('products.connect_store_desc')}</p>
-      <Link href="/settings">
-        <button className="h-9 px-5 rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white text-[13px] font-medium transition-all">
-          {t('products.connect_store_btn')}
+      {state === 'error' && <p className="mt-0.5 text-[10px] text-red-500">{t('catalog.cost_invalid')}</p>}
+      {state !== 'error' && siblings > 0 && offer.cost_price !== null && (
+        <button onClick={applyToVariants} disabled={applying}
+          title={t('catalog.apply_variants_hint', { cost: fmt.format(offer.cost_price) })}
+          className="mt-0.5 text-[10px] text-neutral-400 hover:text-neutral-700 underline-offset-2 hover:underline disabled:opacity-50">
+          {applying ? t('catalog.applying') : t('catalog.apply_variants', { count: String(siblings + 1) })}
         </button>
-      </Link>
+      )}
     </div>
   )
 }
 
 export default function ProductsPage() {
-  const { t } = useT()
-  const [products, setProducts] = useState<Product[]>([])
-  const [total, setTotal] = useState(0)
+  const { t, locale } = useT()
+  const [days, setDays] = useState<Period>(30)
+  const [store, setStore] = useState<StoreInfo | null>(null)
+  const [offers, setOffers] = useState<Offer[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
   const [search, setSearch] = useState('')
-  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const [quick, setQuick] = useState<Quick>('all')
+  const [sort, setSort] = useState<Sort>('sales')
   const [page, setPage] = useState(1)
-  const [view, setView] = useState<'grid' | 'list'>('grid')
-  const [selected, setSelected] = useState<Set<string>>(new Set())
-  const [categories, setCategories] = useState<string[]>([])
   const [syncing, setSyncing] = useState(false)
-  const [filters, setFilters] = useState<FilterState>({ status: 'all', sort: 'newest', category: 'all' })
-  const perPage = view === 'grid' ? 24 : 30
-  const totalPages = Math.ceil(total / perPage)
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null)
+  const loadedOnce = useRef(false)
 
-  useEffect(() => {
-    if (debounceRef.current) clearTimeout(debounceRef.current)
-    debounceRef.current = setTimeout(() => { setDebouncedSearch(search); setPage(1) }, 300)
-  }, [search])
-
-  const fetchProducts = useCallback(async () => {
-    setLoading(true)
+  const load = useCallback(async (period: Period) => {
+    if (!loadedOnce.current) setLoading(true)
+    setLoadError(false)
     try {
-      const params = new URLSearchParams({
-        page: String(page),
-        per_page: String(perPage),
-        parent_only: 'true',
-        ...(debouncedSearch && { search: debouncedSearch }),
-        ...(filters.status !== 'all' && { status: filters.status }),
-        ...(filters.category !== 'all' && { category: filters.category }),
-      })
-      const res = await fetch(`/api/products?${params}`)
-      const data = await res.json()
-      let prods = data.products || []
+      const r = await fetch(`/api/catalog?days=${period}`)
+      if (!r.ok) throw new Error()
+      const d = await r.json()
+      setStore(d.store)
+      setOffers(d.offers || [])
+      loadedOnce.current = true
+    } catch {
+      setLoadError(true)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
 
-      if (filters.sort === 'oldest') prods = [...prods].reverse()
-      else if (filters.sort === 'price_desc') prods = [...prods].sort((a: Product, b: Product) => (b.price || 0) - (a.price || 0))
-      else if (filters.sort === 'price_asc') prods = [...prods].sort((a: Product, b: Product) => (a.price || 0) - (b.price || 0))
+  useEffect(() => { load(days) }, [days, load])
 
-      setProducts(prods)
-      setTotal(data.total || 0)
+  // Prima sincronizare după conectare: pagina o urmărește până apar ofertele
+  const firstSyncRunning = !!store?.supported && offers.length === 0
+    && (store.sync_status === 'syncing' || (!store.last_sync_at && store.connection_status === 'active'))
+  useEffect(() => {
+    if (!firstSyncRunning) return
+    const id = setInterval(() => load(days), 5000)
+    return () => clearInterval(id)
+  }, [firstSyncRunning, days, load])
 
-      if (categories.length === 0) {
-        const cats = [...new Set(prods.map((p: Product) => p.category).filter(Boolean))] as string[]
-        setCategories(cats)
+  const currency = store?.currency || offers[0]?.currency || 'RON'
+  const numberLocale = locale === 'en' ? 'en-GB' : 'ro-RO'
+  const fmt = useMemo(() => {
+    try { return new Intl.NumberFormat(numberLocale, { style: 'currency', currency, maximumFractionDigits: 2 }) }
+    catch { return new Intl.NumberFormat(numberLocale, { maximumFractionDigits: 2 }) }
+  }, [numberLocale, currency])
+  const fmtInt = useMemo(() => new Intl.NumberFormat(numberLocale, { maximumFractionDigits: 0 }), [numberLocale])
+
+  const siblingsByProduct = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const o of offers) if (o.item_group_id) m.set(o.external_product_id, (m.get(o.external_product_id) ?? 0) + 1)
+    return m
+  }, [offers])
+
+  const counts = useMemo(() => ({
+    all: offers.length,
+    out: offers.filter(o => !o.available).length,
+    no_cost: offers.filter(o => o.cost_price === null).length,
+    google_issue: offers.filter(o => o.google_status && GOOGLE_PROBLEMS.includes(o.google_status)).length,
+  }), [offers])
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    const list = offers.filter(o => {
+      if (quick === 'out' && o.available) return false
+      if (quick === 'no_cost' && o.cost_price !== null) return false
+      if (quick === 'google_issue' && !(o.google_status && GOOGLE_PROBLEMS.includes(o.google_status))) return false
+      if (!q) return true
+      return [o.title, o.product_name, o.variant_title, o.sku, o.gtin, o.category, o.offer_id]
+        .some(v => v && v.toLowerCase().includes(q))
+    })
+    const byName = (a: Offer, b: Offer) => (a.title || '').localeCompare(b.title || '', numberLocale)
+    return list.sort((a, b) => {
+      if (sort === 'name') return byName(a, b)
+      if (sort === 'price') return b.price - a.price || byName(a, b)
+      if (sort === 'revenue') return b.sales.revenue - a.sales.revenue || byName(a, b)
+      if (sort === 'margin') {
+        const ma = marginOf(a), mb = marginOf(b)
+        if (ma && mb) return mb.pct - ma.pct
+        if (ma || mb) return ma ? -1 : 1
+        return byName(a, b)
       }
-    } catch { } finally { setLoading(false) }
-  }, [page, perPage, debouncedSearch, filters])
+      return b.sales.units - a.sales.units || b.sales.revenue - a.sales.revenue || byName(a, b)
+    })
+  }, [offers, quick, search, sort, numberLocale])
 
-  useEffect(() => { fetchProducts() }, [fetchProducts])
+  const pages = Math.max(1, Math.ceil(filtered.length / PER_PAGE))
+  const current = Math.min(page, pages)
+  const visible = filtered.slice((current - 1) * PER_PAGE, current * PER_PAGE)
+  useEffect(() => { setPage(1) }, [search, quick, sort])
 
-  const stats = {
-    total,
-    draft: products.filter(p => p.status === 'draft').length,
-    optimized: products.filter(p => p.status === 'optimized').length,
-    published: products.filter(p => p.status === 'published').length,
+  const onSaved = useCallback((ids: string[], cost: number | null) => {
+    const set = new Set(ids)
+    setOffers(list => list.map(o => (set.has(o.offer_id) ? { ...o, cost_price: cost } : o)))
+  }, [])
+
+  async function handleSync() {
+    if (!store) return
+    setSyncing(true); setNotice(null)
+    try {
+      const r = await fetch(`/api/stores/${store.id}/sync`, { method: 'POST' })
+      const d = await r.json().catch(() => ({}))
+      if (!r.ok) setNotice({ ok: false, text: d.error || t('catalog.sync_error') })
+      else setNotice({ ok: true, text: t('edinio.sync_done', { offers: String(d.synced ?? 0), orders: String(d.orders ?? 0) }) })
+      await load(days)
+    } catch {
+      setNotice({ ok: false, text: t('catalog.sync_error') })
+    } finally {
+      setSyncing(false)
+    }
   }
 
-  const toggleSelect = (id: string) => {
-    setSelected(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
+  const header = (
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        <h1 className="text-[22px] font-semibold text-neutral-900 tracking-tight">{t('catalog.title')}</h1>
+        <p className="text-[13px] text-neutral-400 mt-0.5">
+          {store?.supported && offers.length > 0
+            ? t('catalog.subtitle', { count: fmtInt.format(offers.length), store: store.store_name || '' })
+            : t('catalog.subtitle_empty')}
+          {store?.last_sync_at && store.supported && (
+            <> · {t('catalog.synced_at', { time: new Date(store.last_sync_at).toLocaleString(numberLocale, { dateStyle: 'short', timeStyle: 'short' }) })}</>
+          )}
+        </p>
+      </div>
+      {store?.supported && (
+        <div className="flex items-center gap-2">
+          <select value={days} onChange={e => setDays(Number(e.target.value) as Period)} aria-label={t('catalog.period')}
+            className="h-9 px-3 rounded-xl border border-neutral-200 bg-white text-[12px] font-medium text-neutral-600 focus:outline-none focus:border-neutral-400">
+            {PERIODS.map(p => <option key={p} value={p}>{t(`catalog.period_${p}`)}</option>)}
+          </select>
+          <button onClick={handleSync} disabled={syncing || store.connection_status === 'revoked'}
+            className="flex items-center gap-1.5 h-9 px-3.5 rounded-xl border border-neutral-200 bg-white text-[12px] font-medium text-neutral-600 hover:border-neutral-300 hover:text-neutral-900 transition-all disabled:opacity-50">
+            <RefreshCw className={`h-3.5 w-3.5 ${syncing ? 'animate-spin' : ''}`} />
+            <span className="hidden sm:inline">{t('settings.sync_now')}</span>
+          </button>
+        </div>
+      )}
+    </div>
+  )
+
+  if (loading) {
+    return (
+      <div className="space-y-5">
+        {header}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {[0, 1, 2, 3].map(i => <div key={i} className="h-[76px] rounded-xl bg-neutral-100 animate-pulse" />)}
+        </div>
+        <div className="h-96 rounded-xl bg-neutral-100 animate-pulse" />
+      </div>
+    )
   }
 
-  const toggleSelectAll = () => {
-    if (selected.size === products.length) setSelected(new Set())
-    else setSelected(new Set(products.map(p => p.id)))
+  if (loadError && !loadedOnce.current) {
+    return (
+      <div className="space-y-5">
+        {header}
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-neutral-200 bg-white py-16 text-center">
+          <AlertCircle className="h-6 w-6 text-neutral-400" />
+          <p className="mt-3 text-[14px] font-medium text-neutral-900">{t('catalog.load_error')}</p>
+          <button onClick={() => load(days)} className="mt-4 h-9 px-4 rounded-xl bg-neutral-900 text-white text-[13px] font-medium hover:bg-neutral-800">
+            {t('catalog.retry')}
+          </button>
+        </div>
+      </div>
+    )
   }
 
-  const clearFilters = () => { setSearch(''); setFilters({ status: 'all', sort: 'newest', category: 'all' }); setPage(1) }
-  const hasActiveFilters = filters.status !== 'all' || filters.sort !== 'newest' || filters.category !== 'all' || search
+  if (!store || !store.supported) {
+    return (
+      <div className="space-y-5">
+        {header}
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-neutral-200 bg-white py-20 px-6 text-center">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-neutral-100">
+            <Store className="h-6 w-6 text-neutral-500" />
+          </div>
+          <p className="mt-4 text-[15px] font-semibold text-neutral-900">
+            {store ? t('catalog.unsupported_title') : t('catalog.no_store_title')}
+          </p>
+          <p className="mt-1 max-w-md text-[13px] text-neutral-400 leading-relaxed">
+            {store ? t('catalog.unsupported_desc') : t('catalog.no_store_desc')}
+          </p>
+          {!store && (
+            <Link href="/settings?tab=integrations"
+              className="mt-5 inline-flex items-center gap-1.5 h-9 px-4 rounded-xl bg-neutral-900 text-white text-[13px] font-medium hover:bg-neutral-800">
+              {t('catalog.connect_store')}
+            </Link>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  const vatHint = store.prices_include_vat === true ? t('catalog.cost_hint_vat')
+    : store.prices_include_vat === false ? t('catalog.cost_hint_no_vat') : t('catalog.cost_hint_unknown')
 
   return (
     <div className="space-y-5">
+      {header}
 
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-[22px] font-semibold text-neutral-900 tracking-tight">{t('products.title')}</h1>
-          <p className="text-[13px] text-neutral-400 mt-0.5">
-            {total > 0 ? `${total} ${t('common.products_in_catalog')}` : t('common.manage_optimize')}
+      {store.connection_status === 'revoked' && (
+        <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl text-[12px] leading-relaxed bg-amber-50 border border-amber-100 text-amber-800">
+          <AlertCircle className="h-4 w-4 shrink-0 mt-px" />
+          <span className="flex-1">{t('catalog.revoked')}</span>
+          <Link href="/settings?tab=integrations" className="font-medium underline underline-offset-2">{t('edinio.reconnect')}</Link>
+        </div>
+      )}
+
+      {notice && (
+        <div className={`flex items-start gap-2 px-3 py-2.5 rounded-xl text-[12px] leading-relaxed ${notice.ok ? 'bg-neutral-900 text-white' : 'bg-amber-50 border border-amber-100 text-amber-800'}`}>
+          <AlertCircle className="h-4 w-4 shrink-0 mt-px" />
+          <span className="flex-1">{notice.text}</span>
+          <button onClick={() => setNotice(null)} className="opacity-50 hover:opacity-100"><X className="h-3.5 w-3.5" /></button>
+        </div>
+      )}
+
+      {offers.length === 0 ? (
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-neutral-200 bg-white py-20 text-center">
+          {firstSyncRunning ? <Loader2 className="h-6 w-6 animate-spin text-neutral-400" /> : <Package className="h-6 w-6 text-neutral-400" />}
+          <p className="mt-4 text-[15px] font-semibold text-neutral-900">
+            {firstSyncRunning ? t('catalog.first_sync_title') : t('catalog.empty_title')}
+          </p>
+          <p className="mt-1 max-w-md text-[13px] text-neutral-400">
+            {firstSyncRunning ? t('catalog.first_sync_desc') : t('catalog.empty_desc')}
           </p>
         </div>
-        <button
-          onClick={async () => {
-            setSyncing(true)
-            try { await fetch('/api/stores/current/sync', { method: 'POST' }) } catch { }
-            await fetchProducts()
-            setSyncing(false)
-          }}
-          disabled={syncing}
-          className="flex items-center gap-1.5 h-9 px-3.5 rounded-xl border border-neutral-200 bg-white text-[12px] font-medium text-neutral-600 hover:border-neutral-300 hover:text-neutral-900 transition-all disabled:opacity-50">
-          <RefreshCw className={`h-3.5 w-3.5 ${syncing ? 'animate-spin' : ''}`} />
-          <span className="hidden sm:inline">{t('products.sync')}</span>
-        </button>
-      </div>
-
-      {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {[
-          { label: t('dashboard.total_products'),  value: total,            filter: 'all',         accent: '' },
-          { label: t('products.filter_unoptimized'),   value: stats.draft,     filter: 'draft',     accent: '' },
-          { label: t('products.filter_optimized'),     value: stats.optimized, filter: 'optimized', accent: 'text-emerald-600' },
-          { label: t('products.filter_published'),      value: stats.published,   filter: 'published',   accent: '' },
-        ].map(s => {
-          const active = filters.status === s.filter
-          return (
-            <button key={s.filter} onClick={() => { setFilters(f => ({ ...f, status: s.filter as any })); setPage(1) }}
-              className={`text-left p-4 rounded-xl border transition-all ${active ? 'border-neutral-900 bg-neutral-900' : 'border-neutral-200 bg-white hover:border-neutral-300'}`}>
-              <p className={`text-[22px] font-bold tabular-nums ${active ? 'text-white' : (s.accent || 'text-neutral-900')}`}>
-                {loading ? '—' : s.value}
-              </p>
-              <p className={`text-[11px] mt-0.5 ${active ? 'text-neutral-400' : 'text-neutral-400'}`}>{s.label}</p>
-            </button>
-          )
-        })}
-      </div>
-
-      {/* Main card */}
-      <div className="bg-white border border-neutral-200 rounded-xl overflow-hidden">
-
-        {/* Toolbar */}
-        <div className="flex flex-col gap-2 p-3 border-b border-neutral-100">
-          {/* Row 1: search */}
-          <div className="relative w-full">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-neutral-300 pointer-events-none" />
-            <input value={search} onChange={e => setSearch(e.target.value)} placeholder={t('products.search_placeholder')}
-              className="w-full h-9 pl-9 pr-8 rounded-xl bg-neutral-50 border border-neutral-100 text-[13px] text-neutral-700 placeholder:text-neutral-300 focus:outline-none focus:border-neutral-300 focus:bg-white transition-all" />
-            {search && (
-              <button onClick={() => setSearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-300 hover:text-neutral-500">
-                <X className="h-3.5 w-3.5" />
-              </button>
-            )}
+      ) : (
+        <>
+          {/* Cifrele de sus sunt și filtre */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {([
+              { key: 'all', value: counts.all, label: t('catalog.stat_all'), accent: '' },
+              { key: 'out', value: counts.out, label: t('catalog.stat_out'), accent: counts.out ? 'text-amber-600' : '' },
+              { key: 'no_cost', value: counts.no_cost, label: t('catalog.stat_no_cost'), accent: counts.no_cost ? 'text-amber-600' : '' },
+              { key: 'google_issue', value: counts.google_issue, label: t('catalog.stat_google_issue'), accent: counts.google_issue ? 'text-red-600' : '' },
+            ] as { key: Quick; value: number; label: string; accent: string }[]).map(s => {
+              const active = quick === s.key
+              return (
+                <button key={s.key} onClick={() => setQuick(active && s.key !== 'all' ? 'all' : s.key)}
+                  className={`text-left p-4 rounded-xl border transition-all ${active ? 'border-neutral-900 bg-neutral-900' : 'border-neutral-200 bg-white hover:border-neutral-300'}`}>
+                  <p className={`text-[22px] font-bold tabular-nums ${active ? 'text-white' : (s.accent || 'text-neutral-900')}`}>{fmtInt.format(s.value)}</p>
+                  <p className="text-[11px] mt-0.5 text-neutral-400">{s.label}</p>
+                </button>
+              )
+            })}
           </div>
 
-          {/* Row 2: filters + view toggle */}
-          <div className="flex items-center gap-2">
-            <Dropdown label={t("products.sort_label")} options={SORT_OPTS} value={filters.sort}
-              onChange={v => setFilters(f => ({ ...f, sort: v as SortOption }))} />
-
-            {categories.length > 0 && (
-              <Dropdown label={t("common.category")}
-                options={[{ value: 'all', label: t('common.all_categories') }, ...categories.map(c => ({ value: c, label: c }))]}
-                value={filters.category} onChange={v => { setFilters(f => ({ ...f, category: v })); setPage(1) }} />
-            )}
-
-            {hasActiveFilters && (
-              <button onClick={clearFilters}
-                className="flex items-center gap-1 h-9 px-2.5 rounded-xl text-[12px] text-neutral-400 hover:text-red-500 hover:bg-red-50 transition-all">
-                <X className="h-3.5 w-3.5" />
-              </button>
-            )}
-
-            <div className="flex items-center border border-neutral-200 rounded-xl overflow-hidden bg-neutral-50 p-0.5 ml-auto">
-              {(['grid', 'list'] as const).map(v => (
-                <button key={v} onClick={() => setView(v)}
-                  className={`h-7 w-7 flex items-center justify-center rounded-lg transition-all ${view === v ? 'bg-white shadow-sm text-neutral-900' : 'text-neutral-400 hover:text-neutral-600'}`}>
-                  {v === 'grid' ? <LayoutGrid className="h-3.5 w-3.5" /> : <List className="h-3.5 w-3.5" />}
-                </button>
-              ))}
+          {counts.no_cost > 0 && (
+            <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl text-[12px] leading-relaxed bg-neutral-50 border border-neutral-100 text-neutral-600">
+              <Info className="h-4 w-4 shrink-0 mt-px text-neutral-400" />
+              <span>{t('catalog.cost_explainer')} {vatHint}</span>
             </div>
-          </div>
-        </div>
-
-        {/* Status filter tabs */}
-        <div className="flex items-center gap-1 px-3 py-2 border-b border-neutral-50 overflow-x-auto">
-          {STATUS_FILTERS.map(f => (
-            <button key={f.value}
-              onClick={() => { setFilters(prev => ({ ...prev, status: f.value as any })); setPage(1) }}
-              className={`shrink-0 h-7 px-3 rounded-lg text-[12px] font-medium transition-all
-                ${filters.status === f.value ? 'bg-neutral-900 text-white' : 'text-neutral-500 hover:bg-neutral-100 hover:text-neutral-700'}`}>
-              {t(f.label)}
-            </button>
-          ))}
-        </div>
-
-        {/* Bulk bar */}
-        <AnimatePresence>
-          {selected.size > 0 && (
-            <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
-              className="border-b border-neutral-100 bg-neutral-50 px-4 py-2.5 flex items-center gap-3 overflow-hidden">
-              <span className="text-[12px] font-medium text-neutral-700">{selected.size} {t('products.selected_count')}</span>
-              <div className="h-3 w-px bg-neutral-200" />
-              <button onClick={toggleSelectAll} className="text-[12px] text-neutral-500 hover:text-neutral-900 transition-colors">
-                {selected.size === products.length ? t('common.deselect_all_label') : t('common.select_all_label')}
-              </button>
-              <div className="ml-auto flex items-center gap-2">
-                <button className="flex items-center gap-1.5 h-7 px-3 rounded-lg border border-neutral-200 bg-white text-[12px] font-medium text-neutral-600 hover:border-neutral-300 transition-all">
-                  <ImageIcon className="h-3 w-3" />
-                  {t('products.generate_images_btn')}
-                </button>
-                <button onClick={() => setSelected(new Set())}
-                  className="h-7 w-7 flex items-center justify-center rounded-lg text-neutral-300 hover:text-neutral-600 hover:bg-neutral-100 transition-all">
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            </motion.div>
           )}
-        </AnimatePresence>
 
-        {/* Content */}
-        {loading ? (
-          view === 'grid' ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6 gap-3 p-4">
-              {Array.from({ length: 12 }).map((_, i) => (
-                <div key={i} className="space-y-2">
-                  <Skeleton className="aspect-square" />
-                  <Skeleton className="h-3 w-3/4" />
-                  <Skeleton className="h-3 w-1/2" />
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="divide-y divide-neutral-50">
-              {Array.from({ length: 8 }).map((_, i) => (
-                <div key={i} className="flex items-center gap-3 px-4 py-3">
-                  <Skeleton className="h-5 w-5 rounded-md" />
-                  <Skeleton className="h-10 w-10 rounded-lg shrink-0" />
-                  <Skeleton className="h-4 flex-1" />
-                  <Skeleton className="h-4 w-20 hidden sm:block" />
-                </div>
-              ))}
-            </div>
-          )
-        ) : products.length === 0 ? (
-          <EmptyState hasSearch={!!(debouncedSearch || filters.status !== 'all')} onClear={clearFilters} />
-        ) : view === 'grid' ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6 gap-3 p-4">
-            {products.map(p => (
-              <GridCard key={p.id} product={p} selected={selected.has(p.id)} onSelect={toggleSelect} />
-            ))}
-          </div>
-        ) : (
-          <div>
-            <div className="hidden sm:flex items-center gap-3 px-4 py-2 bg-neutral-50 border-b border-neutral-100">
-              <button onClick={toggleSelectAll}
-                className="h-5 w-5 rounded-md border border-neutral-200 flex items-center justify-center shrink-0 hover:border-neutral-400 transition-colors">
-                {selected.size === products.length && products.length > 0 && <span className="text-neutral-900 text-[10px]">✓</span>}
-              </button>
-              <div className="w-10 shrink-0" />
-              <span className="flex-1 text-[11px] font-medium text-neutral-400 uppercase tracking-wider">{t('products.product')}</span>
-              <div className="flex items-center gap-3 shrink-0">
-                <span className="text-[11px] font-medium text-neutral-400 uppercase tracking-wider w-10 text-right">AI</span>
-                <span className="text-[11px] font-medium text-neutral-400 uppercase tracking-wider w-16 text-right">{t('products.price')}</span>
-                <span className="text-[11px] font-medium text-neutral-400 uppercase tracking-wider w-20">{t('products.status')}</span>
-              </div>
-              <div className="w-5" />
-            </div>
-            {products.map((p, i) => (
-              <ListRow key={p.id} product={p} selected={selected.has(p.id)} onSelect={toggleSelect} index={i} />
-            ))}
-          </div>
-        )}
-
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between px-4 py-3 border-t border-neutral-100">
-            <p className="text-[12px] text-neutral-400">
-              {(page - 1) * perPage + 1}–{Math.min(page * perPage, total)} {t('products.of_products')} {total} {t('products.products_label')}
-            </p>
-            <div className="flex items-center gap-1">
-              <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
-                className="h-8 w-8 flex items-center justify-center rounded-lg border border-neutral-200 text-neutral-500 hover:bg-neutral-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all">
-                <ChevronLeft className="h-3.5 w-3.5" />
-              </button>
-
-              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                let p: number
-                if (totalPages <= 5) p = i + 1
-                else if (page <= 3) p = i + 1
-                else if (page >= totalPages - 2) p = totalPages - 4 + i
-                else p = page - 2 + i
-                return (
-                  <button key={p} onClick={() => setPage(p)}
-                    className={`h-8 w-8 flex items-center justify-center rounded-lg text-[12px] font-medium transition-all
-                      ${page === p ? 'bg-neutral-900 text-white' : 'border border-neutral-200 text-neutral-500 hover:bg-neutral-50'}`}>
-                    {p}
+          <div className="bg-white border border-neutral-200 rounded-xl overflow-hidden">
+            <div className="flex flex-col gap-2 p-3 border-b border-neutral-100 sm:flex-row sm:items-center">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-neutral-300 pointer-events-none" />
+                <input value={search} onChange={e => setSearch(e.target.value)} placeholder={t('catalog.search_placeholder')}
+                  className="w-full h-9 pl-9 pr-8 rounded-xl bg-neutral-50 border border-neutral-100 text-[13px] text-neutral-700 placeholder:text-neutral-300 focus:outline-none focus:border-neutral-300 focus:bg-white transition-all" />
+                {search && (
+                  <button onClick={() => setSearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-300 hover:text-neutral-500">
+                    <X className="h-3.5 w-3.5" />
                   </button>
-                )
-              })}
-
-              <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
-                className="h-8 w-8 flex items-center justify-center rounded-lg border border-neutral-200 text-neutral-500 hover:bg-neutral-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all">
-                <ChevronRight className="h-3.5 w-3.5" />
-              </button>
+                )}
+              </div>
+              <select value={sort} onChange={e => setSort(e.target.value as Sort)} aria-label={t('catalog.sort_label')}
+                className="h-9 px-3 rounded-xl border border-neutral-200 bg-white text-[12px] font-medium text-neutral-600 focus:outline-none focus:border-neutral-400">
+                {SORTS.map(s => <option key={s} value={s}>{t(`catalog.sort_${s}`)}</option>)}
+              </select>
             </div>
+
+            {filtered.length === 0 ? (
+              <p className="py-14 text-center text-[13px] text-neutral-400">{t('catalog.no_results')}</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[920px] text-left">
+                  <thead>
+                    <tr className="border-b border-neutral-100 text-[11px] font-medium uppercase tracking-wide text-neutral-400">
+                      <th className="px-4 py-2.5">{t('catalog.col_product')}</th>
+                      <th className="px-3 py-2.5 text-right">{t('catalog.col_price')}</th>
+                      <th className="px-3 py-2.5">{t('catalog.col_stock')}</th>
+                      <th className="px-3 py-2.5">{t('catalog.col_google')}</th>
+                      <th className="px-3 py-2.5 text-right">{t('catalog.col_sales', { period: t(`catalog.period_short_${days}`) })}</th>
+                      <th className="px-3 py-2.5">{t('catalog.col_cost')}</th>
+                      <th className="px-4 py-2.5 text-right">{t('catalog.col_margin')}</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-neutral-50">
+                    {visible.map(o => {
+                      const m = marginOf(o)
+                      const onSale = o.compare_at_price !== null && o.compare_at_price > o.price
+                      return (
+                        <tr key={o.offer_id} className="align-top hover:bg-neutral-50/60">
+                          <td className="px-4 py-3">
+                            <div className="flex items-start gap-3 min-w-0">
+                              <div className="h-10 w-10 shrink-0 overflow-hidden rounded-lg border border-neutral-100 bg-neutral-50 flex items-center justify-center">
+                                {o.image_url
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  ? <img src={o.image_url} alt="" loading="lazy" className="h-full w-full object-cover" />
+                                  : <ImageIcon className="h-4 w-4 text-neutral-300" />}
+                              </div>
+                              <div className="min-w-0">
+                                <p className="text-[13px] font-medium text-neutral-900 leading-snug line-clamp-2">{o.product_name || o.title}</p>
+                                <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px] text-neutral-400">
+                                  {o.variant_title && <span className="rounded-md bg-neutral-100 px-1.5 py-0.5 text-neutral-600">{o.variant_title}</span>}
+                                  {o.sku && <span>SKU {o.sku}</span>}
+                                  {o.url && (
+                                    <a href={o.url} target="_blank" rel="noopener" className="inline-flex items-center gap-0.5 hover:text-neutral-700">
+                                      {t('catalog.view')}<ExternalLink className="h-3 w-3" />
+                                    </a>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-3 py-3 text-right whitespace-nowrap">
+                            <p className="text-[13px] font-semibold text-neutral-900 tabular-nums">{fmt.format(o.price)}</p>
+                            {onSale && <p className="text-[11px] text-neutral-400 line-through tabular-nums">{fmt.format(o.compare_at_price!)}</p>}
+                          </td>
+                          <td className="px-3 py-3 whitespace-nowrap">
+                            {!o.available ? (
+                              <span className="inline-flex text-[11px] font-medium px-1.5 py-0.5 rounded-md bg-red-50 text-red-600">{t('catalog.stock_out')}</span>
+                            ) : o.stock === null ? (
+                              <span className="text-[12px] text-neutral-500">{t('catalog.stock_untracked')}</span>
+                            ) : (
+                              <span className={`text-[12px] tabular-nums ${o.stock <= 3 ? 'text-amber-600 font-medium' : 'text-neutral-700'}`}>
+                                {t('catalog.stock_units', { count: fmtInt.format(o.stock) })}
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-3 py-3 whitespace-nowrap">
+                            {o.google_status ? (
+                              <span className={`inline-flex text-[11px] font-medium px-1.5 py-0.5 rounded-md ${GOOGLE_STYLE[o.google_status] || 'bg-neutral-100 text-neutral-500'}`}>
+                                {t(`catalog.google_${GOOGLE_STYLE[o.google_status] ? o.google_status : 'other'}`)}
+                              </span>
+                            ) : (
+                              <span className="text-[12px] text-neutral-300" title={t('catalog.google_none_hint')}>{t('catalog.google_none')}</span>
+                            )}
+                          </td>
+                          <td className="px-3 py-3 text-right whitespace-nowrap">
+                            {o.sales.units > 0 ? (
+                              <>
+                                <p className="text-[13px] font-medium text-neutral-900 tabular-nums">{t('catalog.units', { count: fmtInt.format(o.sales.units) })}</p>
+                                <p className="text-[11px] text-neutral-400 tabular-nums">{fmt.format(o.sales.revenue)}</p>
+                              </>
+                            ) : <span className="text-[12px] text-neutral-300">—</span>}
+                          </td>
+                          <td className="px-3 py-3">
+                            <CostInput offer={o} fmt={fmt} onSaved={onSaved}
+                              siblings={o.item_group_id ? Math.max(0, (siblingsByProduct.get(o.external_product_id) ?? 1) - 1) : 0} />
+                          </td>
+                          <td className="px-4 py-3 text-right whitespace-nowrap">
+                            {m ? (
+                              <>
+                                <p className={`text-[13px] font-semibold tabular-nums ${m.amount < 0 ? 'text-red-600' : m.pct < 20 ? 'text-amber-600' : 'text-emerald-600'}`}>
+                                  {Math.round(m.pct)}%
+                                </p>
+                                <p className="text-[11px] text-neutral-400 tabular-nums">{fmt.format(m.amount)}</p>
+                              </>
+                            ) : <span className="text-[12px] text-neutral-300">—</span>}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {pages > 1 && (
+              <div className="flex items-center justify-between gap-2 px-4 py-3 border-t border-neutral-100 text-[12px] text-neutral-500">
+                <span>{t('catalog.page_of', { from: fmtInt.format((current - 1) * PER_PAGE + 1), to: fmtInt.format(Math.min(current * PER_PAGE, filtered.length)), total: fmtInt.format(filtered.length) })}</span>
+                <div className="flex items-center gap-1">
+                  <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={current === 1}
+                    className="h-8 w-8 flex items-center justify-center rounded-lg border border-neutral-200 hover:bg-neutral-50 disabled:opacity-40" aria-label={t('catalog.prev')}>
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
+                  <button onClick={() => setPage(p => Math.min(pages, p + 1))} disabled={current === pages}
+                    className="h-8 w-8 flex items-center justify-center rounded-lg border border-neutral-200 hover:bg-neutral-50 disabled:opacity-40" aria-label={t('catalog.next')}>
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
-        )}
-      </div>
+        </>
+      )}
     </div>
   )
 }
