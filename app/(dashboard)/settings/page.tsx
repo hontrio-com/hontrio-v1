@@ -2,6 +2,7 @@
 
 import { useT } from '@/lib/i18n/context'
 import GoogleAdsCard from '@/components/integrations/google-ads-card'
+import { EdinioConnectCard, EdinioStoreCard, type EdinioStore } from '@/components/integrations/edinio-card'
 
 import { useState, useEffect, useRef } from 'react'
 import { useSession } from 'next-auth/react'
@@ -18,10 +19,13 @@ import {
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type StoreData = {
+type StoreData = EdinioStore & {
   id: string; store_url: string; store_name: string; platform: string
   products_count: number; last_sync_at: string | null; status: string
 }
+
+// Rezultatul conectării Edinio (redirect înapoi din /api/integrations/edinio/callback)
+const EDINIO_ERRORS = ['access_denied', 'state', 'expired', 'store_exists', 'store_read', 'save', 'rate_limited', 'not_configured']
 type UserProfile = {
   id: string; name: string | null; email: string; avatar_url: string | null
   credits: number; plan: string; role: string; business_name: string | null
@@ -172,8 +176,18 @@ export default function SettingsPage() {
 
   useEffect(() => { fetchProfile(); fetchStore(); fetchCredits() }, [])
   useEffect(() => {
-    const requested = new URLSearchParams(window.location.search).get('tab')
+    const params = new URLSearchParams(window.location.search)
+    const requested = params.get('tab')
     if (requested && TABS.some(x => x.value === requested)) setTab(requested)
+
+    const edinioError = params.get('edinio_error')
+    if (edinioError) toast('error', t(`edinio.error_${EDINIO_ERRORS.includes(edinioError) ? edinioError : 'generic'}`))
+    else if (params.get('edinio') === 'connected') toast('success', t('edinio.connected_success'))
+    if (edinioError || params.get('edinio')) {
+      params.delete('edinio'); params.delete('edinio_error')
+      const qs = params.toString()
+      window.history.replaceState(null, '', window.location.pathname + (qs ? `?${qs}` : ''))
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -542,7 +556,13 @@ export default function SettingsPage() {
       {tab === 'integrations' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
           <div className="lg:col-span-2">
-            {store ? (
+            {store?.platform === 'edinio' ? (
+              <EdinioStoreCard
+                store={store}
+                onChanged={fetchStore}
+                onDisconnected={() => { setStore(null); toast('success', t('settings.store_disconnected')) }}
+              />
+            ) : store ? (
               <Card className="p-5">
                 <div className="flex items-center gap-2 mb-4">
                   <div className="h-8 w-8 rounded-xl bg-neutral-100 flex items-center justify-center">
@@ -598,6 +618,9 @@ export default function SettingsPage() {
                 </div>
               </Card>
             ) : (
+              <div className="space-y-4">
+              {/* ── Card Edinio (prima integrare a modelului de reclame) ──── */}
+              <EdinioConnectCard />
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {/* ── Card WooCommerce ──────────────────────────────────────── */}
                 <Card className="p-5">
@@ -696,6 +719,7 @@ export default function SettingsPage() {
                     </Btn>
                   </div>
                 </Card>
+              </div>
               </div>
             )}
 

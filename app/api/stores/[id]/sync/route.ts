@@ -6,6 +6,7 @@ import { WooCommerceClient } from '@/lib/woocommerce/client'
 import { createAdapter } from '@/lib/integrations/types'
 import { decrypt } from '@/lib/security/encryption'
 import { rateLimitSync } from '@/lib/security/rate-limit'
+import { syncEdinioStore } from '@/lib/edinio/sync'
 
 import { stripHtml } from '@/lib/security/sanitize'
 
@@ -69,6 +70,18 @@ export async function POST(
 
     if (storeError || !store) {
       return NextResponse.json({ error: 'Magazin negăsit' }, { status: 404 })
+    }
+
+    // ===== EDINIO: ofertele și comenzile, în modelul comun de reclame =====
+    if (store.platform === 'edinio') {
+      const result = await syncEdinioStore(store.id, 'full')
+      if (!result.ok) {
+        const error = result.reason === 'locked' ? 'O sincronizare e deja în curs. Revino peste câteva minute.'
+          : result.reason === 'revoked' ? 'Accesul la Edinio a fost revocat. Reconectează magazinul.'
+          : 'Sincronizarea cu Edinio a eșuat. Încearcă din nou.'
+        return NextResponse.json({ error }, { status: result.reason === 'locked' ? 409 : result.reason === 'revoked' ? 401 : 502 })
+      }
+      return NextResponse.json({ synced: result.offersTotal, total: result.offersTotal, orders: result.ordersTotal })
     }
 
     // Decrypt stored API keys

@@ -7,6 +7,10 @@
     {
       "path": "/api/cron/image-cleanup",
       "schedule": "*/10 * * * *"
+    },
+    {
+      "path": "/api/cron/edinio-sync",
+      "schedule": "*/15 * * * *"
     }
   ],
   "functions": {
@@ -14,6 +18,12 @@
       "maxDuration": 300
     },
     "app/api/cron/image-bulk/route.ts": {
+      "maxDuration": 300
+    },
+    "app/api/cron/edinio-sync/route.ts": {
+      "maxDuration": 300
+    },
+    "app/api/integrations/edinio/callback/route.ts": {
       "maxDuration": 300
     }
   }

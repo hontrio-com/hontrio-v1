@@ -44,6 +44,13 @@ export async function GET() {
       }
     }
 
+    // Credențialele (chiar criptate) nu au ce căuta în browser
+    if (store) {
+      delete store.api_key
+      delete store.api_secret
+      delete store.webhook_secret
+    }
+
     return NextResponse.json({ store: store || null })
   } catch (err) {
     logApiError(ROUTE, 500, 'Eroare neașteptată', { error: String(err) })
