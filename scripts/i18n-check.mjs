@@ -180,6 +180,15 @@ for (const path of files) {
         if (prefix && ![...ro.keys()].some(k => k.startsWith(prefix))) err(`nicio cheie nu începe cu „${prefix}" (${rel})`)
       }
     }
+    // Chei date mai departe ca date: storedMessage('a.b') și proprietăți ca `key: 'a.b'` / `label_key: 'a.b'`
+    const keyLiteral = (lit) => {
+      if (!lit || !(ts.isStringLiteral(lit) || ts.isNoSubstitutionTemplateLiteral(lit)) || !/^[a-z_]+\.[a-z0-9_]+$/.test(lit.text)) return
+      usedKeys.add(lit.text)
+      if (!ro.has(lit.text) && !ro.has(`${lit.text}_other`)) err(`cheie inexistentă „${lit.text}" în ${rel}:${sf.getLineAndCharacterOfPosition(lit.getStart(sf)).line + 1}`)
+    }
+    if (ts.isCallExpression(node) && calleeName(node) === 'storedMessage') keyLiteral(node.arguments[0])
+    if (ts.isPropertyAssignment(node) && /^(key|[a-z]+_key|[a-z]+Key)$/.test(node.name.getText().replace(/['"]/g, ''))) keyLiteral(node.initializer)
+
     if (!checkText) { ts.forEachChild(node, n => visit(n, ctx)); return }
 
     let next = ctx
