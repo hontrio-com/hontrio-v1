@@ -305,6 +305,8 @@ export type WooStoreInfo = {
   status: WooSystemStatus | null
   general: WooSetting[]
   tax: WooSetting[]
+  /** Câte cote de TVA are magazinul; null = n-am putut afla. */
+  taxRates?: number | null
   gla: { merchant: GlaConnection | null; ads: GlaConnection | null } | null
 }
 
@@ -312,7 +314,8 @@ export type WooStoreInfo = {
 export function storeFields(info: WooStoreInfo) {
   const setting = (list: WooSetting[], id: string) => list.find(s => s.id === id)?.value
   const country = str(String(setting(info.general, 'woocommerce_default_country') ?? '').split(':')[0])
-  const calcTaxes = setting(info.general, 'woocommerce_calc_taxes') === 'yes'
+  // Taxele „pornite" dar fără nicio cotă nu adaugă nimic la plată: e ca și cum ar fi oprite
+  const calcTaxes = setting(info.general, 'woocommerce_calc_taxes') === 'yes' && info.taxRates !== 0
   const slugs = (info.status?.active_plugins ?? []).map(p => p.plugin.split('/')[0])
   const wpLanguage = str(info.status?.environment?.language)
   return {
@@ -325,6 +328,7 @@ export function storeFields(info: WooStoreInfo) {
       wc_version: str(info.status?.environment?.version),
       wp_version: str(info.status?.environment?.wp_version),
       calc_taxes: calcTaxes,
+      tax_rates: info.taxRates ?? null,
       // Fără taxe calculate, comenzile n-au TVA: cota se presupune după țară
       prices_include_vat: calcTaxes ? setting(info.tax, 'woocommerce_prices_include_tax') === 'yes' : null,
       // Null = n-am putut citi pluginurile (cheia nu vede starea sistemului)

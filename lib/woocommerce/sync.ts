@@ -123,15 +123,16 @@ async function saveOrders(supabase: Supabase, ctx: Ctx, list: WooOrder[]): Promi
 
 async function readStoreInfo(api: WooApi): Promise<WooStoreInfo> {
   // Setările sunt obligatorii (fără ele nu știm moneda și TVA-ul); restul e bun de avut
-  const [site, status, general, tax] = await Promise.all([
+  const [site, status, general, tax, taxRates] = await Promise.all([
     api.siteInfo().catch(() => ({})),
     api.systemStatus().catch(() => null),
     api.settings('general'),
     api.settings('tax'),
+    api.taxRateCount(),
   ])
   const hasGla = !!status?.active_plugins?.some(p => p.plugin.startsWith('google-listings-and-ads/'))
   const gla = hasGla ? { merchant: await api.glaConnection('mc'), ads: await api.glaConnection('ads') } : null
-  return { site, status, general, tax, gla }
+  return { site, status, general, tax, taxRates, gla }
 }
 
 async function countRows(supabase: Supabase, table: 'commerce_offers' | 'commerce_orders', storeId: string): Promise<number> {

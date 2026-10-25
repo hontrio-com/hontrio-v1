@@ -41,7 +41,10 @@ export const NO_ORDERS: OrderTotals = { orders: 0, total: 0, items: 0, discount:
  * `assumedVatRate`: cota standard a țării, folosită când comenzile n-au TVA
  * (magazinul nu calculează taxe) dar prețurile pot să-l includă.
  */
-export function economicsOf(t: OrderTotals, pricesIncludeVat: boolean | null, assumedVatRate: number | null = null): Economics {
+export function economicsOf(t: OrderTotals, declaredIncludeVat: boolean | null, assumedVatRate: number | null = null): Economics {
+  // „Prețuri fără TVA", dar comenzile n-au niciun leu de TVA: taxa nu se aplică la plată
+  // (la WooCommerce, nicio cotă setată), deci prețul e cel final și nu știm dacă îl include
+  const pricesIncludeVat = declaredIncludeVat === false && t.orders > 0 && t.tax === 0 ? null : declaredIncludeVat
   const net = t.total - t.tax
   const known = t.items > 0 && t.total > 0
   const fromOrders = pricesIncludeVat === true && net > 0 && t.tax > 0 ? 1 + t.tax / net : null

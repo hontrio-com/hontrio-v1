@@ -100,6 +100,18 @@ export class WooApi {
     return (await this.request<WooSetting[]>(`wc/v3/settings/${group}`, { _fields: 'id,value' })).data
   }
 
+  /**
+   * Câte cote de TVA are magazinul. Cu taxele „pornite" dar fără nicio cotă,
+   * la plată nu se adaugă nimic: prețul din catalog e cel final. Null = n-am putut afla.
+   */
+  async taxRateCount(): Promise<number | null> {
+    try {
+      return (await this.request<unknown[]>('wc/v3/taxes', { per_page: 1, _fields: 'id' })).total
+    } catch {
+      return null
+    }
+  }
+
   /** Produsele publicate, în ordinea id-ului: paginile nu se amestecă dacă apar produse noi. */
   products(opts: { page: number; modifiedAfter?: string; include?: number[] }): Promise<WooPage<WooProduct>> {
     return this.page<WooProduct>('wc/v3/products', {

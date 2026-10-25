@@ -181,7 +181,7 @@
     "cost_explainer": "Add the cost price so Hontrio knows each product's margin and never spends more on ads than the sale brings in.",
     "cost_hint_vat": "Your store prices include VAT, so enter the cost with VAT included too.",
     "cost_hint_no_vat": "Your store prices exclude VAT, so enter the cost without VAT too.",
-    "cost_hint_unknown": "Enter the cost on the same basis as the selling price (with or without VAT).",
+    "cost_hint_unknown": "Your store prices are what customers pay (no VAT is added at checkout), so enter the cost including VAT, as you pay the supplier.",
     "search_placeholder": "Search by name, variant, SKU or GTIN",
     "no_results": "No product matches the filters.",
     "col_product": "Product",

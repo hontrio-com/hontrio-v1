@@ -181,7 +181,7 @@
     "cost_explainer": "Adaugă prețul de cost, ca Hontrio să știe ce marjă are fiecare produs și să nu cheltuiască pe reclame mai mult decât aduce vânzarea.",
     "cost_hint_vat": "Prețurile magazinului includ TVA, deci scrie și costul cu TVA inclus.",
     "cost_hint_no_vat": "Prețurile magazinului nu includ TVA, deci scrie și costul fără TVA.",
-    "cost_hint_unknown": "Scrie costul pe aceeași bază ca prețul de vânzare (cu sau fără TVA).",
+    "cost_hint_unknown": "Prețurile magazinului sunt cele plătite de client (la plată nu se adaugă TVA), deci scrie costul cu TVA inclus, cât plătești furnizorului.",
     "search_placeholder": "Caută după nume, variantă, SKU sau GTIN",
     "no_results": "Niciun produs nu se potrivește filtrelor.",
     "col_product": "Produs",
