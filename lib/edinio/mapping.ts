@@ -20,8 +20,8 @@ export type OfferRow = {
 /**
  * Ofertele unui produs. Produsul stins sau fără ofertă (prețul din catalog nu e
  * cel plătit) nu dă niciun rând: la sincronizare, ofertele lui vechi se șterg.
- * ⚠ `cost_price` lipsește dinadins: îl scrie omul în Hontrio, iar upsert-ul
- * actualizează doar coloanele trimise, deci nu-l atinge.
+ * ⚠ `cost_price` și `ads_mode` lipsesc dinadins: le scrie omul în Hontrio, iar
+ * upsert-ul actualizează doar coloanele trimise, deci nu le atinge.
  */
 export function offerRows(ctx: Ctx, product: EdinioProduct, syncedAt: string): OfferRow[] {
   if (!product.activ) return []

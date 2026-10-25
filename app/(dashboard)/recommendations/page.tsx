@@ -14,7 +14,7 @@ type Severity = 'critical' | 'high' | 'medium' | 'low'
 type Text = { key: string; params?: Record<string, string | number>; money?: string[] }
 type RecItem = { offer_id: string; title: string; variant_title: string | null; image_url: string | null; note: Text | null }
 type Recommendation = {
-  id: string; severity: Severity; title: Text; body: Text
+  id: string; severity: Severity; title: Text; body: Text | Text[]
   impact_revenue: number | null; items: RecItem[]; total_items: number
   action: { href: string; external: boolean; label_key: string } | null
 }
@@ -51,7 +51,9 @@ function RecCard({ rec, render, fmt }: { rec: Recommendation; render: (t: Text) 
             )}
           </div>
           <p className="mt-2 text-[15px] font-semibold text-neutral-900 leading-snug">{render(rec.title)}</p>
-          <p className="mt-1 text-[13px] text-neutral-500 leading-relaxed">{render(rec.body)}</p>
+          <p className="mt-1 text-[13px] text-neutral-500 leading-relaxed">
+            {(Array.isArray(rec.body) ? rec.body : [rec.body]).map(render).join(' ')}
+          </p>
         </div>
         {rec.action && (
           rec.action.external ? (

@@ -1,3 +1,6 @@
+import { breakEvenRoas, economicsOf, marginOf, round1, THIN_MARGIN, type OrderTotals } from '@/lib/ads/economics'
+import type { Offer, Sales } from '@/lib/commerce/ads-data'
+
 // =============================================
 // Recomandările — reguli peste datele magazinului (oferte, vânzări, setări)
 // Funcție pură: primește tot ce-i trebuie, nu atinge baza, deci se poate
@@ -22,28 +25,13 @@ export type Recommendation = {
   id: string
   severity: Severity
   title: Text
-  body: Text
+  /** Una sau mai multe propoziții, afișate una după alta. */
+  body: Text | Text[]
   /** Venitul din ultimele 90 de zile legat de ofertele afectate (cât e în joc). */
   impact_revenue: number | null
   items: RecItem[]
   total_items: number
   action: { href: string; external: boolean; label_key: string } | null
-}
-
-export type OfferIn = {
-  offer_id: string
-  title: string
-  product_name: string | null
-  variant_title: string | null
-  image_url: string | null
-  price: number
-  cost_price: number | null
-  available: boolean
-  stock: number | null
-  gtin: string | null
-  mpn: string | null
-  brand: string | null
-  google_status: string | null
 }
 
 export type EngineInput = {
@@ -54,63 +42,38 @@ export type EngineInput = {
     conversion_id: string | null
   }
   google: { connected: boolean; account_selected: boolean }
-  offers: OfferIn[]
+  offers: Offer[]
   /** Vânzările de pe site pe ofertă, în ultimele 90 de zile. */
-  sales90: Map<string, { units: number; revenue: number }>
-  /** Venitul și TVA-ul comenzilor de pe site din ultimele 90 de zile. */
-  totals90: { revenue: number; tax: number }
+  sales90: Sales
+  /** Comenzile de pe site din ultimele 90 de zile. */
+  orders90: OrderTotals
   edinioBase: string
 }
 
 const MAX_ITEMS = 8
 /** Stoc pentru mai puțin de atâtea zile, la ritmul de vânzare din ultimele 90. */
 const COVER_DAYS = 14
-const THIN_MARGIN = 0.2
 const SEVERITY_ORDER: Record<Severity, number> = { critical: 0, high: 1, medium: 2, low: 3 }
 /** Pașii de pregătire: fără ei nu rulează nimic, deci stau primii în treapta lor. */
 const SETUP = new Set(['store_revoked', 'google_not_connected', 'ads_account_missing', 'merchant_missing', 'conversion_missing'])
 
-function item(o: OfferIn, note: Text | null): RecItem {
+function item(o: Offer, note: Text | null): RecItem {
   return { offer_id: o.offer_id, title: o.product_name || o.title, variant_title: o.variant_title, image_url: o.image_url, note }
-}
-
-function round1(n: number): number {
-  return Math.round(n * 10) / 10
-}
-
-/**
- * Factorul de TVA pentru pragul de profit.
- *
- * Google Ads raportează valoarea comenzii CU TVA, dar comerciantului îi rămâne
- * marja FĂRĂ TVA. Deci, cu prețuri care includ TVA, reclama trebuie să aducă de
- * (1 + cota) ori mai mult decât arată marja brută ca să-și acopere costul. Cota
- * se deduce din comenzile magazinului (TVA / venit fără TVA), nu se presupune.
- */
-export function vatFactor(input: EngineInput): number {
-  if (input.store.prices_include_vat !== true) return 1
-  const net = input.totals90.revenue - input.totals90.tax
-  if (net <= 0 || input.totals90.tax <= 0) return 1
-  return 1 + input.totals90.tax / net
-}
-
-/** ROAS-ul de la care reclama unui produs își acoperă costul produsului. */
-export function breakEvenRoas(price: number, cost: number, factor: number): number | null {
-  if (!(price > 0) || cost >= price) return null
-  return (factor * price) / (price - cost)
 }
 
 export function buildRecommendations(input: EngineInput): Recommendation[] {
   const recs: Recommendation[] = []
   const { offers, sales90 } = input
-  const sold = (o: OfferIn) => sales90.get(o.offer_id) ?? { units: 0, revenue: 0 }
-  const byRevenue = (a: OfferIn, b: OfferIn) => sold(b).revenue - sold(a).revenue
-  const revenueOf = (list: OfferIn[]) => list.reduce((s, o) => s + sold(o).revenue, 0)
-  const totalRevenue = input.totals90.revenue
-  const factor = vatFactor(input)
+  const sold = (o: Offer) => sales90.get(o.offer_id) ?? { units: 0, revenue: 0 }
+  const byRevenue = (a: Offer, b: Offer) => sold(b).revenue - sold(a).revenue
+  const revenueOf = (list: Offer[]) => list.reduce((s, o) => s + sold(o).revenue, 0)
+  const itemsRevenue = input.orders90.items
+  const econ = economicsOf(input.orders90, input.store.prices_include_vat)
   const edinio = (path: string) => ({ href: `${input.edinioBase}${path}`, external: true })
   // Pagina Merchant din Edinio se deschide pe „De reparat", cu motivul fiecărei respingeri,
   // și acolo se repară datele produsului
   const merchantPage = { ...edinio('/dashboard/features/google-merchant'), label_key: 'recs.action_open_edinio' }
+  const planPage = { href: '/campaigns', external: false, label_key: 'recs.action_view_plan' }
 
   // ── Ce blochează campaniile ──────────────────────────────────────────────
   if (input.store.connection_status === 'revoked') {
@@ -199,7 +162,7 @@ export function buildRecommendations(input: EngineInput): Recommendation[] {
   if (soldOut.length) {
     const impact = revenueOf(soldOut)
     recs.push({
-      id: 'out_of_stock_sellers', severity: totalRevenue > 0 && impact / totalRevenue >= 0.05 ? 'high' : 'medium',
+      id: 'out_of_stock_sellers', severity: itemsRevenue > 0 && impact / itemsRevenue >= 0.05 ? 'high' : 'medium',
       title: { key: 'recs.out_of_stock_title', params: { count: soldOut.length } },
       body: { key: 'recs.out_of_stock_body' },
       impact_revenue: impact,
@@ -236,7 +199,7 @@ export function buildRecommendations(input: EngineInput): Recommendation[] {
   if (sellersNoCost.length) {
     const impact = revenueOf(sellersNoCost)
     recs.push({
-      id: 'missing_costs', severity: totalRevenue > 0 && impact / totalRevenue >= 0.5 ? 'high' : 'medium',
+      id: 'missing_costs', severity: itemsRevenue > 0 && impact / itemsRevenue >= 0.5 ? 'high' : 'medium',
       title: { key: 'recs.missing_costs_title', params: { count: sellersNoCost.length } },
       body: { key: 'recs.missing_costs_body' },
       impact_revenue: impact,
@@ -275,7 +238,7 @@ export function buildRecommendations(input: EngineInput): Recommendation[] {
   }
 
   const thin = offers
-    .filter(o => o.cost_price !== null && o.cost_price < o.price && (o.price - o.cost_price) / o.price < THIN_MARGIN && sold(o).revenue > 0)
+    .filter(o => o.cost_price !== null && o.cost_price < o.price && (marginOf(o.price, o.cost_price) ?? 0) < THIN_MARGIN && sold(o).revenue > 0)
     .sort(byRevenue)
   if (thin.length) {
     recs.push({
@@ -283,30 +246,45 @@ export function buildRecommendations(input: EngineInput): Recommendation[] {
       title: { key: 'recs.thin_margin_title', params: { count: thin.length } },
       body: { key: 'recs.thin_margin_body', params: { pct: Math.round(THIN_MARGIN * 100) } },
       impact_revenue: revenueOf(thin),
-      items: thin.slice(0, MAX_ITEMS).map(o => item(o, {
-        key: 'recs.note_margin_roas',
-        params: { pct: Math.round(((o.price - o.cost_price!) / o.price) * 100), roas: round1(breakEvenRoas(o.price, o.cost_price!, factor) ?? 0) },
-      })),
+      items: thin.slice(0, MAX_ITEMS).map(o => {
+        const margin = marginOf(o.price, o.cost_price!)!
+        const roas = breakEvenRoas(margin, econ)
+        const pct = Math.round(margin * 100)
+        return item(o, roas === null
+          ? { key: 'recs.note_margin_no_roas', params: { pct } }
+          : { key: 'recs.note_margin_roas', params: { pct, roas: round1(roas) } })
+      }),
       total_items: thin.length,
-      action: { href: '/products', external: false, label_key: 'recs.action_view_products' },
+      action: planPage,
     })
   }
 
   // Pragul de profit pentru tot magazinul, din produsele vândute care au cost
   const withCost = offers.filter(o => o.cost_price !== null && sold(o).revenue > 0)
   const costRevenue = revenueOf(withCost)
-  if (withCost.length && totalRevenue > 0 && costRevenue / revenueOf(offers) >= 0.5) {
+  if (withCost.length && itemsRevenue > 0 && costRevenue / revenueOf(offers) >= 0.5) {
     const profit = withCost.reduce((s, o) => s + sold(o).revenue - sold(o).units * o.cost_price!, 0)
     const margin = profit / costRevenue
-    if (margin > 0) {
+    const roas = breakEvenRoas(margin, econ)
+    if (roas !== null) {
       recs.push({
         id: 'break_even', severity: 'low',
-        title: { key: 'recs.break_even_title', params: { roas: round1(factor / margin) } },
-        body: {
-          key: factor > 1 ? 'recs.break_even_body_vat' : 'recs.break_even_body',
-          params: { margin: Math.round(margin * 100), roas: round1(factor / margin), vat: Math.round((factor - 1) * 100) },
-        },
-        impact_revenue: null, items: [], total_items: 0, action: null,
+        title: { key: 'recs.break_even_title', params: { roas: round1(roas) } },
+        body: [
+          { key: 'recs.break_even_body', params: { margin: Math.round(margin * 100), roas: round1(roas) } },
+          ...(econ.vatFactor > 1 ? [{ key: 'recs.break_even_vat', params: { vat: Math.round((econ.vatFactor - 1) * 100) } }] : []),
+          ...(econ.discountRate >= 0.01 ? [{ key: 'recs.break_even_discount', params: { discount: Math.round(econ.discountRate * 100) } }] : []),
+        ],
+        impact_revenue: null, items: [], total_items: 0, action: planPage,
+      })
+    } else if (margin > 0) {
+      // Reducerile mănâncă toată marja: vânzările pierd bani înainte de orice reclamă
+      recs.push({
+        id: 'discounts_over_margin', severity: 'high',
+        title: { key: 'recs.discounts_over_margin_title' },
+        body: { key: 'recs.discounts_over_margin_body', params: { margin: Math.round(margin * 100), discount: Math.round(econ.discountRate * 100) } },
+        impact_revenue: costRevenue, items: [], total_items: 0,
+        action: { href: '/products', external: false, label_key: 'recs.action_check_costs' },
       })
     }
   }
