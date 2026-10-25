@@ -61,8 +61,14 @@ for (const locale of LOCALES) {
 }
 
 const [ro, en] = [dicts.ro, dicts.en]
+// Formele de plural țin de regulile fiecărei limbi: engleza n-are „few" (2–19 din română)
+const PLURAL_ONLY = { ro: [], en: ['_few', '_many', '_two', '_zero'] }
 for (const [a, b, la, lb] of [[ro, en, 'ro', 'en'], [en, ro, 'en', 'ro']]) {
-  for (const key of a.keys()) if (!b.has(key)) err(`cheia „${key}" există în ${la}, lipsește în ${lb}`)
+  for (const key of a.keys()) {
+    if (b.has(key)) continue
+    if (PLURAL_ONLY[lb].some(s => key.endsWith(s)) && b.has(key.replace(/_(few|many|two|zero)$/, '_other'))) continue
+    err(`cheia „${key}" există în ${la}, lipsește în ${lb}`)
+  }
 }
 const params = (s) => [...String(s).matchAll(/\{\{\s*(\w+)\s*\}\}/g)].map(m => m[1]).sort().join(',')
 const PLURAL_RE = /_(zero|one|two|few|many|other)$/
