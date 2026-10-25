@@ -26,14 +26,19 @@ export type LogLevel = 'ERROR' | 'WARN' | 'INFO'
 
 export function log(level: LogLevel, route: string, message: string, extra?: Record<string, unknown>) {
   try {
-    ensureLogDir()
-    rotatIfNeeded()
-
     const timestamp = new Date().toISOString()
     const extraStr = extra ? ' ' + JSON.stringify(extra) : ''
-    const line = `[${timestamp}] [${level}] ${route} — ${message}${extraStr}\n`
+    const line = `[${timestamp}] [${level}] ${route} — ${message}${extraStr}`
 
-    fs.appendFileSync(LOG_FILE, line, 'utf8')
+    // Consola ajunge în logurile platformei (Vercel); acolo fișierul nu se poate scrie
+    if (level === 'ERROR') console.error(line)
+    else if (level === 'WARN') console.warn(line)
+    else console.info(line)
+    if (process.env.VERCEL) return
+
+    ensureLogDir()
+    rotatIfNeeded()
+    fs.appendFileSync(LOG_FILE, line + '\n', 'utf8')
   } catch {
     // nu blocăm request-ul dacă logging-ul pică
   }
