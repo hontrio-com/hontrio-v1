@@ -165,7 +165,7 @@ export async function GET(request: Request) {
         await setActiveStore(supabase, userId, existingByUrl.id)
         afterConnect(existingByUrl.id, shop, accessToken)
         const destination = isOnboardingReturn
-          ? '/onboarding?step=3&shopify=connected'
+          ? '/onboarding?shopify=connected'
           : '/dashboard?shopify=connected'
         const resp = NextResponse.redirect(new URL(destination, request.url))
         resp.cookies.delete('shopify_oauth_state')
@@ -228,7 +228,7 @@ export async function GET(request: Request) {
 
     // ─── Șterge cookie-urile OAuth și redirecționează ─────────────────────────
     const destination = isOnboardingReturn
-      ? '/onboarding?step=3&shopify=connected'
+      ? '/onboarding?shopify=connected'
       : '/dashboard?shopify=connected'
 
     const response = NextResponse.redirect(new URL(destination, request.url))

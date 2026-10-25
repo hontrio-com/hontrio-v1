@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth/auth.config'
 import { rateLimit } from '@/lib/security/rate-limit'
 import { logApiError } from '@/lib/logger'
 import { getEdinioRedirectUri, isEdinioConfigured } from '@/lib/edinio/config'
+import { rememberReturn, startFailureUrl } from '@/lib/integrations/return-to'
 import {
   buildEdinioAuthorizeUrl, createPendingAuth, sealPendingAuth,
   EDINIO_OAUTH_COOKIE, EDINIO_OAUTH_MAX_AGE_SEC,
@@ -16,7 +17,7 @@ import {
 // =============================================
 
 function back(request: Request, error: string) {
-  return NextResponse.redirect(new URL(`/settings?tab=integrations&edinio_error=${error}`, request.url))
+  return NextResponse.redirect(startFailureUrl(request, { edinio_error: error }))
 }
 
 export async function GET(request: Request) {
@@ -44,7 +45,7 @@ export async function GET(request: Request) {
       // lax: întoarcerea din Edinio e o navigare de pe alt site, cookie-ul trebuie să vină cu ea
       sameSite: 'lax',
     })
-    return response
+    return rememberReturn(request, response)
   } catch (err) {
     logApiError('/api/integrations/edinio/connect', 500, 'Eroare inițiere conectare Edinio', { error: (err as Error).message })
     return back(request, 'generic')

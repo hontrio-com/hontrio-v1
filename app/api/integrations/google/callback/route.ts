@@ -10,19 +10,18 @@ import {
 } from '@/lib/google/oauth'
 import { syncGoogleAdsAccounts } from '@/lib/google/accounts'
 import { logApiError } from '@/lib/logger'
+import { forgetReturn, returnUrl } from '@/lib/integrations/return-to'
 
 // =============================================
 // GET /api/integrations/google/callback
 // Callback OAuth Google — salvează conexiunea și descoperă conturile Google Ads
 // =============================================
 
+/** Înapoi în Setări (sau în onboarding, dacă de acolo a pornit conectarea), cu rezultatul. */
 function back(request: Request, params: Record<string, string>) {
-  const url = new URL('/settings', request.url)
-  url.searchParams.set('tab', 'integrations')
-  for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v)
-  const response = NextResponse.redirect(url)
+  const response = NextResponse.redirect(returnUrl(request, params))
   response.cookies.delete(GOOGLE_OAUTH_STATE_COOKIE)
-  return response
+  return forgetReturn(response)
 }
 
 export async function GET(request: Request) {

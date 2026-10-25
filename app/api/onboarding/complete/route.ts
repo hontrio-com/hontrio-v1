@@ -5,14 +5,11 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { rateLimitExpensive } from '@/lib/security/rate-limit'
 import { sanitizeText } from '@/lib/security/validate-url'
 
-// Valid plans that can be selected during onboarding
-const VALID_PLANS = ['free', 'starter', 'professional', 'enterprise']
-const PLAN_CREDITS: Record<string, number> = {
-  free: 20,
-  starter: 200,
-  professional: 500,
-  enterprise: 2000,
-}
+// =============================================
+// POST /api/onboarding/complete — marchează onboarding-ul ca terminat.
+// Planul și creditele nu se ating aici: contul le primește la înregistrare,
+// iar planurile plătite vin doar prin Stripe.
+// =============================================
 
 export async function POST(request: Request) {
   try {
@@ -21,7 +18,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
     }
 
-    const userId = (session.user as any).id
+    const userId = session.user.id
 
     // Rate limit
     const rl = await rateLimitExpensive(userId, 'onboarding-complete')
@@ -44,7 +41,7 @@ export async function POST(request: Request) {
     }
 
     // Sanitize & validate business info
-    const updateData: Record<string, any> = {
+    const updateData: Record<string, unknown> = {
       onboarding_completed: true,
       updated_at: new Date().toISOString(),
     }
@@ -66,17 +63,6 @@ export async function POST(request: Request) {
     }
     if (body.country) {
       updateData.preferences = { country: sanitizeText(body.country, 50) }
-    }
-
-    // Validate plan server-side — ONLY free is auto-applied
-    // Paid plans require Stripe payment confirmation via webhook
-    if (body.selectedPlan && VALID_PLANS.includes(body.selectedPlan)) {
-      if (body.selectedPlan === 'free') {
-        updateData.plan = 'free'
-        updateData.credits = 20
-      }
-      // For paid plans: don't set plan here, require Stripe webhook
-      // Just store the intent for the billing page
     }
 
     // GDPR consent timestamp

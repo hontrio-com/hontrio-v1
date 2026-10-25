@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth/auth.config'
 import { buildAuthUrl, getRedirectUri, GOOGLE_OAUTH_STATE_COOKIE } from '@/lib/google/oauth'
 import { rateLimit } from '@/lib/security/rate-limit'
 import { logApiError } from '@/lib/logger'
+import { rememberReturn, startFailureUrl } from '@/lib/integrations/return-to'
 
 // =============================================
 // GET /api/integrations/google/connect
@@ -19,7 +20,7 @@ export async function GET(request: Request) {
 
   const rl = rateLimit(`google-connect:${userId}`, 10, 60 * 1000)
   if (!rl.success) {
-    return NextResponse.redirect(new URL('/settings?tab=integrations&google_error=rate_limited', request.url))
+    return NextResponse.redirect(startFailureUrl(request, { google_error: 'rate_limited' }))
   }
 
   try {
@@ -32,11 +33,11 @@ export async function GET(request: Request) {
       path: '/',
       sameSite: 'lax',
     })
-    return response
+    return rememberReturn(request, response)
   } catch (err) {
     logApiError('/api/integrations/google/connect', 500, 'Eroare inițiere OAuth Google', {
       error: (err as Error).message,
     })
-    return NextResponse.redirect(new URL('/settings?tab=integrations&google_error=not_configured', request.url))
+    return NextResponse.redirect(startFailureUrl(request, { google_error: 'not_configured' }))
   }
 }

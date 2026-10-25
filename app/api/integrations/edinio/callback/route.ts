@@ -11,6 +11,7 @@ import { EdinioClient } from '@/lib/edinio/client'
 import { storeFields } from '@/lib/edinio/mapping'
 import { syncEdinioStore } from '@/lib/edinio/sync'
 import { setActiveStore } from '@/lib/stores/active'
+import { forgetReturn, returnUrl } from '@/lib/integrations/return-to'
 import type { EdinioStore } from '@/lib/edinio/types'
 
 // =============================================
@@ -24,13 +25,11 @@ export const maxDuration = 300
 
 const ROUTE = '/api/integrations/edinio/callback'
 
+/** Înapoi în Setări (sau în onboarding, dacă de acolo a pornit conectarea), cu rezultatul. */
 function back(request: Request, params: Record<string, string>) {
-  const url = new URL('/settings', request.url)
-  url.searchParams.set('tab', 'integrations')
-  for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v)
-  const response = NextResponse.redirect(url)
+  const response = NextResponse.redirect(returnUrl(request, params))
   response.cookies.delete(EDINIO_OAUTH_COOKIE)
-  return response
+  return forgetReturn(response)
 }
 
 export async function GET(request: Request) {
