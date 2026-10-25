@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/auth.config'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { getActiveStore } from '@/lib/stores/active'
 
 export async function GET() {
   try {
@@ -49,7 +50,7 @@ export async function GET() {
       supabase.from('generated_images').select('*', { count: 'exact', head: true }).eq('user_id', userId).in('status', ['completed', 'published']),
       supabase.from('users').select('credits, plan, name, avatar_url').eq('id', userId).single(),
       supabase.from('credit_transactions').select('description, amount, created_at, reference_type, type').eq('user_id', userId).order('created_at', { ascending: false }).limit(8),
-      supabase.from('stores').select('id, store_url, sync_status, last_sync_at, products_count, platform').eq('user_id', userId).maybeSingle(),
+      getActiveStore(supabase, userId, 'id, store_url, sync_status, last_sync_at, products_count, platform'),
     ])
 
     const totalProducts = allProductStats.length

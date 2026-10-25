@@ -10,6 +10,7 @@ import { EDINIO_OAUTH_COOKIE, exchangeEdinioCode, openPendingAuth } from '@/lib/
 import { EdinioClient } from '@/lib/edinio/client'
 import { storeFields } from '@/lib/edinio/mapping'
 import { syncEdinioStore } from '@/lib/edinio/sync'
+import { setActiveStore } from '@/lib/stores/active'
 import type { EdinioStore } from '@/lib/edinio/types'
 
 // =============================================
@@ -78,17 +79,17 @@ export async function GET(request: Request) {
   }
 
   const supabase = createAdminClient()
+  // Același magazin Edinio legat din nou: îi actualizăm rândul, cu datele și costurile lui.
+  // Altfel e încă un magazin al contului, lângă celelalte
   const { data: existing } = await supabase
     .from('stores')
-    .select('id, platform, external_id')
+    .select('id')
     .eq('user_id', userId)
+    .eq('platform', 'edinio')
+    .eq('external_id', store.id)
+    .order('created_at', { ascending: true })
+    .limit(1)
     .maybeSingle()
-
-  // Între timp s-a conectat alt magazin (WooCommerce, Shopify): jetonul nu ne folosește
-  if (existing && existing.platform !== 'edinio') {
-    await client.revoke()
-    return back(request, { edinio_error: 'store_exists' })
-  }
 
   const fields = {
     ...storeFields(store),
@@ -101,19 +102,7 @@ export async function GET(request: Request) {
 
   let storeId: string
   if (existing) {
-    // Alt magazin Edinio decât cel de dinainte: datele vechi sunt ale celuilalt magazin
-    const otherStore = existing.external_id && existing.external_id !== store.id
-    if (otherStore) {
-      await supabase.from('commerce_orders').delete().eq('store_id', existing.id)
-      await supabase.from('commerce_offers').delete().eq('store_id', existing.id)
-    }
-    const { error } = await supabase.from('stores').update({
-      ...fields,
-      ...(otherStore ? {
-        products_watermark: null, orders_watermark: null, last_full_sync_at: null,
-        products_count: 0, orders_count: 0, last_sync_at: null,
-      } : {}),
-    }).eq('id', existing.id)
+    const { error } = await supabase.from('stores').update(fields).eq('id', existing.id)
     if (error) {
       logApiError(ROUTE, 500, 'Eroare salvare magazin Edinio', { userId, error: error.message })
       await client.revoke()
@@ -133,6 +122,9 @@ export async function GET(request: Request) {
     }
     storeId = data.id
   }
+
+  // Magazinul abia legat e cel pe care omul vrea să-l vadă
+  await setActiveStore(supabase, userId, storeId)
 
   // Prima sincronizare completă: după ce omul a primit deja pagina de Setări
   after(async () => {

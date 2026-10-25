@@ -94,7 +94,8 @@
     "delete_label": "Șterge",
     "of": "din",
     "switch_to_english": "Schimbă în Engleză",
-    "switch_to_romanian": "Schimbă în Română"
+    "switch_to_romanian": "Schimbă în Română",
+    "active_store": "Magazinul activ"
   },
   "google_ads": {
     "subtitle": "Conectează contul pentru a rula campanii",
@@ -306,8 +307,8 @@
     "no_recent_sales": "Nicio vânzare pe site în ultimele 90 de zile: recomandările de stoc și marjă au nevoie de vânzări.",
     "all_good_title": "Nimic de rezolvat acum",
     "all_good_desc": "Magazinul e pregătit. Revino după următoarele vânzări.",
-    "footer": "Recomandările se calculează din catalogul sincronizat, din comenzile de pe site din ultimele 90 de zile și din setările legate în Edinio și Google.",
-    "store_revoked_title": "Accesul la Edinio a fost oprit",
+    "footer": "Recomandările se calculează din catalogul sincronizat, din comenzile de pe site din ultimele 90 de zile și din setările magazinului și ale contului Google.",
+    "store_revoked_title": "Accesul la magazinul {{platform}} a fost oprit",
     "store_revoked_body": "Hontrio nu mai primește produse și comenzi noi, deci campaniile ar lucra cu date vechi. Reconectează magazinul din Setări.",
     "google_not_connected_title": "Conectează contul Google Ads",
     "google_not_connected_body": "Fără el, Hontrio nu poate crea și conduce campanii. Campaniile rulează în contul tău și le plătești direct la Google.",
@@ -350,7 +351,7 @@
     "discounts_over_margin_title": "Reducerile acoperă toată marja",
     "discounts_over_margin_body": "Marja medie a produselor vândute e {{margin}}%, iar reducerile date ajung la {{discount}}% din vânzări: înainte de orice reclamă, vânzările nu mai aduc profit. Verifică prețurile de cost și reducerile.",
     "missing_gtin_title": "Oferte fără cod GTIN sau MPN: {{count}}",
-    "missing_gtin_body": "Dacă sunt produse de la alți producători, au cod de bare (GTIN): adăugat în Edinio, Google le arată mai des. Produsele marcă proprie nu au nevoie de el.",
+    "missing_gtin_body": "Dacă sunt produse de la alți producători, au cod de bare (GTIN): adăugat în {{platform}}, Google le arată mai des. Produsele marcă proprie nu au nevoie de el.",
     "action_reconnect": "Reconectează",
     "action_connect_google": "Conectează Google Ads",
     "action_choose_account": "Alege contul",
@@ -2408,7 +2409,12 @@
     "auto_config_item_2": "Webhook secret unic per magazin",
     "auto_config_item_3": "Webhook URL setat la hontrio.com",
     "auto_config_item_4": "Culoare și poziție widget AI Agent",
-    "auto_config_item_5": "Pagină admin Hontrio în WordPress"
+    "auto_config_item_5": "Pagină admin Hontrio în WordPress",
+    "store_active": "Activ",
+    "store_use": "Folosește acest magazin",
+    "add_store_title": "Adaugă alt magazin",
+    "add_store_hint": "Poți lega mai multe magazine. Paginile lucrează pe magazinul activ; îl schimbi de aici sau din antet.",
+    "error_switch_store": "Nu am putut schimba magazinul activ."
   },
   "support": {
     "title": "Suport",

@@ -4,6 +4,7 @@ import { openai } from '@/lib/openai/client'
 import { KieClient } from '@/lib/kie/client'
 import { decrypt } from '@/lib/security/encryption'
 import { createAdapter } from '@/lib/integrations/types'
+import { getActiveStore } from '@/lib/stores/active'
 
 const STYLE_COSTS: Record<string, number> = {
   white_bg: 2, lifestyle: 3, premium_dark: 3, industrial: 3, seasonal: 4, manual: 3,
@@ -44,7 +45,7 @@ export async function GET(request: Request) {
       .select(`
         *,
         image_bulk_jobs(style, auto_publish, status, user_id),
-        products(id, original_title, optimized_title, category, original_images, original_description, optimized_short_description, external_id)
+        products(id, store_id, original_title, optimized_title, category, original_images, original_description, optimized_short_description, external_id)
       `)
       .eq('status', 'queued')
       .in('job_id', activeJobIds)
@@ -209,11 +210,11 @@ async function finalizeCompletedJobs(supabase: any) {
 
 async function autoPublishToStore(supabase: any, userId: string, product: any, imageUrl: string, imageId: string) {
   try {
-    const { data: store } = await supabase
-      .from('stores')
-      .select('store_url, api_key, api_secret, platform')
-      .eq('user_id', userId)
-      .single()
+    // Imaginea pleacă în magazinul produsului (un cont poate avea mai multe magazine)
+    const columns = 'store_url, api_key, api_secret, platform'
+    const { data: store } = product.store_id
+      ? await supabase.from('stores').select(columns).eq('id', product.store_id).eq('user_id', userId).maybeSingle()
+      : await getActiveStore(supabase, userId, columns)
 
     if (!store || !product.external_id) return
 

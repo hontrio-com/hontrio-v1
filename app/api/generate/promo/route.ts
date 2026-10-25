@@ -6,6 +6,7 @@ import { openai } from '@/lib/openai/client'
 import { KieClient } from '@/lib/kie/client'
 import { rateLimitExpensive } from '@/lib/security/rate-limit'
 import { canStartJob, markJobRunning, markJobDone } from '@/lib/security/ai-guard'
+import { getActiveStore } from '@/lib/stores/active'
 
 const PROMO_COST = 4
 
@@ -759,12 +760,10 @@ export async function POST(request: Request) {
           ? product.sale_price
           : (product.price ?? null)
 
-      // Get store currency
-      const { data: store } = await supabase
-        .from('stores')
-        .select('currency')
-        .eq('user_id', userId)
-        .maybeSingle()
+      // Moneda magazinului produsului (un cont poate avea mai multe magazine)
+      const { data: store } = product.store_id
+        ? await supabase.from('stores').select('currency').eq('id', product.store_id).eq('user_id', userId).maybeSingle()
+        : await getActiveStore<{ currency: string | null }>(supabase, userId, 'currency')
 
       const promoText = await generatePromoText({
         productTitle: product.optimized_title || product.original_title,

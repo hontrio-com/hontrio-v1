@@ -94,7 +94,8 @@
     "delete_label": "Delete",
     "of": "of",
     "switch_to_english": "Switch to English",
-    "switch_to_romanian": "Switch to Romanian"
+    "switch_to_romanian": "Switch to Romanian",
+    "active_store": "Active store"
   },
   "google_ads": {
     "subtitle": "Connect your account to run campaigns",
@@ -306,8 +307,8 @@
     "no_recent_sales": "No website sales in the last 90 days: stock and margin recommendations need sales.",
     "all_good_title": "Nothing to fix right now",
     "all_good_desc": "Your store is ready. Check back after your next sales.",
-    "footer": "Recommendations are calculated from your synced catalog, website orders from the last 90 days and the settings linked in Edinio and Google.",
-    "store_revoked_title": "Access to Edinio was stopped",
+    "footer": "Recommendations are calculated from your synced catalog, website orders from the last 90 days and the settings of your store and Google account.",
+    "store_revoked_title": "Access to the {{platform}} store was stopped",
     "store_revoked_body": "Hontrio no longer receives new products and orders, so campaigns would run on stale data. Reconnect your store in Settings.",
     "google_not_connected_title": "Connect your Google Ads account",
     "google_not_connected_body": "Without it, Hontrio cannot create and run campaigns. Campaigns run in your own account and you pay Google directly.",
@@ -350,7 +351,7 @@
     "discounts_over_margin_title": "Discounts eat the whole margin",
     "discounts_over_margin_body": "The average margin of the products you sell is {{margin}}%, while discounts reach {{discount}}% of sales: before any ad, sales no longer make a profit. Check your cost prices and discounts.",
     "missing_gtin_title": "Offers without a GTIN or MPN: {{count}}",
-    "missing_gtin_body": "If they are products from other manufacturers, they have a barcode (GTIN): once added in Edinio, Google shows them more often. Own-brand products don't need one.",
+    "missing_gtin_body": "If they are products from other manufacturers, they have a barcode (GTIN): once added in {{platform}}, Google shows them more often. Own-brand products don't need one.",
     "action_reconnect": "Reconnect",
     "action_connect_google": "Connect Google Ads",
     "action_choose_account": "Choose the account",
@@ -2408,7 +2409,12 @@
     "auto_config_item_2": "Unique webhook secret per store",
     "auto_config_item_3": "Webhook URL set to hontrio.com",
     "auto_config_item_4": "AI Agent widget color and position",
-    "auto_config_item_5": "Hontrio admin page in WordPress"
+    "auto_config_item_5": "Hontrio admin page in WordPress",
+    "store_active": "Active",
+    "store_use": "Use this store",
+    "add_store_title": "Add another store",
+    "add_store_hint": "You can link several stores. The pages work on the active store; switch it here or from the header.",
+    "error_switch_store": "We could not switch the active store."
   },
   "support": {
     "title": "Support",

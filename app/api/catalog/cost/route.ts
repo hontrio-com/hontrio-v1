@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth/auth.config'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { rateLimit } from '@/lib/security/rate-limit'
 import { logApiError } from '@/lib/logger'
+import { getActiveStore } from '@/lib/stores/active'
 
 // =============================================
 // PATCH /api/catalog/cost
@@ -40,8 +41,8 @@ export async function PATCH(request: Request) {
   }
 
   const supabase = createAdminClient()
-  // Oferta trebuie să fie din magazinul OMULUI: filtrul pe store_id e chiar paza
-  const { data: store } = await supabase.from('stores').select('id').eq('user_id', userId).maybeSingle()
+  // Oferta trebuie să fie din magazinul OMULUI (cel activ): filtrul pe store_id e chiar paza
+  const { data: store } = await getActiveStore<{ id: string }>(supabase, userId, 'id')
   if (!store) return NextResponse.json({ error: 'Nu ai un magazin conectat' }, { status: 404 })
 
   let q = supabase.from('commerce_offers').update({ cost_price: cost }).eq('store_id', store.id)

@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth/auth.config'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { logApiError } from '@/lib/logger'
 import { storeSetup } from '@/lib/commerce/setup'
+import { getActiveStore } from '@/lib/stores/active'
 
 // =============================================
 // GET /api/catalog?days=30|90|365
@@ -28,11 +29,11 @@ export async function GET(request: Request) {
   const days = PERIOADE.includes(daysParam) ? daysParam : 30
 
   const supabase = createAdminClient()
-  const { data: store, error: eStore } = await supabase
-    .from('stores')
-    .select('id, platform, store_name, store_url, currency, country, language, connection_status, sync_status, last_sync_at, last_error, platform_data')
-    .eq('user_id', userId)
-    .maybeSingle()
+  const { data: store, error: eStore } = await getActiveStore<{
+    id: string; platform: string; store_name: string | null; store_url: string; currency: string | null
+    country: string | null; language: string | null; connection_status: string | null; sync_status: string | null
+    last_sync_at: string | null; last_error: string | null; platform_data: unknown
+  }>(supabase, userId, 'id, platform, store_name, store_url, currency, country, language, connection_status, sync_status, last_sync_at, last_error, platform_data')
   if (eStore) {
     logApiError(ROUTE, 500, 'Eroare la citirea magazinului', { userId, error: eStore.message })
     return NextResponse.json({ error: 'Nu am putut citi magazinul' }, { status: 500 })

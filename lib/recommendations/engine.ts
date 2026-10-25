@@ -78,7 +78,7 @@ export function buildRecommendations(input: EngineInput): Recommendation[] {
   if (input.store.connection_status === 'revoked') {
     recs.push({
       id: 'store_revoked', severity: 'critical',
-      title: { key: 'recs.store_revoked_title' }, body: { key: 'recs.store_revoked_body' },
+      title: { key: 'recs.store_revoked_title', params: { platform: setup.platformName } }, body: { key: 'recs.store_revoked_body' },
       impact_revenue: null, items: [], total_items: 0,
       action: { href: '/settings?tab=integrations', external: false, label_key: 'recs.action_reconnect' },
     })
@@ -299,7 +299,7 @@ export function buildRecommendations(input: EngineInput): Recommendation[] {
     recs.push({
       id: 'missing_gtin', severity: 'low',
       title: { key: 'recs.missing_gtin_title', params: { count: noId.length } },
-      body: { key: 'recs.missing_gtin_body' },
+      body: { key: 'recs.missing_gtin_body', params: { platform: setup.platformName } },
       impact_revenue: null,
       items: noId.slice(0, MAX_ITEMS).map(o => item(o, null)),
       total_items: noId.length,

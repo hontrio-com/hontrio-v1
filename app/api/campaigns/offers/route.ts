@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { logApiError } from '@/lib/logger'
 import type { AdsMode } from '@/lib/commerce/ads-data'
 import { isCommercePlatform } from '@/lib/commerce/sync'
+import { getActiveStore } from '@/lib/stores/active'
 
 // =============================================
 // PATCH /api/campaigns/offers
@@ -34,7 +35,7 @@ export async function PATCH(request: Request) {
   const mode = body.mode as AdsMode
 
   const supabase = createAdminClient()
-  const { data: store, error: storeError } = await supabase.from('stores').select('id, platform').eq('user_id', userId).maybeSingle()
+  const { data: store, error: storeError } = await getActiveStore<{ id: string; platform: string }>(supabase, userId, 'id, platform')
   if (storeError) {
     logApiError(ROUTE, 500, 'Eroare la citirea magazinului', { userId, error: storeError.message })
     return NextResponse.json({ error: 'Nu am putut citi magazinul' }, { status: 500 })

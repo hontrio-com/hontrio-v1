@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { encrypt } from '@/lib/security/encryption'
 import { rateLimit } from '@/lib/security/rate-limit'
 import { logApiError } from '@/lib/logger'
+import { setActiveStore } from '@/lib/stores/active'
 import { cookies } from 'next/headers'
 import crypto from 'crypto'
 
@@ -181,19 +182,7 @@ export async function GET(request: Request) {
       )
     }
 
-    // ─── Verifică: utilizatorul nu are deja un magazin ───────────────────────
-    const { data: existingStore } = await supabase
-      .from('stores')
-      .select('id')
-      .eq('user_id', userId)
-      .single()
-
-    if (existingStore) {
-      return NextResponse.json(
-        { error: 'Ai deja un magazin conectat. Deconectează-l mai întâi din Setări.' },
-        { status: 400 }
-      )
-    }
+    // Un cont poate avea mai multe magazine: cel nou devine cel activ (mai jos)
 
     // ─── Criptează access_token (AES-256-GCM) ────────────────────────────────
     let encryptedToken: string
@@ -210,7 +199,7 @@ export async function GET(request: Request) {
     }
 
     // ─── Salvează magazinul în Supabase ──────────────────────────────────────
-    const { error: storeError } = await supabase
+    const { data: saved, error: storeError } = await supabase
       .from('stores')
       .insert({
         user_id: userId,
@@ -221,16 +210,21 @@ export async function GET(request: Request) {
         sync_status: 'active',
         webhook_secret: crypto.randomUUID(),
       })
+      .select('id')
+      .single()
 
-    if (storeError) {
+    if (storeError || !saved) {
       logApiError('/api/shopify/callback', 500, 'Eroare salvare magazin Shopify', {
-        error: storeError.message, shop,
+        error: storeError?.message, shop,
       })
       return NextResponse.json(
-        { error: 'Eroare la salvarea magazinului: ' + storeError.message },
+        { error: 'Eroare la salvarea magazinului: ' + (storeError?.message ?? 'fără rând') },
         { status: 500 }
       )
     }
+
+    // Magazinul abia legat e cel pe care omul vrea să-l vadă
+    await setActiveStore(supabase, userId, saved.id)
 
     // ─── Înregistrează webhooks (fire-and-forget) ─────────────────────────────
     void registerShopifyWebhooks(shop, accessToken)

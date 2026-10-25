@@ -6,6 +6,7 @@ import { logApiError } from '@/lib/logger'
 import { loadAdsData } from '@/lib/commerce/ads-data'
 import { storeSetup } from '@/lib/commerce/setup'
 import { isCommercePlatform } from '@/lib/commerce/sync'
+import { getActiveStore } from '@/lib/stores/active'
 import { buildPlan, GOALS, type Goal } from '@/lib/campaigns/plan'
 
 // =============================================
@@ -19,10 +20,15 @@ const MAX_DAILY_BUDGET = 1_000_000
 
 type Supabase = ReturnType<typeof createAdminClient>
 
+type StoreRow = {
+  id: string; platform: string; store_name: string | null; store_url: string; currency: string | null
+  country: string | null; language: string | null; connection_status: string | null; last_sync_at: string | null; platform_data: unknown
+}
+
+/** Planul e al magazinului activ al contului. */
 function readStore(supabase: Supabase, userId: string) {
-  return supabase.from('stores')
-    .select('id, platform, store_name, store_url, currency, country, language, connection_status, last_sync_at, platform_data')
-    .eq('user_id', userId).maybeSingle()
+  return getActiveStore<StoreRow>(supabase, userId,
+    'id, platform, store_name, store_url, currency, country, language, connection_status, last_sync_at, platform_data')
 }
 
 export async function GET() {

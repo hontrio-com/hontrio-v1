@@ -7,6 +7,7 @@ import { validateStoreUrl } from '@/lib/security/validate-url'
 import { rateLimit } from '@/lib/security/rate-limit'
 import { logApiError } from '@/lib/logger'
 import { syncCommerceStore } from '@/lib/commerce/sync'
+import { setActiveStore } from '@/lib/stores/active'
 
 // Prima sincronizare (produse și comenzi) rulează în `after`, în limita duratei rutei
 export const maxDuration = 300
@@ -116,19 +117,7 @@ export async function POST(request: Request) {
       )
     }
 
-    // Check if user already has a store
-    const { data: existingStore } = await supabase
-      .from('stores')
-      .select('id')
-      .eq('user_id', userId)
-      .single()
-
-    if (existingStore) {
-      return NextResponse.json(
-        { error: 'Ai deja un magazin conectat. Deconectează-l mai întâi.' },
-        { status: 400 }
-      )
-    }
+    // Un cont poate avea mai multe magazine: cel nou devine cel activ (mai jos)
 
     // Encrypt API keys before storing (AES-256-GCM)
     let encryptedKey: string
@@ -170,6 +159,9 @@ export async function POST(request: Request) {
         { status: 500 }
       )
     }
+
+    // Magazinul abia legat e cel pe care omul vrea să-l vadă
+    await setActiveStore(supabase, userId, store.id)
 
     // Prima sincronizare completă în modelul de reclame: după ce omul a primit răspunsul.
     // Un magazin mare continuă la rulările cronului.

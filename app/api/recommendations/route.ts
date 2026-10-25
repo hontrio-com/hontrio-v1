@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { logApiError } from '@/lib/logger'
 import { loadAdsData } from '@/lib/commerce/ads-data'
 import { storeSetup } from '@/lib/commerce/setup'
+import { getActiveStore } from '@/lib/stores/active'
 import { buildRecommendations } from '@/lib/recommendations/engine'
 
 // =============================================
@@ -22,9 +23,10 @@ export async function GET() {
 
   const supabase = createAdminClient()
   const [storeRes, googleRes, accountRes] = await Promise.all([
-    supabase.from('stores')
-      .select('id, platform, store_name, store_url, currency, country, language, connection_status, last_sync_at, platform_data')
-      .eq('user_id', userId).maybeSingle(),
+    getActiveStore<{
+      id: string; platform: string; store_name: string | null; store_url: string; currency: string | null
+      country: string | null; language: string | null; connection_status: string | null; last_sync_at: string | null; platform_data: unknown
+    }>(supabase, userId, 'id, platform, store_name, store_url, currency, country, language, connection_status, last_sync_at, platform_data'),
     supabase.from('google_connections').select('status').eq('user_id', userId).maybeSingle(),
     supabase.from('google_ads_accounts').select('customer_id').eq('user_id', userId).eq('is_selected', true).maybeSingle(),
   ])

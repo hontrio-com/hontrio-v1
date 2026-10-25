@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/auth.config'
-import { createAdminClient } from '@/lib/supabase/admin'
 import { rateLimit } from '@/lib/security/rate-limit'
 import { logApiError } from '@/lib/logger'
 import { getEdinioRedirectUri, isEdinioConfigured } from '@/lib/edinio/config'
@@ -31,11 +30,7 @@ export async function GET(request: Request) {
   if (!rl.success) return back(request, 'rate_limited')
   if (!isEdinioConfigured()) return back(request, 'not_configured')
 
-  // Un singur magazin pe cont: alt magazin (WooCommerce, Shopify) se deconectează întâi
-  const supabase = createAdminClient()
-  const { data: existing } = await supabase.from('stores').select('platform').eq('user_id', userId).maybeSingle()
-  if (existing && existing.platform !== 'edinio') return back(request, 'store_exists')
-
+  // Un cont poate avea mai multe magazine: magazinul Edinio se adaugă lângă celelalte
   try {
     const { pending, challenge } = createPendingAuth(userId)
     const response = NextResponse.redirect(
