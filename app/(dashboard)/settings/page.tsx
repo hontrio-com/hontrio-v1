@@ -1,6 +1,7 @@
 'use client'
 
 import { useT } from '@/lib/i18n/context'
+import GoogleAdsCard from '@/components/integrations/google-ads-card'
 
 import { useState, useEffect, useRef } from 'react'
 import { useSession } from 'next-auth/react'
@@ -11,7 +12,7 @@ import {
   ExternalLink, Eye, EyeOff, Save, Globe, Lock, Key,
   Mail, Camera, Unplug, Package, Sparkles, CreditCard,
   TrendingDown, TrendingUp, Zap, ArrowRight,
-  CheckCircle2, XCircle, Wifi, Download, Bot, RefreshCcw,
+  CheckCircle2, XCircle, Wifi,
   Bell, ChevronRight,
 } from 'lucide-react'
 
@@ -55,7 +56,6 @@ const getTabs = (t: (k: string, p?: Record<string, string | number>) => string) 
   { value: 'credits',      label: t('common.credits_label'),    icon: CreditCard },
   { value: 'security',     label: t('settings.security'), icon: Shield },
   { value: 'preferences',  label: t('settings.tab_preferences'), icon: SlidersHorizontal },
-  { value: 'plugin',       label: 'Plugin WP',  icon: Download },
 ]
 
 const getPwStrength = (t: (k: string, p?: Record<string, string | number>) => string) => (p: string) => {
@@ -157,7 +157,6 @@ export default function SettingsPage() {
   const [connTest, setConnTest]           = useState<{ ok: boolean; msg: string } | null>(null)
   const [buyingPack, setBuyingPack]       = useState<string | null>(null)
   const [showKeys, setShowKeys]           = useState(false)
-  const [downloadingPlugin, setDownloadingPlugin] = useState(false)
 
   const [credits, setCredits]           = useState(0)
   const [transactions, setTransactions] = useState<Transaction[]>([])
@@ -172,6 +171,11 @@ export default function SettingsPage() {
   const [prefs, setPrefs]             = useState({ emailNotifications: true, weeklyReport: true, autoOptimize: false })
 
   useEffect(() => { fetchProfile(); fetchStore(); fetchCredits() }, [])
+  useEffect(() => {
+    const requested = new URLSearchParams(window.location.search).get('tab')
+    if (requested && TABS.some(x => x.value === requested)) setTab(requested)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const toast = (type: string, text: string) => {
     setMsg({ type, text })
@@ -318,16 +322,6 @@ export default function SettingsPage() {
       if (r.ok && d.url) window.location.href = d.url
       else toast('error', d.error || t('settings.error_portal'))
     } catch { toast('error', t('settings.error_network')) }
-  }
-
-  async function handleDownloadPlugin() {
-    setDownloadingPlugin(true)
-    try {
-      const r = await fetch('/api/plugin/download', { credentials: 'include' })
-      if (!r.ok) { toast('error', t('settings.error_plugin_gen')); return }
-      const blob = await r.blob(); const url = URL.createObjectURL(blob)
-      const a = document.createElement('a'); a.href = url; a.download = 'hontrio.zip'; a.click(); URL.revokeObjectURL(url)
-    } catch { toast('error', t('settings.error_download')) } finally { setDownloadingPlugin(false) }
   }
 
   const userName   = profile?.name || session?.user?.name || t('settings.default_user')
@@ -704,6 +698,10 @@ export default function SettingsPage() {
                 </Card>
               </div>
             )}
+
+            <div className="mt-5">
+              <GoogleAdsCard />
+            </div>
           </div>
 
           <div>
@@ -808,9 +806,6 @@ export default function SettingsPage() {
               <p className="text-[11px] font-medium text-neutral-400 uppercase tracking-wide mb-3">{t('settings.ai_action_costs')}</p>
               <div className="space-y-2">
                 {[
-                  { label: t('settings.action_full_text'),    cost: '5',   icon: '📝' },
-                  { label: t('settings.action_full_seo'),     cost: '5',   icon: '🔍' },
-                  { label: t('settings.action_regen_section'), cost: '1–2', icon: '✏️' },
                   { label: t('settings.action_ai_image'),     cost: '2–4', icon: '🖼️' },
                 ].map((item, i) => (
                   <div key={i} className="flex items-center justify-between py-1.5">
@@ -984,98 +979,6 @@ export default function SettingsPage() {
         </div>
       )}
 
-      {/* ═══════ PLUGIN WP ═══════ */}
-      {tab === 'plugin' && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-          <div className="lg:col-span-2 space-y-4">
-            <Card className="p-5">
-              <div className="flex items-center gap-3 mb-5">
-                <div className="h-10 w-10 rounded-xl bg-neutral-900 flex items-center justify-center">
-                  <Download className="h-5 w-5 text-white" />
-                </div>
-                <div>
-                  <p className="text-[14px] font-semibold text-neutral-900">{t('settings.plugin_wp_title')}</p>
-                  <p className="text-[12px] text-neutral-400">{t('settings.plugin_subtitle')}</p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
-                {[
-                  { icon: Bot,        title: t('settings.plugin_ai_agent'),    desc: t('settings.plugin_ai_agent_desc') },
-                  { icon: Shield,     title: t('settings.plugin_risk_shield'), desc: t('settings.plugin_risk_shield_desc') },
-                  { icon: RefreshCcw, title: t('settings.plugin_auto_update'), desc: t('settings.plugin_auto_update_desc') },
-                  { icon: Zap,        title: t('settings.plugin_one_click'),   desc: t('settings.plugin_one_click_desc') },
-                ].map((item, i) => (
-                  <div key={i} className="flex items-start gap-3 p-3 bg-neutral-50 rounded-xl">
-                    <div className="h-8 w-8 rounded-xl bg-white border border-neutral-200 flex items-center justify-center shrink-0">
-                      <item.icon className="h-4 w-4 text-neutral-500" />
-                    </div>
-                    <div>
-                      <p className="text-[13px] font-medium text-neutral-900">{item.title}</p>
-                      <p className="text-[11px] text-neutral-400 leading-relaxed">{item.desc}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <Btn onClick={handleDownloadPlugin} disabled={downloadingPlugin || !store} className="h-10 px-6">
-                {downloadingPlugin ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-                {downloadingPlugin ? t('settings.generating_plugin') : t('settings.download_hontrio_zip')}
-              </Btn>
-              {!store && (
-                <p className="text-[12px] text-amber-600 mt-2">{t('settings.connect_store_first')}</p>
-              )}
-            </Card>
-
-            <Card className="p-5">
-              <p className="text-[13px] font-semibold text-neutral-900 mb-4">{t('settings.how_install_plugin')}</p>
-              <div className="space-y-3">
-                {[
-                  t('settings.install_step_1'),
-                  t('settings.install_step_2'),
-                  t('settings.install_step_3'),
-                  t('settings.install_step_4'),
-                  t('settings.install_step_5'),
-                ].map((step, i) => (
-                  <div key={i} className="flex items-start gap-3">
-                    <span className="h-5 w-5 rounded-full bg-neutral-900 text-white text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">{i + 1}</span>
-                    <p className="text-[13px] text-neutral-600">{step}</p>
-                  </div>
-                ))}
-              </div>
-            </Card>
-          </div>
-
-          <div className="space-y-4">
-            <Card className="p-5 bg-neutral-50">
-              <div className="flex items-center gap-2 mb-2">
-                <RefreshCcw className="h-3.5 w-3.5 text-neutral-500" />
-                <p className="text-[12px] font-semibold text-neutral-700">{t('settings.how_autoupdate_works')}</p>
-              </div>
-              <p className="text-[12px] text-neutral-500 leading-relaxed">
-                {t('settings.autoupdate_desc')}
-              </p>
-            </Card>
-
-            <Card className="p-5">
-              <p className="text-[12px] font-semibold text-neutral-700 mb-3">{t('settings.auto_configured_title')}</p>
-              <div className="space-y-2">
-                {[
-                  t('settings.auto_config_item_1'),
-                  t('settings.auto_config_item_2'),
-                  t('settings.auto_config_item_3'),
-                  t('settings.auto_config_item_4'),
-                  t('settings.auto_config_item_5'),
-                ].map((item, i) => (
-                  <div key={i} className="flex items-center gap-2 text-[12px] text-neutral-500">
-                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />{item}
-                  </div>
-                ))}
-              </div>
-            </Card>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

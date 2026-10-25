@@ -170,25 +170,4 @@ export class WooCommerceClient {
     }
     return res.json()
   }
-
-  async ensureWebhooks(baseUrl: string, secret: string) {
-    try {
-      const existing = await this.listWebhooks()
-      const existingTopics = (existing || []).map((w: any) => w.topic)
-      
-      const required = [
-        { topic: 'order.created', url: `${baseUrl}/api/risk/webhook` },
-        { topic: 'order.updated', url: `${baseUrl}/api/risk/webhook` },
-      ]
-
-      for (const { topic, url } of required) {
-        if (!existingTopics.includes(topic)) {
-          console.log(`[WooCommerce] Registering webhook: ${topic} → ${url}`)
-          await this.createWebhook(topic, url, secret)
-        }
-      }
-    } catch (err) {
-      console.error('[WooCommerce] ensureWebhooks error:', err)
-    }
-  }
 }

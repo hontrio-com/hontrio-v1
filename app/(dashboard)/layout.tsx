@@ -9,9 +9,8 @@ import { motion, AnimatePresence } from 'framer-motion'
 import NotificationBell from '@/components/notification-bell'
 import {
   LayoutDashboard, Shield, Package, ImageIcon, Search, CreditCard, Settings,
-  LogOut, Menu, X, ChevronRight, Sparkles, AlertTriangle,
-  MessageSquare, Zap, Crown, ArrowUpRight, Bot,
-  MessageCircle, TrendingUp, FileText, Tag, Clock, Loader2, BookOpen,
+  LogOut, Menu, X, Sparkles, AlertTriangle,
+  MessageSquare, Megaphone, Lightbulb, BarChart3, Zap, Crown, ArrowUpRight, FileText, Tag, Loader2, BookOpen,
 } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
@@ -22,42 +21,21 @@ import { useCredits } from '@/hooks/use-credits'
 const menuSections = [
   { label: '', items: [
     { label: 'sidebar.dashboard', href: '/dashboard', icon: LayoutDashboard },
+    { label: 'sidebar.campaigns', href: '/campaigns', icon: Megaphone },
     { label: 'sidebar.products', href: '/products', icon: Package },
-  ]},
-  { label: '', items: [
-    { label: 'sidebar.ai_agent', href: '/agent', icon: Bot },
-    { label: 'sidebar.ai_images', href: '/images', icon: ImageIcon },
-    { label: 'sidebar.seo', href: '/seo', icon: Search },
-    { label: 'sidebar.risk_shield', href: '/risk', icon: Shield },
-  ]},
-  { label: '', items: [
-    { label: 'sidebar.subscription', href: '/credits', icon: CreditCard },
+    { label: 'sidebar.ai_recommendations', href: '/recommendations', icon: Lightbulb },
+    { label: 'sidebar.reports', href: '/reports', icon: BarChart3 },
     { label: 'sidebar.settings', href: '/settings', icon: Settings },
-    { label: 'sidebar.support', href: '/support', icon: MessageSquare },
   ]},
-]
-
-const agentSubMenu = [
-  { label: 'sidebar.config', href: '/agent', icon: Settings },
-  { label: 'sidebar.triggers', href: '/agent/triggers', icon: Zap },
-  { label: 'sidebar.inbox', href: '/agent/inbox', icon: MessageCircle },
-  { label: 'sidebar.insights', href: '/agent/insights', icon: TrendingUp },
-]
-
-const seoSubMenu = [
-  { label: 'sidebar.seo_optimize', href: '/seo', icon: Search },
-  { label: 'sidebar.seo_competitors', href: '/seo/competitor', icon: TrendingUp },
 ]
 
 const PAGES = [
   { label: 'sidebar.dashboard', href: '/dashboard', icon: LayoutDashboard, keywords: ['dashboard', 'acasa', 'home'] },
+  { label: 'sidebar.campaigns', href: '/campaigns', icon: Megaphone, keywords: ['campanii', 'campaigns', 'reclame', 'ads', 'meta', 'tiktok', 'google'] },
   { label: 'sidebar.products', href: '/products', icon: Package, keywords: ['produse', 'products', 'catalog'] },
+  { label: 'sidebar.ai_recommendations', href: '/recommendations', icon: Lightbulb, keywords: ['recomandari', 'recommendations', 'AI', 'sugestii'] },
+  { label: 'sidebar.reports', href: '/reports', icon: BarChart3, keywords: ['rapoarte', 'reports', 'statistici', 'ROAS'] },
   { label: 'sidebar.ai_images', href: '/images', icon: ImageIcon, keywords: ['imagini', 'images', 'generare', 'AI', 'foto'] },
-  { label: 'sidebar.seo_optimize', href: '/seo', icon: Search, keywords: ['seo', 'optimizare', 'scor'] },
-  { label: 'sidebar.ai_agent', href: '/agent', icon: Bot, keywords: ['agent', 'chat', 'asistent', 'bot'] },
-  { label: 'sidebar.risk_shield', href: '/risk', icon: Shield, keywords: ['risk', 'retur', 'frauda', 'blacklist'] },
-  { label: 'sidebar.agent_triggers', href: '/agent/triggers', icon: Zap, keywords: ['triggeri', 'triggers', 'proactiv'] },
-  { label: 'sidebar.agent_inbox', href: '/agent/inbox', icon: MessageCircle, keywords: ['inbox', 'mesaje', 'conversatii'] },
   { label: 'sidebar.subscription', href: '/credits', icon: CreditCard, keywords: ['credite', 'abonament', 'plan', 'upgrade'] },
   { label: 'sidebar.support', href: '/support', icon: MessageSquare, keywords: ['suport', 'support', 'ajutor', 'tichet'] },
   { label: 'sidebar.settings', href: '/settings', icon: Settings, keywords: ['setari', 'settings', 'profil', 'parola'] },
@@ -78,10 +56,10 @@ function SearchDropdown({ results, loading, query, onNavigate }: { results: { pr
       {results.products.length > 0 && (<div>
         <div className="flex items-center gap-2 px-4 py-2 bg-neutral-50"><Package className="h-3.5 w-3.5 text-neutral-400" /><span className="text-[10px] font-semibold text-neutral-400 uppercase tracking-wider">{t('sidebar.products')}</span>{loading && <Loader2 className="h-3 w-3 animate-spin text-neutral-300 ml-auto" />}</div>
         {results.products.map((p: any) => (
-          <button key={p.id} onClick={() => onNavigate('/seo/' + p.id)} className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-neutral-50 transition-colors text-left group">
+          <button key={p.id} onClick={() => onNavigate('/products?search=' + encodeURIComponent(p.optimized_title || p.original_title))} className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-neutral-50 transition-colors text-left group">
             {p.thumbnail_url ? <img src={p.thumbnail_url} alt="" className="h-9 w-9 rounded-lg object-cover shrink-0 border border-neutral-100" /> : <div className="h-9 w-9 rounded-lg bg-neutral-100 flex items-center justify-center shrink-0"><Package className="h-4 w-4 text-neutral-300" /></div>}
             <div className="flex-1 min-w-0"><p className="text-sm font-medium text-neutral-800 truncate group-hover:text-neutral-900">{p.optimized_title || p.original_title}</p>
-              <div className="flex items-center gap-2 mt-0.5">{p.category && <span className="text-[10px] text-neutral-400 flex items-center gap-1"><Tag className="h-2.5 w-2.5" />{p.category}</span>}<span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-neutral-100 text-neutral-500">SEO {p.seo_score || 0}</span></div>
+              <div className="flex items-center gap-2 mt-0.5">{p.category && <span className="text-[10px] text-neutral-400 flex items-center gap-1"><Tag className="h-2.5 w-2.5" />{p.category}</span>}</div>
             </div><ArrowUpRight className="h-3.5 w-3.5 text-neutral-300 group-hover:text-neutral-500 shrink-0" />
           </button>
         ))}
@@ -134,8 +112,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const userEmail = session?.user?.email || ''
   const userInitial = userName[0]?.toUpperCase() || 'U'
   const userRole = (session?.user as any)?.role || 'user'
-  const isAgentSection = pathname.startsWith('/agent')
-  const isSeoSection = pathname.startsWith('/seo')
 
   useEffect(() => { if (!session?.user || userRole === 'admin') return; fetch('/api/user/me').then(r => r.json()).then(d => { if (d.user?.onboarding_completed === false) window.location.href = '/onboarding' }).catch(() => {}) }, [session, userRole])
 
@@ -151,30 +127,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   useEffect(() => { setSearchFocused(false); setSearchQuery(''); setSearchResults({ products: [], images: [], pages: [] }) }, [pathname])
 
   const navigateAndClose = (href: string) => { router.push(href); setSearchFocused(false); setSearchQuery(''); setSidebarOpen(false) }
-
-  // ─── Render submenu helper ──────────────────────────────────────────────
-
-  function renderSubMenu(items: typeof agentSubMenu, isSection: boolean) {
-    if (!isSection) return null
-    if (collapsed) return (
-      <div className="mt-1 space-y-0.5">
-        {items.map(sub => { const isSubActive = sub.href === '/seo/competitor' ? pathname.startsWith('/seo/competitor') : sub.href === '/seo' ? (pathname === '/seo' || (pathname.startsWith('/seo/') && !pathname.startsWith('/seo/competitor'))) : pathname === sub.href; return (
-          <Tooltip key={sub.href}><TooltipTrigger asChild><Link href={sub.href} className={`flex items-center justify-center p-2.5 rounded-xl transition-all ${isSubActive ? 'bg-neutral-100 text-neutral-900' : 'text-neutral-400 hover:text-neutral-700 hover:bg-neutral-50'}`}><sub.icon className="h-[18px] w-[18px]" /></Link></TooltipTrigger><TooltipContent side="right" sideOffset={10}>{t(sub.label)}</TooltipContent></Tooltip>
-        )})}
-      </div>
-    )
-    return (
-      <div className="mt-1 ml-3 border-l-2 border-neutral-100 pl-2 space-y-0.5 pb-1">
-        {items.map(sub => { const isSubActive = sub.href === '/seo/competitor' ? pathname.startsWith('/seo/competitor') : sub.href === '/seo' ? (pathname === '/seo' || (pathname.startsWith('/seo/') && !pathname.startsWith('/seo/competitor'))) : pathname === sub.href; return (
-          <Link key={sub.href} href={sub.href} onClick={() => setSidebarOpen(false)}
-            className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm font-medium transition-all ${isSubActive ? 'bg-neutral-100 text-neutral-900' : 'text-neutral-400 hover:text-neutral-700 hover:bg-neutral-50'}`}>
-            <sub.icon className={`h-3.5 w-3.5 shrink-0 ${isSubActive ? 'text-neutral-700' : 'text-neutral-300'}`} /><span>{t(sub.label)}</span>
-            {isSubActive && <div className="ml-auto h-1.5 w-1.5 rounded-full bg-neutral-900" />}
-          </Link>
-        )})}
-      </div>
-    )
-  }
 
   return (
     <TooltipProvider delayDuration={0}>
@@ -202,10 +154,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   {si > 0 && <div className={`border-t border-neutral-100 ${collapsed ? 'mx-1' : 'mx-2'} mb-1`} />}
                   <div className="space-y-0.5">
                     {section.items.map(item => {
-                      const isAgent = item.href === '/agent'; const isSeo = item.href === '/seo'
-                      const isActive = !isAgent && !isSeo && (pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href)))
-                      const isAgentActive = isAgent && isAgentSection; const isSeoActive = isSeo && isSeoSection
-                      const active = isActive || isAgentActive || isSeoActive
+                      const active = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href))
 
                       const link = (
                         <div key={item.href}>
@@ -213,15 +162,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                             className={`group flex items-center gap-3 rounded-xl text-[13px] font-medium transition-all duration-200 ${collapsed ? 'justify-center p-2.5' : 'px-3 py-2.5'} ${active ? 'bg-neutral-100 text-neutral-900' : 'text-neutral-500 hover:text-neutral-900 hover:bg-neutral-50'}`}>
                             <item.icon className={`h-[18px] w-[18px] shrink-0 transition-colors ${active ? 'text-neutral-900' : 'text-neutral-400 group-hover:text-neutral-600'}`} />
                             {!collapsed && <span>{t(item.label)}</span>}
-                            {!collapsed && (isAgent || isSeo) && <ChevronRight className={`ml-auto h-3.5 w-3.5 transition-transform duration-200 ${(isAgentActive || isSeoActive) ? 'rotate-90 text-neutral-400' : 'text-neutral-300'}`} />}
-                            {!collapsed && !isAgent && !isSeo && active && <div className="ml-auto h-1.5 w-1.5 rounded-full bg-neutral-900" />}
+                            {!collapsed && active && <div className="ml-auto h-1.5 w-1.5 rounded-full bg-neutral-900" />}
                           </Link>
-                          {isAgent && renderSubMenu(agentSubMenu, isAgentSection)}
-                          {isSeo && renderSubMenu(seoSubMenu, isSeoSection)}
                         </div>
                       )
 
-                      return collapsed && !isAgent && !isSeo ? (
+                      return collapsed ? (
                         <Tooltip key={item.href}><TooltipTrigger asChild><div>{link}</div></TooltipTrigger><TooltipContent side="right" sideOffset={10}>{t(item.label)}</TooltipContent></Tooltip>
                       ) : <div key={item.href}>{link}</div>
                     })}

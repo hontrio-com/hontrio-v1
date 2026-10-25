@@ -56,14 +56,6 @@ export interface StoreAdapter {
 
   // Publică descrierea scurtă (WooCommerce nativ, Shopify prin metafield)
   publishShortDescription(productId: string, shortDescription: string): Promise<boolean>
-
-  // Publică metadate SEO (titlu SEO, meta description, focus keyword)
-  publishSeoMetadata(
-    productId: string,
-    seoTitle: string,
-    metaDescription: string,
-    focusKeyword: string
-  ): Promise<boolean>
 }
 
 // =============================================

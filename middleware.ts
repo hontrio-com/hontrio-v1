@@ -77,19 +77,6 @@ export async function middleware(request: NextRequest) {
     if (
       pathname.startsWith('/api/auth') ||
       pathname.startsWith('/api/stripe/webhook') ||
-      pathname.startsWith('/api/agent/chat') ||
-      pathname.startsWith('/api/agent/public-config') ||
-      pathname.startsWith('/api/agent/config-stream') ||
-      pathname.startsWith('/api/agent/stock') ||
-      pathname.startsWith('/api/agent/order') ||
-      pathname.startsWith('/api/agent/product-webhook') ||
-      pathname.startsWith('/api/agent/product-events') ||
-      pathname.startsWith('/api/agent/plugin-update') ||
-      pathname.startsWith('/api/agent/download-plugin') ||
-      pathname.startsWith('/api/agent/triggers') ||
-      pathname.startsWith('/api/agent/memory') ||
-      pathname.startsWith('/api/risk/webhook') ||
-      pathname.startsWith('/api/plugin/') ||
       pathname.startsWith('/api/cron/') ||
       // Shopify OAuth + webhooks — publice (callback verifică sesiunea manual)
       pathname.startsWith('/api/shopify/install') ||
@@ -156,16 +143,19 @@ export const config = {
     '/',
     '/onboarding',
     '/dashboard/:path*',
+    '/campaigns/:path*',
     '/products/:path*',
+    '/recommendations/:path*',
+    '/reports/:path*',
     '/images/:path*',
     '/videos/:path*',
-    '/seo/:path*',
     '/credits/:path*',
     '/settings/:path*',
     '/support/:path*',
     '/admin/:path*',
     '/api/user/:path*',
     '/api/stores/:path*',
+    '/api/integrations/:path*',
     '/api/products/:path*',
     '/api/images/:path*',
     '/api/generate/:path*',
@@ -179,21 +169,8 @@ export const config = {
     '/api/stripe/checkout',
     '/api/stripe/portal',
     '/api/stripe/credits',
-    '/api/seo/:path*',
-    '/api/risk/:path*',
-    '/api/competitor/:path*',
     '/api/brand-kit/:path*',
     '/api/search/:path*',
-    '/api/agent/generate-intelligence',
-    '/api/agent/config/:path*',
-    '/api/agent/knowledge/:path*',
-    '/api/agent/training/:path*',
-    '/api/agent/triggers/:path*',
-    '/api/agent/inbox/:path*',
-    '/api/agent/analytics/:path*',
-    '/api/agent/conversations/:path*',
-    '/api/agent/memory/:path*',
-    '/api/agent/unanswered/:path*',
     '/api/shopify/:path*',
     '/login',
     '/register',

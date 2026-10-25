@@ -72,56 +72,6 @@ export function markJobDone(key: string): void {
   runningJobs.delete(key)
 }
 
-// Simple hash function for dedup keys
-function simpleHash(str: string): string {
-  let hash = 0
-  for (let i = 0; i < str.length; i++) {
-    const char = str.charCodeAt(i)
-    hash = ((hash << 5) - hash) + char
-    hash = hash & hash
-  }
-  return Math.abs(hash).toString(36)
-}
-
-export function dedupKey(
-  userId: string, operation: string, productId: string, inputHash: string,
-): string {
-  return `${userId}:${operation}:${productId}:${inputHash}`
-}
-
-export async function checkDedup(
-  userId: string, operation: string, productId: string, inputData: string,
-): Promise<{ cached: boolean; result?: any }> {
-  const hash = simpleHash(inputData)
-
-  if (operation === 'text_full') {
-    const supabase = createAdminClient()
-    const { data: product } = await supabase
-      .from('products')
-      .select('optimized_title, meta_description, optimized_short_description, optimized_long_description, benefits, seo_score, seo_suggestions, status')
-      .eq('id', productId)
-      .eq('user_id', userId)
-      .single()
-
-    if (product && product.status === 'optimized' && product.optimized_title) {
-      return {
-        cached: true,
-        result: {
-          optimized_title: product.optimized_title,
-          meta_description: product.meta_description,
-          optimized_short_description: product.optimized_short_description,
-          optimized_long_description: product.optimized_long_description,
-          benefits: product.benefits,
-          seo_score: product.seo_score,
-          seo_suggestions: product.seo_suggestions,
-        }
-      }
-    }
-  }
-
-  return { cached: false }
-}
-
 export function validateAiInput(input: {
   title?: string
   description?: string

@@ -8,39 +8,10 @@ import { decrypt } from '@/lib/security/encryption'
 import { rateLimitSync } from '@/lib/security/rate-limit'
 
 import { stripHtml } from '@/lib/security/sanitize'
-import { calculateInitialSeoScore } from '@/lib/seo/score'
 
 function sanitize(str: string | null | undefined, maxLength: number = 50000): string {
   if (!str) return ''
   return stripHtml(str).substring(0, maxLength)
-}
-
-// Extrage meta description din câmpul meta_data al unui produs WooCommerce
-// Suportă Yoast SEO, Rank Math, și All in One SEO
-function extractYoastMeta(metaData: any[]): { metaDescription: string | null; focusKeyword: string | null } {
-  if (!Array.isArray(metaData)) return { metaDescription: null, focusKeyword: null }
-  const find = (keys: string[]) => {
-    for (const key of keys) {
-      const entry = metaData.find((m: any) => m.key === key)
-      if (entry?.value && typeof entry.value === 'string' && entry.value.trim()) {
-        return entry.value.trim()
-      }
-    }
-    return null
-  }
-  return {
-    metaDescription: find([
-      '_yoast_wpseo_metadesc',
-      'rank_math_description',
-      '_aioseo_description',
-      '_seopress_titles_desc',
-    ]),
-    focusKeyword: find([
-      '_yoast_wpseo_focuskw',
-      'rank_math_focus_keyword',
-      '_aioseo_keywords',
-    ]),
-  }
 }
 
 // Vercel: permite până la 5 minute pentru sincronizare
@@ -256,18 +227,6 @@ export async function POST(
           ? sanitize(product.categories[0].name, 200)
           : null
 
-        // Extrage meta SEO deja existenta (Yoast / Rank Math / AIOSEO)
-        const { metaDescription: yoastMeta, focusKeyword: yoastKw } = extractYoastMeta(product.meta_data)
-
-        // Calculeaza scorul SEO initial real pe baza continutului din WooCommerce
-        const initialSeoScore = calculateInitialSeoScore({
-          original_title:             title,
-          original_description:       description,
-          original_short_description: shortDescription,
-          meta_description:           yoastMeta,
-          focus_keyword:              yoastKw,
-        })
-
         const productData = {
           store_id: store.id,
           user_id: userId,
@@ -281,10 +240,6 @@ export async function POST(
           status: 'draft' as const,
           parent_id: null,
           variant_name: null,
-          // Câmpuri SEO — incluse la insert; la update nu suprascrie optimizarile Hontrio
-          meta_description: yoastMeta,
-          focus_keyword: yoastKw,
-          seo_score: initialSeoScore,
         }
 
         const { data: existing } = await supabaseRetry(() =>
@@ -298,13 +253,6 @@ export async function POST(
 
         if (existing) {
           // La re-sync: actualizeaza campurile originale din WooCommerce
-          // dar NU suprascrie optimizarile Hontrio (titlu optimizat, meta, etc.)
-          // Recalculeaza scorul SEO numai daca produsul nu a fost inca optimizat (status=draft)
-          const { data: existingProduct } = await supabaseRetry(() =>
-            supabase.from('products').select('status, seo_score').eq('id', existing.id).single()
-          )
-          const isUnoptimized = !existingProduct || existingProduct.status === 'draft'
-
           const updatePayload: Record<string, any> = {
             original_title: productData.original_title,
             original_description: productData.original_description,
@@ -314,14 +262,6 @@ export async function POST(
             price: productData.price,
             parent_id: null,
             variant_name: null,
-          }
-
-          // Daca produsul e neoptimizat, actualizeaza si campurile SEO initiale
-          if (isUnoptimized) {
-            updatePayload.seo_score = productData.seo_score
-            // Seteaza meta si keyword din Yoast DOAR daca nu sunt deja setate manual
-            if (productData.meta_description) updatePayload.meta_description = productData.meta_description
-            if (productData.focus_keyword) updatePayload.focus_keyword = productData.focus_keyword
           }
 
           const { error: updErr } = await supabaseRetry(() =>
@@ -413,15 +353,6 @@ export async function POST(
         const varTitle = `${sanitize(parent.name, 400)} — ${variantName}`
         const varDescription = variation.description || parent.description || ''
         const varShortDesc = variation.short_description || parent.short_description || ''
-        const { metaDescription: varYoastMeta, focusKeyword: varYoastKw } = extractYoastMeta(variation.meta_data || parent.meta_data)
-
-        const varInitialSeoScore = calculateInitialSeoScore({
-          original_title:             varTitle,
-          original_description:       varDescription,
-          original_short_description: varShortDesc,
-          meta_description:           varYoastMeta,
-          focus_keyword:              varYoastKw,
-        })
 
         const varData = {
           store_id: store.id,
@@ -438,9 +369,6 @@ export async function POST(
           status: 'draft' as const,
           parent_id: parentDbId,
           variant_name: variantName,
-          meta_description: varYoastMeta,
-          focus_keyword: varYoastKw,
-          seo_score: varInitialSeoScore,
         }
 
         const { data: existing } = await supabaseRetry(() =>
@@ -453,10 +381,6 @@ export async function POST(
         )
 
         if (existing) {
-          const { data: existingVar } = await supabaseRetry(() =>
-            supabase.from('products').select('status').eq('id', existing.id).single()
-          )
-          const varIsUnoptimized = !existingVar || existingVar.status === 'draft'
           const varUpdatePayload: Record<string, any> = {
             original_title: varData.original_title,
             original_description: varData.original_description,
@@ -466,11 +390,6 @@ export async function POST(
             price: varData.price,
             parent_id: parentDbId,
             variant_name: variantName,
-          }
-          if (varIsUnoptimized) {
-            varUpdatePayload.seo_score = varData.seo_score
-            if (varData.meta_description) varUpdatePayload.meta_description = varData.meta_description
-            if (varData.focus_keyword) varUpdatePayload.focus_keyword = varData.focus_keyword
           }
           await supabaseRetry(() =>
             supabase.from('products').update(varUpdatePayload).eq('id', existing.id)
@@ -523,17 +442,6 @@ export async function POST(
         sync_total: totalToSave,
       })
       .eq('id', store.id)
-
-    // ===== PHASE 4: AUTO-REGISTER WEBHOOKS (for Risk Shield real-time updates) =====
-    try {
-      const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL || ''
-      if (appUrl && store.webhook_secret) {
-        await woo.ensureWebhooks(appUrl, store.webhook_secret)
-        console.log('[Sync] Webhooks verified/registered')
-      }
-    } catch (whErr) {
-      console.error('[Sync] Webhook registration failed (non-fatal):', whErr)
-    }
 
     console.log(`===== SYNC COMPLETE =====`)
     console.log(`Products from WooCommerce: ${uniqueProducts.length}`)
@@ -645,15 +553,6 @@ async function syncShopifyProducts({
           ? sanitize(product.categories[0].name, 200)
           : null
 
-        // Scor SEO inițial (fără Yoast — Shopify nu are)
-        const initialSeoScore = calculateInitialSeoScore({
-          original_title:             title,
-          original_description:       description,
-          original_short_description: null,
-          meta_description:           null,
-          focus_keyword:              null,
-        })
-
         const productData = {
           store_id: store.id,
           user_id: userId,
@@ -667,9 +566,6 @@ async function syncShopifyProducts({
           status: 'draft' as const,
           parent_id: null,
           variant_name: null,
-          meta_description: null,
-          focus_keyword: null,
-          seo_score: initialSeoScore,
         }
 
         const { data: existing } = await supabaseRetry(() =>
@@ -682,16 +578,12 @@ async function syncShopifyProducts({
         ) as { data: { id: string; status: string } | null; error: any }
 
         if (existing) {
-          const isUnoptimized = existing.status === 'draft'
           const updatePayload: Record<string, any> = {
             original_title: title,
             original_description: description,
             original_images: images,
             category,
             price: safePrice,
-          }
-          if (isUnoptimized) {
-            updatePayload.seo_score = initialSeoScore
           }
           await supabaseRetry(() =>
             supabase.from('products').update(updatePayload).eq('id', existing.id)

@@ -203,39 +203,6 @@ export class ShopifyAdapter implements StoreAdapter {
     }
   }
 
-  async publishSeoMetadata(
-    productId: string,
-    seoTitle: string,
-    metaDescription: string,
-    focusKeyword: string
-  ): Promise<boolean> {
-    // Shopify SEO: metafields în namespace "seo"
-    const metafields = [
-      seoTitle
-        ? { namespace: 'seo', key: 'title', value: seoTitle, type: 'single_line_text_field' }
-        : null,
-      metaDescription
-        ? { namespace: 'seo', key: 'description', value: metaDescription, type: 'single_line_text_field' }
-        : null,
-      focusKeyword
-        ? { namespace: 'seo', key: 'focus_keyword', value: focusKeyword, type: 'single_line_text_field' }
-        : null,
-    ].filter(Boolean)
-
-    let allOk = true
-    for (const mf of metafields) {
-      try {
-        await this.requestWithRetry(`products/${productId}/metafields.json`, {
-          method: 'POST',
-          body: JSON.stringify({ metafield: mf }),
-        })
-      } catch {
-        allOk = false
-      }
-    }
-    return allOk
-  }
-
   // ─── Mapare produs Shopify → StoreProduct ─────────────────────────────────
   private mapProduct(product: any): StoreProduct {
     return {

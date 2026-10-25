@@ -22,61 +22,49 @@ type Product = {
   category: string | null
   price: number | null
   status: string
-  seo_score: number
   variations_count: number
   optimized_short_description: string | null
   optimized_long_description: string | null
   meta_description: string | null
 }
 
-type SortOption = 'newest' | 'oldest' | 'seo_desc' | 'seo_asc' | 'price_desc' | 'price_asc'
+type SortOption = 'newest' | 'oldest' | 'price_desc' | 'price_asc'
 
 type FilterState = {
-  seo: 'all' | 'unoptimized' | 'partial' | 'good' | 'published'
+  status: 'all' | 'draft' | 'optimized' | 'published'
   sort: SortOption
   category: string
 }
 
-function getSeoTier(score: number, status: string): 'published' | 'good' | 'partial' | 'unoptimized' {
+function getStatusTier(status: string): 'published' | 'good' | 'unoptimized' {
   if (status === 'published') return 'published'
-  if (score >= 80) return 'good'
-  if (score > 0) return 'partial'
+  if (status === 'optimized') return 'good'
   return 'unoptimized'
 }
 
 const TIER = {
   published:   { label: 'products.published_status',    bg: 'bg-neutral-900', text: 'text-white',        dot: 'bg-white' },
   good:        { label: 'products.optimized_status',   bg: 'bg-neutral-100', text: 'text-neutral-700',  dot: 'bg-emerald-500' },
-  partial:     { label: 'products.partial_status',     bg: 'bg-neutral-100', text: 'text-amber-600',    dot: 'bg-amber-400' },
   unoptimized: { label: 'products.unoptimized_status', bg: 'bg-neutral-100', text: 'text-neutral-400',  dot: 'bg-neutral-300' },
 }
 
 const SORT_OPTS: { value: SortOption; label: string }[] = [
   { value: 'newest',     label: 'products.sort_newest' },
   { value: 'oldest',    label: 'products.sort_oldest' },
-  { value: 'seo_desc',  label: 'products.sort_seo_best' },
-  { value: 'seo_asc',   label: 'products.sort_seo_worst' },
   { value: 'price_desc', label: 'products.sort_price_high' },
   { value: 'price_asc',  label: 'products.sort_price_low' },
 ]
 
-const SEO_FILTERS = [
-  { value: 'all',         label: 'products.filter_all' },
-  { value: 'unoptimized', label: 'products.filter_unoptimized' },
-  { value: 'partial',     label: 'products.filter_partial' },
-  { value: 'good',        label: 'products.filter_optimized' },
-  { value: 'published',   label: 'products.filter_published' },
+const STATUS_FILTERS = [
+  { value: 'all',       label: 'products.filter_all' },
+  { value: 'draft',     label: 'products.filter_unoptimized' },
+  { value: 'optimized', label: 'products.filter_optimized' },
+  { value: 'published', label: 'products.filter_published' },
 ]
 
-function ScoreBadge({ score }: { score: number }) {
-  if (!score) return <span className="text-[10px] text-neutral-300 font-medium tabular-nums">—</span>
-  const color = score >= 80 ? 'text-emerald-600' : score >= 50 ? 'text-amber-500' : 'text-red-500'
-  return <span className={`text-[11px] font-semibold tabular-nums ${color}`}>{score}</span>
-}
-
-function TierBadge({ score, status }: { score: number; status: string }) {
+function TierBadge({ status }: { status: string }) {
   const { t: translate } = useT()
-  const tier = getSeoTier(score, status)
+  const tier = getStatusTier(status)
   const cfg = TIER[tier]
   return (
     <span className={`inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-md ${cfg.bg} ${cfg.text}`}>
@@ -163,31 +151,18 @@ function GridCard({ product, selected, onSelect }: {
         </button>
       </div>
 
-      <Link href={`/seo/${product.id}`}>
+      <div>
         <div className="aspect-square relative overflow-hidden bg-neutral-50">
           {img
             ? <img src={img} alt={title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
             : <NoImage size="lg" />
           }
-          <AnimatePresence>
-            {hover && product.seo_score > 0 && (
-              <motion.div initial={{}} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent flex items-end p-3">
-                <div className="flex items-center gap-1.5 w-full">
-                  <div className="h-1 flex-1 bg-white/30 rounded-full overflow-hidden">
-                    <div className="h-full bg-white rounded-full" style={{ width: `${product.seo_score}%` }} />
-                  </div>
-                  <span className="text-white text-[11px] font-semibold tabular-nums">{product.seo_score}</span>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
         </div>
 
         <div className="p-3">
           <p className="text-[13px] font-medium text-neutral-900 line-clamp-2 leading-snug mb-2">{title}</p>
           <div className="flex items-center justify-between">
-            <TierBadge score={product.seo_score} status={product.status} />
+            <TierBadge status={product.status} />
             {product.price != null && (
               <span className="text-[12px] font-semibold text-neutral-900 tabular-nums">{product.price} lei</span>
             )}
@@ -198,7 +173,7 @@ function GridCard({ product, selected, onSelect }: {
             </p>
           )}
         </div>
-      </Link>
+      </div>
     </motion.div>
   )
 }
@@ -225,7 +200,7 @@ function ListRow({ product, selected, onSelect, index }: {
         {selected && <span className="text-white text-[10px]">✓</span>}
       </button>
 
-      <Link href={`/seo/${product.id}`} className="flex items-center gap-3 flex-1 min-w-0">
+      <div className="flex items-center gap-3 flex-1 min-w-0">
         <div className="h-10 w-10 rounded-lg overflow-hidden bg-neutral-100 shrink-0">
           {img ? <img src={img} alt={title} className="h-full w-full object-cover" /> : <NoImage size="sm" />}
         </div>
@@ -247,21 +222,15 @@ function ListRow({ product, selected, onSelect, index }: {
             </div>
           </div>
 
-          <div className="w-10 text-right">
-            <ScoreBadge score={product.seo_score} />
-          </div>
-
           {product.price != null && (
             <div className="w-16 text-right">
               <span className="text-[12px] font-medium text-neutral-600 tabular-nums">{product.price} lei</span>
             </div>
           )}
 
-          <TierBadge score={product.seo_score} status={product.status} />
+          <TierBadge status={product.status} />
         </div>
-
-        <ArrowRight className="h-3.5 w-3.5 text-neutral-300 group-hover:text-neutral-500 transition-colors shrink-0 ml-1" />
-      </Link>
+      </div>
     </motion.div>
   )
 }
@@ -309,7 +278,7 @@ export default function ProductsPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [categories, setCategories] = useState<string[]>([])
   const [syncing, setSyncing] = useState(false)
-  const [filters, setFilters] = useState<FilterState>({ seo: 'all', sort: 'newest', category: 'all' })
+  const [filters, setFilters] = useState<FilterState>({ status: 'all', sort: 'newest', category: 'all' })
   const perPage = view === 'grid' ? 24 : 30
   const totalPages = Math.ceil(total / perPage)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -327,7 +296,7 @@ export default function ProductsPage() {
         per_page: String(perPage),
         parent_only: 'true',
         ...(debouncedSearch && { search: debouncedSearch }),
-        ...(filters.seo !== 'all' && { seo_filter: filters.seo }),
+        ...(filters.status !== 'all' && { status: filters.status }),
         ...(filters.category !== 'all' && { category: filters.category }),
       })
       const res = await fetch(`/api/products?${params}`)
@@ -335,8 +304,6 @@ export default function ProductsPage() {
       let prods = data.products || []
 
       if (filters.sort === 'oldest') prods = [...prods].reverse()
-      else if (filters.sort === 'seo_desc') prods = [...prods].sort((a: Product, b: Product) => b.seo_score - a.seo_score)
-      else if (filters.sort === 'seo_asc') prods = [...prods].sort((a: Product, b: Product) => a.seo_score - b.seo_score)
       else if (filters.sort === 'price_desc') prods = [...prods].sort((a: Product, b: Product) => (b.price || 0) - (a.price || 0))
       else if (filters.sort === 'price_asc') prods = [...prods].sort((a: Product, b: Product) => (a.price || 0) - (b.price || 0))
 
@@ -354,8 +321,8 @@ export default function ProductsPage() {
 
   const stats = {
     total,
-    unoptimized: products.filter(p => p.seo_score === 0 && p.status !== 'published').length,
-    good: products.filter(p => p.seo_score >= 80 && p.status !== 'published').length,
+    draft: products.filter(p => p.status === 'draft').length,
+    optimized: products.filter(p => p.status === 'optimized').length,
     published: products.filter(p => p.status === 'published').length,
   }
 
@@ -368,8 +335,8 @@ export default function ProductsPage() {
     else setSelected(new Set(products.map(p => p.id)))
   }
 
-  const clearFilters = () => { setSearch(''); setFilters({ seo: 'all', sort: 'newest', category: 'all' }); setPage(1) }
-  const hasActiveFilters = filters.seo !== 'all' || filters.sort !== 'newest' || filters.category !== 'all' || search
+  const clearFilters = () => { setSearch(''); setFilters({ status: 'all', sort: 'newest', category: 'all' }); setPage(1) }
+  const hasActiveFilters = filters.status !== 'all' || filters.sort !== 'newest' || filters.category !== 'all' || search
 
   return (
     <div className="space-y-5">
@@ -400,13 +367,13 @@ export default function ProductsPage() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
           { label: t('dashboard.total_products'),  value: total,            filter: 'all',         accent: '' },
-          { label: t('products.filter_unoptimized'),   value: stats.unoptimized, filter: 'unoptimized', accent: '' },
-          { label: t('products.filter_optimized'),     value: stats.good,        filter: 'good',        accent: 'text-emerald-600' },
+          { label: t('products.filter_unoptimized'),   value: stats.draft,     filter: 'draft',     accent: '' },
+          { label: t('products.filter_optimized'),     value: stats.optimized, filter: 'optimized', accent: 'text-emerald-600' },
           { label: t('products.filter_published'),      value: stats.published,   filter: 'published',   accent: '' },
         ].map(s => {
-          const active = filters.seo === s.filter
+          const active = filters.status === s.filter
           return (
-            <button key={s.filter} onClick={() => { setFilters(f => ({ ...f, seo: s.filter as any })); setPage(1) }}
+            <button key={s.filter} onClick={() => { setFilters(f => ({ ...f, status: s.filter as any })); setPage(1) }}
               className={`text-left p-4 rounded-xl border transition-all ${active ? 'border-neutral-900 bg-neutral-900' : 'border-neutral-200 bg-white hover:border-neutral-300'}`}>
               <p className={`text-[22px] font-bold tabular-nums ${active ? 'text-white' : (s.accent || 'text-neutral-900')}`}>
                 {loading ? '—' : s.value}
@@ -463,13 +430,13 @@ export default function ProductsPage() {
           </div>
         </div>
 
-        {/* SEO filter tabs */}
+        {/* Status filter tabs */}
         <div className="flex items-center gap-1 px-3 py-2 border-b border-neutral-50 overflow-x-auto">
-          {SEO_FILTERS.map(f => (
+          {STATUS_FILTERS.map(f => (
             <button key={f.value}
-              onClick={() => { setFilters(prev => ({ ...prev, seo: f.value as any })); setPage(1) }}
+              onClick={() => { setFilters(prev => ({ ...prev, status: f.value as any })); setPage(1) }}
               className={`shrink-0 h-7 px-3 rounded-lg text-[12px] font-medium transition-all
-                ${filters.seo === f.value ? 'bg-neutral-900 text-white' : 'text-neutral-500 hover:bg-neutral-100 hover:text-neutral-700'}`}>
+                ${filters.status === f.value ? 'bg-neutral-900 text-white' : 'text-neutral-500 hover:bg-neutral-100 hover:text-neutral-700'}`}>
               {t(f.label)}
             </button>
           ))}
@@ -486,10 +453,6 @@ export default function ProductsPage() {
                 {selected.size === products.length ? t('common.deselect_all_label') : t('common.select_all_label')}
               </button>
               <div className="ml-auto flex items-center gap-2">
-                <button className="flex items-center gap-1.5 h-7 px-3 rounded-lg bg-neutral-900 hover:bg-neutral-800 text-white text-[12px] font-medium transition-all">
-                  <Sparkles className="h-3 w-3" />
-                  {t('products.optimize_seo')} ({selected.size})
-                </button>
                 <button className="flex items-center gap-1.5 h-7 px-3 rounded-lg border border-neutral-200 bg-white text-[12px] font-medium text-neutral-600 hover:border-neutral-300 transition-all">
                   <ImageIcon className="h-3 w-3" />
                   {t('products.generate_images_btn')}
@@ -528,7 +491,7 @@ export default function ProductsPage() {
             </div>
           )
         ) : products.length === 0 ? (
-          <EmptyState hasSearch={!!(debouncedSearch || filters.seo !== 'all')} onClear={clearFilters} />
+          <EmptyState hasSearch={!!(debouncedSearch || filters.status !== 'all')} onClear={clearFilters} />
         ) : view === 'grid' ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6 gap-3 p-4">
             {products.map(p => (
@@ -546,7 +509,6 @@ export default function ProductsPage() {
               <span className="flex-1 text-[11px] font-medium text-neutral-400 uppercase tracking-wider">{t('products.product')}</span>
               <div className="flex items-center gap-3 shrink-0">
                 <span className="text-[11px] font-medium text-neutral-400 uppercase tracking-wider w-10 text-right">AI</span>
-                <span className="text-[11px] font-medium text-neutral-400 uppercase tracking-wider w-10 text-right">SEO</span>
                 <span className="text-[11px] font-medium text-neutral-400 uppercase tracking-wider w-16 text-right">{t('products.price')}</span>
                 <span className="text-[11px] font-medium text-neutral-400 uppercase tracking-wider w-20">{t('products.status')}</span>
               </div>

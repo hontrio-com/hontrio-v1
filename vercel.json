@@ -1,20 +1,8 @@
 {
   "crons": [
     {
-      "path": "/api/cron/competitor-monitor",
-      "schedule": "0 6 * * *"
-    },
-    {
       "path": "/api/cron/image-bulk",
       "schedule": "*/5 * * * *"
-    },
-    {
-      "path": "/api/cron/risk-weekly-report",
-      "schedule": "0 8 * * 1"
-    },
-    {
-      "path": "/api/cron/risk-sync-orders",
-      "schedule": "*/15 * * * *"
     },
     {
       "path": "/api/cron/image-cleanup",
@@ -26,9 +14,6 @@
       "maxDuration": 300
     },
     "app/api/cron/image-bulk/route.ts": {
-      "maxDuration": 300
-    },
-    "app/api/cron/risk-sync-orders/route.ts": {
       "maxDuration": 300
     }
   }

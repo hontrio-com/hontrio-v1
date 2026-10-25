@@ -128,16 +128,4 @@ export class WooCommerceAdapter implements StoreAdapter {
     })
     return res.ok
   }
-
-  async publishSeoMetadata(
-    _productId: string,
-    _seoTitle: string,
-    _metaDescription: string,
-    _focusKeyword: string
-  ): Promise<boolean> {
-    // WooCommerce: SEO metadata se gestionează prin plugin-urile Yoast/RankMath
-    // Publicarea se face prin plugin-ul Hontrio WordPress, nu direct via REST API
-    // Returnam true ca sa nu blocam fluxul
-    return true
-  }
 }

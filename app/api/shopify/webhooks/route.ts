@@ -76,29 +76,6 @@ export async function POST(request: Request) {
     // ─── Gestionare topics ────────────────────────────────────────────────────
 
     switch (topic) {
-      case 'orders/create':
-      case 'orders/updated': {
-        // Trimitem comanda spre Risk Shield (fire-and-forget)
-        const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL || 'https://app.hontrio.com'
-        void fetch(`${appUrl}/api/risk/webhook`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Platform': 'shopify',
-            'X-Store-Id': store.id,
-          },
-          body: JSON.stringify({
-            ...payload,
-            _store_id: store.id,
-            _platform: 'shopify',
-          }),
-          signal: AbortSignal.timeout(10000),
-        }).catch(e =>
-          console.warn('[ShopifyWebhook] Risk Shield forward eșuat (non-fatal):', e.message)
-        )
-        break
-      }
-
       case 'products/create':
       case 'products/update': {
         // Actualizăm produsul în DB dacă există și nu a fost optimizat

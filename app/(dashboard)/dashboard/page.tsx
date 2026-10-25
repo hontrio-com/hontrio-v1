@@ -4,19 +4,16 @@ import { useState, useEffect, useRef } from 'react'
 import { useT } from '@/lib/i18n/context'
 import { useSession } from 'next-auth/react'
 import { motion } from 'framer-motion'
-import { Package, ImageIcon, TrendingUp, Sparkles, ArrowRight, ArrowUpRight, Zap, CheckCircle, Clock, CreditCard, Search, Bot, Store, RefreshCw, AlertTriangle, ChevronRight, Circle, ExternalLink } from 'lucide-react'
+import { Package, ImageIcon, TrendingUp, Sparkles, ArrowRight, ArrowUpRight, Zap, CheckCircle, Clock, CreditCard, Store, RefreshCw, Circle, ExternalLink } from 'lucide-react'
 import Link from 'next/link'
 
 type DashboardData = {
   totalProducts: number; optimizedProducts: number; publishedProducts: number; draftProducts: number
-  totalImages: number; avgSeoScore: number
-  seoBreakdown: { green: number; yellow: number; red: number }
-  worstProduct: { id: string; title: string | null; seo_score: number; image: string | null } | null
+  totalImages: number
   creditsRemaining: number
-  recentProducts: { id: string; original_title: string | null; optimized_title: string | null; status: string; seo_score: number; original_images: string[] | null }[]
+  recentProducts: { id: string; original_title: string | null; optimized_title: string | null; status: string; original_images: string[] | null }[]
   recentTransactions: { description: string; amount: number; created_at: string; reference_type: string; type: string }[]
   store: { id: string; store_url: string; store_name: string | null; sync_status: string; last_sync_at: string | null; products_count: number; platform: string } | null
-  agent: { is_active: boolean; agent_name: string | null; conversations_today: number } | null
   onboardingChecklist: { id: string; label: string; done: boolean; href: string }[]
   onboardingProgress: number; onboardingComplete: boolean
   aiInsight: { type: string; message: string; action: string; actionUrl: string; stat: string; params?: Record<string, any> } | null
@@ -32,18 +29,6 @@ function AnimatedNumber({ value, suffix = '' }: { value: number; suffix?: string
     requestAnimationFrame(step)
   }, [value])
   return <>{display}{suffix}</>
-}
-
-function SeoDonut({ green, yellow, red, total }: { green: number; yellow: number; red: number; total: number }) {
-  const r = 28, c = 2 * Math.PI * r
-  const segs = [{ v: green, col: '#22c55e' }, { v: yellow, col: '#f59e0b' }, { v: red, col: '#ef4444' }, { v: Math.max(total - green - yellow - red, 0), col: '#f5f5f5' }]
-  let off = 0
-  return (
-    <svg width="72" height="72" viewBox="0 0 72 72" className="rotate-[-90deg]">
-      {total === 0 ? <circle cx="36" cy="36" r={r} fill="none" stroke="#f5f5f5" strokeWidth="8" /> :
-        segs.map((s, i) => { if (!s.v) return null; const d = (s.v / total) * c; const el = <circle key={i} cx="36" cy="36" r={r} fill="none" stroke={s.col} strokeWidth="8" strokeDasharray={`${d} ${c - d}`} strokeDashoffset={-off} strokeLinecap="round" />; off += d; return el })}
-    </svg>
-  )
 }
 
 function Skeleton({ className }: { className?: string }) { return <div className={`animate-pulse bg-neutral-100 rounded-xl ${className || ''}`} /> }
@@ -115,7 +100,7 @@ export default function DashboardPage() {
                 <span className="absolute inset-0 flex items-center justify-center text-xs font-bold">{Math.round(data.onboardingProgress / data.onboardingChecklist.length * 100)}%</span>
               </div>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {data.onboardingChecklist.map(s => (
                 <Link key={s.id} href={s.href}>
                   <div className={`flex items-center gap-2 px-2.5 py-2 rounded-lg text-sm transition-all cursor-pointer ${s.done ? 'bg-white/10' : 'bg-white/5 hover:bg-white/10'}`}>
@@ -158,7 +143,7 @@ export default function DashboardPage() {
           {[
             { label: t('dashboard.total_products'), value: data?.totalProducts || 0, icon: Package, href: '/products' },
             { label: t('dashboard.ai_images'), value: data?.totalImages || 0, icon: ImageIcon, href: '/images' },
-            { label: t('dashboard.seo_score'), value: data?.avgSeoScore || 0, suffix: '/100', icon: Search, href: '/seo' },
+            { label: t('dashboard.optimized_products'), value: (data?.optimizedProducts || 0) + (data?.publishedProducts || 0), icon: TrendingUp, href: '/products' },
             { label: t('dashboard.credits_remaining'), value: data?.creditsRemaining || 0, icon: CreditCard, href: '/credits', bar: true },
           ].map((stat, i) => (
             <motion.div key={stat.label} initial={{ y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 + i * 0.06 }}>
@@ -168,7 +153,7 @@ export default function DashboardPage() {
                     <div className="h-9 w-9 rounded-lg bg-neutral-100 flex items-center justify-center"><stat.icon className="h-[18px] w-[18px] text-neutral-500" /></div>
                     <ArrowUpRight className="h-4 w-4 text-neutral-300 group-hover:text-neutral-500 transition-colors" />
                   </div>
-                  <p className="text-[22px] font-bold text-neutral-900 tabular-nums"><AnimatedNumber value={stat.value} suffix={stat.suffix} /></p>
+                  <p className="text-[22px] font-bold text-neutral-900 tabular-nums"><AnimatedNumber value={stat.value} /></p>
                   <p className="text-[13px] text-neutral-400 mt-0.5">{stat.label}</p>
                   {(stat as any).bar && (
                     <div className="mt-2 h-1 bg-neutral-100 rounded-full overflow-hidden">
@@ -191,7 +176,7 @@ export default function DashboardPage() {
           {/* Optimization progress */}
           <div className="bg-white border border-neutral-200 rounded-xl p-5">
             <div className="flex items-center justify-between mb-4">
-              <p className="text-[15px] font-semibold text-neutral-900">{t('dashboard.seo_score')}</p>
+              <p className="text-[15px] font-semibold text-neutral-900">{t('dashboard.optimized_products')}</p>
               <Link href="/products" className="text-[12px] text-neutral-400 hover:text-neutral-700 flex items-center gap-1 transition-colors">{t('common.view')} {t('common.all')}<ArrowRight className="h-3 w-3" /></Link>
             </div>
             {noProducts ? (
@@ -222,7 +207,7 @@ export default function DashboardPage() {
               <p className="text-[11px] font-medium text-neutral-400 uppercase tracking-wider mb-2">{t('dashboard.recent_activity')}</p>
               <div className="space-y-1">
                 {(data?.recentProducts || []).map(p => (
-                  <Link key={p.id} href={`/seo/${p.id}`}>
+                  <Link key={p.id} href="/products">
                     <div className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-neutral-50 transition-colors group cursor-pointer">
                       <div className="h-9 w-9 rounded-lg bg-neutral-100 overflow-hidden shrink-0">
                         {p.original_images?.[0] ? <img src={p.original_images[0]} alt="" className="h-full w-full object-cover" /> : <div className="h-full w-full flex items-center justify-center"><Package className="h-4 w-4 text-neutral-300" /></div>}
@@ -233,7 +218,6 @@ export default function DashboardPage() {
                           <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-md ${p.status === 'published' ? 'bg-emerald-50 text-emerald-700' : p.status === 'optimized' ? 'bg-amber-50 text-amber-700' : 'bg-neutral-100 text-neutral-500'}`}>
                             {p.status === 'published' ? t('dashboard.published') : p.status === 'optimized' ? t('dashboard.optimized') : t('dashboard.draft')}
                           </span>
-                          {p.seo_score > 0 && <span className={`text-[10px] font-medium ${p.seo_score >= 80 ? 'text-emerald-600' : p.seo_score >= 50 ? 'text-amber-600' : 'text-red-500'}`}>SEO {p.seo_score}</span>}
                         </div>
                       </div>
                       <ArrowRight className="h-3.5 w-3.5 text-neutral-300 group-hover:text-neutral-500 transition-colors" />
@@ -243,48 +227,10 @@ export default function DashboardPage() {
               </div>
             </>)}
           </div>
-
-          {/* Quick Win */}
-          {data?.worstProduct && (
-            <div className="bg-white border border-neutral-200 rounded-xl overflow-hidden">
-              <div className="h-[3px] bg-neutral-900" />
-              <div className="p-4 flex items-center gap-3">
-                <div className="h-10 w-10 rounded-lg bg-amber-50 flex items-center justify-center shrink-0"><AlertTriangle className="h-5 w-5 text-amber-500" /></div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-400 mb-0.5">{t('dashboard.quick_win')}</p>
-                  <p className="text-[13px] font-medium text-neutral-900 truncate">{data.worstProduct.title || t('dashboard.no_product_title')}</p>
-                  <p className="text-[12px] text-neutral-400">{t('dashboard.seo_score_label')}: <span className="font-semibold text-neutral-900">{data.worstProduct.seo_score}/100</span></p>
-                </div>
-                <Link href={`/seo/${data.worstProduct.id}`}><button className="h-8 px-3 rounded-lg bg-neutral-900 hover:bg-neutral-800 text-white text-[12px] font-medium transition-all shrink-0">{t('seo.optimize_all')}</button></Link>
-              </div>
-            </div>
-          )}
         </motion.div>
 
         {/* RIGHT */}
         <motion.div variants={stagger.item} className="space-y-5">
-          {/* SEO Donut */}
-          <div className="bg-white border border-neutral-200 rounded-xl p-5">
-            <div className="flex items-center justify-between mb-4">
-              <p className="text-[15px] font-semibold text-neutral-900">{t('dashboard.seo_score')}</p>
-              <Link href="/seo" className="text-[12px] text-neutral-400 hover:text-neutral-700 flex items-center gap-1 transition-colors">{t('common.view')}<ChevronRight className="h-3 w-3" /></Link>
-            </div>
-            <div className="flex items-center gap-4">
-              <div className="relative shrink-0">
-                <SeoDonut green={data?.seoBreakdown.green || 0} yellow={data?.seoBreakdown.yellow || 0} red={data?.seoBreakdown.red || 0} total={data?.totalProducts || 0} />
-                <div className="absolute inset-0 flex items-center justify-center"><span className="text-[14px] font-bold text-neutral-900">{data?.avgSeoScore || 0}</span></div>
-              </div>
-              <div className="flex-1 space-y-2.5">
-                {[{ dot: 'bg-emerald-500', label: t('dashboard.good_80'), val: data?.seoBreakdown.green || 0 }, { dot: 'bg-amber-400', label: t('dashboard.medium_50'), val: data?.seoBreakdown.yellow || 0 }, { dot: 'bg-red-400', label: t('dashboard.weak_50'), val: data?.seoBreakdown.red || 0 }].map(s => (
-                  <div key={s.label} className="flex items-center justify-between">
-                    <div className="flex items-center gap-1.5"><div className={`h-2 w-2 rounded-full ${s.dot}`} /><span className="text-[12px] text-neutral-500">{s.label}</span></div>
-                    <span className="text-[12px] font-semibold text-neutral-900">{s.val}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
           {/* Store */}
           <div className="bg-white border border-neutral-200 rounded-xl p-5">
             <p className="text-[15px] font-semibold text-neutral-900 flex items-center gap-2 mb-3"><Store className="h-4 w-4 text-neutral-400" />{t('sidebar.settings')}</p>
@@ -309,33 +255,6 @@ export default function DashboardPage() {
                 <div className="h-10 w-10 rounded-lg bg-neutral-100 flex items-center justify-center mx-auto mb-2"><Store className="h-5 w-5 text-neutral-300" /></div>
                 <p className="text-[13px] text-neutral-400 mb-3">{t('products.no_products_desc')}</p>
                 <Link href="/settings"><button className="h-8 px-4 rounded-lg border border-neutral-200 text-[12px] font-medium text-neutral-600 hover:bg-neutral-50 transition-all">{t('onboarding.connect_store')}</button></Link>
-              </div>
-            )}
-          </div>
-
-          {/* Agent */}
-          <div className="bg-white border border-neutral-200 rounded-xl p-5">
-            <p className="text-[15px] font-semibold text-neutral-900 flex items-center gap-2 mb-3"><Bot className="h-4 w-4 text-neutral-400" />{t('sidebar.ai_agent')}</p>
-            {data?.agent ? (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className={`h-2 w-2 rounded-full ${data.agent.is_active ? 'bg-emerald-500' : 'bg-neutral-300'}`} />
-                    <span className="text-[13px] font-medium text-neutral-800">{data.agent.agent_name || 'Agent AI'}</span>
-                  </div>
-                  <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${data.agent.is_active ? 'bg-emerald-50 text-emerald-700' : 'bg-neutral-100 text-neutral-500'}`}>{data.agent.is_active ? t('common.active_label') : t('common.inactive_label')}</span>
-                </div>
-                <div className="bg-neutral-50 rounded-lg p-3 flex items-center gap-3">
-                  <div className="h-9 w-9 rounded-lg bg-neutral-200 flex items-center justify-center shrink-0"><Zap className="h-4 w-4 text-neutral-600" /></div>
-                  <div><p className="text-[20px] font-bold text-neutral-900 tabular-nums">{data.agent.conversations_today}</p><p className="text-[12px] text-neutral-400">{t('dashboard.conversations_today')}</p></div>
-                </div>
-                <Link href="/agent"><button className="w-full text-[12px] text-neutral-500 hover:text-neutral-900 flex items-center justify-center gap-1 py-1 transition-colors">{t('dashboard.view_agent')}<ExternalLink className="h-3 w-3" /></button></Link>
-              </div>
-            ) : (
-              <div className="text-center py-4">
-                <div className="h-10 w-10 rounded-lg bg-neutral-100 flex items-center justify-center mx-auto mb-2"><Bot className="h-5 w-5 text-neutral-300" /></div>
-                <p className="text-[13px] text-neutral-400 mb-3">{t('agent.inactive')}</p>
-                <Link href="/agent"><button className="h-8 px-4 rounded-lg border border-neutral-200 text-[12px] font-medium text-neutral-600 hover:bg-neutral-50 transition-all">{t('sidebar.config')}</button></Link>
               </div>
             )}
           </div>

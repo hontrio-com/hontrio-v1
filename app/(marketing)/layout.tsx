@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import {
   Menu, X, ChevronDown,
-  Wand2, TrendingUp, Bot, ShieldCheck, ArrowUpRight,
+  Wand2, ArrowUpRight,
   Instagram, Facebook,
 } from 'lucide-react'
 import { useLocale } from '@/lib/i18n/context'
@@ -13,11 +13,6 @@ import { useLocale } from '@/lib/i18n/context'
 // ─── Feature rows per column ──────────────────────────────────────────────────
 const COL_1 = [
   { id: 'ai-images', icon: Wand2, href: '/features/ai-images', badge: false },
-  { id: 'ai-agent',  icon: Bot,   href: '/features/ai-agent',  badge: false },
-]
-const COL_2 = [
-  { id: 'seo',         icon: TrendingUp,  href: '/features/seo',          badge: false },
-  { id: 'risk-shield', icon: ShieldCheck, href: '/features/risk-shield',  badge: true  },
 ]
 
 // ─── Bilingual content ────────────────────────────────────────────────────────
@@ -29,7 +24,6 @@ const T = {
     },
     mega: {
       col1Label: 'AI & Content',
-      col2Label: 'Optimization & Security',
       badge: 'New',
       featured: {
         eyebrow: 'Platform',
@@ -39,16 +33,12 @@ const T = {
       },
       items: {
         'ai-images':   { title: 'AI Images',    desc: 'Generate professional product photos in seconds with AI' },
-        'ai-agent':    { title: 'AI Agent',      desc: 'Smart virtual assistant trained on your store catalog' },
-        'seo':         { title: 'SEO Optimizer', desc: 'Automatically optimize every product for search engines' },
-        'risk-shield': { title: 'Risk Shield',   desc: 'Detect and block fraudulent orders before they happen' },
       } as Record<string, { title: string; desc: string }>,
     },
     footer: {
       motto: 'A complete AI ecosystem for your online store, powered by artificial intelligence and smart automation.',
       product: 'Product',
-      aiImages: 'AI Images', seoOptimizer: 'SEO Optimizer', aiAgent: 'AI Agent',
-      riskShield: 'Risk Shield', pricing: 'Pricing',
+      aiImages: 'AI Images', pricing: 'Pricing',
       register: 'Register', login: 'Sign In',
       resources: 'Resources',
       blog: 'Blog', blogLink: '/blog', faq: 'FAQ', roadmap: 'Roadmap', support: 'Support',
@@ -67,7 +57,6 @@ const T = {
     },
     mega: {
       col1Label: 'AI & Conținut',
-      col2Label: 'Optimizare & Securitate',
       badge: 'Nou',
       featured: {
         eyebrow: 'Platforma',
@@ -77,16 +66,12 @@ const T = {
       },
       items: {
         'ai-images':   { title: 'Imagini AI',    desc: 'Generează fotografii profesionale pentru produse în câteva secunde' },
-        'ai-agent':    { title: 'Agent AI',      desc: 'Asistent virtual inteligent antrenat pe catalogul magazinului tău' },
-        'seo':         { title: 'SEO Optimizer', desc: 'Optimizare automată SEO pentru fiecare produs din magazin' },
-        'risk-shield': { title: 'Risk Shield',   desc: 'Detectează și blochează comenzile frauduloase înainte să se întâmple' },
       } as Record<string, { title: string; desc: string }>,
     },
     footer: {
       motto: 'Un ecosistem AI complet pentru magazinul tău online, alimentat de inteligenta artificiala si automatizare inteligenta.',
       product: 'Produs',
-      aiImages: 'Imagini AI', seoOptimizer: 'Optimizator SEO', aiAgent: 'Agent AI',
-      riskShield: 'Risk Shield', pricing: 'Preturi',
+      aiImages: 'Imagini AI', pricing: 'Preturi',
       register: 'Inregistreaza-te', login: 'Conecteaza-te',
       resources: 'Resurse',
       blog: 'Blog', blogLink: '/blog', faq: 'FAQ', roadmap: 'Roadmap', support: 'Suport',
@@ -168,7 +153,7 @@ function MarketingHeader() {
   const cancelClose   = () => { if (closeTimer.current) clearTimeout(closeTimer.current) }
   const closeMegaNow  = () => { if (closeTimer.current) clearTimeout(closeTimer.current); setMegaOpen(false) }
 
-  const allFeats = [...COL_1, ...COL_2]
+  const allFeats = [...COL_1]
 
   return (
     <header
@@ -281,7 +266,7 @@ function MarketingHeader() {
       >
         <div className="border-y border-neutral-200/70 shadow-[0_8px_32px_rgba(0,0,0,0.06)]">
           <div className="max-w-7xl mx-auto px-8 py-8">
-            <div className="grid grid-cols-[1fr_1fr_288px] gap-10">
+            <div className="grid grid-cols-[1fr_288px] gap-10">
 
               {/* Column 1 */}
               <div>
@@ -295,27 +280,6 @@ function MarketingHeader() {
                       icon={feat.icon}
                       id={feat.id}
                       href={feat.href}
-                      label={t.mega.items[feat.id]}
-                      badgeLabel={t.mega.badge}
-                      onClick={closeMegaNow}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              {/* Column 2 */}
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-widest text-neutral-400 mb-4 px-3">
-                  {t.mega.col2Label}
-                </p>
-                <div className="flex flex-col gap-1">
-                  {COL_2.map((feat) => (
-                    <FeatureRow
-                      key={feat.id}
-                      icon={feat.icon}
-                      id={feat.id}
-                      href={feat.href}
-                      badge={'badge' in feat ? feat.badge : false}
                       label={t.mega.items[feat.id]}
                       badgeLabel={t.mega.badge}
                       onClick={closeMegaNow}
@@ -487,9 +451,6 @@ function MarketingFooter() {
             <ul className="space-y-2.5">
               {[
                 { label: t.aiImages,     href: '/features/ai-images' },
-                { label: t.seoOptimizer, href: '/features/seo' },
-                { label: t.aiAgent,      href: '/features/ai-agent' },
-                { label: t.riskShield,   href: '/features/risk-shield' },
                 { label: t.pricing,      href: '/pricing' },
               ].map((l) => (
                 <li key={l.label}><Link href={l.href} className={linkCls}>{l.label}</Link></li>

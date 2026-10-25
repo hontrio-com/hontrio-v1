@@ -26,36 +26,6 @@ const en = {
   featSubtitle:
     'Four powerful AI modules that work together to grow your online store',
 
-  feat1Title: 'Instant Response for Every Customer, 24/7',
-  feat1Desc:
-    'Transform the way you communicate with your customers. The agent instantly answers questions, recommends relevant products and helps customers complete orders without human intervention. Works non-stop, reduces wasted time and automatically increases conversions.',
-  feat1Bullets: [
-    'Automatically responds to messages in real time, without delays',
-    'Recommends relevant products based on customer questions',
-    'Increases conversion rate through fast and accurate responses',
-    'Works 24/7 without breaks or human errors',
-  ],
-
-  feat2Title: 'Stop Fake Orders Before You Lose Money',
-  feat2Desc:
-    'Risk Shield is the system that protects your store from problematic orders and unnecessary losses. It automatically analyzes each customer based on order history, behavior and available data, giving you a clear risk score.',
-  feat2Bullets: [
-    'Identifies customers who refuse orders',
-    'Detects suspicious patterns (refusals, absences, cancellations)',
-    'Mark customers as Trusted, Watch, Problematic or Blocked',
-    'Get real loss estimates',
-  ],
-
-  feat3Title: 'Live SEO Score and Automatic Optimization for Every Product',
-  feat3Desc:
-    'Optimize every product in your store for maximum visibility on Google. The SEO module analyzes the title, meta description, keywords and page content, giving you a live SEO score and clear improvement recommendations.',
-  feat3Bullets: [
-    'Optimize products to appear higher in search results',
-    'Improve product relevance for important keywords',
-    'Generate optimized SEO titles in seconds',
-    'Automatically includes the keyword in the right places',
-  ],
-
   feat4Title: 'Images That Grab Attention and Increase Conversions',
   feat4Desc:
     'Quickly create product images that look professional and are ready for promotion. The AI Images module automatically generates attractive visuals, banners and posters based on your products, without needing designers or graphic design skills.',
@@ -229,36 +199,6 @@ const ro = {
   featH2: 'Oprește-te din gestionarea mai multor unelte',
   featSubtitle:
     'Patru module AI puternice care lucrează împreună pentru a-ți crește magazinul online',
-
-  feat1Title: 'Răspuns instant pentru fiecare client, 24/7',
-  feat1Desc:
-    'Transformă modul în care comunici cu clienții tăi. Agentul răspunde instant la întrebări, recomandă produse relevante și ajută clienții să finalizeze comenzile fără intervenție umană. Funcționează non-stop, reduce timpul pierdut și crește conversiile automat.',
-  feat1Bullets: [
-    'Răspunde automat la mesaje în timp real, fără întârzieri',
-    'Recomandă produse relevante pe baza întrebărilor clientului',
-    'Crește rata de conversie prin răspunsuri rapide și precise',
-    'Funcționează 24/7 fără pauze sau erori umane',
-  ],
-
-  feat2Title: 'Oprește comenzile false înainte să pierzi bani',
-  feat2Desc:
-    'Risk Shield este sistemul care îți protejează magazinul de comenzile problematice și pierderile inutile. Analizează automat fiecare client pe baza istoricului comenzilor, comportamentului și datelor disponibile, oferindu-ți un scor clar de risc.',
-  feat2Bullets: [
-    'Identifică clienții care refuză comenzile',
-    'Detectează tipare suspecte (refuzuri, absențe, anulări)',
-    'Marchezi clienții ca Trusted, Watch, Problematic sau Blocat',
-    'Primești estimări reale de pierderi',
-  ],
-
-  feat3Title: 'Scor SEO live și optimizare automată pentru fiecare produs',
-  feat3Desc:
-    'Optimizează fiecare produs din magazinul tău pentru vizibilitate maximă în Google. Modulul SEO analizează titlul, meta descrierea, keyword-urile și conținutul paginii, oferindu-ți un scor SEO live și recomandări clare de îmbunătățire.',
-  feat3Bullets: [
-    'Optimizezi produsele pentru a apărea mai sus în rezultatele de căutare',
-    'Îmbunătățești relevanța produselor pentru keyword-urile importante',
-    'Generezi titluri SEO optimizate în câteva secunde',
-    'Include keyword-ul în locurile potrivite automat',
-  ],
 
   feat4Title: 'Imagini care atrag atenția și cresc conversiile',
   feat4Desc:
@@ -518,33 +458,6 @@ function VideoPlayer({ src }: { src: string }) {
 
 function ImagesMockup({ locale }: { locale: string }) {
   const src = locale === 'ro' ? '/videos/image.mp4' : '/videos/image-en.mp4'
-  return (
-    <div className="w-full rounded-2xl overflow-hidden shadow-2xl border border-neutral-200">
-      <VideoPlayer src={src} />
-    </div>
-  )
-}
-
-function SEOMockup({ locale }: { locale: string }) {
-  const src = locale === 'ro' ? '/videos/seo.mp4' : '/videos/seo-en.mp4'
-  return (
-    <div className="w-full rounded-2xl overflow-hidden shadow-2xl border border-neutral-200">
-      <VideoPlayer src={src} />
-    </div>
-  )
-}
-
-function AgentMockup({ locale }: { locale: string }) {
-  const src = locale === 'ro' ? '/videos/ai-video.mp4' : '/videos/ai-video-en.mp4'
-  return (
-    <div className="w-full rounded-2xl overflow-hidden shadow-2xl border border-neutral-200">
-      <VideoPlayer src={src} />
-    </div>
-  )
-}
-
-function RiskMockup({ locale }: { locale: string }) {
-  const src = locale === 'ro' ? '/videos/risk-shield.mp4' : '/videos/risk-shield-en.mp4'
   return (
     <div className="w-full rounded-2xl overflow-hidden shadow-2xl border border-neutral-200">
       <VideoPlayer src={src} />
@@ -904,38 +817,8 @@ export default function LandingPage() {
             <p className="text-xl text-neutral-500 max-w-2xl mx-auto">{c.featSubtitle}</p>
           </div>
 
-          {/* Feature blocks — order: Agent, Risk Shield, SEO, AI Images */}
+          {/* Feature blocks */}
           <div className="space-y-16 md:space-y-24">
-            <FeatureBlock
-              mockup={<AgentMockup locale={locale} />}
-              title={c.feat1Title}
-              desc={c.feat1Desc}
-              bullets={c.feat1Bullets}
-              reverse={false}
-              detailsHref="/features/ai-agent"
-              detailsCta={c.featDetailsCta}
-              trialCta={c.featTrialCta}
-            />
-            <FeatureBlock
-              mockup={<RiskMockup locale={locale} />}
-              title={c.feat2Title}
-              desc={c.feat2Desc}
-              bullets={c.feat2Bullets}
-              reverse={true}
-              detailsHref="/features/risk-shield"
-              detailsCta={c.featDetailsCta}
-              trialCta={c.featTrialCta}
-            />
-            <FeatureBlock
-              mockup={<SEOMockup locale={locale} />}
-              title={c.feat3Title}
-              desc={c.feat3Desc}
-              bullets={c.feat3Bullets}
-              reverse={false}
-              detailsHref="/features/seo"
-              detailsCta={c.featDetailsCta}
-              trialCta={c.featTrialCta}
-            />
             <FeatureBlock
               mockup={<ImagesMockup locale={locale} />}
               title={c.feat4Title}

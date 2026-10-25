@@ -19,7 +19,7 @@ export async function GET(request: Request) {
     const [productsRes, imagesRes] = await Promise.all([
       supabase
         .from('products')
-        .select('id, original_title, optimized_title, category, seo_score, status, original_images')
+        .select('id, original_title, optimized_title, category, status, original_images')
         .eq('user_id', userId)
         .or(`original_title.ilike.%${q}%,optimized_title.ilike.%${q}%,category.ilike.%${q}%`)
         .limit(6),
