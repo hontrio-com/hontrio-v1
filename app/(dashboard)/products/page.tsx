@@ -1,7 +1,8 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { useT } from '@/lib/i18n/context'
 import {
   AlertCircle, ChevronLeft, ChevronRight, ExternalLink, ImageIcon, Info, Loader2,
@@ -277,7 +278,7 @@ function BulkCostPanel({ offers, fmt, fmtInt, onClose, onApplied }: {
   )
 }
 
-export default function ProductsPage() {
+function ProductsView() {
   const { t, locale } = useT()
   const [days, setDays] = useState<Period>(30)
   const [store, setStore] = useState<StoreInfo | null>(null)
@@ -292,6 +293,12 @@ export default function ProductsPage() {
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null)
   const [bulkOpen, setBulkOpen] = useState(false)
   const loadedOnce = useRef(false)
+
+  // Căutarea din antet trimite aici cu ?search=
+  const urlSearch = useSearchParams().get('search')
+  useEffect(() => {
+    if (urlSearch !== null) { setSearch(urlSearch); setQuick('all') }
+  }, [urlSearch])
 
   const load = useCallback(async (period: Period) => {
     if (!loadedOnce.current) setLoading(true)
@@ -349,7 +356,7 @@ export default function ProductsPage() {
       if (quick === 'no_cost' && o.cost_price !== null) return false
       if (quick === 'google_issue' && !(o.google_status && GOOGLE_PROBLEMS.includes(o.google_status))) return false
       if (!q) return true
-      return [o.title, o.product_name, o.variant_title, o.sku, o.gtin, o.category, o.offer_id]
+      return [o.title, o.product_name, o.variant_title, o.sku, o.gtin, o.brand, o.category, o.offer_id]
         .some(v => v && v.toLowerCase().includes(q))
     })
     const byName = (a: Offer, b: Offer) => (a.title || '').localeCompare(b.title || '', numberLocale)
@@ -708,4 +715,9 @@ export default function ProductsPage() {
       )}
     </div>
   )
+}
+
+// useSearchParams cere o graniță Suspense la randarea statică
+export default function ProductsPage() {
+  return <Suspense fallback={null}><ProductsView /></Suspense>
 }

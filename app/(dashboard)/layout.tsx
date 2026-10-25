@@ -57,9 +57,9 @@ function SearchDropdown({ results, loading, query, onNavigate }: { results: { pr
       {results.products.length > 0 && (<div>
         <div className="flex items-center gap-2 px-4 py-2 bg-neutral-50"><Package className="h-3.5 w-3.5 text-neutral-400" /><span className="text-[10px] font-semibold text-neutral-400 uppercase tracking-wider">{t('sidebar.products')}</span>{loading && <Loader2 className="h-3 w-3 animate-spin text-neutral-300 ml-auto" />}</div>
         {results.products.map((p: any) => (
-          <button key={p.id} onClick={() => onNavigate('/products?search=' + encodeURIComponent(p.optimized_title || p.original_title))} className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-neutral-50 transition-colors text-left group">
+          <button key={p.id} onClick={() => onNavigate('/products?search=' + encodeURIComponent(p.title))} className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-neutral-50 transition-colors text-left group">
             {p.thumbnail_url ? <img src={p.thumbnail_url} alt="" className="h-9 w-9 rounded-lg object-cover shrink-0 border border-neutral-100" /> : <div className="h-9 w-9 rounded-lg bg-neutral-100 flex items-center justify-center shrink-0"><Package className="h-4 w-4 text-neutral-300" /></div>}
-            <div className="flex-1 min-w-0"><p className="text-sm font-medium text-neutral-800 truncate group-hover:text-neutral-900">{p.optimized_title || p.original_title}</p>
+            <div className="flex-1 min-w-0"><p className="text-sm font-medium text-neutral-800 truncate group-hover:text-neutral-900">{p.title}</p>
               <div className="flex items-center gap-2 mt-0.5">{p.category && <span className="text-[10px] text-neutral-400 flex items-center gap-1"><Tag className="h-2.5 w-2.5" />{p.category}</span>}</div>
             </div><ArrowUpRight className="h-3.5 w-3.5 text-neutral-300 group-hover:text-neutral-500 shrink-0" />
           </button>
