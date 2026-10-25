@@ -1,6 +1,7 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { decrypt } from '@/lib/security/encryption'
 import { logError, logWarn } from '@/lib/logger'
+import { storedMessage } from '@/lib/i18n/stored'
 import { standardVatRate } from '@/lib/ads/vat'
 import type { Ctx } from '@/lib/commerce/rows'
 import { ShopifyApi, ShopifyError, shopifyDate } from './api'
@@ -327,7 +328,7 @@ export async function syncShopifyStore(
     }
     if (err instanceof ShopifyError && err.code === 'unauthorized') {
       await supabase.from('stores').update({
-        sync_status: 'active', connection_status: 'revoked', last_error: 'Shopify nu mai acceptă accesul aplicației (dezinstalată?)',
+        sync_status: 'active', connection_status: 'revoked', last_error: storedMessage('sync.shopify_access_revoked'),
       }).eq('id', storeId)
       logWarn('shopify/sync', 'Acces Shopify refuzat', { storeId })
       return { ok: false, reason: 'revoked' }
@@ -336,7 +337,8 @@ export async function syncShopifyStore(
     const message = (err as Error).message
     await supabase.from('stores').update({
       sync_status: 'error',
-      last_error: message.slice(0, 500),
+      // Omul vede mesajul tradus al erorii; altfel (ex. o eroare a bazei), detaliul tehnic
+      last_error: err instanceof ShopifyError ? err.stored : storedMessage('sync.failed', { detail: message.slice(0, 500) }),
       // Magazinul nu răspunde sau e închis: îl arătăm ca problemă, dar continuăm să încercăm
       ...(err instanceof ShopifyError && ['network', 'unavailable', 'not_found'].includes(err.code) ? { connection_status: 'error' } : {}),
     }).eq('id', storeId)

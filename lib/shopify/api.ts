@@ -1,3 +1,5 @@
+import { storedMessage } from '@/lib/i18n/stored'
+import type { Params } from '@/lib/i18n/translate'
 import type { ShopifyOrder, ShopifyShop, ShopifyVariant } from './types'
 
 // =============================================
@@ -16,8 +18,11 @@ export const API_VERSION = '2026-07'
 export type ShopifyErrorCode = 'unauthorized' | 'access_denied' | 'not_found' | 'unavailable' | 'network' | 'bad_response' | 'too_expensive'
 
 export class ShopifyError extends Error {
-  constructor(message: string, public code: ShopifyErrorCode, public status?: number) {
+  /** Ce vede omul (în stores.last_error): cheia de traducere, cu parametri. `message` e pentru jurnal. */
+  readonly stored: string
+  constructor(message: string, public code: ShopifyErrorCode, public status: number | undefined, key: string, params?: Params) {
     super(message)
+    this.stored = storedMessage(key, params)
   }
 }
 
@@ -61,6 +66,7 @@ const QUERIES = {
     currentAppInstallation { accessScopes { handle } }
   }`,
   locales: `query Locales { shopLocales(published: true) { locale primary } }`,
+  // i18n-ignore: interogare GraphQL, nu text
   variants: `query Variants($first: Int!, $after: String, $query: String, $withCost: Boolean!) {
     productVariants(first: $first, after: $after, query: $query, sortKey: ID) {
       pageInfo { hasNextPage endCursor }
@@ -117,8 +123,12 @@ function onlyAt(errors: GraphqlError[], fields: string[]): boolean {
 }
 
 function failure(errors: GraphqlError[]): ShopifyError {
-  const message = `Shopify: ${errors.map(e => e.message).join('; ') || 'răspuns gol'}`
-  return new ShopifyError(message, errors.some(e => e.extensions?.code === 'ACCESS_DENIED') ? 'access_denied' : 'bad_response')
+  // Mesajele lui Shopify (în engleză) ajung la om ca detaliu
+  const detail = errors.map(e => e.message).join('; ')
+  const denied = errors.some(e => e.extensions?.code === 'ACCESS_DENIED')
+  return new ShopifyError(`Shopify: ${detail || 'răspuns gol'}`, denied ? 'access_denied' : 'bad_response', undefined,
+    !detail ? 'sync.shopify_empty_response' : denied ? 'sync.shopify_access_denied' : 'sync.shopify_error',
+    detail ? { detail: detail.slice(0, 500) } : undefined)
 }
 
 export class ShopifyApi {
@@ -146,23 +156,23 @@ export class ShopifyApi {
         })
       } catch (err) {
         const code = String((err as { cause?: { code?: string } }).cause?.code ?? '')
-        last = new ShopifyError(`Shopify nu a răspuns: ${code || (err as Error).message}`, 'network')
+        last = new ShopifyError(`Shopify nu a răspuns: ${code || (err as Error).message}`, 'network', undefined, 'sync.shopify_no_response')
         if (code === 'ENOTFOUND') break
         continue
       }
 
       if (res.status === 429 || res.status >= 500) {
-        last = new ShopifyError(`Shopify e indisponibil (${res.status})`, 'unavailable', res.status)
+        last = new ShopifyError(`Shopify e indisponibil (${res.status})`, 'unavailable', res.status, 'sync.shopify_unavailable', { status: res.status })
         const wait = Number(res.headers.get('retry-after'))
         if (wait > 0) await sleep(Math.min(wait, 10) * 1000)
         continue
       }
       // Token invalid: aplicația a fost dezinstalată sau accesul retras
-      if (res.status === 401) throw new ShopifyError('Shopify a refuzat accesul aplicației', 'unauthorized', 401)
-      if (res.status === 402 || res.status === 423) throw new ShopifyError(`Magazinul Shopify e închis sau blocat (${res.status})`, 'unavailable', res.status)
-      if (res.status === 404) throw new ShopifyError('Magazinul Shopify nu există (404)', 'not_found', 404)
+      if (res.status === 401) throw new ShopifyError('Shopify a refuzat accesul aplicației', 'unauthorized', 401, 'sync.shopify_access_revoked')
+      if (res.status === 402 || res.status === 423) throw new ShopifyError(`Magazinul Shopify e închis sau blocat (${res.status})`, 'unavailable', res.status, 'sync.shopify_store_closed', { status: res.status })
+      if (res.status === 404) throw new ShopifyError('Magazinul Shopify nu există (404)', 'not_found', 404, 'sync.shopify_not_found')
       const body = await res.json().catch(() => null) as { data?: T; errors?: GraphqlError[] | string; extensions?: { cost?: Cost } } | null
-      if (!res.ok || body === null) throw new ShopifyError(`Shopify a răspuns ${res.status}`, 'bad_response', res.status)
+      if (!res.ok || body === null) throw new ShopifyError(`Shopify a răspuns ${res.status}`, 'bad_response', res.status, 'sync.shopify_bad_response', { status: res.status })
 
       const errors: GraphqlError[] = Array.isArray(body.errors) ? body.errors : body.errors ? [{ message: String(body.errors) }] : []
       if (errors.some(e => e.extensions?.code === 'THROTTLED') && throttled < THROTTLE_RETRIES) {
@@ -175,10 +185,10 @@ export class ShopifyApi {
         attempt--
         continue
       }
-      if (errors.some(e => e.extensions?.code === 'MAX_COST_EXCEEDED')) throw new ShopifyError('Interogarea e prea scumpă pentru Shopify', 'too_expensive')
+      if (errors.some(e => e.extensions?.code === 'MAX_COST_EXCEEDED')) throw new ShopifyError('Interogarea e prea scumpă pentru Shopify', 'too_expensive', undefined, 'sync.shopify_too_expensive')
       return { data: body.data ?? null, errors }
     }
-    throw last ?? new ShopifyError('Cererea către Shopify a eșuat', 'unavailable')
+    throw last ?? new ShopifyError('Cererea către Shopify a eșuat', 'unavailable', undefined, 'sync.shopify_no_response')
   }
 
   /**
@@ -257,6 +267,7 @@ export class ShopifyApi {
   /** Shopify anunță adresa dată când aplicația e dezinstalată. Abonarea existentă e în regulă. */
   async subscribeUninstalled(uri: string): Promise<void> {
     // Adresa intră ca literal (JSON e un șir GraphQL valid): tipul variabilei diferă între versiuni
+    // i18n-ignore: mutație GraphQL, nu text
     const mutation = `mutation Subscribe {
       webhookSubscriptionCreate(topic: APP_UNINSTALLED, webhookSubscription: { uri: ${JSON.stringify(uri)} }) {
         userErrors { message }
@@ -265,7 +276,8 @@ export class ShopifyApi {
     const { data, errors } = await this.request<{ webhookSubscriptionCreate: { userErrors: { message: string }[] } | null }>(mutation)
     const userErrors = (data?.webhookSubscriptionCreate?.userErrors ?? []).filter(e => !/already been taken/i.test(e.message))
     if (errors.length || userErrors.length) {
-      throw new ShopifyError(`Abonarea la dezinstalare a eșuat: ${[...errors, ...userErrors].map(e => e.message).join('; ')}`, 'bad_response')
+      const detail = [...errors, ...userErrors].map(e => e.message).join('; ')
+      throw new ShopifyError(`Abonarea la dezinstalare a eșuat: ${detail}`, 'bad_response', undefined, 'sync.shopify_error', { detail: detail.slice(0, 500) })
     }
   }
 }

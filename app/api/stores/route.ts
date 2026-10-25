@@ -4,26 +4,29 @@ import { authOptions } from '@/lib/auth/auth.config'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { logApiError } from '@/lib/logger'
 import { isCommercePlatform } from '@/lib/commerce/sync'
+import { getT } from '@/lib/i18n/server'
 
 // =============================================
 // GET /api/stores
 // Magazinele contului și cel activ (pe care lucrează paginile). `store` e
 // magazinul activ, ca pentru paginile scrise când exista unul singur.
+// `last_error` e un mesaj salvat ca cheie de traducere (translateStored).
 // =============================================
 
 export async function GET() {
   const ROUTE = '/api/stores'
+  const t = await getT()
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user) {
       logApiError(ROUTE, 401, 'Sesiune lipsă')
-      return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
+      return NextResponse.json({ error: t('api.unauthorized') }, { status: 401 })
     }
 
     const userId = (session.user as any).id
     if (!userId) {
       logApiError(ROUTE, 400, 'userId lipsă din token', { sessionUser: JSON.stringify(session.user) })
-      return NextResponse.json({ error: 'ID utilizator lipsă' }, { status: 400 })
+      return NextResponse.json({ error: t('sync.session_invalid') }, { status: 400 })
     }
 
     const supabase = createAdminClient()
@@ -34,7 +37,7 @@ export async function GET() {
 
     if (error) {
       logApiError(ROUTE, 500, 'Eroare DB la încărcarea magazinelor', { userId, dbError: error.message })
-      return NextResponse.json({ error: 'Eroare la încărcarea magazinului' }, { status: 500 })
+      return NextResponse.json({ error: t('sync.store_read_failed') }, { status: 500 })
     }
 
     const list = stores ?? []
@@ -65,6 +68,6 @@ export async function GET() {
     return NextResponse.json({ store: active, stores: list, active_store_id: active?.id ?? null })
   } catch (err) {
     logApiError(ROUTE, 500, 'Eroare neașteptată', { error: String(err) })
-    return NextResponse.json({ error: 'Eroare internă' }, { status: 500 })
+    return NextResponse.json({ error: t('api.internal_error') }, { status: 500 })
   }
 }

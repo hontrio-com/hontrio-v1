@@ -1,3 +1,5 @@
+import { storedMessage } from '@/lib/i18n/stored'
+import type { Params as MessageParams } from '@/lib/i18n/translate'
 import type { GlaConnection, WooOrder, WooProduct, WooSetting, WooSiteInfo, WooSystemStatus, WooVariation } from './types'
 
 // =============================================
@@ -9,8 +11,11 @@ import type { GlaConnection, WooOrder, WooProduct, WooSetting, WooSiteInfo, WooS
 export type WooErrorCode = 'unauthorized' | 'blocked' | 'not_found' | 'unavailable' | 'network' | 'bad_response'
 
 export class WooError extends Error {
-  constructor(message: string, public code: WooErrorCode, public status?: number) {
+  /** Ce vede omul (în stores.last_error): cheia de traducere, cu parametri. `message` e pentru jurnal. */
+  readonly stored: string
+  constructor(message: string, public code: WooErrorCode, public status: number | undefined, key: string, params?: MessageParams) {
     super(message)
+    this.stored = storedMessage(key, params)
   }
 }
 
@@ -52,25 +57,25 @@ export class WooApi {
         })
       } catch (err) {
         const code = String((err as { cause?: { code?: string } }).cause?.code ?? '')
-        last = new WooError(`Magazinul nu a răspuns (${path}): ${code || (err as Error).message}`, 'network')
+        last = new WooError(`Magazinul nu a răspuns (${path}): ${code || (err as Error).message}`, 'network', undefined, 'sync.woo_no_response')
         // Domeniul nu mai există: reîncercarea n-ar schimba nimic acum
         if (code === 'ENOTFOUND') break
         continue
       }
 
       if (res.status === 429 || res.status >= 500) {
-        last = new WooError(`Magazinul e indisponibil (${res.status} la ${path})`, 'unavailable', res.status)
+        last = new WooError(`Magazinul e indisponibil (${res.status} la ${path})`, 'unavailable', res.status, 'sync.woo_unavailable', { status: res.status })
         continue
       }
       const body = await res.json().catch(() => null) as { code?: string } | null
-      if (res.status === 401) throw new WooError('WooCommerce a refuzat cheia API', 'unauthorized', 401)
+      if (res.status === 401) throw new WooError('WooCommerce a refuzat cheia API', 'unauthorized', 401, 'sync.woo_key_rejected')
       if (res.status === 403) {
         // Un refuz al WooCommerce înseamnă cheie fără drepturi; altul (firewall, Cloudflare) e o blocare
-        if (body?.code?.startsWith('woocommerce_rest_')) throw new WooError('Cheia API nu are drept de citire', 'unauthorized', 403)
-        throw new WooError(`Magazinul a blocat cererea (403 la ${path})`, 'blocked', 403)
+        if (body?.code?.startsWith('woocommerce_rest_')) throw new WooError('Cheia API nu are drept de citire', 'unauthorized', 403, 'sync.woo_key_no_read')
+        throw new WooError(`Magazinul a blocat cererea (403 la ${path})`, 'blocked', 403, 'sync.woo_blocked')
       }
-      if (res.status === 404) throw new WooError(`WooCommerce: ${path} nu există (404)`, 'not_found', 404)
-      if (!res.ok || body === null) throw new WooError(`WooCommerce a răspuns ${res.status} la ${path}`, 'bad_response', res.status)
+      if (res.status === 404) throw new WooError(`WooCommerce: ${path} nu există (404)`, 'not_found', 404, 'sync.woo_not_found', { path })
+      if (!res.ok || body === null) throw new WooError(`WooCommerce a răspuns ${res.status} la ${path}`, 'bad_response', res.status, 'sync.woo_bad_response', { status: res.status })
 
       return {
         data: body as T,
@@ -78,7 +83,7 @@ export class WooApi {
         totalPages: Number(res.headers.get('x-wp-totalpages')) || 0,
       }
     }
-    throw last ?? new WooError(`WooCommerce: ${path} a eșuat`, 'unavailable')
+    throw last ?? new WooError(`WooCommerce: ${path} a eșuat`, 'unavailable', undefined, 'sync.woo_no_response')
   }
 
   private async page<T>(path: string, params: Params): Promise<WooPage<T>> {

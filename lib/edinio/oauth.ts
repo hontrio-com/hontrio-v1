@@ -82,7 +82,7 @@ export async function exchangeEdinioCode(
       signal: AbortSignal.timeout(20000),
     })
   } catch (err) {
-    throw new EdinioError(`Edinio nu a răspuns la schimbul codului: ${(err as Error).message}`, 'network')
+    throw new EdinioError(`Edinio nu a răspuns la schimbul codului: ${(err as Error).message}`, 'network', undefined, 'sync.edinio_no_response')
   }
 
   const data = await res.json().catch(() => ({}))
@@ -90,7 +90,8 @@ export async function exchangeEdinioCode(
     const code = data.error === 'invalid_grant' ? 'invalid_grant'
       : data.error === 'invalid_client' ? 'not_configured'
       : res.status >= 500 ? 'unavailable' : 'bad_response'
-    throw new EdinioError(`Schimb cod → jeton eșuat: ${data.error || res.status}`, code, res.status)
+    // Callback-ul arată omului o eroare după `code`; cheia e pentru orice alt apelant
+    throw new EdinioError(`Schimb cod → jeton eșuat: ${data.error || res.status}`, code, res.status, 'sync.edinio_bad_response', { status: res.status })
   }
   return { accessToken: data.access_token, store: (data.magazin as EdinioStore | null) ?? null }
 }

@@ -1,6 +1,7 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { decrypt } from '@/lib/security/encryption'
 import { logError, logWarn } from '@/lib/logger'
+import { storedMessage } from '@/lib/i18n/stored'
 import { EdinioClient } from './client'
 import { EdinioError } from './config'
 import { lineRows, offerRows, orderRow, storeFields, type ExistingLine } from './mapping'
@@ -185,15 +186,19 @@ export async function syncEdinioStore(
     // Watermark-urile NU avansează: trecerea următoare reia de unde știm sigur
     if (err instanceof EdinioError && err.code === 'unauthorized') {
       await supabase.from('stores').update({
-        sync_status: 'active', connection_status: 'revoked', last_error: 'Accesul a fost revocat din Edinio',
+        sync_status: 'active', connection_status: 'revoked', last_error: storedMessage('sync.edinio_access_revoked'),
       }).eq('id', storeId)
       logWarn('edinio/sync', 'Jeton Edinio revocat', { storeId })
       return { ok: false, reason: 'revoked' }
     }
     const message = err instanceof DeadlineReached
-      ? 'Sincronizarea nu s-a terminat în timpul alocat; continuă la următoarea rulare'
+      ? 'Sincronizarea nu s-a terminat în timpul alocat; continuă la următoarea rulare' // i18n-ignore: pentru jurnal; omul vede sync.deadline_reached
       : (err as Error).message
-    await supabase.from('stores').update({ sync_status: 'error', last_error: message.slice(0, 500) }).eq('id', storeId)
+    // Omul vede mesajul tradus; o eroare din afara Edinio (ex. a bazei) intră ca detaliu tehnic
+    const lastError = err instanceof DeadlineReached ? storedMessage('sync.deadline_reached')
+      : err instanceof EdinioError ? err.stored
+      : storedMessage('sync.failed', { detail: message.slice(0, 500) })
+    await supabase.from('stores').update({ sync_status: 'error', last_error: lastError }).eq('id', storeId)
     logError('edinio/sync', 'Sincronizare Edinio eșuată', { storeId, mode, error: message })
     return { ok: false, reason: 'failed', message }
   }

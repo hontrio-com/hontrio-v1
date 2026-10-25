@@ -5,16 +5,18 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { decrypt } from '@/lib/security/encryption'
 import { revokeToken, clearCachedAccessToken } from '@/lib/google/oauth'
 import { logApiError } from '@/lib/logger'
+import { getT } from '@/lib/i18n/server'
 
 // =============================================
 // GET    /api/integrations/google — starea conexiunii, conturile Google Ads și
 //                                   contul ales pentru fiecare magazin
+//                                   (`connection.last_error` e o cheie salvată: translateStored)
 // DELETE /api/integrations/google — deconectare (revocă accesul la Google)
 // =============================================
 
 export async function GET() {
   const session = await getServerSession(authOptions)
-  if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!session?.user) return NextResponse.json({ error: (await getT())('api.unauthorized') }, { status: 401 })
   const userId = session.user.id
 
   const supabase = createAdminClient()
@@ -46,8 +48,9 @@ export async function GET() {
 }
 
 export async function DELETE() {
+  const t = await getT()
   const session = await getServerSession(authOptions)
-  if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!session?.user) return NextResponse.json({ error: t('api.unauthorized') }, { status: 401 })
   const userId = session.user.id
 
   const supabase = createAdminClient()
@@ -67,7 +70,11 @@ export async function DELETE() {
 
   // Conturile Google Ads se șterg în cascadă; magazinele rămân fără cont ales
   const { error } = await supabase.from('google_connections').delete().eq('id', connection.id)
-  if (error) return NextResponse.json({ error: 'Eroare la deconectare: ' + error.message }, { status: 500 })
+  if (error) {
+    // Detaliul tehnic merge în jurnal, nu la om
+    logApiError('/api/integrations/google', 500, 'Deconectare Google eșuată', { error: error.message })
+    return NextResponse.json({ error: t('sync.google_disconnect_failed') }, { status: 500 })
+  }
   await supabase.from('stores').update({ google_ads_customer_id: null }).eq('user_id', userId).not('google_ads_customer_id', 'is', null)
 
   clearCachedAccessToken(userId)

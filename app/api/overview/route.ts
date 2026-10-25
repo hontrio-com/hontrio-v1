@@ -8,6 +8,7 @@ import { storeSetup } from '@/lib/commerce/setup'
 import { getActiveStore } from '@/lib/stores/active'
 import { buildPlan } from '@/lib/campaigns/plan'
 import { storeAdsAccount } from '@/lib/google/accounts'
+import { getT } from '@/lib/i18n/server'
 
 type StoreRow = {
   id: string; platform: string; store_name: string | null; store_url: string; currency: string | null
@@ -21,6 +22,7 @@ type StoreRow = {
 // GET /api/overview?days=7|30|90|365
 // Prezentarea generală: cât e de gata contul pentru campanii și ce vinde
 // magazinul pe site (comparat cu perioada dinainte), din modelul comun.
+// `store.last_error` e un mesaj salvat ca cheie de traducere (translateStored).
 // =============================================
 
 const ROUTE = '/api/overview'
@@ -37,7 +39,7 @@ type Costs = {
 
 export async function GET(request: Request) {
   const session = await getServerSession(authOptions)
-  if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!session?.user) return NextResponse.json({ error: (await getT())('api.unauthorized') }, { status: 401 })
   const userId = session.user.id
 
   const daysParam = Number(new URL(request.url).searchParams.get('days'))
@@ -51,7 +53,7 @@ export async function GET(request: Request) {
   ])
   if (storeRes.error) {
     logApiError(ROUTE, 500, 'Eroare la citirea magazinului', { userId, error: storeRes.error.message })
-    return NextResponse.json({ error: 'Nu am putut citi magazinul' }, { status: 500 })
+    return NextResponse.json({ error: (await getT())('sync.store_read_failed') }, { status: 500 })
   }
 
   const store = storeRes.data

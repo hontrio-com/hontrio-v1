@@ -9,6 +9,7 @@ import { isCommercePlatform } from '@/lib/commerce/sync'
 import { getActiveStore } from '@/lib/stores/active'
 import { buildPlan, GOALS, type Goal } from '@/lib/campaigns/plan'
 import { storeAdsAccount } from '@/lib/google/accounts'
+import { getT } from '@/lib/i18n/server'
 
 // =============================================
 // GET   /api/campaigns/plan — planul campaniei, socotit acum din datele magazinului
@@ -34,8 +35,9 @@ function readStore(supabase: Supabase, userId: string) {
 }
 
 export async function GET() {
+  const t = await getT()
   const session = await getServerSession(authOptions)
-  if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!session?.user) return NextResponse.json({ error: t('api.unauthorized') }, { status: 401 })
   const userId = session.user.id
 
   const supabase = createAdminClient()
@@ -45,7 +47,7 @@ export async function GET() {
   ])
   if (storeRes.error) {
     logApiError(ROUTE, 500, 'Eroare la citirea magazinului', { userId, error: storeRes.error.message })
-    return NextResponse.json({ error: 'Nu am putut citi magazinul' }, { status: 500 })
+    return NextResponse.json({ error: t('sync.store_read_failed') }, { status: 500 })
   }
   const store = storeRes.data
   if (!store) return NextResponse.json({ store: null, plan: null })
@@ -63,7 +65,7 @@ export async function GET() {
   ])
   for (const error of errors) logApiError(ROUTE, 500, 'Eroare la citirea datelor magazinului', { userId, error })
   if (draftRes.error) logApiError(ROUTE, 500, 'Eroare la citirea planului', { userId, error: draftRes.error.message })
-  if (!data) return NextResponse.json({ error: 'Nu am putut citi produsele' }, { status: 500 })
+  if (!data) return NextResponse.json({ error: t('sync.products_read_failed') }, { status: 500 })
 
   const draft = draftRes.data
 
@@ -98,20 +100,21 @@ export async function GET() {
 }
 
 export async function PATCH(request: Request) {
+  const t = await getT()
   const session = await getServerSession(authOptions)
-  if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!session?.user) return NextResponse.json({ error: t('api.unauthorized') }, { status: 401 })
   const userId = session.user.id
 
   let body: { goal?: unknown; daily_budget?: unknown }
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Cerere invalidă' }, { status: 400 })
+    return NextResponse.json({ error: t('api.invalid_request') }, { status: 400 })
   }
 
   const fields: { goal?: Goal; daily_budget?: number | null } = {}
   if (body.goal !== undefined) {
-    if (!GOALS.includes(body.goal as Goal)) return NextResponse.json({ error: 'Obiectiv invalid' }, { status: 400 })
+    if (!GOALS.includes(body.goal as Goal)) return NextResponse.json({ error: t('sync.goal_invalid') }, { status: 400 })
     fields.goal = body.goal as Goal
   }
   if (body.daily_budget !== undefined) {
@@ -120,20 +123,20 @@ export async function PATCH(request: Request) {
     else {
       const n = Number(body.daily_budget)
       if (typeof body.daily_budget !== 'number' || !Number.isFinite(n) || n <= 0 || n > MAX_DAILY_BUDGET) {
-        return NextResponse.json({ error: 'Buget invalid' }, { status: 400 })
+        return NextResponse.json({ error: t('campaigns.budget_invalid') }, { status: 400 })
       }
       fields.daily_budget = Math.round(n * 100) / 100
     }
   }
-  if (!Object.keys(fields).length) return NextResponse.json({ error: 'Nimic de salvat' }, { status: 400 })
+  if (!Object.keys(fields).length) return NextResponse.json({ error: t('sync.nothing_to_save') }, { status: 400 })
 
   const supabase = createAdminClient()
   const { data: store, error: storeError } = await readStore(supabase, userId)
   if (storeError) {
     logApiError(ROUTE, 500, 'Eroare la citirea magazinului', { userId, error: storeError.message })
-    return NextResponse.json({ error: 'Nu am putut citi magazinul' }, { status: 500 })
+    return NextResponse.json({ error: t('sync.store_read_failed') }, { status: 500 })
   }
-  if (!store || !isCommercePlatform(store.platform)) return NextResponse.json({ error: 'Magazin nesuportat' }, { status: 400 })
+  if (!store || !isCommercePlatform(store.platform)) return NextResponse.json({ error: t('sync.platform_unsupported') }, { status: 400 })
 
   const now = new Date().toISOString()
   const update = () => supabase.from('ad_campaigns')
@@ -153,7 +156,7 @@ export async function PATCH(request: Request) {
   }
   if (error || !rows?.length) {
     logApiError(ROUTE, 500, 'Eroare la salvarea planului', { userId, error: error?.message ?? 'niciun rând' })
-    return NextResponse.json({ error: 'Nu am putut salva planul' }, { status: 500 })
+    return NextResponse.json({ error: t('api.save_failed') }, { status: 500 })
   }
 
   const saved = rows[0]

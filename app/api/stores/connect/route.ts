@@ -8,15 +8,17 @@ import { rateLimit } from '@/lib/security/rate-limit'
 import { logApiError } from '@/lib/logger'
 import { syncCommerceStore } from '@/lib/commerce/sync'
 import { setActiveStore } from '@/lib/stores/active'
+import { getT } from '@/lib/i18n/server'
 
 // Prima sincronizare (produse și comenzi) rulează în `after`, în limita duratei rutei
 export const maxDuration = 300
 
 export async function POST(request: Request) {
+  const t = await getT()
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user) {
-      return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
+      return NextResponse.json({ error: t('api.unauthorized') }, { status: 401 })
     }
 
     const userId = (session.user as any).id
@@ -25,7 +27,7 @@ export async function POST(request: Request) {
     const rl = rateLimit(`store-connect:${userId}`, 5, 10 * 60 * 1000)
     if (!rl.success) {
       return NextResponse.json(
-        { error: 'Prea multe încercări. Așteaptă câteva minute.' },
+        { error: t('sync.too_many_attempts') },
         { status: 429 }
       )
     }
@@ -34,7 +36,7 @@ export async function POST(request: Request) {
 
     if (!store_url || !consumer_key || !consumer_secret) {
       return NextResponse.json(
-        { error: 'Toate câmpurile sunt obligatorii' },
+        { error: t('sync.fields_required') },
         { status: 400 }
       )
     }
@@ -43,7 +45,7 @@ export async function POST(request: Request) {
     const urlValidation = validateStoreUrl(store_url)
     if (!urlValidation.valid) {
       return NextResponse.json(
-        { error: urlValidation.error },
+        { error: t(urlValidation.error ?? 'sync.store_url_invalid') },
         { status: 400 }
       )
     }
@@ -52,13 +54,13 @@ export async function POST(request: Request) {
     // Validate API key format
     if (typeof consumer_key !== 'string' || !consumer_key.startsWith('ck_') || consumer_key.length < 10) {
       return NextResponse.json(
-        { error: 'Consumer Key invalid. Trebuie să înceapă cu ck_' },
+        { error: t('sync.woo_consumer_key_invalid') },
         { status: 400 }
       )
     }
     if (typeof consumer_secret !== 'string' || !consumer_secret.startsWith('cs_') || consumer_secret.length < 10) {
       return NextResponse.json(
-        { error: 'Consumer Secret invalid. Trebuie să înceapă cu cs_' },
+        { error: t('sync.woo_consumer_secret_invalid') },
         { status: 400 }
       )
     }
@@ -77,7 +79,7 @@ export async function POST(request: Request) {
 
       if (!testRes.ok) {
         return NextResponse.json(
-          { error: 'Nu s-a putut conecta la WooCommerce. Verifică URL-ul și cheile API.' },
+          { error: t('sync.woo_connect_failed') },
           { status: 400 }
         )
       }
@@ -90,7 +92,7 @@ export async function POST(request: Request) {
       } catch { /* ignore parse errors */ }
     } catch {
       return NextResponse.json(
-        { error: 'Nu s-a putut accesa magazinul. Verifică URL-ul.' },
+        { error: t('sync.store_no_response_check_url') },
         { status: 400 }
       )
     }
@@ -107,12 +109,12 @@ export async function POST(request: Request) {
     if (existingByUrl) {
       if (existingByUrl.user_id === userId) {
         return NextResponse.json(
-          { error: 'Ai deja acest magazin conectat.' },
+          { error: t('sync.store_already_connected') },
           { status: 400 }
         )
       }
       return NextResponse.json(
-        { error: 'Acest magazin este deja conectat la un alt cont.' },
+        { error: t('sync.store_taken') },
         { status: 400 }
       )
     }
@@ -128,7 +130,7 @@ export async function POST(request: Request) {
     } catch (encErr) {
       console.error('Encryption error:', encErr)
       return NextResponse.json(
-        { error: 'Eroare la criptarea cheilor API. Verifică ENCRYPTION_KEY în .env' },
+        { error: t('sync.encryption_failed') },
         { status: 500 }
       )
     }
@@ -155,7 +157,7 @@ export async function POST(request: Request) {
     if (error) {
       console.error('Store insert error:', error.message, error.code, error.details)
       return NextResponse.json(
-        { error: 'Eroare la salvarea magazinului: ' + error.message },
+        { error: t('sync.store_save_failed') },
         { status: 500 }
       )
     }
@@ -176,7 +178,7 @@ export async function POST(request: Request) {
   } catch (err) {
     console.error('Stores connect unexpected error:', err)
     return NextResponse.json(
-      { error: 'Eroare internă: ' + (err as Error).message },
+      { error: t('api.internal_error') },
       { status: 500 }
     )
   }

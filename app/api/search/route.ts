@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { logApiError } from '@/lib/logger'
 import { storeSetup } from '@/lib/commerce/setup'
 import { getActiveStore } from '@/lib/stores/active'
+import { getT } from '@/lib/i18n/server'
 
 // =============================================
 // GET /api/search?q=
@@ -74,8 +75,9 @@ async function generatedImages(supabase: Supabase, userId: string, q: string) {
 }
 
 export async function GET(request: Request) {
+  const t = await getT()
   const session = await getServerSession(authOptions)
-  if (!session?.user) return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
+  if (!session?.user) return NextResponse.json({ error: t('api.unauthorized') }, { status: 401 })
   const userId = session.user.id
 
   const q = new URL(request.url).searchParams.get('q')?.trim() || ''
@@ -96,6 +98,6 @@ export async function GET(request: Request) {
     return NextResponse.json({ products, images })
   } catch (e) {
     logApiError(ROUTE, 500, 'Eroare la căutare', { userId, error: (e as Error).message })
-    return NextResponse.json({ error: 'Eroare internă' }, { status: 500 })
+    return NextResponse.json({ error: t('api.internal_error') }, { status: 500 })
   }
 }

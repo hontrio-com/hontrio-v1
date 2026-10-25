@@ -4,15 +4,17 @@ import { authOptions } from '@/lib/auth/auth.config'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { decrypt } from '@/lib/security/encryption'
 import { EdinioClient } from '@/lib/edinio/client'
+import { getT } from '@/lib/i18n/server'
 
 export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const t = await getT()
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user) {
-      return NextResponse.json({ error: 'Neautorizat' }, { status: 401 })
+      return NextResponse.json({ error: t('api.unauthorized') }, { status: 401 })
     }
 
     const { id } = await params
@@ -38,11 +40,11 @@ export async function DELETE(
       .eq('user_id', userId)
 
     if (error) {
-      return NextResponse.json({ error: 'Eroare la ștergere' }, { status: 500 })
+      return NextResponse.json({ error: t('sync.store_delete_failed') }, { status: 500 })
     }
 
-    return NextResponse.json({ message: 'Magazin deconectat' })
+    return NextResponse.json({ message: t('sync.store_disconnected') })
   } catch {
-    return NextResponse.json({ error: 'Eroare internă' }, { status: 500 })
+    return NextResponse.json({ error: t('api.internal_error') }, { status: 500 })
   }
 }

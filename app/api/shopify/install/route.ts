@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { rateLimit } from '@/lib/security/rate-limit'
 import { logApiError } from '@/lib/logger'
+import { getT } from '@/lib/i18n/server'
 
 // =============================================
 // GET /api/shopify/install
@@ -18,6 +19,8 @@ const SHOPIFY_SCOPES = [
 ].join(',')
 
 export async function GET(request: Request) {
+  // Omul ajunge aici din browser (butonul de conectare): erorile sunt în limba lui
+  const t = await getT()
   try {
     const { searchParams } = new URL(request.url)
     const shop = searchParams.get('shop')?.trim().toLowerCase() || ''
@@ -25,7 +28,7 @@ export async function GET(request: Request) {
 
     if (!shop) {
       return NextResponse.json(
-        { error: 'Parametrul shop lipsește. Exemplu: ?shop=magazin.myshopify.com' },
+        { error: t('sync.shopify_shop_missing') },
         { status: 400 }
       )
     }
@@ -33,7 +36,7 @@ export async function GET(request: Request) {
     // Validare format: trebuie să fie *.myshopify.com
     if (!/^[a-zA-Z0-9][a-zA-Z0-9\-]*\.myshopify\.com$/.test(shop)) {
       return NextResponse.json(
-        { error: 'Format shop invalid. Trebuie să fie yourstore.myshopify.com' },
+        { error: t('sync.shopify_shop_invalid') },
         { status: 400 }
       )
     }
@@ -43,7 +46,7 @@ export async function GET(request: Request) {
     const rl = rateLimit(`shopify-install:${ip}`, 10, 60 * 1000)
     if (!rl.success) {
       return NextResponse.json(
-        { error: 'Prea multe cereri. Încearcă din nou în câteva minute.' },
+        { error: t('api.rate_limited') },
         { status: 429 }
       )
     }
@@ -52,7 +55,7 @@ export async function GET(request: Request) {
     if (!clientId) {
       logApiError('/api/shopify/install', 500, 'SHOPIFY_CLIENT_ID lipsește din variabilele de mediu')
       return NextResponse.json(
-        { error: 'Configurație server lipsă. Contactează suportul.' },
+        { error: t('sync.server_not_configured') },
         { status: 500 }
       )
     }
@@ -94,7 +97,7 @@ export async function GET(request: Request) {
       error: (err as Error).message,
     })
     return NextResponse.json(
-      { error: 'Eroare internă: ' + (err as Error).message },
+      { error: t('api.internal_error') },
       { status: 500 }
     )
   }

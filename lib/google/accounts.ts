@@ -1,4 +1,5 @@
 import { createAdminClient } from '@/lib/supabase/admin'
+import { storedMessage } from '@/lib/i18n/stored'
 import { discoverAccounts, MAX_ACCOUNTS } from '@/lib/google/ads'
 import { getActiveStore } from '@/lib/stores/active'
 
@@ -78,7 +79,10 @@ export async function syncGoogleAdsAccounts(userId: string, connectionId: string
     .from('google_connections')
     .update({
       status: 'active',
-      last_error: firstError ? `${firstError.errorCode || 'error'}: ${firstError.message}` : null,
+      // Codul și mesajul lui Google (în engleză) intră ca detaliu în mesajul tradus
+      last_error: firstError
+        ? storedMessage('sync.google_accounts_partial', { code: firstError.errorCode || 'error', detail: firstError.message.slice(0, 500) })
+        : null,
       updated_at: now,
     })
     .eq('id', connectionId)

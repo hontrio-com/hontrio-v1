@@ -1,10 +1,11 @@
 /**
  * Validate and sanitize a store URL to prevent SSRF attacks
  * Only allows HTTPS URLs pointing to valid domains (no internal IPs)
+ * `error` = cheia de traducere a motivului (secțiunea `sync`), pentru t() în rută
  */
 export function validateStoreUrl(url: string): { valid: boolean; cleaned: string; error?: string } {
   if (!url || typeof url !== 'string') {
-    return { valid: false, cleaned: '', error: 'URL invalid' }
+    return { valid: false, cleaned: '', error: 'sync.store_url_invalid' }
   }
 
   // Trim and remove trailing slashes
@@ -19,7 +20,7 @@ export function validateStoreUrl(url: string): { valid: boolean; cleaned: string
   try {
     parsed = new URL(cleaned)
   } catch {
-    return { valid: false, cleaned: '', error: 'URL invalid. Exemplu: https://magazinul-tau.ro' }
+    return { valid: false, cleaned: '', error: 'sync.store_url_invalid' }
   }
 
   // Force HTTPS
@@ -40,7 +41,7 @@ export function validateStoreUrl(url: string): { valid: boolean; cleaned: string
     hostname.endsWith('.local') ||
     hostname.endsWith('.internal')
   ) {
-    return { valid: false, cleaned: '', error: 'URL-urile locale nu sunt permise' }
+    return { valid: false, cleaned: '', error: 'sync.store_url_local' }
   }
 
   // Block private IP ranges
@@ -54,18 +55,18 @@ export function validateStoreUrl(url: string): { valid: boolean; cleaned: string
       a === 169 && b === 254 ||            // 169.254.0.0/16 (link-local)
       a === 0                              // 0.0.0.0/8
     ) {
-      return { valid: false, cleaned: '', error: 'URL-urile cu IP privat nu sunt permise' }
+      return { valid: false, cleaned: '', error: 'sync.store_url_private_ip' }
     }
   }
 
   // Block special schemas that could be injected
   if (parsed.username || parsed.password) {
-    return { valid: false, cleaned: '', error: 'URL-ul nu trebuie să conțină credențiale' }
+    return { valid: false, cleaned: '', error: 'sync.store_url_credentials' }
   }
 
   // Must have a valid domain (at least one dot)
   if (!hostname.includes('.')) {
-    return { valid: false, cleaned: '', error: 'Domeniu invalid. Exemplu: magazin.ro' }
+    return { valid: false, cleaned: '', error: 'sync.store_url_domain' }
   }
 
   // Remove path, query, hash — we only want the base URL

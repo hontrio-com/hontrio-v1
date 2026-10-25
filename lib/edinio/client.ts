@@ -26,18 +26,18 @@ export class EdinioClient {
         cache: 'no-store',
       })
     } catch (err) {
-      throw new EdinioError(`Edinio nu a răspuns (${path}): ${(err as Error).message}`, 'network')
+      throw new EdinioError(`Edinio nu a răspuns (${path}): ${(err as Error).message}`, 'network', undefined, 'sync.edinio_no_response')
     }
 
     // ⚠ Doar 401 înseamnă „legătura e moartă". 503 e o pană trecătoare
     // (sau legătura oprită temporar din Edinio): se reîncearcă, nu se deconectează.
-    if (res.status === 401) throw new EdinioError('Jetonul Edinio a fost revocat', 'unauthorized', 401)
-    if (res.status === 429) throw new EdinioError('Edinio: prea multe cereri', 'rate_limited', 429)
-    if (res.status >= 500) throw new EdinioError(`Edinio indisponibil (${res.status})`, 'unavailable', res.status)
+    if (res.status === 401) throw new EdinioError('Jetonul Edinio a fost revocat', 'unauthorized', 401, 'sync.edinio_access_revoked')
+    if (res.status === 429) throw new EdinioError('Edinio: prea multe cereri', 'rate_limited', 429, 'sync.edinio_rate_limited')
+    if (res.status >= 500) throw new EdinioError(`Edinio indisponibil (${res.status})`, 'unavailable', res.status, 'sync.edinio_unavailable', { status: res.status })
 
     const data = await res.json().catch(() => null)
     if (!res.ok || !data) {
-      throw new EdinioError(`Edinio a răspuns ${res.status} la ${path}: ${data?.eroare || 'fără corp'}`, 'bad_response', res.status)
+      throw new EdinioError(`Edinio a răspuns ${res.status} la ${path}: ${data?.eroare || 'fără corp'}`, 'bad_response', res.status, 'sync.edinio_bad_response', { status: res.status })
     }
     return data as T
   }

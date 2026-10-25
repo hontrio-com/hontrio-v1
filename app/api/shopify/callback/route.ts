@@ -8,6 +8,7 @@ import { logApiError } from '@/lib/logger'
 import { setActiveStore } from '@/lib/stores/active'
 import { syncCommerceStore } from '@/lib/commerce/sync'
 import { ShopifyApi } from '@/lib/shopify/api'
+import { getT } from '@/lib/i18n/server'
 import { cookies } from 'next/headers'
 import crypto from 'crypto'
 
@@ -39,6 +40,8 @@ function afterConnect(storeId: string, shop: string, accessToken: string) {
 }
 
 export async function GET(request: Request) {
+  // Omul ajunge aici din browser (întoarcerea din Shopify): erorile sunt în limba lui
+  const t = await getT()
   try {
     const { searchParams } = new URL(request.url)
     const shop  = searchParams.get('shop')  || ''
@@ -48,7 +51,7 @@ export async function GET(request: Request) {
 
     if (!shop || !code || !state || !hmac) {
       return NextResponse.json(
-        { error: 'Parametri lipsă din callback-ul Shopify' },
+        { error: t('sync.shopify_callback_invalid') },
         { status: 400 }
       )
     }
@@ -57,7 +60,7 @@ export async function GET(request: Request) {
     const rl = rateLimit(`shopify-callback:${shop}`, 5, 60 * 1000)
     if (!rl.success) {
       return NextResponse.json(
-        { error: 'Prea multe cereri. Încearcă din nou.' },
+        { error: t('api.rate_limited') },
         { status: 429 }
       )
     }
@@ -66,7 +69,7 @@ export async function GET(request: Request) {
     const clientSecret = process.env.SHOPIFY_CLIENT_SECRET
     if (!clientSecret) {
       logApiError('/api/shopify/callback', 500, 'SHOPIFY_CLIENT_SECRET lipsește')
-      return NextResponse.json({ error: 'Configurație server lipsă' }, { status: 500 })
+      return NextResponse.json({ error: t('sync.server_not_configured') }, { status: 500 })
     }
 
     // Construiește query string fără hmac, sortat alfabetic
@@ -84,7 +87,7 @@ export async function GET(request: Request) {
 
     if (calculatedHmac !== hmac) {
       logApiError('/api/shopify/callback', 401, 'HMAC invalid', { shop })
-      return NextResponse.json({ error: 'Semnătură HMAC invalidă' }, { status: 401 })
+      return NextResponse.json({ error: t('sync.shopify_signature_invalid') }, { status: 401 })
     }
 
     // ─── Verifică state cu cookie ─────────────────────────────────────────────
@@ -95,7 +98,7 @@ export async function GET(request: Request) {
     if (!savedState || savedState !== state) {
       logApiError('/api/shopify/callback', 401, 'State OAuth invalid sau cookie expirat', { shop })
       return NextResponse.json(
-        { error: 'State OAuth invalid sau sesiunea a expirat. Încearcă din nou.' },
+        { error: t('sync.connect_session_expired') },
         { status: 401 }
       )
     }
@@ -118,7 +121,7 @@ export async function GET(request: Request) {
         shop, status: tokenRes.status, body: errBody.substring(0, 300),
       })
       return NextResponse.json(
-        { error: 'Nu s-a putut obține access_token de la Shopify. Încearcă din nou.' },
+        { error: t('sync.shopify_token_failed') },
         { status: 400 }
       )
     }
@@ -128,7 +131,7 @@ export async function GET(request: Request) {
 
     if (!accessToken) {
       return NextResponse.json(
-        { error: 'Shopify nu a returnat un access_token valid' },
+        { error: t('sync.shopify_token_failed') },
         { status: 400 }
       )
     }
@@ -160,7 +163,7 @@ export async function GET(request: Request) {
         }).eq('id', existingByUrl.id)
         if (eUpdate) {
           logApiError(ROUTE, 500, 'Eroare la reconectarea magazinului Shopify', { error: eUpdate.message, shop })
-          return NextResponse.json({ error: 'Eroare la reconectarea magazinului' }, { status: 500 })
+          return NextResponse.json({ error: t('sync.store_reconnect_failed') }, { status: 500 })
         }
         await setActiveStore(supabase, userId, existingByUrl.id)
         afterConnect(existingByUrl.id, shop, accessToken)
@@ -173,7 +176,7 @@ export async function GET(request: Request) {
         return resp
       }
       return NextResponse.json(
-        { error: 'Acest magazin Shopify este deja conectat la un alt cont Hontrio.' },
+        { error: t('sync.store_taken') },
         { status: 400 }
       )
     }
@@ -189,7 +192,7 @@ export async function GET(request: Request) {
         error: (encErr as Error).message,
       })
       return NextResponse.json(
-        { error: 'Eroare la criptarea credențialelor. Verifică ENCRYPTION_KEY.' },
+        { error: t('sync.encryption_failed') },
         { status: 500 }
       )
     }
@@ -215,7 +218,7 @@ export async function GET(request: Request) {
         error: storeError?.message, shop,
       })
       return NextResponse.json(
-        { error: 'Eroare la salvarea magazinului: ' + (storeError?.message ?? 'fără rând') },
+        { error: t('sync.store_save_failed') },
         { status: 500 }
       )
     }
@@ -241,7 +244,7 @@ export async function GET(request: Request) {
       error: (err as Error).message,
     })
     return NextResponse.json(
-      { error: 'Eroare internă: ' + (err as Error).message },
+      { error: t('api.internal_error') },
       { status: 500 }
     )
   }

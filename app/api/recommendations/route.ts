@@ -8,6 +8,7 @@ import { storeSetup } from '@/lib/commerce/setup'
 import { getActiveStore } from '@/lib/stores/active'
 import { buildRecommendations } from '@/lib/recommendations/engine'
 import { storeAdsAccount } from '@/lib/google/accounts'
+import { getT } from '@/lib/i18n/server'
 
 // =============================================
 // GET /api/recommendations
@@ -18,8 +19,9 @@ import { storeAdsAccount } from '@/lib/google/accounts'
 const ROUTE = '/api/recommendations'
 
 export async function GET() {
+  const t = await getT()
   const session = await getServerSession(authOptions)
-  if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!session?.user) return NextResponse.json({ error: t('api.unauthorized') }, { status: 401 })
   const userId = session.user.id
 
   const supabase = createAdminClient()
@@ -33,7 +35,7 @@ export async function GET() {
   ])
   if (storeRes.error) {
     logApiError(ROUTE, 500, 'Eroare la citirea magazinului', { userId, error: storeRes.error.message })
-    return NextResponse.json({ error: 'Nu am putut citi magazinul' }, { status: 500 })
+    return NextResponse.json({ error: t('sync.store_read_failed') }, { status: 500 })
   }
   const store = storeRes.data
   if (!store) return NextResponse.json({ store: null, recommendations: [] })
@@ -49,7 +51,7 @@ export async function GET() {
     googleConnected ? storeAdsAccount(supabase, userId, store.google_ads_customer_id) : null,
   ])
   for (const error of errors) logApiError(ROUTE, 500, 'Eroare la citirea datelor magazinului', { userId, error })
-  if (!data) return NextResponse.json({ error: 'Nu am putut citi produsele' }, { status: 500 })
+  if (!data) return NextResponse.json({ error: t('sync.products_read_failed') }, { status: 500 })
 
   const recommendations = buildRecommendations({
     store: { connection_status: store.connection_status },

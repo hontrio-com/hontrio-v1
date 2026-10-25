@@ -6,6 +6,7 @@ import { logApiError } from '@/lib/logger'
 import type { AdsMode } from '@/lib/commerce/ads-data'
 import { isCommercePlatform } from '@/lib/commerce/sync'
 import { getActiveStore } from '@/lib/stores/active'
+import { getT } from '@/lib/i18n/server'
 
 // =============================================
 // PATCH /api/campaigns/offers
@@ -19,28 +20,29 @@ const MODES: AdsMode[] = ['auto', 'include', 'exclude']
 const MAX_OFFERS = 100
 
 export async function PATCH(request: Request) {
+  const t = await getT()
   const session = await getServerSession(authOptions)
-  if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!session?.user) return NextResponse.json({ error: t('api.unauthorized') }, { status: 401 })
   const userId = session.user.id
 
   let body: { offer_ids?: unknown; mode?: unknown }
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Cerere invalidă' }, { status: 400 })
+    return NextResponse.json({ error: t('api.invalid_request') }, { status: 400 })
   }
   const ids = Array.isArray(body.offer_ids) ? [...new Set(body.offer_ids.filter((x): x is string => typeof x === 'string' && x.length > 0))] : []
-  if (!ids.length || ids.length > MAX_OFFERS) return NextResponse.json({ error: 'Oferte invalide' }, { status: 400 })
-  if (!MODES.includes(body.mode as AdsMode)) return NextResponse.json({ error: 'Alegere invalidă' }, { status: 400 })
+  if (!ids.length || ids.length > MAX_OFFERS) return NextResponse.json({ error: t('sync.offers_invalid', { max: MAX_OFFERS }) }, { status: 400 })
+  if (!MODES.includes(body.mode as AdsMode)) return NextResponse.json({ error: t('sync.mode_invalid') }, { status: 400 })
   const mode = body.mode as AdsMode
 
   const supabase = createAdminClient()
   const { data: store, error: storeError } = await getActiveStore<{ id: string; platform: string }>(supabase, userId, 'id, platform')
   if (storeError) {
     logApiError(ROUTE, 500, 'Eroare la citirea magazinului', { userId, error: storeError.message })
-    return NextResponse.json({ error: 'Nu am putut citi magazinul' }, { status: 500 })
+    return NextResponse.json({ error: t('sync.store_read_failed') }, { status: 500 })
   }
-  if (!store || !isCommercePlatform(store.platform)) return NextResponse.json({ error: 'Magazin nesuportat' }, { status: 400 })
+  if (!store || !isCommercePlatform(store.platform)) return NextResponse.json({ error: t('sync.platform_unsupported') }, { status: 400 })
 
   const { data, error } = await supabase.from('commerce_offers')
     .update({ ads_mode: mode })
@@ -49,7 +51,7 @@ export async function PATCH(request: Request) {
     .select('offer_id')
   if (error) {
     logApiError(ROUTE, 500, 'Eroare la salvarea alegerii', { userId, error: error.message })
-    return NextResponse.json({ error: 'Nu am putut salva' }, { status: 500 })
+    return NextResponse.json({ error: t('api.save_failed') }, { status: 500 })
   }
 
   return NextResponse.json({ updated: (data ?? []).map(r => r.offer_id), mode })

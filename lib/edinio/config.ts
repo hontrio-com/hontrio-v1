@@ -1,3 +1,6 @@
+import { storedMessage } from '@/lib/i18n/stored'
+import type { Params } from '@/lib/i18n/translate'
+
 // =============================================
 // Edinio — configurarea legăturii (Hontrio e clientul OAuth al Edinio)
 // =============================================
@@ -9,8 +12,11 @@ export type EdinioErrorCode =
   | 'invalid_grant' | 'bad_response' | 'network' | 'timeout'
 
 export class EdinioError extends Error {
-  constructor(message: string, public code: EdinioErrorCode, public status?: number) {
+  /** Ce vede omul (în stores.last_error): cheia de traducere, cu parametri. `message` e pentru jurnal. */
+  readonly stored: string
+  constructor(message: string, public code: EdinioErrorCode, public status: number | undefined, key: string, params?: Params) {
     super(message)
+    this.stored = storedMessage(key, params)
   }
 }
 
@@ -22,7 +28,7 @@ export function getEdinioConfig(): { baseUrl: string; clientSecret: string } {
   const baseUrl = (process.env.EDINIO_BASE_URL || 'https://www.edinio.com').replace(/\/+$/, '')
   const clientSecret = process.env.EDINIO_CLIENT_SECRET || ''
   if (clientSecret.length < 32) {
-    throw new EdinioError('EDINIO_CLIENT_SECRET lipsește sau e prea scurt', 'not_configured')
+    throw new EdinioError('EDINIO_CLIENT_SECRET lipsește sau e prea scurt', 'not_configured', undefined, 'sync.edinio_not_configured')
   }
   return { baseUrl, clientSecret }
 }

@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { rateLimit } from '@/lib/security/rate-limit'
 import { logApiError } from '@/lib/logger'
 import { getActiveStore } from '@/lib/stores/active'
+import { getT } from '@/lib/i18n/server'
 
 // =============================================
 // POST /api/catalog/cost/bulk
@@ -17,32 +18,33 @@ import { getActiveStore } from '@/lib/stores/active'
 const ROUTE = '/api/catalog/cost/bulk'
 
 export async function POST(request: Request) {
+  const t = await getT()
   const session = await getServerSession(authOptions)
-  if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!session?.user) return NextResponse.json({ error: t('api.unauthorized') }, { status: 401 })
   const userId = session.user.id
 
   const rl = rateLimit(`catalog-cost-bulk:${userId}`, 30, 60 * 1000)
-  if (!rl.success) return NextResponse.json({ error: 'Prea multe cereri. Încearcă din nou peste un minut.' }, { status: 429 })
+  if (!rl.success) return NextResponse.json({ error: t('api.rate_limited') }, { status: 429 })
 
   let body: { percent?: unknown; category?: unknown; brand?: unknown; only_missing?: unknown; preview?: unknown }
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Cerere invalidă' }, { status: 400 })
+    return NextResponse.json({ error: t('api.invalid_request') }, { status: 400 })
   }
   const percent = Number(body.percent)
   if (typeof body.percent !== 'number' || !Number.isFinite(percent) || percent < 1 || percent > 99) {
-    return NextResponse.json({ error: 'Procentul trebuie să fie între 1 și 99' }, { status: 400 })
+    return NextResponse.json({ error: t('catalog.bulk_invalid') }, { status: 400 })
   }
   const text = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : null)
   const category = text(body.category)
   const brand = text(body.brand)
-  if (category && brand) return NextResponse.json({ error: 'Alege o categorie sau o marcă, nu amândouă' }, { status: 400 })
+  if (category && brand) return NextResponse.json({ error: t('sync.bulk_scope_conflict') }, { status: 400 })
 
   const supabase = createAdminClient()
   // Doar ofertele magazinului activ al OMULUI: funcția filtrează pe store_id
   const { data: store } = await getActiveStore<{ id: string }>(supabase, userId, 'id')
-  if (!store) return NextResponse.json({ error: 'Nu ai un magazin conectat' }, { status: 404 })
+  if (!store) return NextResponse.json({ error: t('sync.no_store') }, { status: 404 })
 
   const { data, error } = await supabase.rpc('commerce_estimate_costs', {
     p_store_id: store.id,
@@ -54,7 +56,7 @@ export async function POST(request: Request) {
   })
   if (error) {
     logApiError(ROUTE, 500, 'Eroare la completarea costurilor', { userId, error: error.message })
-    return NextResponse.json({ error: 'Nu am putut completa costurile' }, { status: 500 })
+    return NextResponse.json({ error: t('catalog.bulk_error') }, { status: 500 })
   }
   return NextResponse.json(body.preview === true ? { would_update: Number(data) || 0 } : { updated: Number(data) || 0 })
 }

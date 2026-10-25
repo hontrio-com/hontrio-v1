@@ -8,6 +8,7 @@ import { normalizeCustomerId } from '@/lib/google/ads'
 import { rateLimit } from '@/lib/security/rate-limit'
 import { logApiError } from '@/lib/logger'
 import { getActiveStore } from '@/lib/stores/active'
+import { getT } from '@/lib/i18n/server'
 
 // =============================================
 // POST  /api/integrations/google/accounts — reîmprospătează lista de conturi
@@ -16,12 +17,13 @@ import { getActiveStore } from '@/lib/stores/active'
 // =============================================
 
 export async function POST() {
+  const t = await getT()
   const session = await getServerSession(authOptions)
-  if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!session?.user) return NextResponse.json({ error: t('api.unauthorized') }, { status: 401 })
   const userId = session.user.id
 
   const rl = rateLimit(`google-accounts-refresh:${userId}`, 5, 60 * 1000)
-  if (!rl.success) return NextResponse.json({ error: 'Prea multe cereri. Încearcă din nou.' }, { status: 429 })
+  if (!rl.success) return NextResponse.json({ error: t('api.rate_limited') }, { status: 429 })
 
   const supabase = createAdminClient()
   const { data: connection } = await supabase
@@ -29,7 +31,7 @@ export async function POST() {
     .select('id')
     .eq('user_id', userId)
     .maybeSingle()
-  if (!connection) return NextResponse.json({ error: 'Contul Google nu este conectat' }, { status: 404 })
+  if (!connection) return NextResponse.json({ error: t('sync.google_not_connected') }, { status: 404 })
 
   try {
     const accessToken = await getAccessTokenForUser(userId)
@@ -37,31 +39,32 @@ export async function POST() {
     return NextResponse.json(result)
   } catch (err) {
     if (err instanceof GoogleAuthError && err.code === 'invalid_grant') {
-      return NextResponse.json({ error: 'Accesul Google a fost revocat. Reconectează contul.', code: 'revoked' }, { status: 401 })
+      return NextResponse.json({ error: t('google_ads.revoked_desc'), code: 'revoked' }, { status: 401 })
     }
     logApiError('/api/integrations/google/accounts', 502, 'Eroare reîmprospătare conturi Google Ads', {
       error: (err as Error).message,
     })
-    return NextResponse.json({ error: 'Nu am putut citi conturile Google Ads.' }, { status: 502 })
+    return NextResponse.json({ error: t('sync.google_accounts_failed') }, { status: 502 })
   }
 }
 
 export async function PATCH(request: Request) {
+  const t = await getT()
   const session = await getServerSession(authOptions)
-  if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!session?.user) return NextResponse.json({ error: t('api.unauthorized') }, { status: 401 })
   const userId = session.user.id
 
   const body = await request.json().catch(() => ({}))
   const customerId = body.customer_id === null ? null
     : typeof body.customer_id === 'string' ? normalizeCustomerId(body.customer_id) : ''
-  if (customerId !== null && !/^\d{10}$/.test(customerId)) return NextResponse.json({ error: 'customer_id invalid' }, { status: 400 })
+  if (customerId !== null && !/^\d{10}$/.test(customerId)) return NextResponse.json({ error: t('sync.customer_id_invalid') }, { status: 400 })
 
   const supabase = createAdminClient()
   // Doar magazinele omului
   const { data: store } = typeof body.store_id === 'string'
     ? await supabase.from('stores').select('id').eq('id', body.store_id).eq('user_id', userId).maybeSingle()
     : await getActiveStore<{ id: string }>(supabase, userId, 'id')
-  if (!store) return NextResponse.json({ error: 'Magazinul nu a fost găsit' }, { status: 404 })
+  if (!store) return NextResponse.json({ error: t('sync.store_not_found') }, { status: 404 })
 
   if (customerId) {
     const { data: account } = await supabase
@@ -70,14 +73,18 @@ export async function PATCH(request: Request) {
       .eq('user_id', userId)
       .eq('customer_id', customerId)
       .maybeSingle()
-    if (!account) return NextResponse.json({ error: 'Contul nu a fost găsit' }, { status: 404 })
+    if (!account) return NextResponse.json({ error: t('sync.ads_account_not_found') }, { status: 404 })
     if (account.is_manager) {
-      return NextResponse.json({ error: 'Un cont de manager nu poate rula campanii. Alege un cont de advertiser.' }, { status: 400 })
+      return NextResponse.json({ error: t('sync.ads_account_manager') }, { status: 400 })
     }
   }
 
   const { error } = await supabase.from('stores').update({ google_ads_customer_id: customerId }).eq('id', store.id)
-  if (error) return NextResponse.json({ error: 'Eroare la selectare: ' + error.message }, { status: 500 })
+  if (error) {
+    // Detaliul tehnic merge în jurnal, nu la om
+    logApiError('/api/integrations/google/accounts', 500, 'Eroare la alegerea contului Google Ads', { error: error.message })
+    return NextResponse.json({ error: t('sync.ads_account_save_failed') }, { status: 500 })
+  }
 
   return NextResponse.json({ success: true, store_id: store.id, customer_id: customerId })
 }

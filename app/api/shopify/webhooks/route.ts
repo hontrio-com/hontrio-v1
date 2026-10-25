@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { logApiError, logWarn } from '@/lib/logger'
+import { storedMessage } from '@/lib/i18n/stored'
 import crypto from 'crypto'
 
 // =============================================
@@ -49,7 +50,7 @@ export async function POST(request: Request) {
     // Verifică HMAC — Shopify cere 401 pentru HMAC invalid (cerință compliance)
     if (!verifyShopifyHmac(rawBody, hmacHeader)) {
       logApiError(ROUTE, 401, 'HMAC webhook Shopify invalid', { shop: shopDomain, topic })
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) // i18n-ignore: răspuns pentru serverele Shopify, nu pentru om
     }
 
     const supabase = createAdminClient()
@@ -69,7 +70,7 @@ export async function POST(request: Request) {
         await supabase.from('stores').update({
           connection_status: 'revoked',
           sync_status: 'active',
-          last_error: 'Aplicația Hontrio a fost dezinstalată din Shopify',
+          last_error: storedMessage('sync.shopify_uninstalled'),
         }).eq('id', store.id)
         logWarn(ROUTE, 'Aplicația a fost dezinstalată din Shopify', { storeId: store.id })
         break

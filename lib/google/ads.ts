@@ -66,7 +66,7 @@ function parseError(status: number, data: ApiErrorBody): GoogleAdsApiError {
     const [group, value] = Object.entries(first.errorCode)[0] || []
     if (group) errorCode = `${group}.${value}`
   }
-  const message = first?.message || data?.error?.message || `Google Ads API: HTTP ${status}`
+  const message = first?.message || data?.error?.message || `Google Ads API: HTTP ${status}` // i18n-ignore: detaliu tehnic (marcă + cod HTTP)
   return new GoogleAdsApiError(message, status, errorCode)
 }
 

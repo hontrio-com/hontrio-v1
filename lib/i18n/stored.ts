@@ -6,8 +6,8 @@ import type { Params, TFunction } from './translate'
 // traducere, cu parametri dacă trebuie, iar interfața o traduce în limba omului
 // care se uită.
 //
-//   salvare:  last_error: storedMessage('sync.store_unreachable', { status: 503 })
-//             → "sync.store_unreachable|{"status":503}"
+//   salvare:  last_error: storedMessage('sync.woo_unavailable', { status: 503 })
+//             → "sync.woo_unavailable|{"status":503}"
 //   afișare:  translateStored(t, store.last_error)
 //
 // Un text vechi, scris direct (sau un detaliu tehnic de la platformă), se arată

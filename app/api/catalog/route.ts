@@ -5,11 +5,13 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { logApiError } from '@/lib/logger'
 import { storeSetup } from '@/lib/commerce/setup'
 import { getActiveStore } from '@/lib/stores/active'
+import { getT } from '@/lib/i18n/server'
 
 // =============================================
 // GET /api/catalog?days=30|90|365
 // Ofertele magazinului pe noul model (commerce_offers), cu vânzările de pe
 // site din perioada aleasă. Le au Edinio, WooCommerce și Shopify.
+// `store.last_error` e un mesaj salvat ca cheie de traducere (translateStored).
 // =============================================
 
 const ROUTE = '/api/catalog'
@@ -20,8 +22,9 @@ const PAGINA = 1000
 const COLOANE = 'offer_id, external_product_id, item_group_id, title, product_name, variant_title, category, url, image_url, price, compare_at_price, currency, available, stock, sku, gtin, brand, google_status, cost_price, cost_source, synced_at'
 
 export async function GET(request: Request) {
+  const t = await getT()
   const session = await getServerSession(authOptions)
-  if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!session?.user) return NextResponse.json({ error: t('api.unauthorized') }, { status: 401 })
   const userId = session.user.id
 
   const daysParam = Number(new URL(request.url).searchParams.get('days'))
@@ -35,7 +38,7 @@ export async function GET(request: Request) {
   }>(supabase, userId, 'id, platform, store_name, store_url, currency, country, language, connection_status, sync_status, last_sync_at, last_error, platform_data')
   if (eStore) {
     logApiError(ROUTE, 500, 'Eroare la citirea magazinului', { userId, error: eStore.message })
-    return NextResponse.json({ error: 'Nu am putut citi magazinul' }, { status: 500 })
+    return NextResponse.json({ error: t('sync.store_read_failed') }, { status: 500 })
   }
   if (!store) return NextResponse.json({ store: null, offers: [], days })
 
@@ -84,7 +87,7 @@ export async function GET(request: Request) {
     readOffers(),
     supabase.rpc('commerce_offer_sales', { p_store_id: store.id, p_since: since }),
   ])
-  if (!offers) return NextResponse.json({ error: 'Nu am putut citi produsele' }, { status: 500 })
+  if (!offers) return NextResponse.json({ error: t('sync.products_read_failed') }, { status: 500 })
   if (eSales) logApiError(ROUTE, 500, 'Eroare la vânzările pe ofertă', { userId, error: eSales.message })
   const salesByOffer = new Map(
     ((sales ?? []) as { offer_id: string; units: number; revenue: number; orders: number }[])

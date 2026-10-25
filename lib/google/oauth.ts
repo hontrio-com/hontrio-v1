@@ -1,5 +1,6 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { decrypt } from '@/lib/security/encryption'
+import { storedMessage } from '@/lib/i18n/stored'
 
 // =============================================
 // Google OAuth 2.0 — conectarea contului Google Ads / Merchant Center
@@ -157,7 +158,7 @@ export async function getAccessTokenForUser(userId: string): Promise<string> {
     if (err instanceof GoogleAuthError && err.code === 'invalid_grant') {
       await supabase
         .from('google_connections')
-        .update({ status: 'revoked', last_error: err.message, updated_at: new Date().toISOString() })
+        .update({ status: 'revoked', last_error: storedMessage('sync.google_access_revoked'), updated_at: new Date().toISOString() })
         .eq('id', conn.id)
     }
     throw err

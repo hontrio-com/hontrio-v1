@@ -1,6 +1,7 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { decrypt } from '@/lib/security/encryption'
 import { logError, logWarn } from '@/lib/logger'
+import { storedMessage } from '@/lib/i18n/stored'
 import { standardVatRate } from '@/lib/ads/vat'
 import type { Ctx } from '@/lib/commerce/rows'
 import { PAGE_SIZE, WooApi, WooError } from './api'
@@ -334,8 +335,9 @@ export async function syncWooStore(
       return { ok: true, mode, complete: false, offers, orders, offersTotal, ordersTotal }
     }
     if (err instanceof WooError && err.code === 'unauthorized') {
+      // Cheia refuzată sau fără drept de citire (sync.woo_key_rejected / sync.woo_key_no_read)
       await supabase.from('stores').update({
-        sync_status: 'active', connection_status: 'revoked', last_error: 'Cheia API WooCommerce nu mai e acceptată',
+        sync_status: 'active', connection_status: 'revoked', last_error: err.stored,
       }).eq('id', storeId)
       logWarn('woocommerce/sync', 'Cheie WooCommerce refuzată', { storeId })
       return { ok: false, reason: 'revoked' }
@@ -344,7 +346,8 @@ export async function syncWooStore(
     const message = (err as Error).message
     await supabase.from('stores').update({
       sync_status: 'error',
-      last_error: message.slice(0, 500),
+      // Omul vede mesajul tradus al erorii; altfel (ex. o eroare a bazei), detaliul tehnic
+      last_error: err instanceof WooError ? err.stored : storedMessage('sync.failed', { detail: message.slice(0, 500) }),
       // Magazinul nu răspunde sau ne blochează: îl arătăm ca problemă, dar continuăm să încercăm
       ...(err instanceof WooError ? { connection_status: 'error' } : {}),
     }).eq('id', storeId)
