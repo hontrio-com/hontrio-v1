@@ -516,7 +516,8 @@
     "adjust_vat_assumed": "Magazinul nu calculează TVA, așa că socoteala presupune cota standard de {{vat}}%, pe care nu o păstrezi.",
     "blocker_merchant_shopify": "Trimite produsele în Merchant Center (aplicația Google & YouTube)",
     "blocker_conversion_shopify": "Măsoară cumpărările în Google Ads (aplicația Google & YouTube)",
-    "verified_at_launch_shopify": "Shopify nu le spune aplicațiilor ce canale de vânzare are magazinul (Google & YouTube): verificăm la lansare, din contul Google."
+    "verified_at_launch_shopify": "Shopify nu le spune aplicațiilor ce canale de vânzare are magazinul (Google & YouTube): verificăm la lansare, din contul Google.",
+    "blocker_costs_catalog": "Adaugă prețurile de cost (acum: {{pct}}% din oferte)"
   },
   "sidebar": {
     "dashboard": "Prezentare generală",

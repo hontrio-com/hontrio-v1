@@ -69,7 +69,8 @@ export type Plan = {
   platform: { id: StoreSetup['platform']; name: string }
   /**
    * Ce mai trebuie făcut până la lansare, în ordinea în care se face.
-   * `variant` = platforma, unde pasul se face altfel (Merchant Center, conversia).
+   * `variant` = varianta textului: platforma, unde pasul se face altfel (Merchant
+   * Center, conversia); „catalog" la costuri, când acoperirea e pe oferte (fără vânzări).
    */
   blockers: { id: BlockerId; href: string; external: boolean; variant?: string; params?: Record<string, string | number> }[]
   campaign: {
@@ -216,7 +217,12 @@ export function buildPlan(input: PlanInput): Plan {
   if (setup.merchant.status === 'missing') blockers.push({ id: 'merchant', href: setup.merchant.href, external: true, variant: setup.platform })
   if (setup.conversion.status === 'missing') blockers.push({ id: 'conversion', href: setup.conversion.href, external: true, variant: setup.platform })
   if (!included.length) blockers.push({ id: 'no_offers', href: '/products', external: false })
-  else if (margin === null) blockers.push({ id: 'costs', href: '/products?view=no_cost', external: false, params: { pct: Math.round(coverage * 100) } })
+  else if (margin === null) {
+    blockers.push({
+      id: 'costs', href: '/products?view=no_cost', external: false,
+      ...(soldRevenue > 0 ? {} : { variant: 'catalog' }), params: { pct: Math.round(coverage * 100) },
+    })
+  }
 
   return {
     platform: { id: setup.platform, name: setup.platformName },

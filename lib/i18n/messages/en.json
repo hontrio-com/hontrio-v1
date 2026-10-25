@@ -516,7 +516,8 @@
     "adjust_vat_assumed": "Your store does not calculate VAT, so the math assumes the {{vat}}% standard rate, which you do not keep.",
     "blocker_merchant_shopify": "Send your products to Merchant Center (Google & YouTube app)",
     "blocker_conversion_shopify": "Measure purchases in Google Ads (Google & YouTube app)",
-    "verified_at_launch_shopify": "Shopify doesn't tell apps which sales channels a store has (Google & YouTube): we check at launch, from the Google account."
+    "verified_at_launch_shopify": "Shopify doesn't tell apps which sales channels a store has (Google & YouTube): we check at launch, from the Google account.",
+    "blocker_costs_catalog": "Add cost prices (now: {{pct}}% of offers)"
   },
   "sidebar": {
     "dashboard": "Overview",
