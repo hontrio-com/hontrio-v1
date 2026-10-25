@@ -110,7 +110,7 @@ export type DiscoveredAccount = {
   status: string | null
 }
 
-const MAX_ACCOUNTS = 200
+export const MAX_ACCOUNTS = 200
 
 // Câmpurile comune din resursele `customer` și `customer_client` (REST, camelCase)
 type CustomerFields = {

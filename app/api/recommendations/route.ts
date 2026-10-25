@@ -7,6 +7,7 @@ import { loadAdsData } from '@/lib/commerce/ads-data'
 import { storeSetup } from '@/lib/commerce/setup'
 import { getActiveStore } from '@/lib/stores/active'
 import { buildRecommendations } from '@/lib/recommendations/engine'
+import { storeAdsAccount } from '@/lib/google/accounts'
 
 // =============================================
 // GET /api/recommendations
@@ -22,13 +23,13 @@ export async function GET() {
   const userId = session.user.id
 
   const supabase = createAdminClient()
-  const [storeRes, googleRes, accountRes] = await Promise.all([
+  const [storeRes, googleRes] = await Promise.all([
     getActiveStore<{
       id: string; platform: string; store_name: string | null; store_url: string; currency: string | null
       country: string | null; language: string | null; connection_status: string | null; last_sync_at: string | null; platform_data: unknown
-    }>(supabase, userId, 'id, platform, store_name, store_url, currency, country, language, connection_status, last_sync_at, platform_data'),
+      google_ads_customer_id: string | null
+    }>(supabase, userId, 'id, platform, store_name, store_url, currency, country, language, connection_status, last_sync_at, platform_data, google_ads_customer_id'),
     supabase.from('google_connections').select('status').eq('user_id', userId).maybeSingle(),
-    supabase.from('google_ads_accounts').select('customer_id').eq('user_id', userId).eq('is_selected', true).maybeSingle(),
   ])
   if (storeRes.error) {
     logApiError(ROUTE, 500, 'Eroare la citirea magazinului', { userId, error: storeRes.error.message })
@@ -41,16 +42,19 @@ export async function GET() {
     return NextResponse.json({ store: { platform: store.platform, supported: false }, recommendations: [] })
   }
 
-  const { data, errors } = await loadAdsData(supabase, store.id)
+  const googleConnected = googleRes.data?.status === 'active'
+  const [{ data, errors }, account] = await Promise.all([
+    loadAdsData(supabase, store.id),
+    // Contul Google Ads e al magazinului
+    googleConnected ? storeAdsAccount(supabase, userId, store.google_ads_customer_id) : null,
+  ])
   for (const error of errors) logApiError(ROUTE, 500, 'Eroare la citirea datelor magazinului', { userId, error })
   if (!data) return NextResponse.json({ error: 'Nu am putut citi produsele' }, { status: 500 })
-
-  const googleConnected = googleRes.data?.status === 'active'
 
   const recommendations = buildRecommendations({
     store: { connection_status: store.connection_status },
     setup,
-    google: { connected: googleConnected, account_selected: googleConnected && !!accountRes.data },
+    google: { connected: googleConnected, account_selected: !!account },
     offers: data.offers,
     sales90: data.sales90,
     orders90: data.orders90,

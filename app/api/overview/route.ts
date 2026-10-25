@@ -7,12 +7,14 @@ import { loadAdsData } from '@/lib/commerce/ads-data'
 import { storeSetup } from '@/lib/commerce/setup'
 import { getActiveStore } from '@/lib/stores/active'
 import { buildPlan } from '@/lib/campaigns/plan'
+import { storeAdsAccount } from '@/lib/google/accounts'
 
 type StoreRow = {
   id: string; platform: string; store_name: string | null; store_url: string; currency: string | null
   country: string | null; language: string | null; timezone: string | null
   connection_status: string | null; sync_status: string | null; last_sync_at: string | null; last_error: string | null
   products_count: number | null; orders_count: number | null; platform_data: unknown
+  google_ads_customer_id: string | null
 }
 
 // =============================================
@@ -42,11 +44,10 @@ export async function GET(request: Request) {
   const days = PERIOADE.includes(daysParam) ? daysParam : 30
 
   const supabase = createAdminClient()
-  const [storeRes, googleRes, accountRes] = await Promise.all([
+  const [storeRes, googleRes] = await Promise.all([
     getActiveStore<StoreRow>(supabase, userId,
-      'id, platform, store_name, store_url, currency, country, language, timezone, connection_status, sync_status, last_sync_at, last_error, products_count, orders_count, platform_data'),
+      'id, platform, store_name, store_url, currency, country, language, timezone, connection_status, sync_status, last_sync_at, last_error, products_count, orders_count, platform_data, google_ads_customer_id'),
     supabase.from('google_connections').select('status, google_email').eq('user_id', userId).maybeSingle(),
-    supabase.from('google_ads_accounts').select('customer_id, descriptive_name, currency_code').eq('user_id', userId).eq('is_selected', true).maybeSingle(),
   ])
   if (storeRes.error) {
     logApiError(ROUTE, 500, 'Eroare la citirea magazinului', { userId, error: storeRes.error.message })
@@ -61,6 +62,8 @@ export async function GET(request: Request) {
   let topProducts: unknown[] = []
   let costs: Costs = { with_cost: 0, total: 0, coverage: 0, basis: null, ready: false }
   const googleConnected = googleRes.data?.status === 'active'
+  // Contul Google Ads e al magazinului (fiecare magazin își alege contul)
+  const account = googleConnected && store ? await storeAdsAccount(supabase, userId, store.google_ads_customer_id) : null
 
   if (store && setup) {
     const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString()
@@ -76,7 +79,6 @@ export async function GET(request: Request) {
 
     // Pasul costurilor are regula planului de campanie, ca să nu se contrazică
     if (ads.data) {
-      const account = googleConnected ? accountRes.data : null
       const { economics } = buildPlan({
         store: { currency: store.currency || 'RON', connection_status: store.connection_status },
         setup,
@@ -125,7 +127,7 @@ export async function GET(request: Request) {
   const checklist = [
     { id: 'store', done: !!store && supported && store.connection_status === 'active', href: '/settings?tab=integrations', external: false },
     { id: 'google_ads', done: googleConnected, href: '/settings?tab=integrations', external: false },
-    { id: 'ads_account', done: googleConnected && !!accountRes.data, href: '/settings?tab=integrations', external: false },
+    { id: 'ads_account', done: !!account, href: '/settings?tab=integrations', external: false },
     // „De verificat" (un plugin pe care Hontrio nu-l poate întreba) trece, dar se spune
     ...(['merchant', 'conversion'] as const).map(id => {
       const step = setup?.[id]
@@ -159,7 +161,7 @@ export async function GET(request: Request) {
     google: {
       connected: googleConnected,
       status: googleRes.data?.status ?? null,
-      account: accountRes.data ? { id: accountRes.data.customer_id, name: accountRes.data.descriptive_name, currency: accountRes.data.currency_code } : null,
+      account: account ? { id: account.customer_id, name: account.descriptive_name, currency: account.currency_code } : null,
     },
     checklist,
     costs,

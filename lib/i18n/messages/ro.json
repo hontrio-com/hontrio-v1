@@ -106,7 +106,6 @@
     "revoked": "Acces revocat",
     "revoked_desc": "Accesul Hontrio la contul Google a fost revocat sau a expirat. Reconectează contul ca să continuăm.",
     "connected_success": "Contul Google a fost conectat.",
-    "choose_account": "Contul Google Ads folosit",
     "no_accounts": "Nu am găsit niciun cont Google Ads de advertiser la acest utilizator Google. Verifică dacă ai acces la contul magazinului sau conectează alt utilizator Google.",
     "refresh": "Reîmprospătează",
     "disconnect": "Deconectează",
@@ -120,7 +119,14 @@
     "error_generic": "Conectarea la Google a eșuat. Încearcă din nou.",
     "warning_test_token": "Contul Google e conectat, dar aplicația Hontrio are deocamdată doar acces de test la Google Ads API, deci poate citi doar conturi de test.",
     "warning_discovery_failed": "Contul Google e conectat, dar nu am putut citi conturile Google Ads. Apasă „Reîmprospătează”.",
-    "warning_generic": "Contul Google e conectat, dar Google Ads a returnat o eroare: {{code}}"
+    "warning_generic": "Contul Google e conectat, dar Google Ads a returnat o eroare: {{code}}",
+    "store_label": "Magazinul",
+    "per_store_hint": "Fiecare magazin își rulează campaniile în contul lui.",
+    "account_for_store": "Contul Google Ads pentru {{store}}",
+    "used_by_other": "Folosit și pentru {{store}}",
+    "currency_mismatch": "Moneda contului ({{account}}) diferă de a magazinului ({{store}}): bugetul și valorile vânzărilor nu s-ar potrivi.",
+    "no_store": "Conectează întâi un magazin, apoi îi alegi contul Google Ads.",
+    "clear_account": "Nu folosi niciun cont pentru acest magazin"
   },
   "edinio": {
     "subtitle": "Platforma ta de magazin online",

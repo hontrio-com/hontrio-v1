@@ -106,7 +106,6 @@
     "revoked": "Access revoked",
     "revoked_desc": "Hontrio's access to your Google account was revoked or expired. Reconnect the account to continue.",
     "connected_success": "Your Google account is connected.",
-    "choose_account": "Google Ads account in use",
     "no_accounts": "We found no Google Ads advertiser account for this Google user. Check that you have access to the store's account or connect another Google user.",
     "refresh": "Refresh",
     "disconnect": "Disconnect",
@@ -120,7 +119,14 @@
     "error_generic": "The Google connection failed. Please try again.",
     "warning_test_token": "Your Google account is connected, but Hontrio currently has test-level Google Ads API access only, so it can read test accounts only.",
     "warning_discovery_failed": "Your Google account is connected, but we could not read your Google Ads accounts. Click “Refresh”.",
-    "warning_generic": "Your Google account is connected, but Google Ads returned an error: {{code}}"
+    "warning_generic": "Your Google account is connected, but Google Ads returned an error: {{code}}",
+    "store_label": "Store",
+    "per_store_hint": "Each store runs its campaigns in its own account.",
+    "account_for_store": "Google Ads account for {{store}}",
+    "used_by_other": "Also used for {{store}}",
+    "currency_mismatch": "The account currency ({{account}}) differs from the store's ({{store}}): budgets and sale values wouldn't match.",
+    "no_store": "Connect a store first, then choose its Google Ads account.",
+    "clear_account": "Don't use any account for this store"
   },
   "edinio": {
     "subtitle": "Your online store platform",

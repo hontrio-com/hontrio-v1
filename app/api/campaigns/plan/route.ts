@@ -8,6 +8,7 @@ import { storeSetup } from '@/lib/commerce/setup'
 import { isCommercePlatform } from '@/lib/commerce/sync'
 import { getActiveStore } from '@/lib/stores/active'
 import { buildPlan, GOALS, type Goal } from '@/lib/campaigns/plan'
+import { storeAdsAccount } from '@/lib/google/accounts'
 
 // =============================================
 // GET   /api/campaigns/plan — planul campaniei, socotit acum din datele magazinului
@@ -23,12 +24,13 @@ type Supabase = ReturnType<typeof createAdminClient>
 type StoreRow = {
   id: string; platform: string; store_name: string | null; store_url: string; currency: string | null
   country: string | null; language: string | null; connection_status: string | null; last_sync_at: string | null; platform_data: unknown
+  google_ads_customer_id: string | null
 }
 
 /** Planul e al magazinului activ al contului. */
 function readStore(supabase: Supabase, userId: string) {
   return getActiveStore<StoreRow>(supabase, userId,
-    'id, platform, store_name, store_url, currency, country, language, connection_status, last_sync_at, platform_data')
+    'id, platform, store_name, store_url, currency, country, language, connection_status, last_sync_at, platform_data, google_ads_customer_id')
 }
 
 export async function GET() {
@@ -37,11 +39,9 @@ export async function GET() {
   const userId = session.user.id
 
   const supabase = createAdminClient()
-  const [storeRes, googleRes, accountRes] = await Promise.all([
+  const [storeRes, googleRes] = await Promise.all([
     readStore(supabase, userId),
     supabase.from('google_connections').select('status').eq('user_id', userId).maybeSingle(),
-    supabase.from('google_ads_accounts').select('customer_id, descriptive_name, currency_code')
-      .eq('user_id', userId).eq('is_selected', true).maybeSingle(),
   ])
   if (storeRes.error) {
     logApiError(ROUTE, 500, 'Eroare la citirea magazinului', { userId, error: storeRes.error.message })
@@ -54,17 +54,18 @@ export async function GET() {
     return NextResponse.json({ store: { platform: store.platform, supported: false }, plan: null })
   }
 
-  const [{ data, errors }, draftRes] = await Promise.all([
+  const googleConnected = googleRes.data?.status === 'active'
+  const [{ data, errors }, draftRes, account] = await Promise.all([
     loadAdsData(supabase, store.id),
     supabase.from('ad_campaigns').select('goal, daily_budget').eq('store_id', store.id).eq('status', 'draft').maybeSingle(),
+    // Contul Google Ads e al magazinului
+    googleConnected ? storeAdsAccount(supabase, userId, store.google_ads_customer_id) : null,
   ])
   for (const error of errors) logApiError(ROUTE, 500, 'Eroare la citirea datelor magazinului', { userId, error })
   if (draftRes.error) logApiError(ROUTE, 500, 'Eroare la citirea planului', { userId, error: draftRes.error.message })
   if (!data) return NextResponse.json({ error: 'Nu am putut citi produsele' }, { status: 500 })
 
   const draft = draftRes.data
-  const googleConnected = googleRes.data?.status === 'active'
-  const account = googleConnected && accountRes.data ? accountRes.data : null
 
   const plan = buildPlan({
     store: { currency: store.currency || 'RON', connection_status: store.connection_status },

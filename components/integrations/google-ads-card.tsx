@@ -8,14 +8,18 @@ type Connection = { id: string; google_email: string | null; status: 'active' | 
 type AdsAccount = {
   customer_id: string; login_customer_id: string | null; descriptive_name: string | null
   currency_code: string | null; time_zone: string | null
-  is_manager: boolean; is_test_account: boolean; is_selected: boolean; status: string | null
+  is_manager: boolean; is_test_account: boolean; status: string | null
 }
+/** Magazinele omului, fiecare cu contul Google Ads pe care îi rulează campaniile */
+type StoreRef = { id: string; platform: string; store_name: string | null; store_url: string; currency: string | null; google_ads_customer_id: string | null }
 
 const KNOWN_ERRORS = ['access_denied', 'missing_scope', 'no_refresh_token', 'state', 'rate_limited', 'not_configured']
 
 function formatCustomerId(id: string) {
   return id.replace(/^(\d{3})(\d{3})(\d{4})$/, '$1-$2-$3')
 }
+
+const storeName = (s: StoreRef) => s.store_name || s.store_url.replace(/^https?:\/\//, '').replace(/\/+$/, '')
 
 function GoogleLogo() {
   return (
@@ -33,6 +37,9 @@ export default function GoogleAdsCard() {
   const [loading, setLoading] = useState(true)
   const [connection, setConnection] = useState<Connection | null>(null)
   const [accounts, setAccounts] = useState<AdsAccount[]>([])
+  const [stores, setStores] = useState<StoreRef[]>([])
+  // Magazinul căruia i se alege contul (implicit, cel activ)
+  const [storeId, setStoreId] = useState<string | null>(null)
   const [refreshing, setRefreshing] = useState(false)
   const [disconnecting, setDisconnecting] = useState(false)
   const [selecting, setSelecting] = useState<string | null>(null)
@@ -67,6 +74,8 @@ export default function GoogleAdsCard() {
       const d = await r.json()
       setConnection(d.connection || null)
       setAccounts(d.accounts || [])
+      setStores(d.stores || [])
+      setStoreId(id => id ?? d.active_store_id ?? null)
     } catch {} finally { setLoading(false) }
   }
 
@@ -82,15 +91,16 @@ export default function GoogleAdsCard() {
     finally { setRefreshing(false) }
   }
 
-  async function handleSelect(customerId: string) {
-    setSelecting(customerId)
+  async function handleSelect(customerId: string | null) {
+    if (!store) return
+    setSelecting(customerId ?? 'none')
     try {
       const r = await fetch('/api/integrations/google/accounts', {
-        method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ customer_id: customerId }),
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ customer_id: customerId, store_id: store.id }),
       })
       const d = await r.json()
       if (!r.ok) setNotice({ ok: false, text: d.error || t('google_ads.error_generic') })
-      else setAccounts(a => a.map(x => ({ ...x, is_selected: x.customer_id === customerId })))
+      else setStores(list => list.map(s => (s.id === store.id ? { ...s, google_ads_customer_id: customerId } : s)))
     } catch { setNotice({ ok: false, text: t('google_ads.error_generic') }) }
     finally { setSelecting(null) }
   }
@@ -101,12 +111,15 @@ export default function GoogleAdsCard() {
     try {
       await fetch('/api/integrations/google', { method: 'DELETE' })
       setConnection(null); setAccounts([]); setNotice(null)
+      setStores(list => list.map(s => ({ ...s, google_ads_customer_id: null })))
     } catch { setNotice({ ok: false, text: t('google_ads.error_generic') }) }
     finally { setDisconnecting(false) }
   }
 
   const advertisers = accounts.filter(a => !a.is_manager)
   const revoked = connection?.status === 'revoked'
+  const store = stores.find(s => s.id === storeId) ?? stores[stores.length - 1] ?? null
+  const chosen = store?.google_ads_customer_id ?? null
 
   return (
     <div className="bg-white border border-neutral-200 rounded-xl p-5">
@@ -156,30 +169,61 @@ export default function GoogleAdsCard() {
         <div className="space-y-3">
           {advertisers.length === 0 ? (
             <p className="text-[12px] text-neutral-500 leading-relaxed p-3 bg-neutral-50 rounded-xl">{t('google_ads.no_accounts')}</p>
+          ) : !store ? (
+            <p className="text-[12px] text-neutral-500 leading-relaxed p-3 bg-neutral-50 rounded-xl">{t('google_ads.no_store')}</p>
           ) : (
             <div>
-              <p className="text-[11px] font-medium text-neutral-400 uppercase tracking-wide mb-1.5">{t('google_ads.choose_account')}</p>
+              {stores.length > 1 ? (
+                <label className="block mb-2.5">
+                  <span className="text-[11px] font-medium text-neutral-400 uppercase tracking-wide">{t('google_ads.store_label')}</span>
+                  <select value={store.id} onChange={e => setStoreId(e.target.value)}
+                    className="mt-1 h-9 w-full px-3 rounded-xl border border-neutral-200 bg-white text-[13px] text-neutral-700 focus:outline-none focus:border-neutral-400">
+                    {stores.map(s => <option key={s.id} value={s.id}>{storeName(s)}</option>)}
+                  </select>
+                  <span className="block mt-1 text-[11px] text-neutral-400">{t('google_ads.per_store_hint')}</span>
+                </label>
+              ) : null}
+              <p className="text-[11px] font-medium text-neutral-400 uppercase tracking-wide mb-1.5">
+                {t('google_ads.account_for_store', { store: storeName(store) })}
+              </p>
               <div className="space-y-1.5 max-h-72 overflow-y-auto">
-                {advertisers.map(a => (
-                  <button key={a.customer_id} onClick={() => !a.is_selected && handleSelect(a.customer_id)} disabled={!!selecting}
-                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border text-left transition-all
-                      ${a.is_selected ? 'border-neutral-900 bg-neutral-50' : 'border-neutral-200 hover:border-neutral-300'}`}>
-                    <span className={`h-4 w-4 rounded-full border-2 shrink-0 flex items-center justify-center ${a.is_selected ? 'border-neutral-900' : 'border-neutral-300'}`}>
-                      {a.is_selected && <span className="h-2 w-2 rounded-full bg-neutral-900" />}
-                    </span>
-                    <span className="flex-1 min-w-0">
-                      <span className="flex items-center gap-1.5">
-                        <span className="text-[13px] font-medium text-neutral-900 truncate">{a.descriptive_name || formatCustomerId(a.customer_id)}</span>
-                        {a.is_test_account && <span className="text-[10px] font-semibold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded-md">TEST</span>}
+                {advertisers.map(a => {
+                  const selected = a.customer_id === chosen
+                  const others = stores.filter(s => s.id !== store.id && s.google_ads_customer_id === a.customer_id)
+                  const currencyDiffers = !!a.currency_code && !!store.currency && a.currency_code !== store.currency
+                  return (
+                    <button key={a.customer_id} onClick={() => !selected && handleSelect(a.customer_id)} disabled={!!selecting}
+                      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border text-left transition-all
+                        ${selected ? 'border-neutral-900 bg-neutral-50' : 'border-neutral-200 hover:border-neutral-300'}`}>
+                      <span className={`h-4 w-4 rounded-full border-2 shrink-0 flex items-center justify-center ${selected ? 'border-neutral-900' : 'border-neutral-300'}`}>
+                        {selected && <span className="h-2 w-2 rounded-full bg-neutral-900" />}
                       </span>
-                      <span className="block text-[11px] text-neutral-400">
-                        {formatCustomerId(a.customer_id)}{a.currency_code ? ` · ${a.currency_code}` : ''}{a.time_zone ? ` · ${a.time_zone}` : ''}
+                      <span className="flex-1 min-w-0">
+                        <span className="flex items-center gap-1.5">
+                          <span className="text-[13px] font-medium text-neutral-900 truncate">{a.descriptive_name || formatCustomerId(a.customer_id)}</span>
+                          {a.is_test_account && <span className="text-[10px] font-semibold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded-md">TEST</span>}
+                        </span>
+                        <span className="block text-[11px] text-neutral-400">
+                          {formatCustomerId(a.customer_id)}{a.currency_code ? ` · ${a.currency_code}` : ''}{a.time_zone ? ` · ${a.time_zone}` : ''}
+                        </span>
+                        {currencyDiffers && (
+                          <span className="block text-[11px] text-amber-700">{t('google_ads.currency_mismatch', { account: a.currency_code!, store: store.currency! })}</span>
+                        )}
+                        {others.length > 0 && (
+                          <span className="block text-[11px] text-neutral-400">{t('google_ads.used_by_other', { store: others.map(storeName).join(', ') })}</span>
+                        )}
                       </span>
-                    </span>
-                    {selecting === a.customer_id && <Loader2 className="h-3.5 w-3.5 animate-spin text-neutral-400" />}
-                  </button>
-                ))}
+                      {selecting === a.customer_id && <Loader2 className="h-3.5 w-3.5 animate-spin text-neutral-400" />}
+                    </button>
+                  )
+                })}
               </div>
+              {chosen && (
+                <button onClick={() => handleSelect(null)} disabled={!!selecting}
+                  className="mt-2 text-[11px] text-neutral-400 hover:text-neutral-700 underline-offset-2 hover:underline disabled:opacity-50">
+                  {selecting === 'none' ? <Loader2 className="inline h-3 w-3 animate-spin" /> : t('google_ads.clear_account')}
+                </button>
+              )}
             </div>
           )}
 
