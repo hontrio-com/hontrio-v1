@@ -15,6 +15,8 @@ import {
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { useT } from '@/lib/i18n/context'
+// Notificările pilotului se salvează ca chei de traducere; anunțurile din admin, ca text
+import { translateStored } from '@/lib/i18n/stored'
 
 type Notification = {
   id: string
@@ -35,6 +37,8 @@ const typeConfig = {
 
 export default function NotificationBell() {
   const { t, intlLocale } = useT()
+  // Numerele din notificările pilotului (ex. ROAS 3,5), în formatul limbii
+  const num = (n: number) => new Intl.NumberFormat(intlLocale, { maximumFractionDigits: 2 }).format(n)
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
   const [open, setOpen] = useState(false)
@@ -204,7 +208,7 @@ export default function NotificationBell() {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-start justify-between gap-2">
                             <p className={`text-sm font-medium ${!notif.is_read ? 'text-gray-900' : 'text-gray-600'}`}>
-                              {notif.title}
+                              {translateStored(t, notif.title, num)}
                             </p>
                             <div className="flex items-center gap-1.5 shrink-0">
                               <span className="text-[10px] text-gray-400">{timeAgo(notif.created_at)}</span>
@@ -213,7 +217,7 @@ export default function NotificationBell() {
                               )}
                             </div>
                           </div>
-                          <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{notif.message}</p>
+                          <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{translateStored(t, notif.message, num)}</p>
                           <div className="flex items-center gap-2 mt-1.5">
                             {notif.is_global && (
                               <span className="text-[10px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">{t('notifications.announcement')}</span>

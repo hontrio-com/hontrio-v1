@@ -4,21 +4,27 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react
 import Link from 'next/link'
 import { useT } from '@/lib/i18n/context'
 import {
-  AlertCircle, ArrowRight, CheckCircle2, ChevronLeft, ChevronRight, Circle, ExternalLink, ImageIcon, Info,
-  Loader2, Rocket, Search, Store, X,
+  AlertCircle, ArrowRight, CheckCircle2, ChevronLeft, ChevronRight, ImageIcon, Info, Loader2, Search, Store, X,
 } from 'lucide-react'
-import { CONVERSIONS_PER_MONTH, GOAL_KEEP, GOALS, type Goal, type Plan, type PlanOffer } from '@/lib/campaigns/plan'
+import { CONVERSIONS_PER_MONTH, GOAL_KEEP, GOALS, type Goal, type Mode, type Plan, type PlanOffer } from '@/lib/campaigns/plan'
+import { LaunchPanel, type AuditData } from '@/components/campaigns/launch-panel'
+import { LiveCampaigns, type LiveCampaign } from '@/components/campaigns/live-campaigns'
+import { AutopilotPanel, type ActionItem } from '@/components/campaigns/autopilot-panel'
 import type { AdsMode } from '@/lib/commerce/ads-data'
 
 // =============================================
-// Campanii — planul campaniei Google Ads, socotit din datele magazinului
-// (lib/campaigns/plan.ts): ce produse intră, ROAS-ul țintă, bugetul zilnic.
-// Lansarea din Hontrio vine odată cu accesul la Google Ads API.
+// Campanii — planul campaniei Google Ads (lib/campaigns/plan.ts): treapta,
+// ce produse intră, ROAS-ul țintă, bugetul; auditul contului și lansarea;
+// după lansare, campaniile, propunerile pilotului și jurnalul.
 // =============================================
 
 type Data = {
   store: { platform: string; supported: boolean; store_name?: string | null; currency?: string } | null
   plan: Plan | null
+  audit?: AuditData | null
+  campaigns?: LiveCampaign[]
+  proposals?: ActionItem[]
+  journal?: ActionItem[]
 }
 type Tab = 'included' | 'excluded'
 
@@ -111,6 +117,11 @@ export default function CampaignsPage() {
     try { return new Intl.NumberFormat(numberLocale, { style: 'currency', currency, maximumFractionDigits: 0 }) }
     catch { return new Intl.NumberFormat(numberLocale, { maximumFractionDigits: 0 }) }
   }, [numberLocale, currency])
+  // Costul pe click are nevoie de bani mărunți: 0,79 lei, nu „1 leu"
+  const fmtMoney2 = useMemo(() => {
+    try { return new Intl.NumberFormat(numberLocale, { style: 'currency', currency, minimumFractionDigits: 2, maximumFractionDigits: 2 }) }
+    catch { return new Intl.NumberFormat(numberLocale, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }
+  }, [numberLocale, currency])
   const fmtNum = useMemo(() => new Intl.NumberFormat(numberLocale, { maximumFractionDigits: 1 }), [numberLocale])
   const fmtInt = useMemo(() => new Intl.NumberFormat(numberLocale, { maximumFractionDigits: 0 }), [numberLocale])
   // Sub 1%, o zecimală: o marjă de −0,4% nu e „0%"
@@ -133,7 +144,7 @@ export default function CampaignsPage() {
   const current = Math.min(page, pages)
   const visible = list.slice((current - 1) * PER_PAGE, current * PER_PAGE)
 
-  async function saveSettings(body: { goal?: Goal; daily_budget?: number | null }): Promise<boolean> {
+  async function saveSettings(body: { goal?: Goal; daily_budget?: number | null; mode?: Mode; max_daily_budget?: number | null }): Promise<boolean> {
     try {
       const r = await fetch('/api/campaigns/plan', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
       if (!r.ok) throw new Error()
@@ -216,8 +227,11 @@ export default function CampaignsPage() {
     )
   }
 
-  const { economics: econ, campaign, budget, forecast } = plan
-  const ready = plan.blockers.length === 0
+  const { economics: econ, campaign, budget, forecast, structure } = plan
+  const live = data.campaigns ?? []
+  // O campanie Hontrio rulează (sau stă pe pauză): pagina arată campaniile și pilotul, nu lansarea
+  const running = live.some(c => c.status === 'active' || c.status === 'paused')
+  const starter = plan.stage.id === 'starter'
   // De ce „de verificat": pluginul (WooCommerce) sau canalele pe care Shopify nu le spune
   const launchCheck = plan.platform.id === 'shopify' ? 'campaigns.verified_at_launch_shopify' : 'campaigns.verified_at_launch'
   const place = [nameOf('region', campaign.country), nameOf('language', campaign.language)].filter(Boolean).join(' · ')
@@ -227,7 +241,11 @@ export default function CampaignsPage() {
   ].filter(Boolean) as string[]
 
   const campaignRows: { label: string; value: ReactNode; hint?: string }[] = [
-    { label: t('campaigns.row_type'), value: t('campaigns.type_pmax'), hint: t('campaigns.type_pmax_hint') },
+    {
+      label: t('campaigns.row_type'),
+      value: t(starter ? 'campaigns.type_shopping' : 'campaigns.type_pmax'),
+      hint: t(starter ? 'campaigns.type_shopping_hint' : 'campaigns.type_pmax_hint'),
+    },
     { label: t('campaigns.row_products'), value: t('campaigns.products_value', { included: fmtInt.format(plan.counts.included), count: plan.offers.length }) },
     { label: t('campaigns.row_where'), value: place || '—' },
     {
@@ -254,10 +272,45 @@ export default function CampaignsPage() {
           : t('campaigns.conversion_unverified_unknown'),
       hint: campaign.conversion.status === 'unverified' ? t(launchCheck) : undefined,
     },
-    {
+    starter ? {
       label: t('campaigns.row_bidding'),
-      value: plan.target_roas !== null ? t('campaigns.bidding_target', { roas: fmtNum.format(plan.target_roas) }) : t('campaigns.bidding_no_target'),
-      hint: plan.target_roas !== null ? t('campaigns.bidding_hint') : undefined,
+      value: structure.cpc_ceiling !== null ? t('campaigns.bidding_cpc', { cpc: fmtMoney2.format(structure.cpc_ceiling) }) : t('campaigns.bidding_cpc_unknown'),
+      hint: structure.cpc_ceiling !== null
+        ? `${t('campaigns.bidding_cpc_hint', { aov: econ.aov !== null ? fmt.format(econ.aov) : '—', roas: econ.break_even !== null ? fmtNum.format(econ.break_even) : '—' })}${structure.cpc_ceiling_low ? ` ${t('campaigns.bidding_cpc_low')}` : ''}`
+        : undefined,
+    } : {
+      label: t('campaigns.row_bidding'),
+      value: structure.start_target !== null ? t('campaigns.bidding_target', { roas: fmtNum.format(structure.start_target) }) : t('campaigns.bidding_no_target'),
+      hint: structure.start_target !== null && plan.target_roas !== null
+        ? t('campaigns.bidding_start_hint', { goal: fmtNum.format(plan.target_roas), break_even: econ.break_even !== null ? fmtNum.format(econ.break_even) : '—' })
+        : undefined,
+    },
+    {
+      label: t('campaigns.row_safety'),
+      value: structure.loss_limit
+        ? t('campaigns.safety_value', { none: fmt.format(structure.loss_limit.no_conversions), low: fmt.format(structure.loss_limit.low_roas) })
+        : <span className="text-neutral-400">{t('campaigns.safety_unknown')}</span>,
+      hint: t('campaigns.safety_hint'),
+    },
+    {
+      label: t('campaigns.row_settings'),
+      value: (
+        <ul className="space-y-0.5">
+          {['settings_presence', 'settings_eu', 'settings_utm', ...(starter ? ['settings_no_partners'] : ['settings_no_expansion', 'settings_feed_only'])].map(k => (
+            <li key={k} className="flex items-start gap-1.5"><CheckCircle2 className="h-3.5 w-3.5 mt-0.5 shrink-0 text-emerald-500" />{t(`campaigns.${k}`)}</li>
+          ))}
+          {structure.brand_negatives.length > 0 && (
+            <li className="flex items-start gap-1.5"><CheckCircle2 className="h-3.5 w-3.5 mt-0.5 shrink-0 text-emerald-500" />{t('campaigns.settings_brand', { terms: structure.brand_negatives.join(', ') })}</li>
+          )}
+        </ul>
+      ),
+    },
+    {
+      label: t('campaigns.row_exclusions'),
+      value: t('campaigns.exclusions_value', { count: plan.exclusions.item_ids.length }),
+      hint: plan.exclusions.unmatched > 0
+        ? t('campaigns.exclusions_unmatched', { count: plan.exclusions.unmatched })
+        : plan.exclusions.mode === 'label' ? t('campaigns.exclusions_label') : t('campaigns.exclusions_hint'),
     },
   ]
 
@@ -273,50 +326,28 @@ export default function CampaignsPage() {
         </div>
       )}
 
-      {/* Lansarea: ce mai lipsește */}
-      <div className="bg-white border border-neutral-200 rounded-xl p-5">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <p className="text-[15px] font-semibold text-neutral-900">
-              {ready ? t('campaigns.ready_title') : t('campaigns.blockers_title', { count: String(plan.blockers.length) })}
-            </p>
-            <p className="text-[12px] text-neutral-400 mt-0.5 max-w-xl leading-relaxed">{t('campaigns.launch_soon')}</p>
-          </div>
-          <button disabled title={t('campaigns.soon')}
-            className="shrink-0 self-start inline-flex items-center gap-1.5 h-9 px-3.5 rounded-xl bg-neutral-900 text-white text-[12px] font-medium opacity-40 cursor-not-allowed">
-            <Rocket className="h-3.5 w-3.5" />{t('campaigns.launch')}
-            <span className="ml-1 rounded-md bg-white/20 px-1.5 py-0.5 text-[10px]">{t('campaigns.soon')}</span>
-          </button>
-        </div>
-        {!ready && (
-          <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {plan.blockers.map(b => {
-              const params = Object.fromEntries(Object.entries(b.params ?? {}).map(([k, v]) => [k, String(v)]))
-              // Textul pasului vine din date: fără variantă dacă ea nu are text, altfel unul generic
-              const step = `${b.id}${b.variant ? `_${b.variant}` : ''}`
-              const label = t.has(`campaigns.blocker_${step}`) ? t(`campaigns.blocker_${step}`, params)
-                : t.has(`campaigns.blocker_${b.id}`) ? t(`campaigns.blocker_${b.id}`, params)
-                : t('campaigns.blocker_generic')
-              const inner = (
-                <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg border border-neutral-200 hover:border-neutral-300 bg-white transition-all">
-                  <Circle className="h-4 w-4 text-neutral-300 shrink-0" />
-                  <span className="flex-1 text-[13px] text-neutral-800">{label}</span>
-                  {b.external ? <ExternalLink className="h-3.5 w-3.5 text-neutral-300" /> : <ArrowRight className="h-3.5 w-3.5 text-neutral-300" />}
-                </div>
-              )
-              return b.external
-                ? <a key={b.id} href={b.href} target="_blank" rel="noopener">{inner}</a>
-                : <Link key={b.id} href={b.href}>{inner}</Link>
-            })}
-          </div>
-        )}
-        {plan.history.google_ads_orders > 0 && (
-          <div className="mt-4 flex items-start gap-2 px-3 py-2.5 rounded-lg text-[12px] leading-relaxed bg-neutral-50 border border-neutral-100 text-neutral-600">
-            <Info className="h-4 w-4 shrink-0 mt-px text-neutral-400" />
-            <span>{t('campaigns.existing_ads', { orders: t('common.orders_count', { count: plan.history.google_ads_orders }), total: fmt.format(plan.history.google_ads_total) })}</span>
-          </div>
-        )}
-      </div>
+      {/* După lansare: campaniile și pilotul */}
+      {live.length > 0 && (
+        <LiveCampaigns campaigns={live} breakEven={econ.break_even} fmt={fmt} fmt2={fmtMoney2} fmtNum={fmtNum} onChanged={load} onError={setNotice} />
+      )}
+      {running && (
+        <AutopilotPanel mode={plan.settings.mode} maxDailyBudget={plan.settings.max_daily_budget} currency={currency}
+          proposals={data.proposals ?? []} journal={data.journal ?? []} fmt={fmt} fmtNum={fmtNum}
+          onSaveSettings={saveSettings} onChanged={load} onError={setNotice} />
+      )}
+
+      {/* Înainte de lansare: ce mai lipsește, auditul contului și lansarea */}
+      {!running && (
+        <>
+          <LaunchPanel plan={plan} audit={data.audit ?? null} hasAccount={!!campaign.account} onChanged={load} />
+          {plan.history.google_ads_orders > 0 && (
+            <div className="flex items-start gap-2 px-3 py-2.5 rounded-lg text-[12px] leading-relaxed bg-neutral-50 border border-neutral-100 text-neutral-600">
+              <Info className="h-4 w-4 shrink-0 mt-px text-neutral-400" />
+              <span>{t('campaigns.existing_ads', { orders: t('common.orders_count', { count: plan.history.google_ads_orders }), total: fmt.format(plan.history.google_ads_total) })}</span>
+            </div>
+          )}
+        </>
+      )}
 
       {/* Obiectivul: cât din profitul unei vânzări rămâne după reclamă */}
       <div className="bg-white border border-neutral-200 rounded-xl p-5">
@@ -347,7 +378,8 @@ export default function CampaignsPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
-        {/* Campania propusă */}
+        {/* Campania propusă (după lansare, setările ei sunt în cardul campaniei) */}
+        {!running && (
         <div className="lg:col-span-3 bg-white border border-neutral-200 rounded-xl p-5">
           <p className="text-[15px] font-semibold text-neutral-900">{t('campaigns.campaign_title')}</p>
           <p className="text-[12px] text-neutral-400 mt-0.5">{t('campaigns.campaign_hint')}</p>
@@ -383,9 +415,10 @@ export default function CampaignsPage() {
             </div>
           </dl>
         </div>
+        )}
 
         {/* Rentabilitatea */}
-        <div className="lg:col-span-2 bg-white border border-neutral-200 rounded-xl p-5">
+        <div className={`${running ? 'lg:col-span-5' : 'lg:col-span-2'} bg-white border border-neutral-200 rounded-xl p-5`}>
           <p className="text-[15px] font-semibold text-neutral-900">{t('campaigns.econ_title')}</p>
           {econ.margin === null || econ.break_even === null ? (
             <div className="mt-4 flex flex-col items-start gap-3">

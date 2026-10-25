@@ -278,8 +278,5 @@
   "check_no_recent_conversions": "No conversions in the last 30 days: check that the tag fires on the order confirmation page.",
   "check_eu_undeclared": "Campaigns without the EU political advertising declaration: {{count}}. Google refuses any change in the account until they're declared; you can declare them at launch.",
   "check_overlap": "Shopping or Performance Max campaigns on the same products: {{count}}. Choose below what we do with them.",
-  "check_search_active": "The account has a Search campaign: searches for your store's name stay with it (a negative keyword in the Hontrio campaign).",
-  "launch_soon": "Launching straight from Hontrio is coming soon. Until then, the plan keeps itself up to date from your store data, and the choices you make here are kept.",
-  "launch": "Launch campaign",
-  "soon": "Soon"
+  "check_search_active": "The account has a Search campaign: searches for your store's name stay with it (a negative keyword in the Hontrio campaign)."
 }

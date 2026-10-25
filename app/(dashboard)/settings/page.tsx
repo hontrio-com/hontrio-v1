@@ -4,6 +4,7 @@ import { useT } from '@/lib/i18n/context'
 import { translateStored } from '@/lib/i18n/stored'
 import LanguageSwitcher from '@/components/language-switcher'
 import GoogleAdsCard from '@/components/integrations/google-ads-card'
+import MerchantCard from '@/components/integrations/merchant-card'
 import { EdinioConnectCard, EdinioStoreCard, type EdinioStore } from '@/components/integrations/edinio-card'
 
 import { useState, useEffect, useRef } from 'react'
@@ -793,8 +794,9 @@ export default function SettingsPage() {
               </Card>
             </div>
 
-            <div className="pt-1">
+            <div className="pt-1 space-y-4">
               <GoogleAdsCard />
+              <MerchantCard />
             </div>
           </div>
 

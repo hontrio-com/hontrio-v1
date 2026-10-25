@@ -286,8 +286,5 @@
   "check_no_recent_conversions": "Nicio conversie în ultimele 30 de zile: verifică dacă tagul se declanșează pe pagina de confirmare a comenzii.",
   "check_eu_undeclared": "Campanii fără declarația UE pentru publicitate politică: {{count}}. Google refuză orice modificare în cont până sunt declarate; le poți declara la lansare.",
   "check_overlap": "Campanii Shopping sau Performance Max pe aceleași produse: {{count}}. Alegi mai jos ce facem cu ele.",
-  "check_search_active": "Contul are o campanie Search: căutările pe numele magazinului rămân ei (cuvânt negativ în campania Hontrio).",
-  "launch_soon": "Lansarea direct din Hontrio vine în curând. Până atunci, planul se actualizează singur din datele magazinului, iar alegerile tale de aici se păstrează.",
-  "launch": "Lansează campania",
-  "soon": "În curând"
+  "check_search_active": "Contul are o campanie Search: căutările pe numele magazinului rămân ei (cuvânt negativ în campania Hontrio)."
 }
