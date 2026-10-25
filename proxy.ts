@@ -18,7 +18,7 @@ function getHostType(request: NextRequest): 'landing' | 'app' {
   return 'landing'
 }
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
   const hostType = getHostType(request)
 
