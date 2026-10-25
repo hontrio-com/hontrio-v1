@@ -310,7 +310,8 @@
     "check_conversion_edinio": "Setează conversia de cumpărare în Edinio",
     "check_conversion_woocommerce": "Măsoară cumpărările în Google Ads",
     "check_unverified": "de verificat la lansare",
-    "check_unverified_via": "prin {{via}}, de verificat la lansare"
+    "check_unverified_via": "prin {{via}}, de verificat la lansare",
+    "check_costs_sales": "Prețuri de cost la {{pct}}% din vânzări (minim 50%)"
   },
   "recs": {
     "title": "Recomandări",

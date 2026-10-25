@@ -310,7 +310,8 @@
     "check_conversion_edinio": "Set up the purchase conversion in Edinio",
     "check_conversion_woocommerce": "Measure purchases in Google Ads",
     "check_unverified": "to verify at launch",
-    "check_unverified_via": "via {{via}}, to verify at launch"
+    "check_unverified_via": "via {{via}}, to verify at launch",
+    "check_costs_sales": "Cost prices on {{pct}}% of sales (50% needed)"
   },
   "recs": {
     "title": "Recommendations",

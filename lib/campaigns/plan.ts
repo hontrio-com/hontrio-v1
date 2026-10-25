@@ -86,6 +86,8 @@ export type Plan = {
     margin_basis: 'sales' | 'catalog' | null
     /** Cât din vânzările (sau ofertele) incluse are preț de cost. */
     cost_coverage: number
+    /** Pe ce se măsoară acoperirea: vânzările incluse sau, fără vânzări, ofertele incluse. */
+    cost_basis: 'sales' | 'catalog' | null
     vat_pct: number
     /** Cota de TVA e cea standard a țării (comenzile n-au TVA). */
     vat_assumed: boolean
@@ -231,6 +233,7 @@ export function buildPlan(input: PlanInput): Plan {
       margin,
       margin_basis: basis,
       cost_coverage: coverage,
+      cost_basis: soldRevenue > 0 ? 'sales' : included.length ? 'catalog' : null,
       vat_pct: Math.round((econ.vatFactor - 1) * 100),
       vat_assumed: econ.vatAssumed,
       discount_pct: Math.round(econ.discountRate * 100),

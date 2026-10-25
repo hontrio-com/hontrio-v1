@@ -35,7 +35,7 @@ type Data = {
   google: { connected: boolean; status: string | null; account: { id: string; name: string | null; currency: string | null } | null }
   /** `unverified`: un plugin pe care Hontrio nu-l poate întreba (se verifică la lansare); `variant`: platforma. */
   checklist: { id: string; done: boolean; href: string; external: boolean; unverified?: boolean; variant?: string | null; via?: string | null }[]
-  costs: { with_cost: number; total: number }
+  costs: { with_cost: number; total: number; coverage: number; basis: 'sales' | 'catalog' | null; ready: boolean }
   overview: Overview | null
   top_products: TopProduct[]
 }
@@ -206,9 +206,10 @@ export default function DashboardPage() {
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
         {data.checklist.map(c => {
-          const label = c.id === 'costs'
-            ? t('overview.check_costs', { with: fmtInt.format(data.costs.with_cost), total: fmtInt.format(data.costs.total) })
-            : t(`overview.check_${c.id}${c.variant ? `_${c.variant}` : ''}`)
+          // Costurile se măsoară ca în planul campaniei: pe vânzări, când există
+          const label = c.id !== 'costs' ? t(`overview.check_${c.id}${c.variant ? `_${c.variant}` : ''}`)
+            : data.costs.basis === 'sales' ? t('overview.check_costs_sales', { pct: String(Math.round(data.costs.coverage * 100)) })
+            : t('overview.check_costs', { with: fmtInt.format(data.costs.with_cost), total: fmtInt.format(data.costs.total) })
           const inner = (
             <div className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg border transition-all ${c.done ? 'border-neutral-100 bg-neutral-50' : 'border-neutral-200 hover:border-neutral-300 bg-white'}`}>
               {c.done ? <CheckCircle2 className={`h-4 w-4 shrink-0 ${c.unverified ? 'text-neutral-300' : 'text-emerald-500'}`} /> : <Circle className="h-4 w-4 text-neutral-300 shrink-0" />}

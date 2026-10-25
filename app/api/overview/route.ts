@@ -3,8 +3,10 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/auth.config'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { logApiError } from '@/lib/logger'
+import { loadAdsData } from '@/lib/commerce/ads-data'
 import { storeSetup } from '@/lib/commerce/setup'
 import { getActiveStore } from '@/lib/stores/active'
+import { buildPlan } from '@/lib/campaigns/plan'
 
 type StoreRow = {
   id: string; platform: string; store_name: string | null; store_url: string; currency: string | null
@@ -22,8 +24,14 @@ type StoreRow = {
 const ROUTE = '/api/overview'
 const PERIOADE = [7, 30, 90, 365]
 const TOP_PRODUSE = 5
-// Pragul de la care prețurile de cost sunt „destule" ca marjele să conteze
-const PRAG_COSTURI = 0.8
+
+type Costs = {
+  with_cost: number; total: number
+  /** Ca în planul campaniei: partea din vânzări (sau, fără vânzări, din oferte) care are cost */
+  coverage: number; basis: 'sales' | 'catalog' | null
+  /** Planul poate socoti marja: pasul e făcut */
+  ready: boolean
+}
 
 export async function GET(request: Request) {
   const session = await getServerSession(authOptions)
@@ -51,20 +59,42 @@ export async function GET(request: Request) {
 
   let overview: Record<string, unknown> | null = null
   let topProducts: unknown[] = []
-  let costs = { with_cost: 0, total: 0 }
+  let costs: Costs = { with_cost: 0, total: 0, coverage: 0, basis: null, ready: false }
+  const googleConnected = googleRes.data?.status === 'active'
 
-  if (store && supported) {
+  if (store && setup) {
     const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString()
-    const [ovRes, salesRes, totalRes, costRes] = await Promise.all([
+    const [ovRes, salesRes, ads] = await Promise.all([
       supabase.rpc('commerce_overview', { p_store_id: store.id, p_days: days, p_tz: store.timezone || 'Europe/Bucharest' }),
       supabase.rpc('commerce_offer_sales', { p_store_id: store.id, p_since: since }),
-      supabase.from('commerce_offers').select('id', { count: 'exact', head: true }).eq('store_id', store.id),
-      supabase.from('commerce_offers').select('id', { count: 'exact', head: true }).eq('store_id', store.id).not('cost_price', 'is', null),
+      loadAdsData(supabase, store.id),
     ])
     if (ovRes.error) logApiError(ROUTE, 500, 'Eroare la commerce_overview', { userId, error: ovRes.error.message })
     if (salesRes.error) logApiError(ROUTE, 500, 'Eroare la commerce_offer_sales', { userId, error: salesRes.error.message })
+    for (const error of ads.errors) logApiError(ROUTE, 500, 'Eroare la citirea datelor magazinului', { userId, error })
     overview = (ovRes.data as Record<string, unknown> | null) ?? null
-    costs = { with_cost: costRes.count ?? 0, total: totalRes.count ?? 0 }
+
+    // Pasul costurilor are regula planului de campanie, ca să nu se contrazică
+    if (ads.data) {
+      const account = googleConnected ? accountRes.data : null
+      const { economics } = buildPlan({
+        store: { currency: store.currency || 'RON', connection_status: store.connection_status },
+        setup,
+        google: { connected: googleConnected, account: account ? { customer_id: account.customer_id, name: account.descriptive_name, currency: account.currency_code } : null },
+        offers: ads.data.offers,
+        sales90: ads.data.sales90,
+        orders90: ads.data.orders90,
+        googleAds90: ads.data.googleAds90,
+        settings: { goal: 'balanced', daily_budget: null },
+      })
+      costs = {
+        with_cost: ads.data.offers.filter(o => o.cost_price !== null).length,
+        total: ads.data.offers.length,
+        coverage: economics.cost_coverage,
+        basis: economics.cost_basis,
+        ready: economics.margin !== null,
+      }
+    }
 
     const top = ((salesRes.data ?? []) as { offer_id: string; units: number; revenue: number; orders: number }[])
       .sort((a, b) => Number(b.revenue) - Number(a.revenue))
@@ -91,7 +121,6 @@ export async function GET(request: Request) {
     }
   }
 
-  const googleConnected = googleRes.data?.status === 'active'
   // Pașii până la prima campanie, în ordinea în care se fac
   const checklist = [
     { id: 'store', done: !!store && supported && store.connection_status === 'active', href: '/settings?tab=integrations', external: false },
@@ -106,7 +135,7 @@ export async function GET(request: Request) {
         href: step?.href ?? '/settings?tab=integrations', external: !!step,
       }
     }),
-    { id: 'costs', done: costs.total > 0 && costs.with_cost / costs.total >= PRAG_COSTURI, href: '/products', external: false },
+    { id: 'costs', done: costs.ready, href: '/products', external: false },
   ]
 
   return NextResponse.json({
