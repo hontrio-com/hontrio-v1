@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/auth.config'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { getLocale, tFor } from '@/lib/i18n/server'
+import { INTL_LOCALE } from '@/lib/i18n/config'
 
 const COST_PER_IMAGE = 0.09  // $0.09 KIE Nano Banana Pro 1K
 const COST_PER_TEXT  = 0.004 // GPT-4o-mini average
@@ -17,10 +19,12 @@ const PACK_PRICES_USD: Record<number, number> = {
 }
 
 export async function GET() {
+  const locale = await getLocale()
+  const t = tFor(locale)
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user || (session.user as any).role !== 'admin') {
-      return NextResponse.json({ error: 'Acces interzis' }, { status: 403 })
+      return NextResponse.json({ error: t('api.forbidden') }, { status: 403 })
     }
     const supabase = createAdminClient()
     const now = new Date()
@@ -28,7 +32,7 @@ export async function GET() {
     const months = Array.from({ length: 12 }, (_, i) => {
       const d = new Date(now.getFullYear(), now.getMonth() - (11 - i), 1)
       return {
-        label: d.toLocaleDateString('ro-RO', { month: 'short', year: '2-digit' }),
+        label: d.toLocaleDateString(INTL_LOCALE[locale], { month: 'short', year: '2-digit' }),
         start: d.toISOString(),
         end: new Date(d.getFullYear(), d.getMonth() + 1, 1).toISOString(),
       }

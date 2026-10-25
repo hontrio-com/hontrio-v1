@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { ImageIcon, FileText, RefreshCw, ArrowUpRight, ArrowDownRight, BarChart2, DollarSign, TrendingUp, TrendingDown } from 'lucide-react'
+import { useT } from '@/lib/i18n/context'
 
 type MonthData = { images: number; texts: number; costUsd: number; costEur: number; imageCostUsd: number; textCostUsd: number }
 type DailyBreakdown = { date: string; images: number; texts: number; costUsd: number; costEur: number }
@@ -44,6 +45,7 @@ function DailyChart({ data }: { data: DailyBreakdown[] }) {
 }
 
 export default function AdminCostsPage() {
+  const { t, intlLocale } = useT()
   const [costs, setCosts] = useState<CostData | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -62,29 +64,30 @@ export default function AdminCostsPage() {
     </div>
   )
 
-  if (!costs) return <p className="text-red-500 text-sm">Eroare la încărcarea datelor</p>
+  if (!costs) return <p className="text-red-500 text-sm">{t('admin.load_error')}</p>
 
   const trendUp = costs.costTrend > 0
-  const monthName = new Date().toLocaleDateString('ro-RO', { month: 'long', year: 'numeric' })
+  const monthName = new Date().toLocaleDateString(intlLocale, { month: 'long', year: 'numeric' })
 
   return (
     <div className="space-y-6 font-mono">
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Costuri API</h1>
+          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">{t('admin.nav_costs')}</h1>
+          {/* i18n-ignore */}
           <p className="text-xs text-gray-400 mt-0.5 font-sans">OpenAI GPT-4o-mini + KIE Nano Banana Pro · {monthName}</p>
         </div>
         <button onClick={fetchCosts} className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-gray-200 text-xs text-gray-600 hover:bg-gray-50 transition-colors">
-          <RefreshCw className="h-3.5 w-3.5" />Refresh
+          <RefreshCw className="h-3.5 w-3.5" />{t('common.refresh')}
         </button>
       </motion.div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {[
-          { label: 'Cost luna curentă', value: `$${costs.month.costUsd.toFixed(2)}`, sub: `≈ ${costs.month.costEur.toFixed(2)}€`, icon: DollarSign, showTrend: true },
-          { label: 'Imagini generate', value: String(costs.month.images), sub: `$${costs.month.imageCostUsd.toFixed(2)} cost`, icon: ImageIcon, showTrend: false },
-          { label: 'Texte generate', value: String(costs.month.texts), sub: `$${costs.month.textCostUsd.toFixed(4)} cost`, icon: FileText, showTrend: false },
-          { label: 'Cost per credit', value: `$${costs.costPerCredit.toFixed(4)}`, sub: `${costs.totalCreditsUsed} credite total`, icon: BarChart2, showTrend: false },
+          { label: t('admin.costs_month_cost'), value: `$${costs.month.costUsd.toFixed(2)}`, sub: `≈ ${costs.month.costEur.toFixed(2)}€`, icon: DollarSign, showTrend: true },
+          { label: t('admin.costs_images_generated'), value: String(costs.month.images), sub: t('admin.costs_cost_value', { value: costs.month.imageCostUsd.toFixed(2) }), icon: ImageIcon, showTrend: false },
+          { label: t('admin.stats_texts_generated'), value: String(costs.month.texts), sub: t('admin.costs_cost_value', { value: costs.month.textCostUsd.toFixed(4) }), icon: FileText, showTrend: false },
+          { label: t('admin.stats_cost_per_credit'), value: `$${costs.costPerCredit.toFixed(4)}`, sub: t('admin.costs_credits_total', { count: costs.totalCreditsUsed }), icon: BarChart2, showTrend: false },
         ].map((card, i) => (
           <motion.div key={card.label} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}>
             <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm">
@@ -110,12 +113,12 @@ export default function AdminCostsPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm">
-            <div className="px-5 py-4 border-b border-gray-50"><p className="text-[10px] text-gray-400 uppercase tracking-widest">Breakdown Cost — {monthName}</p></div>
+            <div className="px-5 py-4 border-b border-gray-50"><p className="text-[10px] text-gray-400 uppercase tracking-widest">{t('admin.costs_breakdown', { month: monthName })}</p></div>
             <div className="p-5 space-y-4">
-              <MiniBar value={costs.month.imageCostUsd} max={costs.month.costUsd} label="Imagini KIE" />
-              <MiniBar value={costs.month.textCostUsd} max={costs.month.costUsd} label="Texte GPT" />
+              <MiniBar value={costs.month.imageCostUsd} max={costs.month.costUsd} label={t('admin.costs_kie_images')} />
+              <MiniBar value={costs.month.textCostUsd} max={costs.month.costUsd} label={t('admin.costs_gpt_texts')} />
               <div className="pt-3 border-t border-gray-50 flex items-center justify-between">
-                <span className="text-xs text-gray-500 font-sans">Total luna</span>
+                <span className="text-xs text-gray-500 font-sans">{t('admin.costs_month_total')}</span>
                 <div className="text-right">
                   <span className="text-lg font-bold text-gray-900">${costs.month.costUsd.toFixed(2)}</span>
                   <span className="text-xs text-gray-400 ml-1.5 font-sans">≈ {costs.month.costEur.toFixed(2)}€</span>
@@ -127,19 +130,19 @@ export default function AdminCostsPage() {
 
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18 }}>
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm">
-            <div className="px-5 py-4 border-b border-gray-50"><p className="text-[10px] text-gray-400 uppercase tracking-widest">Comparație Luni</p></div>
+            <div className="px-5 py-4 border-b border-gray-50"><p className="text-[10px] text-gray-400 uppercase tracking-widest">{t('admin.costs_month_comparison')}</p></div>
             <div className="grid grid-cols-2 divide-x divide-gray-50">
               {[
-                { title: 'Luna curentă', images: costs.month.images, texts: costs.month.texts, cost: costs.month.costUsd, active: true },
-                { title: 'Luna trecută', images: costs.lastMonth.images, texts: costs.lastMonth.texts, cost: costs.lastMonth.costUsd, active: false },
+                { title: t('admin.stats_current_month'), images: costs.month.images, texts: costs.month.texts, cost: costs.month.costUsd, active: true },
+                { title: t('admin.costs_last_month'), images: costs.lastMonth.images, texts: costs.lastMonth.texts, cost: costs.lastMonth.costUsd, active: false },
               ].map(m => (
                 <div key={m.title} className={`px-5 py-4 ${m.active ? '' : 'opacity-60'}`}>
                   <p className="text-[10px] uppercase tracking-widest mb-3 font-sans text-gray-400">{m.title}</p>
                   <div className="space-y-2">
-                    <div className="flex items-center justify-between"><span className="text-xs text-gray-500 font-sans">Imagini</span><span className="text-xs font-semibold text-gray-900">{m.images}</span></div>
-                    <div className="flex items-center justify-between"><span className="text-xs text-gray-500 font-sans">Texte</span><span className="text-xs font-semibold text-gray-900">{m.texts}</span></div>
+                    <div className="flex items-center justify-between"><span className="text-xs text-gray-500 font-sans">{t('admin.financial_images')}</span><span className="text-xs font-semibold text-gray-900">{m.images}</span></div>
+                    <div className="flex items-center justify-between"><span className="text-xs text-gray-500 font-sans">{t('admin.financial_texts')}</span><span className="text-xs font-semibold text-gray-900">{m.texts}</span></div>
                     <div className="pt-2 border-t border-gray-50 flex items-center justify-between">
-                      <span className="text-xs text-gray-500 font-sans">Cost total</span>
+                      <span className="text-xs text-gray-500 font-sans">{t('admin.costs_total_cost')}</span>
                       <span className="text-sm font-bold text-gray-900">${m.cost.toFixed(2)}</span>
                     </div>
                   </div>
@@ -149,7 +152,7 @@ export default function AdminCostsPage() {
             {costs.costTrend !== 0 && (
               <div className={`mx-5 mb-4 px-4 py-2.5 rounded-xl flex items-center gap-2 ${trendUp ? 'bg-gray-50' : 'bg-gray-900'}`}>
                 {trendUp ? <TrendingUp className="h-3.5 w-3.5 text-gray-500" /> : <TrendingDown className="h-3.5 w-3.5 text-white" />}
-                <span className={`text-xs font-sans ${trendUp ? 'text-gray-600' : 'text-white'}`}>{trendUp ? '+' : ''}{costs.costTrend.toFixed(1)}% față de luna trecută</span>
+                <span className={`text-xs font-sans ${trendUp ? 'text-gray-600' : 'text-white'}`}>{t('admin.costs_vs_last_month', { value: `${trendUp ? '+' : ''}${costs.costTrend.toFixed(1)}` })}</span>
               </div>
             )}
           </div>
@@ -160,17 +163,17 @@ export default function AdminCostsPage() {
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.22 }}>
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm">
             <div className="px-5 py-4 border-b border-gray-50 flex items-center justify-between">
-              <p className="text-[10px] text-gray-400 uppercase tracking-widest">Cost Zilnic</p>
-              <span className="text-xs text-gray-400 font-sans">{costs.dailyBreakdown.length} zile active</span>
+              <p className="text-[10px] text-gray-400 uppercase tracking-widest">{t('admin.costs_daily')}</p>
+              <span className="text-xs text-gray-400 font-sans">{t('admin.costs_active_days', { count: costs.dailyBreakdown.length })}</span>
             </div>
             <div className="px-5 py-4"><DailyChart data={costs.dailyBreakdown} /></div>
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
-                <thead><tr className="border-t border-gray-50">{['Data','Imagini','Texte','Cost USD','Cost EUR'].map(h => <th key={h} className="px-5 py-2.5 text-left text-[10px] text-gray-400 uppercase tracking-widest font-medium">{h}</th>)}</tr></thead>
+                <thead><tr className="border-t border-gray-50">{[t('admin.date'), t('admin.financial_images'), t('admin.financial_texts'), t('admin.costs_cost_usd'), t('admin.costs_cost_eur')].map(h => <th key={h} className="px-5 py-2.5 text-left text-[10px] text-gray-400 uppercase tracking-widest font-medium">{h}</th>)}</tr></thead>
                 <tbody>
                   {costs.dailyBreakdown.slice(0, 10).map(day => (
                     <tr key={day.date} className="border-t border-gray-50 hover:bg-gray-50/50 transition-colors">
-                      <td className="px-5 py-2.5 text-gray-600 font-sans">{new Date(day.date + 'T12:00:00').toLocaleDateString('ro-RO', { day: 'numeric', month: 'short' })}</td>
+                      <td className="px-5 py-2.5 text-gray-600 font-sans">{new Date(day.date + 'T12:00:00').toLocaleDateString(intlLocale, { day: 'numeric', month: 'short' })}</td>
                       <td className="px-5 py-2.5 text-gray-500">{day.images}</td>
                       <td className="px-5 py-2.5 text-gray-500">{day.texts}</td>
                       <td className="px-5 py-2.5 font-semibold text-gray-900">${day.costUsd.toFixed(3)}</td>
@@ -186,11 +189,11 @@ export default function AdminCostsPage() {
 
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.28 }}>
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm">
-          <div className="px-5 py-4 border-b border-gray-50"><p className="text-[10px] text-gray-400 uppercase tracking-widest">Referință Prețuri API</p></div>
+          <div className="px-5 py-4 border-b border-gray-50"><p className="text-[10px] text-gray-400 uppercase tracking-widest">{t('admin.api_price_reference')}</p></div>
           <div className="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-gray-50">
             {[
-              { name: 'OpenAI GPT-4o-mini', icon: FileText, rows: [['Input','$0.15 / 1M tokens'],['Output','$0.60 / 1M tokens'],['Per generare','~$0.004'],['Tokenuri medii','~800 in + ~1500 out']] },
-              { name: 'KIE Nano Banana Pro', icon: ImageIcon, rows: [['1K / 2K','$0.09 / imagine'],['4K','$0.12 / imagine'],['Google direct','$0.134 / imagine'],['Economie','~33% vs Google']] },
+              { name: 'OpenAI GPT-4o-mini', icon: FileText, rows: [[t('admin.costs_input'), t('admin.costs_per_million_tokens', { price: '0.15' })],[t('admin.costs_output'), t('admin.costs_per_million_tokens', { price: '0.60' })],[t('admin.costs_per_generation'),'~$0.004'],[t('admin.costs_avg_tokens'), t('admin.costs_avg_tokens_value')]] }, // i18n-ignore
+              { name: 'KIE Nano Banana Pro', icon: ImageIcon, rows: [['1K / 2K', t('admin.costs_per_image', { price: '0.09' })],['4K', t('admin.costs_per_image', { price: '0.12' })],[t('admin.costs_google_direct'), t('admin.costs_per_image', { price: '0.134' })],[t('admin.costs_savings'), t('admin.costs_savings_value')]] }, // i18n-ignore
             ].map(api => (
               <div key={api.name} className="px-5 py-4">
                 <div className="flex items-center gap-2 mb-3"><api.icon className="h-4 w-4 text-gray-400" /><span className="text-xs font-semibold text-gray-900">{api.name}</span></div>

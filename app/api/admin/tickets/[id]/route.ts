@@ -2,16 +2,18 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/auth.config'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { getT } from '@/lib/i18n/server'
 
 // GET — ticket with replies
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const t = await getT()
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user || (session.user as any).role !== 'admin') {
-      return NextResponse.json({ error: 'Acces interzis' }, { status: 403 })
+      return NextResponse.json({ error: t('api.forbidden') }, { status: 403 })
     }
 
     const { id } = await params
@@ -24,7 +26,7 @@ export async function GET(
       .single()
 
     if (!ticket) {
-      return NextResponse.json({ error: 'Tichet negăsit' }, { status: 404 })
+      return NextResponse.json({ error: t('api.ticket_not_found') }, { status: 404 })
     }
 
     const { data: replies } = await supabase
@@ -49,12 +51,12 @@ export async function GET(
     const enrichedReplies = (replies || []).map((r: any) => ({
       ...r,
       attachments: r.attachments || [],
-      users: usersMap[r.user_id] || { name: r.is_admin ? 'Admin' : 'User', email: '' },
+      users: usersMap[r.user_id] || { name: r.is_admin ? t('api.fallback_admin_name') : t('api.default_user_name'), email: '' },
     }))
 
     return NextResponse.json({ ticket, replies: enrichedReplies })
   } catch {
-    return NextResponse.json({ error: 'Eroare internă' }, { status: 500 })
+    return NextResponse.json({ error: t('api.internal_error') }, { status: 500 })
   }
 }
 
@@ -63,10 +65,11 @@ export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const t = await getT()
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user || (session.user as any).role !== 'admin') {
-      return NextResponse.json({ error: 'Acces interzis' }, { status: 403 })
+      return NextResponse.json({ error: t('api.forbidden') }, { status: 403 })
     }
 
     const { id } = await params
@@ -78,7 +81,7 @@ export async function PATCH(
     if (body.status) {
       const validStatuses = ['open', 'in_progress', 'resolved', 'closed']
       if (!validStatuses.includes(body.status)) {
-        return NextResponse.json({ error: 'Status invalid' }, { status: 400 })
+        return NextResponse.json({ error: t('api.invalid_status') }, { status: 400 })
       }
       updateData.status = body.status
       if (body.status === 'closed') updateData.closed_at = new Date().toISOString()
@@ -87,7 +90,7 @@ export async function PATCH(
     if (body.priority) {
       const validPriorities = ['low', 'normal', 'high', 'urgent']
       if (!validPriorities.includes(body.priority)) {
-        return NextResponse.json({ error: 'Prioritate invalidă' }, { status: 400 })
+        return NextResponse.json({ error: t('api.invalid_priority') }, { status: 400 })
       }
       updateData.priority = body.priority
     }
@@ -100,11 +103,11 @@ export async function PATCH(
       .single()
 
     if (error) {
-      return NextResponse.json({ error: 'Eroare la actualizare' }, { status: 500 })
+      return NextResponse.json({ error: t('api.save_failed') }, { status: 500 })
     }
 
     return NextResponse.json({ ticket })
   } catch {
-    return NextResponse.json({ error: 'Eroare internă' }, { status: 500 })
+    return NextResponse.json({ error: t('api.internal_error') }, { status: 500 })
   }
 }

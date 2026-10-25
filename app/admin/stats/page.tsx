@@ -8,6 +8,7 @@ import {
   Activity, FileText, ArrowUpRight, ArrowDownRight,
   RefreshCw, Euro, Percent,
 } from 'lucide-react'
+import { useT } from '@/lib/i18n/context'
 
 type Financial = {
   mrr: number; monthlySubscriptionRevenue: number; monthlyCreditPackRevenue: number
@@ -58,6 +59,8 @@ function StatCard({ label, value, sub, icon: Icon, trend }: {
 }
 
 export default function AdminStatsPage() {
+  const { t, intlLocale } = useT()
+  const jobTypeLabel = (type: string) => t.has(`admin.job_type_${type}`) ? t(`admin.job_type_${type}`) : type
   const [stats, setStats] = useState<Stats | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -80,7 +83,7 @@ export default function AdminStatsPage() {
       </div>
     </div>
   )
-  if (!stats) return <p className="text-red-500 text-sm">Error loading statistics</p>
+  if (!stats) return <p className="text-red-500 text-sm">{t('admin.load_error')}</p>
 
   const f = stats.financial
 
@@ -88,25 +91,25 @@ export default function AdminStatsPage() {
     <div className="space-y-6 font-mono">
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Platform Statistics</h1>
-          <p className="text-xs text-gray-400 mt-0.5 font-sans">General overview · {new Date().toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}</p>
+          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">{t('admin.stats_title')}</h1>
+          <p className="text-xs text-gray-400 mt-0.5 font-sans">{t('admin.stats_subtitle', { date: new Date().toLocaleDateString(intlLocale, { month: 'long', year: 'numeric' }) })}</p>
         </div>
         <button onClick={fetchStats} className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-gray-200 text-xs text-gray-600 hover:bg-gray-50 transition-colors">
-          <RefreshCw className="h-3.5 w-3.5" />Refresh
+          <RefreshCw className="h-3.5 w-3.5" />{t('common.refresh')}
         </button>
       </motion.div>
 
       {/* Platform stats */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
         {[
-          { label: 'Users', value: stats.totalUsers, icon: Users },
-          { label: 'Stores', value: stats.totalStores, icon: Store },
-          { label: 'Products', value: stats.totalProducts, icon: Package },
-          { label: 'AI Images', value: stats.totalImages, icon: ImageIcon },
-          { label: 'Credits used', value: stats.totalCreditsUsed, icon: CreditCard },
+          { label: t('admin.nav_users'), value: stats.totalUsers, icon: Users },
+          { label: t('admin.stats_stores'), value: stats.totalStores, icon: Store },
+          { label: t('common.products'), value: stats.totalProducts, icon: Package },
+          { label: t('sidebar.ai_images'), value: stats.totalImages, icon: ImageIcon },
+          { label: t('admin.stats_credits_used'), value: stats.totalCreditsUsed, icon: CreditCard },
         ].map((s, i) => (
           <motion.div key={s.label} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}>
-            <StatCard {...s} value={s.value.toLocaleString('en-US')} />
+            <StatCard {...s} value={s.value.toLocaleString(intlLocale)} />
           </motion.div>
         ))}
       </div>
@@ -116,21 +119,21 @@ export default function AdminStatsPage() {
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-50 flex items-center justify-between">
             <div>
-              <p className="text-[10px] text-gray-400 uppercase tracking-widest">Financial Dashboard</p>
-              <p className="text-sm font-semibold text-gray-900 mt-0.5">Current month · {new Date().toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}</p>
+              <p className="text-[10px] text-gray-400 uppercase tracking-widest">{t('admin.stats_financial_dashboard')}</p>
+              <p className="text-sm font-semibold text-gray-900 mt-0.5">{t('admin.stats_current_month')} · {new Date().toLocaleDateString(intlLocale, { month: 'long', year: 'numeric' })}</p>
             </div>
             <div className="text-right">
               <p className="text-2xl font-bold text-gray-900">${f.totalMonthlyRevenue}</p>
-              <p className="text-[10px] text-gray-400">Total monthly revenue</p>
+              <p className="text-[10px] text-gray-400">{t('admin.stats_total_monthly_revenue')}</p>
             </div>
           </div>
           <div className="grid grid-cols-2 lg:grid-cols-5 divide-x divide-y lg:divide-y-0 divide-gray-50">
             {[
-              { label: 'MRR', value: `$${f.mrr}`, sub: `${f.totalPaidUsers} subscribers` },
-              { label: 'Subscriptions', value: `$${f.monthlySubscriptionRevenue}`, sub: 'Current month' },
-              { label: 'Credit packs', value: `$${f.monthlyCreditPackRevenue}`, sub: 'Current month' },
-              { label: 'API Cost', value: `$${f.totalMonthlyApiCost.toFixed(2)}`, sub: 'OpenAI + KIE' },
-              { label: 'Profit margin', value: `${f.profitMargin.toFixed(1)}%`, sub: `Profit: $${f.monthlyProfit.toFixed(0)}` },
+              { label: t('admin.mrr'), value: `$${f.mrr}`, sub: t('admin.stats_subscribers', { count: f.totalPaidUsers }) },
+              { label: t('admin.financial_subscriptions'), value: `$${f.monthlySubscriptionRevenue}`, sub: t('admin.stats_current_month') },
+              { label: t('admin.financial_credit_packs'), value: `$${f.monthlyCreditPackRevenue}`, sub: t('admin.stats_current_month') },
+              { label: t('admin.financial_api_cost'), value: `$${f.totalMonthlyApiCost.toFixed(2)}`, sub: 'OpenAI + KIE' }, // i18n-ignore
+              { label: t('admin.stats_profit_margin'), value: `${f.profitMargin.toFixed(1)}%`, sub: `${t('admin.financial_profit')}: $${f.monthlyProfit.toFixed(0)}` },
             ].map(item => (
               <div key={item.label} className="px-5 py-4">
                 <p className="text-[10px] text-gray-400 uppercase tracking-widest">{item.label}</p>
@@ -145,10 +148,10 @@ export default function AdminStatsPage() {
       {/* Second row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {[
-          { label: 'Subscription revenue', value: `$${f.monthlySubscriptionRevenue}`, sub: `${f.totalPaidUsers} active subscribers`, icon: Wallet },
-          { label: 'Credit packs', value: `$${f.monthlyCreditPackRevenue}`, sub: 'Individual packs', icon: CreditCard },
-          { label: 'ARPU', value: `$${f.arpu.toFixed(2)}`, sub: 'Avg revenue / paid user', icon: Calculator },
-          { label: 'Cost per credit', value: `$${f.costPerCredit.toFixed(4)}`, sub: `Revenue: $${f.revenuePerCredit.toFixed(3)}/cr`, icon: BarChart3 },
+          { label: t('admin.stats_subscription_revenue'), value: `$${f.monthlySubscriptionRevenue}`, sub: t('admin.financial_active_subscribers', { count: f.totalPaidUsers }), icon: Wallet },
+          { label: t('admin.financial_credit_packs'), value: `$${f.monthlyCreditPackRevenue}`, sub: t('admin.stats_individual_packs'), icon: CreditCard },
+          { label: t('admin.arpu'), value: `$${f.arpu.toFixed(2)}`, sub: t('admin.stats_arpu_sub'), icon: Calculator },
+          { label: t('admin.stats_cost_per_credit'), value: `$${f.costPerCredit.toFixed(4)}`, sub: t('admin.stats_revenue_per_credit', { value: f.revenuePerCredit.toFixed(3) }), icon: BarChart3 },
         ].map((c, i) => (
           <motion.div key={c.label} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.22 + i * 0.03 }}>
             <StatCard {...c} />
@@ -161,16 +164,16 @@ export default function AdminStatsPage() {
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.28 }}>
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm">
             <div className="px-5 py-4 border-b border-gray-50">
-              <p className="text-[10px] text-gray-400 uppercase tracking-widest">All-Time Totals</p>
+              <p className="text-[10px] text-gray-400 uppercase tracking-widest">{t('admin.stats_all_time')}</p>
             </div>
             <div className="p-4 space-y-2">
               {[
-                { label: 'Total revenue', value: `$${f.totalRevenue}`, bold: true },
-                { label: 'Total API cost', value: `$${f.totalApiCost.toFixed(2)}`, bold: false },
-                { label: 'Total profit', value: `$${f.totalProfit.toFixed(0)}`, bold: true },
-                { label: 'Image cost', value: `$${f.totalImageCost.toFixed(2)}`, bold: false },
-                { label: 'Text cost', value: `$${f.totalTextCost.toFixed(4)}`, bold: false },
-                { label: 'Texts generated', value: f.totalTextGenerations.toLocaleString(), bold: false },
+                { label: t('admin.financial_total_revenue'), value: `$${f.totalRevenue}`, bold: true },
+                { label: t('admin.financial_total_api_cost'), value: `$${f.totalApiCost.toFixed(2)}`, bold: false },
+                { label: t('admin.financial_total_profit'), value: `$${f.totalProfit.toFixed(0)}`, bold: true },
+                { label: t('admin.stats_image_cost'), value: `$${f.totalImageCost.toFixed(2)}`, bold: false },
+                { label: t('admin.stats_text_cost'), value: `$${f.totalTextCost.toFixed(4)}`, bold: false },
+                { label: t('admin.stats_texts_generated'), value: f.totalTextGenerations.toLocaleString(intlLocale), bold: false },
               ].map(row => (
                 <div key={row.label} className="flex items-center justify-between px-3 py-2 rounded-xl hover:bg-gray-50 transition-colors">
                   <span className="text-xs text-gray-500 font-sans">{row.label}</span>
@@ -184,7 +187,7 @@ export default function AdminStatsPage() {
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm">
             <div className="px-5 py-4 border-b border-gray-50">
-              <p className="text-[10px] text-gray-400 uppercase tracking-widest">Plan Distribution</p>
+              <p className="text-[10px] text-gray-400 uppercase tracking-widest">{t('admin.plan_distribution')}</p>
             </div>
             <div className="p-4 space-y-3">
               {Object.entries(f.planDistribution).map(([plan, count]) => {
@@ -195,7 +198,7 @@ export default function AdminStatsPage() {
                     <div className="flex items-center justify-between mb-1.5">
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-medium text-gray-900 capitalize">{plan}</span>
-                        <span className="text-[10px] text-gray-400 font-sans">${PLAN_PRICES[plan] || '0'}/mo</span>
+                        <span className="text-[10px] text-gray-400 font-sans">{t('admin.stats_price_per_month', { price: PLAN_PRICES[plan] || '0' })}</span>
                       </div>
                       <span className="text-xs text-gray-600 font-semibold">{count} <span className="text-gray-300">({pct}%)</span></span>
                     </div>
@@ -220,8 +223,8 @@ export default function AdminStatsPage() {
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.34 }}>
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm">
             <div className="px-5 py-4 border-b border-gray-50 flex items-center justify-between">
-              <p className="text-[10px] text-gray-400 uppercase tracking-widest">Recent Users</p>
-              <span className="text-xs text-gray-400 font-sans">{stats.totalUsers} total</span>
+              <p className="text-[10px] text-gray-400 uppercase tracking-widest">{t('admin.stats_recent_users')}</p>
+              <span className="text-xs text-gray-400 font-sans">{t('admin.stats_total_count', { count: stats.totalUsers })}</span>
             </div>
             <div className="divide-y divide-gray-50">
               {stats.recentUsers.slice(0, 6).map(user => (
@@ -235,7 +238,7 @@ export default function AdminStatsPage() {
                   </div>
                   <div className="text-right shrink-0">
                     <span className="text-[10px] bg-gray-100 text-gray-600 px-2 py-0.5 rounded-lg capitalize">{user.plan}</span>
-                    <p className="text-[10px] text-gray-300 mt-0.5">{user.credits} cr</p>
+                    <p className="text-[10px] text-gray-300 mt-0.5">{user.credits} {t('common.credits_short')}</p>
                   </div>
                 </div>
               ))}
@@ -246,8 +249,8 @@ export default function AdminStatsPage() {
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.37 }}>
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm">
             <div className="px-5 py-4 border-b border-gray-50 flex items-center justify-between">
-              <p className="text-[10px] text-gray-400 uppercase tracking-widest">Recent Generations</p>
-              <span className="text-xs text-gray-300 font-sans animate-pulse">● Live</span>
+              <p className="text-[10px] text-gray-400 uppercase tracking-widest">{t('admin.stats_recent_generations')}</p>
+              <span className="text-xs text-gray-300 font-sans animate-pulse">{t('admin.stats_live')}</span>
             </div>
             <div className="divide-y divide-gray-50">
               {stats.recentJobs.slice(0, 8).map(job => (
@@ -260,10 +263,10 @@ export default function AdminStatsPage() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-medium text-gray-900 capitalize">
-                      {job.type === 'full_product' ? 'Full product' : job.type}
+                      {jobTypeLabel(job.type)}
                     </p>
                     <p className="text-[10px] text-gray-400 truncate font-sans">
-                      {job.user_name || job.user_email} · {new Date(job.created_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                      {job.user_name || job.user_email} · {new Date(job.created_at).toLocaleString(intlLocale, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
                     </p>
                   </div>
                   <span className={`text-[10px] px-2 py-0.5 rounded-lg shrink-0 ${
@@ -285,12 +288,12 @@ export default function AdminStatsPage() {
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm">
           <div className="px-5 py-4 border-b border-gray-50">
-            <p className="text-[10px] text-gray-400 uppercase tracking-widest">API Price Reference</p>
+            <p className="text-[10px] text-gray-400 uppercase tracking-widest">{t('admin.api_price_reference')}</p>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-gray-50">
             {[
-              { name: 'OpenAI GPT-4o-mini', icon: FileText, lines: ['Input: $0.15/1M tokens · Output: $0.60/1M tokens', '~$0.004 per full text generation', '~800 tokens input + ~1500 tokens output per request'] },
-              { name: 'KIE Nano Banana Pro', icon: ImageIcon, lines: ['1K/2K: $0.09/image · 4K: $0.12/image', '~$0.09 avg cost per image', 'Via kie.ai — ~33% cheaper than Google direct ($0.134)'] },
+              { name: 'OpenAI GPT-4o-mini', icon: FileText, lines: [t('admin.stats_gpt_price'), t('admin.stats_gpt_per_generation'), t('admin.stats_gpt_tokens')] }, // i18n-ignore
+              { name: 'KIE Nano Banana Pro', icon: ImageIcon, lines: [t('admin.stats_kie_price'), t('admin.stats_kie_avg'), t('admin.stats_kie_via')] }, // i18n-ignore
             ].map(api => (
               <div key={api.name} className="px-5 py-4">
                 <div className="flex items-center gap-2 mb-3">

@@ -2,24 +2,26 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/auth.config'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { getT } from '@/lib/i18n/server'
 
 export async function POST(request: Request) {
+  const t = await getT()
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user || (session.user as any).role !== 'admin') {
-      return NextResponse.json({ error: 'Acces interzis' }, { status: 403 })
+      return NextResponse.json({ error: t('api.forbidden') }, { status: 403 })
     }
 
     const { user_id } = await request.json()
     const adminId = (session.user as any).id
 
     if (!user_id) {
-      return NextResponse.json({ error: 'ID utilizator lipsă' }, { status: 400 })
+      return NextResponse.json({ error: t('api.user_id_missing') }, { status: 400 })
     }
 
     // Prevent self-deletion
     if (user_id === adminId) {
-      return NextResponse.json({ error: 'Nu te poți șterge pe tine însuți' }, { status: 400 })
+      return NextResponse.json({ error: t('api.cannot_delete_self') }, { status: 400 })
     }
 
     const supabase = createAdminClient()
@@ -32,12 +34,12 @@ export async function POST(request: Request) {
       .single()
 
     if (!user) {
-      return NextResponse.json({ error: 'Utilizatorul nu a fost găsit' }, { status: 404 })
+      return NextResponse.json({ error: t('api.user_not_found') }, { status: 404 })
     }
 
     // Prevent deleting other admins
     if (user.role === 'admin') {
-      return NextResponse.json({ error: 'Nu poți șterge un alt admin' }, { status: 400 })
+      return NextResponse.json({ error: t('api.cannot_delete_admin') }, { status: 400 })
     }
 
     // Delete in order (respect foreign keys):
@@ -71,7 +73,7 @@ export async function POST(request: Request) {
 
     if (deleteError) {
       console.error('User delete error:', deleteError)
-      return NextResponse.json({ error: 'Eroare la ștergerea utilizatorului' }, { status: 500 })
+      return NextResponse.json({ error: t('api.user_delete_failed') }, { status: 500 })
     }
 
     // Delete from Supabase Auth
@@ -83,10 +85,10 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       success: true,
-      message: `Utilizatorul ${user.email} a fost șters definitiv`,
+      message: t('api.user_deleted', { email: user.email }),
     })
   } catch (err) {
     console.error('Delete user error:', err)
-    return NextResponse.json({ error: 'Eroare internă' }, { status: 500 })
+    return NextResponse.json({ error: t('api.internal_error') }, { status: 500 })
   }
 }

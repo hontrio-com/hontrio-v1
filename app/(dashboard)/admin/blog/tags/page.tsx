@@ -5,6 +5,7 @@ import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Hash, Plus, X } from 'lucide-react'
+import { useT } from '@/lib/i18n/context'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -39,6 +40,7 @@ function EditTagModal({
   onSave: (id: string, name: string) => Promise<void>
   saving: boolean
 }) {
+  const { t } = useT()
   const [name, setName] = useState(tag.name)
 
   return (
@@ -50,7 +52,7 @@ function EditTagModal({
         className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm"
       >
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-[16px] font-bold text-neutral-900">Redenumeste tag</h2>
+          <h2 className="text-[16px] font-bold text-neutral-900">{t('admin.blog_tags_rename')}</h2>
           <button onClick={onClose} className="p-1.5 rounded-lg text-neutral-400 hover:text-neutral-600 hover:bg-neutral-100 transition-colors">
             <X className="h-4 w-4" />
           </button>
@@ -67,14 +69,14 @@ function EditTagModal({
             onClick={onClose}
             className="flex-1 h-10 rounded-xl border border-neutral-200 text-sm font-medium text-neutral-600 hover:bg-neutral-50 transition-colors"
           >
-            Anuleaza
+            {t('common.cancel')}
           </button>
           <button
             onClick={() => onSave(tag.id, name)}
             disabled={saving || !name.trim()}
             className="flex-1 h-10 rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white text-sm font-medium transition-colors disabled:opacity-50"
           >
-            {saving ? 'Se salveaza...' : 'Salveaza'}
+            {saving ? t('common.saving') : t('common.save')}
           </button>
         </div>
       </motion.div>
@@ -95,6 +97,7 @@ function DeleteTagModal({
   onConfirm: () => void
   loading: boolean
 }) {
+  const { t } = useT()
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
       <motion.div
@@ -103,23 +106,23 @@ function DeleteTagModal({
         exit={{ scale: 0.95, opacity: 0 }}
         className="bg-white rounded-2xl shadow-xl p-6 max-w-sm w-full"
       >
-        <h2 className="text-[17px] font-bold text-neutral-900 mb-2">Sterge tag-ul?</h2>
+        <h2 className="text-[17px] font-bold text-neutral-900 mb-2">{t('admin.blog_tags_delete_title')}</h2>
         <p className="text-sm text-neutral-500 mb-6">
-          Tag-ul <span className="font-medium text-neutral-700">&quot;{tag.name}&quot;</span> va fi eliminat din toate articolele.
+          {t('admin.blog_tags_delete_before')} <span className="font-medium text-neutral-700">{t('admin.quoted', { text: tag.name })}</span> {t('admin.blog_tags_delete_after')}
         </p>
         <div className="flex gap-3">
           <button
             onClick={onCancel}
             className="flex-1 h-10 rounded-xl border border-neutral-200 text-sm font-medium text-neutral-600 hover:bg-neutral-50 transition-colors"
           >
-            Anuleaza
+            {t('common.cancel')}
           </button>
           <button
             onClick={onConfirm}
             disabled={loading}
             className="flex-1 h-10 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm font-medium transition-colors disabled:opacity-50"
           >
-            {loading ? 'Se sterge...' : 'Sterge'}
+            {loading ? t('admin.deleting') : t('common.delete')}
           </button>
         </div>
       </motion.div>
@@ -130,6 +133,7 @@ function DeleteTagModal({
 // ─── Page ────────────────────────────────────────────────────────────────────
 
 export default function AdminBlogTagsPage() {
+  const { t } = useT()
   const { data: session, status: sessionStatus } = useSession()
   const router = useRouter()
 
@@ -241,7 +245,7 @@ export default function AdminBlogTagsPage() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
-        <h1 style={{ fontSize: 28, fontWeight: 800 }} className="text-neutral-900">Taguri</h1>
+        <h1 style={{ fontSize: 28, fontWeight: 800 }} className="text-neutral-900">{t('admin.blog_tags_title')}</h1>
         <div className="flex items-center gap-2">
           <div className="relative">
             <input
@@ -250,7 +254,7 @@ export default function AdminBlogTagsPage() {
               value={inlineInput}
               onChange={e => setInlineInput(e.target.value)}
               onKeyDown={handleInlineKeyDown}
-              placeholder="Nume tag + Enter"
+              placeholder={t('admin.blog_tags_input_placeholder')}
               className="h-9 pl-3 pr-9 rounded-xl border border-neutral-200 bg-white text-sm text-neutral-700 placeholder:text-neutral-400 focus:outline-none focus:border-neutral-400 transition-colors w-48"
             />
             {inlineInput && (
@@ -268,7 +272,7 @@ export default function AdminBlogTagsPage() {
             className="flex items-center gap-2 h-9 px-4 rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white text-sm font-medium transition-colors disabled:opacity-50"
           >
             <Plus className="h-4 w-4" />
-            Tag nou
+            {t('admin.blog_tags_new')}
           </button>
         </div>
       </div>
@@ -283,14 +287,14 @@ export default function AdminBlogTagsPage() {
       ) : tags.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-24 text-center">
           <Hash className="h-16 w-16 text-neutral-200 mb-4" />
-          <p className="text-lg font-semibold text-neutral-700 mb-1">Niciun tag</p>
-          <p className="text-sm text-neutral-400 mb-6">Adauga primul tag pentru a eticheta articolele.</p>
+          <p className="text-lg font-semibold text-neutral-700 mb-1">{t('admin.blog_tags_empty')}</p>
+          <p className="text-sm text-neutral-400 mb-6">{t('admin.blog_tags_empty_desc')}</p>
           <button
             onClick={() => { inputRef.current?.focus() }}
             className="flex items-center gap-2 h-9 px-5 rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white text-sm font-medium transition-colors"
           >
             <Plus className="h-4 w-4" />
-            Adauga primul tag
+            {t('admin.blog_tags_add_first')}
           </button>
         </div>
       ) : (
@@ -318,7 +322,7 @@ export default function AdminBlogTagsPage() {
                 <button
                   onClick={() => setDeleteTarget(tag)}
                   className="ml-0.5 text-neutral-300 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
-                  title="Sterge tag"
+                  title={t('admin.blog_tags_delete')}
                 >
                   <X className="h-3.5 w-3.5" />
                 </button>

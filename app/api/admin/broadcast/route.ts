@@ -2,21 +2,23 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/auth.config'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { getT } from '@/lib/i18n/server'
 
 const VALID_TYPES = ['info', 'warning', 'success', 'error']
 const VALID_TARGETS = ['all', 'plan', 'paid', 'free']
 
 export async function POST(req: Request) {
+  const t = await getT()
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user || (session.user as any).role !== 'admin') {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      return NextResponse.json({ error: t('api.forbidden') }, { status: 403 })
     }
     const { title, message, type = 'info', target = 'all', plan } = await req.json()
-    if (!title || !message) return NextResponse.json({ error: 'Title and message are required' }, { status: 400 })
+    if (!title || !message) return NextResponse.json({ error: t('api.title_message_required') }, { status: 400 })
 
-    if (!VALID_TYPES.includes(type)) return NextResponse.json({ error: 'Invalid type' }, { status: 400 })
-    if (!VALID_TARGETS.includes(target)) return NextResponse.json({ error: 'Invalid target' }, { status: 400 })
+    if (!VALID_TYPES.includes(type)) return NextResponse.json({ error: t('api.invalid_type') }, { status: 400 })
+    if (!VALID_TARGETS.includes(target)) return NextResponse.json({ error: t('api.invalid_target') }, { status: 400 })
 
     const supabase = createAdminClient()
     let query = supabase.from('users').select('id')
@@ -25,7 +27,7 @@ export async function POST(req: Request) {
     else if (target === 'free') query = query.eq('plan', 'free')
 
     const { data: users } = await query
-    if (!users?.length) return NextResponse.json({ error: 'No users found' }, { status: 400 })
+    if (!users?.length) return NextResponse.json({ error: t('api.no_users_found') }, { status: 400 })
 
     // Insert notification for each user
     const notifications = users.map(u => ({
@@ -40,7 +42,7 @@ export async function POST(req: Request) {
     const { error } = await supabase.from('notifications').insert(notifications)
     if (error) {
       console.error('[Admin Broadcast] Insert error:', error.message)
-      return NextResponse.json({ error: error.message || 'Eroare la inserarea notificărilor' }, { status: 500 })
+      return NextResponse.json({ error: error.message || t('api.notifications_send_failed') }, { status: 500 })
     }
 
     return NextResponse.json({ sent: users.length })
@@ -50,10 +52,11 @@ export async function POST(req: Request) {
 }
 
 export async function GET() {
+  const t = await getT()
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user || (session.user as any).role !== 'admin') {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      return NextResponse.json({ error: t('api.forbidden') }, { status: 403 })
     }
     const supabase = createAdminClient()
     const { data } = await supabase

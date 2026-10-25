@@ -17,6 +17,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { useT } from '@/lib/i18n/context'
 
 type ActivityItem = {
   id: string
@@ -47,6 +48,8 @@ const getActivityIcon = (type: string) => {
 }
 
 export default function AdminActivityPage() {
+  const { t, intlLocale } = useT()
+  const activityTypeLabel = (type: string) => t.has(`admin.activity_type_${type}`) ? t(`admin.activity_type_${type}`) : type.replace(/_/g, ' ')
   const [activities, setActivities] = useState<ActivityItem[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -85,7 +88,7 @@ export default function AdminActivityPage() {
   // Group activities by date
   const groupedActivities: Record<string, ActivityItem[]> = {}
   activities.forEach(a => {
-    const date = new Date(a.created_at).toLocaleDateString('ro-RO', {
+    const date = new Date(a.created_at).toLocaleDateString(intlLocale, {
       weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
     })
     if (!groupedActivities[date]) groupedActivities[date] = []
@@ -97,8 +100,8 @@ export default function AdminActivityPage() {
       <motion.div {...fadeInUp} transition={{ duration: 0.3 }}>
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Activitate</h1>
-            <p className="text-gray-500 text-sm mt-0.5">Tot ce se întâmplă pe platformă</p>
+            <h1 className="text-2xl font-bold text-gray-900">{t('admin.nav_activity')}</h1>
+            <p className="text-gray-500 text-sm mt-0.5">{t('admin.activity_subtitle')}</p>
           </div>
           <Button
             variant="outline"
@@ -108,7 +111,7 @@ export default function AdminActivityPage() {
             className="rounded-xl border-gray-200"
           >
             <RefreshCw className={`h-4 w-4 mr-1.5 ${refreshing ? 'animate-spin' : ''}`} />
-            Reîmprospătează
+            {t('common.refresh')}
           </Button>
         </div>
       </motion.div>
@@ -117,8 +120,8 @@ export default function AdminActivityPage() {
         <Card className="rounded-2xl border-0 shadow-sm">
           <CardContent className="flex flex-col items-center justify-center py-16">
             <Activity className="h-12 w-12 text-gray-300 mb-4" />
-            <p className="text-gray-500 font-medium">Nicio activitate înregistrată</p>
-            <p className="text-sm text-gray-400 mt-1">Activitățile vor apărea aici pe măsură ce utilizatorii interacționează</p>
+            <p className="text-gray-500 font-medium">{t('admin.activity_empty')}</p>
+            <p className="text-sm text-gray-400 mt-1">{t('admin.activity_empty_desc')}</p>
           </CardContent>
         </Card>
       ) : (
@@ -156,7 +159,7 @@ export default function AdminActivityPage() {
                               </span>
                               <span className="text-gray-200">·</span>
                               <span className="text-[11px] text-gray-400">
-                                {new Date(activity.created_at).toLocaleTimeString('ro-RO', {
+                                {new Date(activity.created_at).toLocaleTimeString(intlLocale, {
                                   hour: '2-digit', minute: '2-digit'
                                 })}
                               </span>
@@ -165,7 +168,7 @@ export default function AdminActivityPage() {
 
                           {/* Type badge */}
                           <Badge variant="secondary" className="bg-gray-100 text-gray-500 border-0 text-[10px] shrink-0">
-                            {activity.type.replace(/_/g, ' ')}
+                            {activityTypeLabel(activity.type)}
                           </Badge>
                         </div>
                         {i < items.length - 1 && <div className="border-b border-gray-50 ml-[4.5rem]" />}

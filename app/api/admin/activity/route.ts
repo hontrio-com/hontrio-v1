@@ -2,12 +2,15 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/auth.config'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { getT } from '@/lib/i18n/server'
+import { translateStored } from '@/lib/i18n/stored'
 
 export async function GET() {
+  const t = await getT()
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user || (session.user as any).role !== 'admin') {
-      return NextResponse.json({ error: 'Acces interzis' }, { status: 403 })
+      return NextResponse.json({ error: t('api.forbidden') }, { status: 403 })
     }
 
     const supabase = createAdminClient()
@@ -55,7 +58,7 @@ export async function GET() {
 
     // Fetch missing user info
     const allUserIds = new Set<string>()
-    ;(transactionsRes.data || []).forEach(t => allUserIds.add(t.user_id))
+    ;(transactionsRes.data || []).forEach(tx => allUserIds.add(tx.user_id))
     ;(imagesRes.data || []).forEach(i => allUserIds.add(i.user_id))
     ;(productsRes.data || []).forEach(p => allUserIds.add(p.user_id))
     ;(jobsRes.data || []).forEach(j => allUserIds.add(j.user_id))
@@ -80,7 +83,7 @@ export async function GET() {
       activities.push({
         id: `user-${u.id}`,
         type: 'user_registered',
-        description: `Utilizator nou înregistrat: ${u.name || u.email}`,
+        description: t('api.activity_user_registered', { name: u.name || u.email }),
         user_email: u.email,
         user_name: u.name,
         created_at: u.created_at,
@@ -94,8 +97,8 @@ export async function GET() {
       activities.push({
         id: `store-${s.id}`,
         type: 'store_connected',
-        description: `Magazin conectat: ${s.store_url.replace(/^https?:\/\//, '')}`,
-        user_email: user?.email || 'unknown',
+        description: t('api.activity_store_connected', { store: s.store_url.replace(/^https?:\/\//, '') }),
+        user_email: user?.email || t('api.unknown_user'),
         user_name: user?.name || null,
         created_at: s.created_at,
         metadata: { platform: s.platform },
@@ -106,8 +109,8 @@ export async function GET() {
         activities.push({
           id: `sync-${s.id}`,
           type: 'products_synced',
-          description: `Produse sincronizate din ${s.store_url.replace(/^https?:\/\//, '')}`,
-          user_email: user?.email || 'unknown',
+          description: t('api.activity_products_synced', { store: s.store_url.replace(/^https?:\/\//, '') }),
+          user_email: user?.email || t('api.unknown_user'),
           user_name: user?.name || null,
           created_at: s.last_sync_at,
           metadata: {},
@@ -118,14 +121,16 @@ export async function GET() {
     // Generation jobs
     ;(jobsRes.data || []).forEach(j => {
       const user = userMap[j.user_id]
-      const typeLabel = j.type === 'image' ? 'Imagine generată cu AI' :
-                        j.type === 'text' ? 'Text generat cu AI' :
-                        j.type === 'full_product' ? 'Produs complet generat' : 'Generare AI'
+      const typeLabel = j.type === 'image' ? t('api.activity_job_image') :
+                        j.type === 'text' ? t('api.activity_job_text') :
+                        j.type === 'full_product' ? t('api.activity_job_full_product') : t('api.activity_job_generic')
+      const statusLabel = j.status === 'completed' ? t('api.activity_status_completed')
+        : j.status === 'failed' ? t('api.activity_status_failed') : t('api.activity_status_running')
       activities.push({
         id: `job-${j.id}`,
         type: j.type === 'image' ? 'image_generated' : 'text_generated',
-        description: `${typeLabel} (${j.status === 'completed' ? 'succes' : j.status === 'failed' ? 'eșuat' : 'în lucru'})`,
-        user_email: user?.email || 'unknown',
+        description: `${typeLabel} (${statusLabel})`,
+        user_email: user?.email || t('api.unknown_user'),
         user_name: user?.name || null,
         created_at: j.created_at,
         metadata: { status: j.status, type: j.type },
@@ -133,28 +138,29 @@ export async function GET() {
     })
 
     // Credit transactions (purchases and admin actions)
-    ;(transactionsRes.data || []).forEach(t => {
-      const user = userMap[t.user_id]
+    ;(transactionsRes.data || []).forEach(tx => {
+      const user = userMap[tx.user_id]
 
-      if (t.type === 'purchase') {
+      // Descrierile salvate ca chei de traducere se arată în limba celui care se uită
+      if (tx.type === 'purchase') {
         activities.push({
-          id: `purchase-${t.id}`,
+          id: `purchase-${tx.id}`,
           type: 'credits_added',
-          description: t.description || `${t.amount} credite achiziționate`,
-          user_email: user?.email || 'unknown',
+          description: translateStored(t, tx.description) || t('api.activity_credits_purchased', { count: Number(tx.amount) }),
+          user_email: user?.email || t('api.unknown_user'),
           user_name: user?.name || null,
-          created_at: t.created_at,
-          metadata: { amount: t.amount },
+          created_at: tx.created_at,
+          metadata: { amount: tx.amount },
         })
-      } else if (t.reference_type === 'admin_action') {
+      } else if (tx.reference_type === 'admin_action') {
         activities.push({
-          id: `admin-${t.id}`,
+          id: `admin-${tx.id}`,
           type: 'credits_added',
-          description: t.description || `${t.amount > 0 ? 'Credite adăugate' : 'Credite retrase'} de admin`,
-          user_email: user?.email || 'unknown',
+          description: translateStored(t, tx.description) || (tx.amount > 0 ? t('api.activity_admin_credits_added') : t('api.activity_admin_credits_removed')),
+          user_email: user?.email || t('api.unknown_user'),
           user_name: user?.name || null,
-          created_at: t.created_at,
-          metadata: { amount: t.amount },
+          created_at: tx.created_at,
+          metadata: { amount: tx.amount },
         })
       }
     })
@@ -166,8 +172,8 @@ export async function GET() {
         activities.push({
           id: `publish-${p.id}`,
           type: 'product_published',
-          description: `Produs publicat: ${p.optimized_title || p.original_title || 'Fără titlu'}`,
-          user_email: user?.email || 'unknown',
+          description: t('api.activity_product_published', { title: p.optimized_title || p.original_title || t('api.untitled') }),
+          user_email: user?.email || t('api.unknown_user'),
           user_name: user?.name || null,
           created_at: p.published_at,
           metadata: {},
@@ -183,6 +189,6 @@ export async function GET() {
     })
   } catch (err) {
     console.error('Activity error:', err)
-    return NextResponse.json({ error: 'Eroare internă' }, { status: 500 })
+    return NextResponse.json({ error: t('api.internal_error') }, { status: 500 })
   }
 }

@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/auth.config'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { getT } from '@/lib/i18n/server'
+import { translateStored } from '@/lib/i18n/stored'
 
 // ===== REAL API COSTS (verified February 2026) =====
 // GPT-4o-mini: $0.15/1M input + $0.60/1M output tokens
@@ -17,10 +19,11 @@ const COST_PER_IMAGE_GENERATION = 0.10
 const USD_TO_EUR = 0.92
 
 export async function GET() {
+  const t = await getT()
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user || (session.user as any).role !== 'admin') {
-      return NextResponse.json({ error: 'Acces interzis' }, { status: 403 })
+      return NextResponse.json({ error: t('api.forbidden') }, { status: 403 })
     }
 
     const supabase = createAdminClient()
@@ -176,18 +179,19 @@ export async function GET() {
       // Daily breakdown
       dailyBreakdown,
 
-      // Recent transactions
-      transactions: (allUsageTransactions || []).map(t => ({
-        ...t,
-        estimatedCostUsd: t.reference_type === 'image_generation'
+      // Recent transactions (descrierile salvate ca chei de traducere, în limba celui care se uită)
+      transactions: (allUsageTransactions || []).map(tx => ({
+        ...tx,
+        description: translateStored(t, tx.description),
+        estimatedCostUsd: tx.reference_type === 'image_generation'
           ? COST_PER_IMAGE_GENERATION
-          : t.reference_type === 'text_generation'
+          : tx.reference_type === 'text_generation'
           ? COST_PER_TEXT_GENERATION
           : 0,
       })),
     })
   } catch (err) {
     console.error('Costs error:', err)
-    return NextResponse.json({ error: 'Eroare internă' }, { status: 500 })
+    return NextResponse.json({ error: t('api.internal_error') }, { status: 500 })
   }
 }

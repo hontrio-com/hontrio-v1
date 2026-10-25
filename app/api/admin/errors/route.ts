@@ -2,12 +2,15 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/auth.config'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { getT } from '@/lib/i18n/server'
+import { translateStored } from '@/lib/i18n/stored'
 
 export async function GET() {
+  const t = await getT()
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user || (session.user as any).role !== 'admin') {
-      return NextResponse.json({ error: 'Acces interzis' }, { status: 403 })
+      return NextResponse.json({ error: t('api.forbidden') }, { status: 403 })
     }
     const supabase = createAdminClient()
 
@@ -41,18 +44,18 @@ export async function GET() {
       ...(failedImages || []).map(img => ({
         id: img.id,
         type: 'image_generation',
-        detail: `Style: ${img.style}`,
+        detail: t('api.admin_error_style', { style: img.style }),
         user: userMap[img.user_id] || img.user_id,
         created_at: img.created_at,
-        error: 'Generation failed',
+        error: t('api.generation_failed'),
       })),
       ...(failedJobs || []).map(job => ({
         id: job.id,
         type: job.type,
-        detail: job.error_message || 'Unknown error',
+        detail: translateStored(t, job.error_message) || t('api.unknown_error'),
         user: userMap[job.user_id] || job.user_id,
         created_at: job.created_at,
-        error: job.error_message || 'Job failed',
+        error: translateStored(t, job.error_message) || t('api.job_failed'),
       })),
     ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
 

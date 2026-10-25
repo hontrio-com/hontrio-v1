@@ -2,12 +2,14 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/auth.config'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { getT } from '@/lib/i18n/server'
 
 export async function GET(request: Request) {
+  const t = await getT()
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user || (session.user as any).role !== 'admin') {
-      return NextResponse.json({ error: 'Acces interzis' }, { status: 403 })
+      return NextResponse.json({ error: t('api.forbidden') }, { status: 403 })
     }
 
     const { searchParams } = new URL(request.url)
@@ -30,7 +32,7 @@ export async function GET(request: Request) {
 
     if (error) {
       // Table likely doesn't exist — return empty gracefully
-      return NextResponse.json({ logs: [], total: 0, message: 'Nu există încă erori înregistrate.' })
+      return NextResponse.json({ logs: [], total: 0, message: t('api.logs_empty') })
     }
 
     return NextResponse.json({
@@ -38,16 +40,17 @@ export async function GET(request: Request) {
       total: data?.length ?? 0,
     })
   } catch (err) {
-    return NextResponse.json({ error: 'Eroare la citirea logurilor' }, { status: 500 })
+    return NextResponse.json({ error: t('api.logs_load_failed') }, { status: 500 })
   }
 }
 
 // DELETE — clear logs
 export async function DELETE() {
+  const t = await getT()
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user || (session.user as any).role !== 'admin') {
-      return NextResponse.json({ error: 'Acces interzis' }, { status: 403 })
+      return NextResponse.json({ error: t('api.forbidden') }, { status: 403 })
     }
 
     const supabase = createAdminClient()
@@ -60,6 +63,6 @@ export async function DELETE() {
 
     return NextResponse.json({ success: true })
   } catch {
-    return NextResponse.json({ error: 'Eroare' }, { status: 500 })
+    return NextResponse.json({ error: t('api.internal_error') }, { status: 500 })
   }
 }

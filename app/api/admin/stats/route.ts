@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/auth.config'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { getT } from '@/lib/i18n/server'
 
 // ===== REAL API COSTS =====
 // GPT-4o-mini: $0.15/1M input tokens + $0.60/1M output tokens
@@ -23,10 +24,11 @@ const PLAN_PRICES: Record<string, number> = {
 }
 
 export async function GET() {
+  const t = await getT()
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user || (session.user as any).role !== 'admin') {
-      return NextResponse.json({ error: 'Acces interzis' }, { status: 403 })
+      return NextResponse.json({ error: t('api.forbidden') }, { status: 403 })
     }
 
     const supabase = createAdminClient()
@@ -66,7 +68,7 @@ export async function GET() {
 
     const enrichedJobs = (recentJobs || []).map(job => ({
       ...job,
-      user_email: jobUserMap[job.user_id]?.email || 'unknown',
+      user_email: jobUserMap[job.user_id]?.email || t('api.unknown_user'),
       user_name: jobUserMap[job.user_id]?.name || null,
     }))
 
@@ -236,6 +238,6 @@ export async function GET() {
     })
   } catch (err) {
     console.error('Stats error:', err)
-    return NextResponse.json({ error: 'Eroare internă' }, { status: 500 })
+    return NextResponse.json({ error: t('api.internal_error') }, { status: 500 })
   }
 }

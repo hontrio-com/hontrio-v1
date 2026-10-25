@@ -3,24 +3,29 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { Send, Users, CheckCircle2, AlertCircle } from 'lucide-react'
+import { useT } from '@/lib/i18n/context'
+import type { TFunction } from '@/lib/i18n/translate'
 
-const TYPES = [
-  { value: 'info', label: 'Info', desc: 'General information' },
-  { value: 'success', label: 'Success', desc: 'Good news, new feature' },
-  { value: 'warning', label: 'Warning', desc: 'Maintenance, change' },
-  { value: 'error', label: 'Error', desc: 'Critical issue or error' },
+const getTypes = (t: TFunction) => [
+  { value: 'info', label: t('admin.notif_type_info'), desc: t('admin.broadcast_type_info_desc') },
+  { value: 'success', label: t('admin.notif_type_success'), desc: t('admin.broadcast_type_success_desc') },
+  { value: 'warning', label: t('admin.notif_type_warning'), desc: t('admin.broadcast_type_warning_desc') },
+  { value: 'error', label: t('admin.notif_type_error'), desc: t('admin.broadcast_type_error_desc') },
 ]
 
-const TARGETS = [
-  { value: 'all', label: 'All users' },
-  { value: 'paid', label: 'Paid users' },
-  { value: 'free', label: 'Free users' },
-  { value: 'plan', label: 'Specific plan' },
+const getTargets = (t: TFunction) => [
+  { value: 'all', label: t('admin.broadcast_target_all') },
+  { value: 'paid', label: t('admin.broadcast_target_paid') },
+  { value: 'free', label: t('admin.broadcast_target_free') },
+  { value: 'plan', label: t('admin.broadcast_target_plan') },
 ]
 
 const PLANS = ['starter', 'professional', 'enterprise']
 
 export default function BroadcastPage() {
+  const { t } = useT()
+  const TYPES = getTypes(t)
+  const TARGETS = getTargets(t)
   const [title, setTitle] = useState('')
   const [message, setMessage] = useState('')
   const [type, setType] = useState('info')
@@ -31,7 +36,7 @@ export default function BroadcastPage() {
 
   const send = async () => {
     if (!title.trim() || !message.trim()) return
-    const confirmed = window.confirm('Send broadcast to all users? This cannot be undone.')
+    const confirmed = window.confirm(t('admin.broadcast_confirm'))
     if (!confirmed) return
     setSending(true)
     setResult(null)
@@ -43,14 +48,14 @@ export default function BroadcastPage() {
       })
       const data = await res.json()
       if (data.sent) {
-        setResult({ ok: true, msg: `Successfully sent to ${data.sent} users` })
+        setResult({ ok: true, msg: t('admin.broadcast_sent', { count: Number(data.sent) }) })
         setTitle('')
         setMessage('')
       } else {
-        setResult({ ok: false, msg: data.error || 'Failed to send' })
+        setResult({ ok: false, msg: data.error || t('admin.notification_send_error') })
       }
     } catch {
-      setResult({ ok: false, msg: 'Network error' })
+      setResult({ ok: false, msg: t('common.error_connection') })
     } finally {
       setSending(false)
     }
@@ -59,8 +64,8 @@ export default function BroadcastPage() {
   return (
     <div className="space-y-6 font-mono max-w-2xl">
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-        <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Broadcast Message</h1>
-        <p className="text-xs text-gray-400 mt-0.5 font-sans">Send in-app notifications to users</p>
+        <h1 className="text-2xl font-bold text-gray-900 tracking-tight">{t('admin.broadcast_title')}</h1>
+        <p className="text-xs text-gray-400 mt-0.5 font-sans">{t('admin.broadcast_subtitle')}</p>
       </motion.div>
 
       {result && (
@@ -75,7 +80,7 @@ export default function BroadcastPage() {
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-5">
         {/* Type */}
         <div>
-          <p className="text-[10px] text-gray-400 uppercase tracking-widest mb-2">Message type</p>
+          <p className="text-[10px] text-gray-400 uppercase tracking-widest mb-2">{t('admin.broadcast_message_type')}</p>
           <div className="grid grid-cols-2 gap-2">
             {TYPES.map(t => (
               <button
@@ -92,7 +97,7 @@ export default function BroadcastPage() {
 
         {/* Target */}
         <div>
-          <p className="text-[10px] text-gray-400 uppercase tracking-widest mb-2">Recipients</p>
+          <p className="text-[10px] text-gray-400 uppercase tracking-widest mb-2">{t('admin.broadcast_recipients')}</p>
           <div className="flex flex-wrap gap-2">
             {TARGETS.map(t => (
               <button
@@ -119,11 +124,11 @@ export default function BroadcastPage() {
 
         {/* Title */}
         <div>
-          <p className="text-[10px] text-gray-400 uppercase tracking-widest mb-2">Title</p>
+          <p className="text-[10px] text-gray-400 uppercase tracking-widest mb-2">{t('admin.field_title')}</p>
           <input
             value={title}
             onChange={e => setTitle(e.target.value)}
-            placeholder="e.g. New feature available!"
+            placeholder={t('admin.broadcast_title_placeholder')}
             maxLength={80}
             className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm text-gray-900 focus:outline-none focus:border-gray-400 font-sans"
           />
@@ -131,11 +136,11 @@ export default function BroadcastPage() {
 
         {/* Message */}
         <div>
-          <p className="text-[10px] text-gray-400 uppercase tracking-widest mb-2">Message</p>
+          <p className="text-[10px] text-gray-400 uppercase tracking-widest mb-2">{t('admin.field_message')}</p>
           <textarea
             value={message}
             onChange={e => setMessage(e.target.value)}
-            placeholder="Write the full message..."
+            placeholder={t('admin.broadcast_message_placeholder')}
             rows={4}
             maxLength={500}
             className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm text-gray-900 focus:outline-none focus:border-gray-400 resize-none font-sans"
@@ -146,7 +151,7 @@ export default function BroadcastPage() {
         {/* Preview */}
         {(title || message) && (
           <div className="p-4 rounded-xl bg-gray-50 border border-gray-100">
-            <p className="text-[10px] text-gray-400 uppercase tracking-widest mb-2">Preview</p>
+            <p className="text-[10px] text-gray-400 uppercase tracking-widest mb-2">{t('admin.broadcast_preview')}</p>
             <p className="text-sm font-semibold text-gray-900 font-sans">{title || '—'}</p>
             <p className="text-xs text-gray-500 font-sans mt-1">{message || '—'}</p>
           </div>
@@ -158,9 +163,9 @@ export default function BroadcastPage() {
           className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-gray-900 text-white text-sm font-medium hover:bg-gray-800 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         >
           {sending ? (
-            <><div className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />Sending...</>
+            <><div className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />{t('common.sending')}</>
           ) : (
-            <><Send className="h-4 w-4" />Send notification</>
+            <><Send className="h-4 w-4" />{t('admin.send_notification')}</>
           )}
         </button>
       </div>

@@ -10,6 +10,8 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { useT } from '@/lib/i18n/context'
+import type { TFunction } from '@/lib/i18n/translate'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -36,27 +38,27 @@ type Reply = {
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
-const statusConfig: Record<string, { label: string; color: string; dot: string }> = {
-  open:        { label: 'Deschis',  color: 'bg-blue-50 text-blue-700',      dot: 'bg-blue-500' },
-  in_progress: { label: 'În lucru', color: 'bg-amber-50 text-amber-700',    dot: 'bg-amber-400' },
-  resolved:    { label: 'Rezolvat', color: 'bg-emerald-50 text-emerald-700', dot: 'bg-emerald-500' },
-  closed:      { label: 'Închis',   color: 'bg-gray-100 text-gray-500',     dot: 'bg-gray-300' },
-}
+const getStatusConfig = (t: TFunction): Record<string, { label: string; color: string; dot: string }> => ({
+  open:        { label: t('admin.tickets_status_open'),        color: 'bg-blue-50 text-blue-700',      dot: 'bg-blue-500' },
+  in_progress: { label: t('admin.tickets_status_in_progress'), color: 'bg-amber-50 text-amber-700',    dot: 'bg-amber-400' },
+  resolved:    { label: t('admin.tickets_status_resolved'),    color: 'bg-emerald-50 text-emerald-700', dot: 'bg-emerald-500' },
+  closed:      { label: t('admin.tickets_status_closed'),      color: 'bg-gray-100 text-gray-500',     dot: 'bg-gray-300' },
+})
 
-const priorityConfig: Record<string, { label: string; color: string; bg: string }> = {
-  low:    { label: 'Scăzută',  color: 'text-gray-500',  bg: 'bg-gray-100' },
-  normal: { label: 'Normală',  color: 'text-blue-600',  bg: 'bg-blue-50' },
-  high:   { label: 'Ridicată', color: 'text-orange-600', bg: 'bg-orange-50' },
-  urgent: { label: 'Urgentă', color: 'text-red-600',    bg: 'bg-red-50' },
-}
+const getPriorityConfig = (t: TFunction): Record<string, { label: string; color: string; bg: string }> => ({
+  low:    { label: t('admin.tickets_priority_low'),    color: 'text-gray-500',  bg: 'bg-gray-100' },
+  normal: { label: t('admin.tickets_priority_normal'), color: 'text-blue-600',  bg: 'bg-blue-50' },
+  high:   { label: t('admin.tickets_priority_high'),   color: 'text-orange-600', bg: 'bg-orange-50' },
+  urgent: { label: t('admin.tickets_priority_urgent'), color: 'text-red-600',    bg: 'bg-red-50' },
+})
 
-const categoryConfig: Record<string, { label: string; icon: any; color: string }> = {
-  general:     { label: 'General',   icon: HelpCircle, color: 'text-gray-500 bg-gray-100' },
-  bug:         { label: 'Bug',       icon: Bug,        color: 'text-red-600 bg-red-50' },
-  feature:     { label: 'Sugestie',  icon: Lightbulb,  color: 'text-amber-600 bg-amber-50' },
-  billing:     { label: 'Facturare', icon: CreditCard, color: 'text-violet-600 bg-violet-50' },
-  integration: { label: 'Integrare', icon: Link2,      color: 'text-blue-600 bg-blue-50' },
-}
+const getCategoryConfig = (t: TFunction): Record<string, { label: string; icon: any; color: string }> => ({
+  general:     { label: t('admin.tickets_category_general'),     icon: HelpCircle, color: 'text-gray-500 bg-gray-100' },
+  bug:         { label: t('admin.tickets_category_bug'),         icon: Bug,        color: 'text-red-600 bg-red-50' },
+  feature:     { label: t('admin.tickets_category_feature'),     icon: Lightbulb,  color: 'text-amber-600 bg-amber-50' },
+  billing:     { label: t('admin.tickets_category_billing'),     icon: CreditCard, color: 'text-violet-600 bg-violet-50' },
+  integration: { label: t('admin.tickets_category_integration'), icon: Link2,      color: 'text-blue-600 bg-blue-50' },
+})
 
 // ─── Attachment Types ────────────────────────────────────────────────────────
 
@@ -102,11 +104,12 @@ function AttachmentGallery({ attachments }: { attachments: Attachment[] }) {
 }
 
 function useAttachments() {
+  const { t } = useT()
   const [pending, setPending] = useState<PendingFile[]>([])
   async function addFiles(files: FileList) {
     const toAdd = Array.from(files).slice(0, MAX_FILES - pending.length)
     for (const file of toAdd) {
-      if (file.size > MAX_SIZE) { alert(`"${file.name}" depășește 10MB`); continue }
+      if (file.size > MAX_SIZE) { alert(t('admin.tickets_file_too_large', { name: file.name })); continue }
       const localId = Math.random().toString(36).slice(2)
       const preview = isImage(file.type) ? URL.createObjectURL(file) : ''
       setPending(p => [...p, { localId, name: file.name, size: file.size, type: file.type, url: preview, uploading: true }])
@@ -115,7 +118,7 @@ function useAttachments() {
         const res = await fetch('/api/tickets/upload', { method: 'POST', body: fd })
         const data = await res.json()
         setPending(p => p.map(f => f.localId === localId ? { ...f, url: res.ok ? data.url : preview, uploading: false, error: res.ok ? undefined : data.error } : f))
-      } catch { setPending(p => p.map(f => f.localId === localId ? { ...f, uploading: false, error: 'Eroare upload' } : f)) }
+      } catch { setPending(p => p.map(f => f.localId === localId ? { ...f, uploading: false, error: t('common.error_upload') } : f)) }
     }
   }
   function remove(localId: string) { setPending(p => p.filter(f => f.localId !== localId)) }
@@ -126,6 +129,7 @@ function useAttachments() {
 }
 
 function DropZone({ onFiles, disabled }: { onFiles: (f: FileList) => void; disabled?: boolean }) {
+  const { t } = useT()
   const [drag, setDrag] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   return (
@@ -135,8 +139,8 @@ function DropZone({ onFiles, disabled }: { onFiles: (f: FileList) => void; disab
       className={`flex items-center gap-3 px-4 py-3 rounded-xl border-2 border-dashed cursor-pointer transition-all ${drag ? 'border-blue-400 bg-blue-50' : 'border-gray-200 bg-gray-50 hover:border-blue-300'} ${disabled ? 'opacity-40 pointer-events-none' : ''}`}>
       <Upload className="h-4 w-4 text-gray-400 shrink-0" />
       <div>
-        <p className="text-xs font-medium text-gray-600">Adaugă fișiere <span className="text-blue-500">sau trage aici</span></p>
-        <p className="text-[10px] text-gray-400 mt-0.5">JPG, PNG, GIF, PDF, DOC · max 10MB · max {MAX_FILES}</p>
+        <p className="text-xs font-medium text-gray-600">{t('common.add_files')} <span className="text-blue-500">{t('common.or_drag')}</span></p>
+        <p className="text-[10px] text-gray-400 mt-0.5">{t('admin.tickets_dropzone_hint', { max: MAX_FILES })}</p>
       </div>
       <input ref={inputRef} type="file" multiple accept={ACCEPTED} className="hidden" onChange={e => e.target.files && onFiles(e.target.files)} />
     </div>
@@ -145,21 +149,21 @@ function DropZone({ onFiles, disabled }: { onFiles: (f: FileList) => void; disab
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function timeAgo(iso: string): string {
+function timeAgo(iso: string, t: TFunction, locale: string): string {
   const diff = Date.now() - new Date(iso).getTime()
   const mins  = Math.floor(diff / 60000)
   const hours = Math.floor(diff / 3600000)
   const days  = Math.floor(diff / 86400000)
-  if (mins < 2)   return 'just now'
-  if (mins < 60)  return `${mins}m ago`
-  if (hours < 24) return `${hours}h ago`
-  if (days === 1) return 'yesterday'
-  if (days < 7)   return `${days}d ago`
-  return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+  if (mins < 2)   return t('common.time_just_now')
+  if (mins < 60)  return t('common.time_minutes_ago', { count: mins })
+  if (hours < 24) return t('common.time_hours_ago', { count: hours })
+  if (days === 1) return t('common.time_yesterday')
+  if (days < 7)   return t('common.time_days_ago', { count: days })
+  return new Date(iso).toLocaleDateString(locale, { day: 'numeric', month: 'short' })
 }
 
-function formatFull(iso: string): string {
-  return new Date(iso).toLocaleDateString('ro-RO', {
+function formatFull(iso: string, locale: string): string {
+  return new Date(iso).toLocaleDateString(locale, {
     day: 'numeric', month: 'long', year: 'numeric',
     hour: '2-digit', minute: '2-digit',
   })
@@ -168,6 +172,10 @@ function formatFull(iso: string): string {
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 export default function AdminTicketsPage() {
+  const { t, intlLocale } = useT()
+  const statusConfig = getStatusConfig(t)
+  const priorityConfig = getPriorityConfig(t)
+  const categoryConfig = getCategoryConfig(t)
   const [tickets, setTickets]         = useState<Ticket[]>([])
   const [loading, setLoading]         = useState(true)
   const [statusFilter, setStatusFilter] = useState('all')
@@ -260,7 +268,7 @@ export default function AdminTicketsPage() {
       })
       const data = await res.json()
       if (res.ok) {
-        setReplies(prev => [...prev, { ...data.reply, users: { name: 'Admin', email: '' } }])
+        setReplies(prev => [...prev, { ...data.reply, users: { name: t('admin.users_role_admin'), email: '' } }])
         setReplyText(''); replyAtts.clear()
         // Auto-update status locally if was open
         if (selected.status === 'open') {
@@ -268,9 +276,9 @@ export default function AdminTicketsPage() {
           setTickets(prev => prev.map(t => t.id === selected.id ? { ...t, status: 'in_progress' } : t))
         }
       } else {
-        setSendError(data.error || 'Eroare la trimitere')
+        setSendError(data.error || t('admin.tickets_send_error'))
       }
-    } catch { setSendError('Eroare de rețea') }
+    } catch { setSendError(t('common.error_connection')) }
     finally { setSending(false) }
   }
 
@@ -288,7 +296,7 @@ export default function AdminTicketsPage() {
           onClick={() => { setSelected(null); setReplies([]) }}
           className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700 transition-colors"
         >
-          <ArrowLeft className="h-4 w-4" />Toate tichetele
+          <ArrowLeft className="h-4 w-4" />{t('admin.tickets_all')}
         </button>
 
         {/* Header */}
@@ -305,7 +313,7 @@ export default function AdminTicketsPage() {
           <div className="flex flex-wrap items-center gap-3 mb-4 text-xs">
             <span className="flex items-center gap-1.5 text-gray-600 font-medium">
               <User className="h-3.5 w-3.5 text-gray-400" />
-              {selected.users?.name || 'User'}
+              {selected.users?.name || t('admin.users_role_user')}
             </span>
             <span className="flex items-center gap-1.5 text-gray-400">
               <Mail className="h-3.5 w-3.5" />
@@ -317,14 +325,14 @@ export default function AdminTicketsPage() {
             <span className={`px-2 py-0.5 rounded-lg text-xs font-semibold ${pc.bg} ${pc.color}`}>
               {pc.label}
             </span>
-            <span className="text-gray-400" title={formatFull(selected.created_at)}>
-              {timeAgo(selected.created_at)}
+            <span className="text-gray-400" title={formatFull(selected.created_at, intlLocale)}>
+              {timeAgo(selected.created_at, t, intlLocale)}
             </span>
           </div>
 
           {/* Status controls */}
           <div>
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-2">Schimbă status</p>
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-2">{t('admin.tickets_change_status')}</p>
             <div className="flex flex-wrap gap-1.5">
               {Object.entries(statusConfig).map(([s, cfg]) => (
                 <button
@@ -356,9 +364,9 @@ export default function AdminTicketsPage() {
             </div>
             <div className="flex-1 bg-white rounded-2xl border border-gray-100 shadow-sm p-4 min-w-0">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-semibold text-gray-700">{selected.users?.name || 'User'}</span>
-                <span className="text-xs text-gray-400" title={formatFull(selected.created_at)}>
-                  {timeAgo(selected.created_at)}
+                <span className="text-xs font-semibold text-gray-700">{selected.users?.name || t('admin.users_role_user')}</span>
+                <span className="text-xs text-gray-400" title={formatFull(selected.created_at, intlLocale)}>
+                  {timeAgo(selected.created_at, t, intlLocale)}
                 </span>
               </div>
               <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{selected.message}</p>
@@ -384,10 +392,10 @@ export default function AdminTicketsPage() {
                 <div className="flex items-center justify-between mb-2">
                   <span className={`text-xs font-semibold flex items-center gap-1.5 ${reply.is_admin ? 'text-blue-700' : 'text-gray-700'}`}>
                     {reply.is_admin && <Shield className="h-3 w-3" />}
-                    {reply.is_admin ? (reply.users?.name || 'Admin') : (reply.users?.name || 'User')}
+                    {reply.is_admin ? (reply.users?.name || t('admin.users_role_admin')) : (reply.users?.name || t('admin.users_role_user'))}
                   </span>
-                  <span className="text-xs text-gray-400" title={formatFull(reply.created_at)}>
-                    {timeAgo(reply.created_at)}
+                  <span className="text-xs text-gray-400" title={formatFull(reply.created_at, intlLocale)}>
+                    {timeAgo(reply.created_at, t, intlLocale)}
                   </span>
                 </div>
                 <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{reply.message}</p>
@@ -403,15 +411,15 @@ export default function AdminTicketsPage() {
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 space-y-3">
           <div className="flex items-center gap-2">
             <div className="h-7 w-7 rounded-full bg-blue-600 flex items-center justify-center"><Shield className="h-3.5 w-3.5 text-white" /></div>
-            <p className="text-xs font-semibold text-gray-600">Răspunde ca Admin</p>
+            <p className="text-xs font-semibold text-gray-600">{t('admin.tickets_reply_as_admin')}</p>
             {selected.status === 'open' && (
               <span className="text-[10px] text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full font-medium flex items-center gap-1">
-                <Zap className="h-2.5 w-2.5" />Va deveni „În lucru"
+                <Zap className="h-2.5 w-2.5" />{t('admin.tickets_will_become', { status: statusConfig.in_progress.label })}
               </span>
             )}
           </div>
           <textarea value={replyText} onChange={e => setReplyText(e.target.value)}
-            placeholder="Scrie răspunsul pentru user..."
+            placeholder={t('admin.tickets_reply_placeholder')}
             className="w-full h-32 rounded-xl border border-gray-200 px-4 py-3 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-200 bg-gray-50"
             maxLength={5000} onKeyDown={e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) sendReply() }} />
           <DropZone onFiles={replyAtts.addFiles} disabled={replyAtts.pending.length >= MAX_FILES} />
@@ -421,11 +429,11 @@ export default function AdminTicketsPage() {
             </div>
           )}
           <div className="flex items-center justify-between">
-            <span className="text-xs text-gray-400">{replyText.length}/5000 · Ctrl+Enter</span>
+            <span className="text-xs text-gray-400">{t('admin.tickets_reply_counter', { length: replyText.length })}</span>
             <div className="flex items-center gap-3">
               {sendError && <span className="text-xs text-red-500">{sendError}</span>}
               <Button onClick={sendReply} disabled={sending || (!replyText.trim() && replyAtts.ready.length === 0) || replyAtts.uploading} className="bg-blue-600 hover:bg-blue-700 rounded-xl h-9 px-4 gap-2">
-                {sending || replyAtts.uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Send className="h-4 w-4" />Trimite</>}
+                {sending || replyAtts.uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Send className="h-4 w-4" />{t('admin.tickets_send')}</>}
               </Button>
             </div>
           </div>
@@ -441,14 +449,14 @@ export default function AdminTicketsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Tichete Suport</h1>
-          <p className="text-sm text-gray-400 mt-0.5">{total} tichete total</p>
+          <h1 className="text-2xl font-bold text-gray-900">{t('admin.tickets_title')}</h1>
+          <p className="text-sm text-gray-400 mt-0.5">{t('admin.tickets_total', { count: total })}</p>
         </div>
         <div className="flex items-center gap-2">
           {statusCounts['open'] > 0 && (
             <span className="flex items-center gap-1.5 text-xs font-semibold bg-blue-600 text-white px-3 py-1.5 rounded-full">
               <div className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" />
-              {statusCounts['open']} deschise
+              {t('admin.tickets_open_count', { count: statusCounts['open'] })}
             </span>
           )}
         </div>
@@ -459,7 +467,7 @@ export default function AdminTicketsPage() {
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
           <Input
-            placeholder="Caută după subiect sau user..."
+            placeholder={t('admin.tickets_search_placeholder')}
             value={searchInput}
             onChange={e => setSearchInput(e.target.value)}
             className="pl-10 h-10 rounded-xl border-gray-200 bg-white"
@@ -473,11 +481,11 @@ export default function AdminTicketsPage() {
 
         <div className="flex items-center gap-1 bg-gray-100 rounded-xl p-1">
           {[
-            { value: 'all',         label: 'Toate' },
-            { value: 'open',        label: 'Deschise' },
-            { value: 'in_progress', label: 'În lucru' },
-            { value: 'resolved',    label: 'Rezolvate' },
-            { value: 'closed',      label: 'Închise' },
+            { value: 'all',         label: t('common.all') },
+            { value: 'open',        label: t('admin.tickets_filter_open') },
+            { value: 'in_progress', label: t('admin.tickets_status_in_progress') },
+            { value: 'resolved',    label: t('admin.tickets_filter_resolved') },
+            { value: 'closed',      label: t('admin.tickets_filter_closed') },
           ].map(opt => (
             <button
               key={opt.value}
@@ -505,18 +513,18 @@ export default function AdminTicketsPage() {
       ) : tickets.length === 0 ? (
         <div className="text-center py-16">
           <MessageSquare className="h-12 w-12 text-gray-200 mx-auto mb-3" />
-          <p className="text-gray-500 font-medium">Niciun tichet</p>
-          {search && <p className="text-sm text-gray-400 mt-1">pentru „{search}"</p>}
+          <p className="text-gray-500 font-medium">{t('admin.tickets_empty')}</p>
+          {search && <p className="text-sm text-gray-400 mt-1">{t('admin.tickets_empty_search', { query: search })}</p>}
         </div>
       ) : (
         <div className="space-y-2">
           {/* List header */}
           <div className="hidden sm:grid grid-cols-12 gap-4 px-4 py-2 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
-            <div className="col-span-5">Subiect</div>
-            <div className="col-span-3">User</div>
-            <div className="col-span-1 text-center">Prioritate</div>
-            <div className="col-span-2 text-center">Status</div>
-            <div className="col-span-1 text-right">Data</div>
+            <div className="col-span-5">{t('admin.tickets_col_subject')}</div>
+            <div className="col-span-3">{t('admin.users_role_user')}</div>
+            <div className="col-span-1 text-center">{t('common.priority')}</div>
+            <div className="col-span-2 text-center">{t('admin.status')}</div>
+            <div className="col-span-1 text-right">{t('admin.date')}</div>
           </div>
 
           {tickets.map((ticket, i) => {
@@ -564,8 +572,8 @@ export default function AdminTicketsPage() {
 
                 {/* Date */}
                 <div className="hidden sm:flex col-span-1 justify-end items-center gap-1">
-                  <span className="text-xs text-gray-400 text-right" title={formatFull(ticket.updated_at)}>
-                    {timeAgo(ticket.updated_at)}
+                  <span className="text-xs text-gray-400 text-right" title={formatFull(ticket.updated_at, intlLocale)}>
+                    {timeAgo(ticket.updated_at, t, intlLocale)}
                   </span>
                   <ChevronRight className="h-4 w-4 text-gray-300 group-hover:text-blue-400 transition-colors shrink-0" />
                 </div>
@@ -578,7 +586,7 @@ export default function AdminTicketsPage() {
       {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex items-center justify-between pt-4 border-t border-gray-100">
-          <p className="text-xs text-gray-400">Pagina {page} din {totalPages}</p>
+          <p className="text-xs text-gray-400">{t('admin.page_of', { page, total: totalPages })}</p>
           <div className="flex items-center gap-1">
             <button onClick={() => setPage(p => Math.max(1, p-1))} disabled={page === 1} className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-30 transition-colors">
               <ChevronLeft className="h-4 w-4" />

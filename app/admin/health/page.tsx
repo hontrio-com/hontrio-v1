@@ -3,11 +3,13 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { RefreshCw, CheckCircle2, XCircle, Clock, Activity, Wifi } from 'lucide-react'
+import { useT } from '@/lib/i18n/context'
 
 type Check = { name: string; ok: boolean; latency: number; error?: string }
 type HealthData = { checks: Check[]; allOk: boolean; checkedAt: string }
 
 export default function HealthPage() {
+  const { t, intlLocale } = useT()
   const [data, setData] = useState<HealthData | null>(null)
   const [loading, setLoading] = useState(true)
   const [autoRefresh, setAutoRefresh] = useState(false)
@@ -40,9 +42,9 @@ export default function HealthPage() {
     <div className="space-y-6 font-mono">
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">System Health</h1>
+          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">{t('admin.nav_health')}</h1>
           <p className="text-xs text-gray-400 mt-0.5 font-sans">
-            {data ? `Verificat: ${new Date(data.checkedAt).toLocaleTimeString('ro-RO')}` : 'Se verifică...'}
+            {data ? t('admin.health_checked_at', { time: new Date(data.checkedAt).toLocaleTimeString(intlLocale) }) : t('admin.health_checking')}
           </p>
         </div>
         <div className="flex gap-2">
@@ -50,10 +52,10 @@ export default function HealthPage() {
             onClick={() => setAutoRefresh(!autoRefresh)}
             className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs transition-colors ${autoRefresh ? 'bg-gray-900 text-white border-gray-900' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}
           >
-            <Wifi className="h-3.5 w-3.5" />Auto (30s)
+            <Wifi className="h-3.5 w-3.5" />{t('admin.health_auto')}
           </button>
           <button onClick={fetch} disabled={loading} className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-gray-200 text-xs text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-50">
-            <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />Verifică
+            <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />{t('admin.health_check')}
           </button>
         </div>
       </motion.div>
@@ -68,10 +70,10 @@ export default function HealthPage() {
               </div>
               <div>
                 <p className={`text-lg font-bold ${data.allOk ? 'text-gray-900' : 'text-white'}`}>
-                  {data.allOk ? 'Toate sistemele funcționează' : 'Probleme detectate'}
+                  {data.allOk ? t('admin.health_all_ok') : t('admin.health_issues')}
                 </p>
                 <p className={`text-xs mt-0.5 font-sans ${data.allOk ? 'text-gray-400' : 'text-gray-300'}`}>
-                  {data.checks.filter(c => c.ok).length}/{data.checks.length} servicii online
+                  {t('admin.health_services_online', { ok: data.checks.filter(c => c.ok).length, total: data.checks.length })}
                 </p>
               </div>
               <div className={`ml-auto h-3 w-3 rounded-full ${data.allOk ? 'bg-gray-300 animate-pulse' : 'bg-white animate-pulse'}`} />
@@ -101,10 +103,10 @@ export default function HealthPage() {
                 </div>
                 <div className="text-right">
                   <span className={`text-sm font-bold ${latencyColor(check.latency)}`}>
-                    {check.latency}ms
+                    {t('admin.health_ms', { value: check.latency })}
                   </span>
                   <p className="text-[10px] text-gray-300 font-sans mt-0.5">
-                    {check.ok ? 'Online' : 'Offline'}
+                    {check.ok ? t('admin.health_online') : t('admin.health_offline')}
                   </p>
                 </div>
               </div>
@@ -119,8 +121,8 @@ export default function HealthPage() {
                     />
                   </div>
                   <div className="flex justify-between mt-1">
-                    <span className="text-[9px] text-gray-300">0ms</span>
-                    <span className="text-[9px] text-gray-300">3000ms</span>
+                    <span className="text-[9px] text-gray-300">{t('admin.health_ms', { value: 0 })}</span>
+                    <span className="text-[9px] text-gray-300">{t('admin.health_ms', { value: 3000 })}</span>
                   </div>
                 </div>
               )}
@@ -133,7 +135,7 @@ export default function HealthPage() {
       {data && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }}>
           <div className="flex gap-6 px-2">
-            {[{ label: '< 300ms — Excelent', color: 'bg-gray-900' }, { label: '300-1000ms — OK', color: 'bg-gray-400' }, { label: '> 1000ms — Lent', color: 'bg-gray-200' }].map(l => (
+            {[{ label: t('admin.health_legend_fast'), color: 'bg-gray-900' }, { label: t('admin.health_legend_ok'), color: 'bg-gray-400' }, { label: t('admin.health_legend_slow'), color: 'bg-gray-200' }].map(l => (
               <div key={l.label} className="flex items-center gap-2">
                 <div className={`h-2 w-2 rounded-full ${l.color}`} />
                 <span className="text-[10px] text-gray-400 font-sans">{l.label}</span>

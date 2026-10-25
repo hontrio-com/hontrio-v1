@@ -9,6 +9,7 @@ import {
   Plus, Tag, Search, FileText, Eye, Pencil, Trash2,
   ExternalLink, Star, ChevronLeft, ChevronRight, X,
 } from 'lucide-react'
+import { useT } from '@/lib/i18n/context'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -54,17 +55,18 @@ interface Stats {
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString('ro-RO', { day: 'numeric', month: 'short', year: 'numeric' })
+function formatDate(iso: string, locale: string) {
+  return new Date(iso).toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
 function StatusBadge({ status }: { status: BlogPost['status'] }) {
+  const { t } = useT()
   const map = {
     draft: 'bg-neutral-100 text-neutral-600',
     published: 'bg-green-50 text-green-700',
     archived: 'bg-orange-50 text-orange-700',
   }
-  const labels = { draft: 'Draft', published: 'Publicat', archived: 'Arhivat' }
+  const labels = { draft: t('admin.blog_status_draft'), published: t('admin.blog_status_published'), archived: t('admin.blog_status_archived') }
   return (
     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${map[status]}`}>
       {labels[status]}
@@ -85,6 +87,7 @@ function DeleteModal({
   onConfirm: () => void
   loading: boolean
 }) {
+  const { t } = useT()
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
       <motion.div
@@ -94,28 +97,28 @@ function DeleteModal({
         className="bg-white rounded-2xl shadow-xl p-6 max-w-sm w-full"
       >
         <div className="flex items-start justify-between mb-3">
-          <h2 className="text-[17px] font-bold text-neutral-900">Sterge articolul?</h2>
+          <h2 className="text-[17px] font-bold text-neutral-900">{t('admin.blog_delete_title')}</h2>
           <button onClick={onCancel} className="p-1 rounded-lg text-neutral-400 hover:text-neutral-600 hover:bg-neutral-100 transition-colors">
             <X className="h-4 w-4" />
           </button>
         </div>
         <p className="text-sm text-neutral-500 mb-1">
-          <span className="font-medium text-neutral-700">&quot;{post.title}&quot;</span>
+          <span className="font-medium text-neutral-700">{t('admin.quoted', { text: post.title })}</span>
         </p>
-        <p className="text-sm text-neutral-400 mb-6">Aceasta actiune este ireversibila.</p>
+        <p className="text-sm text-neutral-400 mb-6">{t('admin.irreversible')}</p>
         <div className="flex gap-3">
           <button
             onClick={onCancel}
             className="flex-1 h-10 rounded-xl border border-neutral-200 text-sm font-medium text-neutral-600 hover:bg-neutral-50 transition-colors"
           >
-            Anuleaza
+            {t('common.cancel')}
           </button>
           <button
             onClick={onConfirm}
             disabled={loading}
             className="flex-1 h-10 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm font-medium transition-colors disabled:opacity-50"
           >
-            {loading ? 'Se sterge...' : 'Sterge definitiv'}
+            {loading ? t('admin.deleting') : t('admin.delete_permanently')}
           </button>
         </div>
       </motion.div>
@@ -126,6 +129,7 @@ function DeleteModal({
 // ─── Page ────────────────────────────────────────────────────────────────────
 
 export default function AdminBlogPage() {
+  const { t, intlLocale } = useT()
   const { data: session, status: sessionStatus } = useSession()
   const router = useRouter()
 
@@ -253,18 +257,18 @@ export default function AdminBlogPage() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
-        <h1 style={{ fontSize: 28, fontWeight: 800 }} className="text-neutral-900">Blog</h1>
+        <h1 style={{ fontSize: 28, fontWeight: 800 }} className="text-neutral-900">{t('admin.blog_title')}</h1>
         <div className="flex items-center gap-2">
           <Link href="/admin/blog/categories">
             <button className="flex items-center gap-2 h-9 px-4 rounded-xl border border-neutral-200 text-sm font-medium text-neutral-600 hover:bg-neutral-50 transition-colors">
               <Tag className="h-4 w-4" />
-              Categorii
+              {t('admin.blog_categories')}
             </button>
           </Link>
           <Link href="/admin/blog/new">
             <button className="flex items-center gap-2 h-9 px-4 rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white text-sm font-medium transition-colors">
               <Plus className="h-4 w-4" />
-              Articol nou
+              {t('admin.blog_new_post')}
             </button>
           </Link>
         </div>
@@ -273,14 +277,14 @@ export default function AdminBlogPage() {
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { label: 'Total articole', value: stats.total },
-          { label: 'Publicate', value: stats.published },
-          { label: 'Draft-uri', value: stats.drafts },
-          { label: 'Total vizualizari', value: stats.totalViews },
+          { label: t('admin.blog_total_posts'), value: stats.total },
+          { label: t('admin.blog_published_count'), value: stats.published },
+          { label: t('admin.blog_drafts'), value: stats.drafts },
+          { label: t('admin.blog_total_views'), value: stats.totalViews },
         ].map(s => (
           <div key={s.label} className="bg-white border border-neutral-200 rounded-xl p-4">
             <p className="text-xs text-neutral-400 opacity-50 mb-1">{s.label}</p>
-            <p className="text-2xl font-bold text-neutral-900">{s.value.toLocaleString('ro-RO')}</p>
+            <p className="text-2xl font-bold text-neutral-900">{s.value.toLocaleString(intlLocale)}</p>
           </div>
         ))}
       </div>
@@ -293,7 +297,7 @@ export default function AdminBlogPage() {
             type="text"
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Cauta articol..."
+            placeholder={t('admin.blog_search_placeholder')}
             className="w-full h-10 pl-10 pr-4 rounded-xl border border-neutral-200 bg-white text-sm text-neutral-700 placeholder:text-neutral-400 focus:outline-none focus:border-neutral-400 transition-colors"
           />
         </div>
@@ -303,17 +307,17 @@ export default function AdminBlogPage() {
             onChange={e => { setStatusFilter(e.target.value); setPage(1) }}
             className="h-10 px-3 rounded-xl border border-neutral-200 bg-white text-sm text-neutral-700 focus:outline-none focus:border-neutral-400 transition-colors"
           >
-            <option value="all">Toate</option>
-            <option value="draft">Draft</option>
-            <option value="published">Publicat</option>
-            <option value="archived">Arhivat</option>
+            <option value="all">{t('common.all')}</option>
+            <option value="draft">{t('admin.blog_status_draft')}</option>
+            <option value="published">{t('admin.blog_status_published')}</option>
+            <option value="archived">{t('admin.blog_status_archived')}</option>
           </select>
           <select
             value={categoryFilter}
             onChange={e => { setCategoryFilter(e.target.value); setPage(1) }}
             className="h-10 px-3 rounded-xl border border-neutral-200 bg-white text-sm text-neutral-700 focus:outline-none focus:border-neutral-400 transition-colors"
           >
-            <option value="">Toate categoriile</option>
+            <option value="">{t('common.all_categories')}</option>
             {categories.map(c => (
               <option key={c.id} value={c.slug}>{c.name}</option>
             ))}
@@ -331,12 +335,12 @@ export default function AdminBlogPage() {
       ) : isEmpty ? (
         <div className="flex flex-col items-center justify-center py-24 text-center">
           <FileText className="h-16 w-16 text-neutral-200 mb-4" />
-          <p className="text-lg font-semibold text-neutral-700 mb-1">Niciun articol inca</p>
-          <p className="text-sm text-neutral-400 mb-6">Creeaza primul articol pentru blogul Hontrio.</p>
+          <p className="text-lg font-semibold text-neutral-700 mb-1">{t('admin.blog_empty')}</p>
+          <p className="text-sm text-neutral-400 mb-6">{t('admin.blog_empty_desc')}</p>
           <Link href="/admin/blog/new">
             <button className="flex items-center gap-2 h-9 px-5 rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white text-sm font-medium transition-colors">
               <Plus className="h-4 w-4" />
-              Creeaza articol
+              {t('admin.blog_create_post')}
             </button>
           </Link>
         </div>
@@ -345,13 +349,13 @@ export default function AdminBlogPage() {
           <table className="w-full">
             <thead>
               <tr className="bg-neutral-50 border-b border-neutral-200">
-                <th className="text-left text-xs font-semibold text-neutral-500 uppercase tracking-wider px-4 py-3">Articol</th>
-                <th className="text-left text-xs font-semibold text-neutral-500 uppercase tracking-wider px-4 py-3 hidden md:table-cell">Categorie</th>
-                <th className="text-left text-xs font-semibold text-neutral-500 uppercase tracking-wider px-4 py-3">Status</th>
-                <th className="text-center text-xs font-semibold text-neutral-500 uppercase tracking-wider px-4 py-3 hidden sm:table-cell">Featured</th>
-                <th className="text-left text-xs font-semibold text-neutral-500 uppercase tracking-wider px-4 py-3 hidden lg:table-cell">Data</th>
-                <th className="text-left text-xs font-semibold text-neutral-500 uppercase tracking-wider px-4 py-3 hidden xl:table-cell">Vizualizari</th>
-                <th className="text-right text-xs font-semibold text-neutral-500 uppercase tracking-wider px-4 py-3">Actiuni</th>
+                <th className="text-left text-xs font-semibold text-neutral-500 uppercase tracking-wider px-4 py-3">{t('admin.blog_col_post')}</th>
+                <th className="text-left text-xs font-semibold text-neutral-500 uppercase tracking-wider px-4 py-3 hidden md:table-cell">{t('common.category')}</th>
+                <th className="text-left text-xs font-semibold text-neutral-500 uppercase tracking-wider px-4 py-3">{t('admin.status')}</th>
+                <th className="text-center text-xs font-semibold text-neutral-500 uppercase tracking-wider px-4 py-3 hidden sm:table-cell">{t('admin.blog_col_featured')}</th>
+                <th className="text-left text-xs font-semibold text-neutral-500 uppercase tracking-wider px-4 py-3 hidden lg:table-cell">{t('admin.date')}</th>
+                <th className="text-left text-xs font-semibold text-neutral-500 uppercase tracking-wider px-4 py-3 hidden xl:table-cell">{t('admin.blog_col_views')}</th>
+                <th className="text-right text-xs font-semibold text-neutral-500 uppercase tracking-wider px-4 py-3">{t('admin.actions')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-neutral-100">
@@ -401,7 +405,7 @@ export default function AdminBlogPage() {
                     <button
                       onClick={() => toggleFeatured(post)}
                       className="p-1 rounded-lg hover:bg-neutral-100 transition-colors"
-                      title={post.featured ? 'Elimina din recomandate' : 'Marcheaza ca recomandat'}
+                      title={post.featured ? t('admin.blog_unfeature') : t('admin.blog_feature')}
                     >
                       <Star
                         className={`h-4 w-4 ${post.featured ? 'fill-amber-400 text-amber-400' : 'text-neutral-300 opacity-30'}`}
@@ -412,9 +416,9 @@ export default function AdminBlogPage() {
                   <td className="px-4 py-3 hidden lg:table-cell">
                     <div className="flex flex-col gap-1">
                       {post.published_at ? (
-                        <span className="text-xs text-neutral-400">{formatDate(post.published_at)}</span>
+                        <span className="text-xs text-neutral-400">{formatDate(post.published_at, intlLocale)}</span>
                       ) : (
-                        <span className="text-xs text-neutral-300">Draft</span>
+                        <span className="text-xs text-neutral-300">{t('admin.blog_status_draft')}</span>
                       )}
                       <span className="text-xs text-neutral-400">
                         {(post as any).locale === 'en' ? '🇬🇧 EN' : '🇷🇴 RO'}
@@ -425,7 +429,7 @@ export default function AdminBlogPage() {
                   <td className="px-4 py-3 hidden xl:table-cell">
                     <div className="flex items-center gap-1 text-xs text-neutral-400">
                       <Eye className="h-3.5 w-3.5" />
-                      {post.views_count.toLocaleString('ro-RO')}
+                      {post.views_count.toLocaleString(intlLocale)}
                     </div>
                   </td>
                   {/* Actiuni */}
@@ -434,7 +438,7 @@ export default function AdminBlogPage() {
                       <Link href={`/admin/blog/${post.id}/edit`}>
                         <button
                           className="p-1.5 rounded-lg text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100 transition-colors"
-                          title="Editeaza"
+                          title={t('common.edit')}
                         >
                           <Pencil className="h-4 w-4" />
                         </button>
@@ -442,7 +446,7 @@ export default function AdminBlogPage() {
                       <a href={`/blog/${post.slug}`} target="_blank" rel="noopener noreferrer">
                         <button
                           className="p-1.5 rounded-lg text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100 transition-colors"
-                          title="Deschide in tab nou"
+                          title={t('admin.blog_open_new_tab')}
                         >
                           <ExternalLink className="h-4 w-4" />
                         </button>
@@ -450,7 +454,7 @@ export default function AdminBlogPage() {
                       <button
                         onClick={() => setDeleteTarget(post)}
                         className="p-1.5 rounded-lg text-neutral-400 hover:text-red-600 hover:bg-red-50 transition-colors"
-                        title="Sterge"
+                        title={t('common.delete')}
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>

@@ -9,6 +9,8 @@ import {
   Save, Globe, ChevronRight, ChevronDown,
   Upload, X, Tag, ImageIcon,
 } from 'lucide-react'
+import { useT } from '@/lib/i18n/context'
+import { LOCALE_NAMES } from '@/lib/i18n/config'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -61,6 +63,7 @@ function TagInput({
   selected: BlogTag[]
   onChange: (tags: BlogTag[]) => void
 }) {
+  const { t } = useT()
   const [query, setQuery] = useState('')
   const [suggestions, setSuggestions] = useState<BlogTag[]>([])
   const [open, setOpen] = useState(false)
@@ -122,7 +125,7 @@ function TagInput({
           type="text"
           value={query}
           onChange={e => setQuery(e.target.value)}
-          placeholder={selected.length === 0 ? 'Cauta taguri...' : ''}
+          placeholder={selected.length === 0 ? t('admin.blog_editor_search_tags') : ''}
           className="flex-1 min-w-[120px] bg-transparent text-sm text-neutral-700 placeholder:text-neutral-400 outline-none"
         />
       </div>
@@ -165,6 +168,7 @@ function CoverImageCard({
   onUrlChange: (url: string) => void
   onAltChange: (alt: string) => void
 }) {
+  const { t } = useT()
   const [dragging, setDragging] = useState(false)
   const [uploading, setUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -202,7 +206,7 @@ function CoverImageCard({
 
   return (
     <div className="bg-white rounded-xl border border-neutral-200 p-4 space-y-3">
-      <p className="text-sm font-semibold text-neutral-800">Imagine principala</p>
+      <p className="text-sm font-semibold text-neutral-800">{t('admin.blog_editor_cover')}</p>
       {coverUrl ? (
         <div className="relative">
           <img src={coverUrl} alt={coverAlt} className="w-full h-40 object-cover rounded-lg" />
@@ -225,24 +229,24 @@ function CoverImageCard({
           {uploading ? (
             <div className="flex items-center gap-2 text-sm text-neutral-500">
               <div className="h-4 w-4 border-2 border-neutral-400 border-t-transparent rounded-full animate-spin" />
-              Se incarca...
+              {t('common.uploading')}
             </div>
           ) : (
             <>
               <Upload className="h-7 w-7 text-neutral-300 mb-1.5" />
-              <p className="text-xs text-neutral-500 text-center">Trage o imagine sau <span className="underline">alege fisier</span></p>
+              <p className="text-xs text-neutral-500 text-center">{t('admin.blog_editor_drop_image')} <span className="underline">{t('admin.blog_editor_choose_file')}</span></p>
             </>
           )}
         </div>
       )}
       <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />
       <div>
-        <label className="block text-xs font-medium text-neutral-500 mb-1">Alt text</label>
+        <label className="block text-xs font-medium text-neutral-500 mb-1">{t('admin.blog_editor_alt_text')}</label>
         <input
           type="text"
           value={coverAlt}
           onChange={e => onAltChange(e.target.value)}
-          placeholder="Descriere imagine..."
+          placeholder={t('admin.blog_editor_alt_placeholder')}
           className="w-full h-9 px-3 rounded-xl border border-neutral-200 bg-neutral-50 text-sm text-neutral-700 focus:outline-none focus:border-neutral-400 focus:bg-white transition-colors"
         />
       </div>
@@ -275,6 +279,7 @@ function SeoCard({
   onSeoOgImageChange: (v: string) => void
   onSeoKeywordsChange: (v: string) => void
 }) {
+  const { t } = useT()
   const [open, setOpen] = useState(false)
 
   const titleColor = seoTitle.length > 60 ? 'text-red-500' : seoTitle.length > 50 ? 'text-amber-500' : 'text-neutral-400'
@@ -302,14 +307,14 @@ function SeoCard({
               {/* SEO Title */}
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="text-xs font-medium text-neutral-500">Titlu SEO</label>
+                  <label className="text-xs font-medium text-neutral-500">{t('admin.blog_editor_seo_title')}</label>
                   <span className={`text-xs tabular-nums ${titleColor}`}>{seoTitle.length}/60</span>
                 </div>
                 <input
                   type="text"
                   value={seoTitle}
                   onChange={e => onSeoTitleChange(e.target.value)}
-                  placeholder="Titlu pentru motoare de cautare..."
+                  placeholder={t('admin.blog_editor_seo_title_placeholder')}
                   className="w-full h-9 px-3 rounded-xl border border-neutral-200 bg-neutral-50 text-sm text-neutral-700 focus:outline-none focus:border-neutral-400 focus:bg-white transition-colors"
                 />
               </div>
@@ -317,13 +322,13 @@ function SeoCard({
               {/* Meta description */}
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="text-xs font-medium text-neutral-500">Meta descriere</label>
+                  <label className="text-xs font-medium text-neutral-500">{t('admin.blog_editor_meta_description')}</label>
                   <span className={`text-xs tabular-nums ${descColor}`}>{seoDesc.length}/160</span>
                 </div>
                 <textarea
                   value={seoDesc}
                   onChange={e => onSeoDescChange(e.target.value)}
-                  placeholder="Descriere scurta pentru motoare de cautare..."
+                  placeholder={t('admin.blog_editor_meta_description_placeholder')}
                   rows={2}
                   className="w-full px-3 py-2 rounded-xl border border-neutral-200 bg-neutral-50 text-sm text-neutral-700 resize-none focus:outline-none focus:border-neutral-400 focus:bg-white transition-colors"
                 />
@@ -331,7 +336,7 @@ function SeoCard({
 
               {/* OG Image */}
               <div>
-                <label className="block text-xs font-medium text-neutral-500 mb-1">OG Image URL</label>
+                <label className="block text-xs font-medium text-neutral-500 mb-1">{t('admin.blog_editor_og_image')}</label>
                 <div className="flex gap-2">
                   <input
                     type="text"
@@ -347,7 +352,7 @@ function SeoCard({
                       className="h-9 px-3 rounded-xl border border-neutral-200 text-xs font-medium text-neutral-600 hover:bg-neutral-50 transition-colors whitespace-nowrap flex items-center gap-1"
                     >
                       <ImageIcon className="h-3.5 w-3.5" />
-                      Cover
+                      {t('admin.blog_editor_use_cover')}
                     </button>
                   )}
                 </div>
@@ -355,12 +360,12 @@ function SeoCard({
 
               {/* Keywords */}
               <div>
-                <label className="block text-xs font-medium text-neutral-500 mb-1">Cuvinte cheie</label>
+                <label className="block text-xs font-medium text-neutral-500 mb-1">{t('admin.blog_editor_keywords')}</label>
                 <input
                   type="text"
                   value={seoKeywords}
                   onChange={e => onSeoKeywordsChange(e.target.value)}
-                  placeholder="keyword1, keyword2, keyword3"
+                  placeholder={t('admin.blog_editor_keywords_placeholder')}
                   className="w-full h-9 px-3 rounded-xl border border-neutral-200 bg-neutral-50 text-sm text-neutral-700 focus:outline-none focus:border-neutral-400 focus:bg-white transition-colors"
                 />
               </div>
@@ -368,15 +373,16 @@ function SeoCard({
               {/* SERP Preview */}
               {(seoTitle || seoDesc) && (
                 <div className="rounded-xl border border-neutral-200 p-3 bg-white">
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400 mb-2">Google Preview</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400 mb-2">{t('admin.blog_editor_google_preview')}</p>
                   <div className="text-[#1a0dab] text-base font-medium truncate leading-tight">
-                    {seoTitle || '(fara titlu)'}
+                    {seoTitle || t('admin.blog_editor_no_title')}
                   </div>
                   <div className="text-[#006621] text-xs mt-0.5 truncate">
-                    hontrio.com/blog/{slug || 'slug-articol'}
+                    {/* i18n-ignore */}
+                    hontrio.com/blog/{slug || t('admin.blog_editor_slug_placeholder')}
                   </div>
                   <div className="text-neutral-600 text-xs mt-1 line-clamp-2 leading-relaxed">
-                    {seoDesc || '(fara meta descriere)'}
+                    {seoDesc || t('admin.blog_editor_no_meta')}
                   </div>
                 </div>
               )}
@@ -391,6 +397,7 @@ function SeoCard({
 // ─── Page ────────────────────────────────────────────────────────────────────
 
 export default function AdminBlogNewPage() {
+  const { t, intlLocale } = useT()
   const { data: session, status: sessionStatus } = useSession()
   const router = useRouter()
 
@@ -462,7 +469,7 @@ export default function AdminBlogNewPage() {
     if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current)
     autoSaveTimer.current = setTimeout(async () => {
       if (content === lastSavedContent.current) return
-      setAutoSaveLabel('Se salveaza...')
+      setAutoSaveLabel(t('common.saving'))
       try {
         await fetch(`/api/blog/posts/${savedId}`, {
           method: 'PUT',
@@ -482,7 +489,7 @@ export default function AdminBlogNewPage() {
           }),
         })
         lastSavedContent.current = content
-        setAutoSaveLabel('Salvat automat')
+        setAutoSaveLabel(t('admin.blog_editor_autosaved'))
       } catch {
         setAutoSaveLabel('')
       }
@@ -512,7 +519,7 @@ export default function AdminBlogNewPage() {
   }), [title, excerpt, content, slug, status, featured, categoryId, coverUrl, coverAlt, seoTitle, seoDesc, seoOgImage, seoKeywords, selectedTags, publishedAt])
 
   async function save(overrideStatus?: PostStatus) {
-    if (!title.trim()) { setError('Titlul este obligatoriu.'); return }
+    if (!title.trim()) { setError(t('admin.blog_editor_title_required')); return }
     setError('')
     setSaving(true)
     try {
@@ -526,13 +533,13 @@ export default function AdminBlogNewPage() {
         body: JSON.stringify(payload),
       })
       const data = await res.json()
-      if (!res.ok) { setError(data.error || 'Eroare la salvare.'); return }
+      if (!res.ok) { setError(data.error || t('admin.blog_editor_save_error')); return }
       const id = data.post?.id || savedId
       lastSavedContent.current = content
-      setAutoSaveLabel('Salvat automat')
+      setAutoSaveLabel(t('admin.blog_editor_autosaved'))
       router.push(`/admin/blog/${id}/edit`)
     } catch {
-      setError('Eroare de retea. Incearca din nou.')
+      setError(t('admin.network_error_retry'))
     } finally {
       setSaving(false)
     }
@@ -546,17 +553,17 @@ export default function AdminBlogNewPage() {
     <div className="space-y-4">
       {/* Breadcrumb */}
       <div className="flex items-center gap-1.5 text-sm text-neutral-400">
-        <Link href="/admin/blog" className="hover:text-neutral-700 transition-colors">Admin</Link>
+        <Link href="/admin/blog" className="hover:text-neutral-700 transition-colors">{t('admin.layout_badge')}</Link>
         <ChevronRight className="h-3.5 w-3.5" />
-        <Link href="/admin/blog" className="hover:text-neutral-700 transition-colors">Blog</Link>
+        <Link href="/admin/blog" className="hover:text-neutral-700 transition-colors">{t('admin.blog_title')}</Link>
         <ChevronRight className="h-3.5 w-3.5" />
-        <span className="text-neutral-600">Articol nou</span>
+        <span className="text-neutral-600">{t('admin.blog_new_post')}</span>
       </div>
 
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
-          <h1 style={{ fontSize: 28, fontWeight: 800 }} className="text-neutral-900">Articol nou</h1>
+          <h1 style={{ fontSize: 28, fontWeight: 800 }} className="text-neutral-900">{t('admin.blog_new_post')}</h1>
           {autoSaveLabel && (
             <span className="text-xs text-neutral-400 bg-neutral-100 px-2.5 py-1 rounded-full">
               {autoSaveLabel}
@@ -571,7 +578,7 @@ export default function AdminBlogNewPage() {
             className="flex items-center gap-2 h-9 px-4 rounded-xl border border-neutral-200 text-sm font-medium text-neutral-600 hover:bg-neutral-50 transition-colors disabled:opacity-50"
           >
             <Save className="h-4 w-4" />
-            Salveaza draft
+            {t('admin.blog_editor_save_draft')}
           </button>
           <button
             type="button"
@@ -580,7 +587,7 @@ export default function AdminBlogNewPage() {
             className="flex items-center gap-2 h-9 px-4 rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white text-sm font-medium transition-colors disabled:opacity-50"
           >
             <Globe className="h-4 w-4" />
-            {saving ? 'Se salveaza...' : 'Publica'}
+            {saving ? t('common.saving') : t('common.publish_label')}
           </button>
         </div>
       </div>
@@ -605,7 +612,7 @@ export default function AdminBlogNewPage() {
               value={title}
               onChange={e => setTitle(e.target.value)}
               onBlur={handleTitleBlur}
-              placeholder="Titlul articolului..."
+              placeholder={t('admin.blog_editor_title_placeholder')}
               className="w-full text-2xl font-bold text-neutral-900 placeholder:text-neutral-300 bg-transparent border-none outline-none"
             />
           </div>
@@ -613,13 +620,13 @@ export default function AdminBlogNewPage() {
           {/* Excerpt */}
           <div className="bg-white rounded-xl border border-neutral-200 p-4 space-y-2">
             <div className="flex items-center justify-between">
-              <label className="text-sm font-semibold text-neutral-700">Rezumat</label>
+              <label className="text-sm font-semibold text-neutral-700">{t('admin.blog_editor_excerpt')}</label>
               <CharCount current={excerpt.length} max={200} />
             </div>
             <textarea
               value={excerpt}
               onChange={e => setExcerpt(e.target.value.slice(0, 200))}
-              placeholder="Rezumat scurt..."
+              placeholder={t('admin.blog_editor_excerpt_placeholder')}
               rows={3}
               className="w-full text-sm text-neutral-700 placeholder:text-neutral-400 bg-transparent border-none outline-none resize-none"
             />
@@ -628,17 +635,17 @@ export default function AdminBlogNewPage() {
           {/* Content */}
           <div className="bg-white rounded-xl border border-neutral-200 p-4 space-y-3">
             <div className="flex items-center justify-between">
-              <label className="text-sm font-semibold text-neutral-700">Continut (HTML)</label>
+              <label className="text-sm font-semibold text-neutral-700">{t('admin.blog_editor_content')}</label>
               <div className="flex items-center gap-3 text-xs text-neutral-400">
-                <span>{charCount.toLocaleString('ro-RO')} caractere</span>
-                <span>{readTime} min citire</span>
+                <span>{t('admin.blog_editor_chars', { count: charCount, value: charCount.toLocaleString(intlLocale) })}</span>
+                <span>{t('admin.blog_editor_read_time', { minutes: readTime })}</span>
               </div>
             </div>
             {/* TODO: Replace with TipTap editor */}
             <textarea
               value={content}
               onChange={e => setContent(e.target.value)}
-              placeholder="Scrie continutul articolului... (HTML acceptat)"
+              placeholder={t('admin.blog_editor_content_placeholder')}
               className="w-full min-h-[400px] text-sm text-neutral-700 placeholder:text-neutral-400 bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-3 font-mono resize-y focus:outline-none focus:border-neutral-400 focus:bg-white transition-colors"
             />
           </div>
@@ -649,44 +656,44 @@ export default function AdminBlogNewPage() {
 
           {/* Publicare */}
           <div className="bg-white rounded-xl border border-neutral-200 p-4 space-y-3">
-            <p className="text-sm font-semibold text-neutral-800">Publicare</p>
+            <p className="text-sm font-semibold text-neutral-800">{t('admin.blog_editor_publishing')}</p>
 
             <div>
-              <label className="block text-xs font-medium text-neutral-500 mb-1">Status</label>
+              <label className="block text-xs font-medium text-neutral-500 mb-1">{t('admin.status')}</label>
               <select
                 value={status}
                 onChange={e => setStatus(e.target.value as PostStatus)}
                 className="w-full h-9 px-3 rounded-xl border border-neutral-200 bg-neutral-50 text-sm text-neutral-700 focus:outline-none focus:border-neutral-400 focus:bg-white transition-colors"
               >
-                <option value="draft">Draft</option>
-                <option value="published">Publicat</option>
-                <option value="archived">Arhivat</option>
+                <option value="draft">{t('admin.blog_status_draft')}</option>
+                <option value="published">{t('admin.blog_status_published')}</option>
+                <option value="archived">{t('admin.blog_status_archived')}</option>
               </select>
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-neutral-500 mb-1">Limba</label>
+              <label className="block text-xs font-medium text-neutral-500 mb-1">{t('admin.blog_editor_language')}</label>
               <div className="flex gap-2">
                 <button
                   type="button"
                   onClick={() => setLocale('ro')}
                   className={`flex-1 h-9 rounded-xl border text-sm font-medium transition-colors ${locale === 'ro' ? 'border-neutral-900 bg-neutral-900 text-white' : 'border-neutral-200 text-neutral-600 hover:bg-neutral-50'}`}
                 >
-                  🇷🇴 Română
+                  🇷🇴 {LOCALE_NAMES.ro}
                 </button>
                 <button
                   type="button"
                   onClick={() => setLocale('en')}
                   className={`flex-1 h-9 rounded-xl border text-sm font-medium transition-colors ${locale === 'en' ? 'border-neutral-900 bg-neutral-900 text-white' : 'border-neutral-200 text-neutral-600 hover:bg-neutral-50'}`}
                 >
-                  🇬🇧 English
+                  🇬🇧 {LOCALE_NAMES.en}
                 </button>
               </div>
             </div>
 
             {status === 'published' && (
               <div>
-                <label className="block text-xs font-medium text-neutral-500 mb-1">Data publicare</label>
+                <label className="block text-xs font-medium text-neutral-500 mb-1">{t('admin.blog_editor_publish_date')}</label>
                 <input
                   type="datetime-local"
                   value={publishedAt}
@@ -697,7 +704,7 @@ export default function AdminBlogNewPage() {
             )}
 
             <div className="flex items-center justify-between py-1">
-              <span className="text-sm text-neutral-700">Articol recomandat</span>
+              <span className="text-sm text-neutral-700">{t('admin.blog_editor_featured')}</span>
               <button
                 type="button"
                 onClick={() => setFeatured(!featured)}
@@ -715,7 +722,7 @@ export default function AdminBlogNewPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-neutral-500 mb-1">Timp citire (minute)</label>
+              <label className="block text-xs font-medium text-neutral-500 mb-1">{t('admin.blog_editor_read_time_label')}</label>
               <input
                 type="number"
                 min={1}
@@ -729,16 +736,16 @@ export default function AdminBlogNewPage() {
 
           {/* Organizare */}
           <div className="bg-white rounded-xl border border-neutral-200 p-4 space-y-3">
-            <p className="text-sm font-semibold text-neutral-800">Organizare</p>
+            <p className="text-sm font-semibold text-neutral-800">{t('admin.blog_editor_organization')}</p>
 
             <div>
-              <label className="block text-xs font-medium text-neutral-500 mb-1">Categorie</label>
+              <label className="block text-xs font-medium text-neutral-500 mb-1">{t('common.category')}</label>
               <select
                 value={categoryId}
                 onChange={e => setCategoryId(e.target.value)}
                 className="w-full h-9 px-3 rounded-xl border border-neutral-200 bg-neutral-50 text-sm text-neutral-700 focus:outline-none focus:border-neutral-400 focus:bg-white transition-colors"
               >
-                <option value="">Fara categorie</option>
+                <option value="">{t('admin.blog_editor_no_category')}</option>
                 {categories.map(c => (
                   <option key={c.id} value={c.id}>{c.name}</option>
                 ))}
@@ -746,7 +753,7 @@ export default function AdminBlogNewPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-neutral-500 mb-1">Taguri</label>
+              <label className="block text-xs font-medium text-neutral-500 mb-1">{t('admin.blog_tags_title')}</label>
               <TagInput selected={selectedTags} onChange={setSelectedTags} />
             </div>
           </div>
@@ -775,9 +782,10 @@ export default function AdminBlogNewPage() {
 
           {/* Slug */}
           <div className="bg-white rounded-xl border border-neutral-200 p-4 space-y-2">
-            <p className="text-sm font-semibold text-neutral-800">URL Slug</p>
+            <p className="text-sm font-semibold text-neutral-800">{t('admin.blog_editor_url_slug')}</p>
             <div className="flex items-center gap-0 rounded-xl border border-neutral-200 overflow-hidden focus-within:border-neutral-400 transition-colors">
               <span className="text-xs text-neutral-400 bg-neutral-50 px-2.5 py-2 border-r border-neutral-200 whitespace-nowrap shrink-0">
+                {/* i18n-ignore */}
                 hontrio.com/blog/
               </span>
               <input
@@ -790,12 +798,12 @@ export default function AdminBlogNewPage() {
                     const res = await fetch(`/api/blog/posts?q=${encodeURIComponent(slug)}&limit=5`, { credentials: 'include' })
                     const data = await res.json()
                     const conflict = (data.posts || []).some((p: any) => p.slug === slug)
-                    if (conflict) setError('Slug-ul este deja folosit. Alege altul.')
+                    if (conflict) setError(t('admin.blog_editor_slug_taken'))
                   } catch {
                     // silently ignore
                   }
                 }}
-                placeholder="slug-articol"
+                placeholder={t('admin.blog_editor_slug_placeholder')}
                 className="flex-1 px-3 py-2 text-sm font-mono text-neutral-700 bg-transparent outline-none"
               />
             </div>

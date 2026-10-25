@@ -2,12 +2,14 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/auth.config'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { getT } from '@/lib/i18n/server'
 
 export async function GET(request: Request) {
+  const t = await getT()
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user || (session.user as any).role !== 'admin') {
-      return NextResponse.json({ error: 'Acces interzis' }, { status: 403 })
+      return NextResponse.json({ error: t('api.forbidden') }, { status: 403 })
     }
 
     const { searchParams } = new URL(request.url)
@@ -36,7 +38,7 @@ export async function GET(request: Request) {
       .range(from, from + perPage - 1)
 
     if (error) {
-      return NextResponse.json({ error: 'Eroare la încărcarea tichetelor' }, { status: 500 })
+      return NextResponse.json({ error: t('api.tickets_load_failed') }, { status: 500 })
     }
 
     // Status counts
@@ -60,6 +62,6 @@ export async function GET(request: Request) {
       status_counts: statusCounts,
     })
   } catch {
-    return NextResponse.json({ error: 'Eroare internă' }, { status: 500 })
+    return NextResponse.json({ error: t('api.internal_error') }, { status: 500 })
   }
 }
