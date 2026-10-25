@@ -159,6 +159,7 @@ export const config = {
     '/api/products/:path*',
     '/api/catalog/:path*',
     '/api/overview/:path*',
+    '/api/recommendations/:path*',
     '/api/images/:path*',
     '/api/generate/:path*',
     '/api/dashboard/:path*',
