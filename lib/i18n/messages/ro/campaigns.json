@@ -245,6 +245,7 @@
   "detail_loss": "Cheltuit până la oprire: {{spend}}",
   "item_no_sales": "{{spend}} cheltuiți, nicio vânzare",
   "item_unprofitable": "{{spend}} cheltuiți, ROAS {{roas}}",
+  "item_term_text": "„{{term}}”",
   "item_term": "{{spend}} · clicuri: {{clicks}}",
   "reason_loss_no_conversions": "A atins limita de pierdere fără nicio vânzare. Verifică întâi dacă se măsoară cumpărările și dacă prețurile sunt competitive, apoi repornește campania.",
   "reason_loss_low_roas": "A atins limita de pierdere cu ROAS {{roas}}, sub jumătate din pragul de profit ({{break_even}}).",

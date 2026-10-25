@@ -25,6 +25,7 @@ type MerchantState = {
 
 export default function MerchantCard() {
   const { t, intlLocale } = useT()
+  const fmtInt = new Intl.NumberFormat(intlLocale)
   const [state, setState] = useState<MerchantState | null>(null)
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState<'sync' | 'costs' | 'choose' | null>(null)
@@ -65,7 +66,7 @@ export default function MerchantCard() {
       const r = await fetch('/api/merchant/sync', { method: 'POST' })
       const res = await r.json().catch(() => ({}))
       setNotice(r.ok
-        ? { ok: true, text: t('settings.merchant_synced', { matched: String(res.matched ?? 0), products: String(res.products ?? 0), pushed: String(res.pushed ?? 0) }) }
+        ? { ok: true, text: t('settings.merchant_synced', { matched: fmtInt.format(res.matched ?? 0), products: fmtInt.format(res.products ?? 0), pushed: fmtInt.format(res.pushed ?? 0) }) }
         : { ok: false, text: res.error || t('settings.merchant_sync_failed') })
       await load()
     } finally {
@@ -140,7 +141,7 @@ export default function MerchantCard() {
         {state.merchant_center_id && (
           <p className="text-neutral-400 leading-relaxed">
             {syncedAt
-              ? t('settings.merchant_status', { when: syncedAt, matched: String(state.matched), sent: String(state.costs_sent) })
+              ? t('settings.merchant_status', { when: syncedAt, matched: fmtInt.format(state.matched), sent: fmtInt.format(state.costs_sent) })
               : t('settings.merchant_never')}
           </p>
         )}

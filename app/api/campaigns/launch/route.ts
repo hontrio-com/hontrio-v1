@@ -68,6 +68,14 @@ export async function POST(request: Request) {
       details: result.details?.slice(0, 5) ?? [],
     }, { status: ['blocked', 'audit_missing', 'eu_confirm', 'overlap_choice', 'no_merchant', 'already_active'].includes(result.reason) ? 409 : 502 })
   }
+
+  // Contul tocmai s-a schimbat (campania nouă, declarația UE, campaniile puse pe pauză): auditul se reface,
+  // ca Recomandările să nu mai arate probleme rezolvate chiar acum. Lansarea a reușit oricum.
+  try {
+    await runAudit(supabase, store)
+  } catch (err) {
+    logApiError(ROUTE, 500, 'Auditul de după lansare a eșuat', { userId, error: err instanceof Error ? err.message : String(err) })
+  }
   return NextResponse.json({
     ad_campaign_id: result.ad_campaign_id,
     google_campaign_id: result.google_campaign_id,

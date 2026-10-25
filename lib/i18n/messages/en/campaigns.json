@@ -240,6 +240,7 @@
   "detail_loss": "Spent until the stop: {{spend}}",
   "item_no_sales": "{{spend}} spent, no sales",
   "item_unprofitable": "{{spend}} spent, ROAS {{roas}}",
+  "item_term_text": "“{{term}}”",
   "item_term": "{{spend}} · clicks: {{clicks}}",
   "reason_loss_no_conversions": "It hit the loss limit without a single sale. First check that purchases are being measured and that prices are competitive, then resume the campaign.",
   "reason_loss_low_roas": "It hit the loss limit with ROAS {{roas}}, below half of break-even ({{break_even}}).",

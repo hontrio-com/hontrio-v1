@@ -388,7 +388,8 @@ export default function CampaignsPage() {
               <div key={r.label} className="grid grid-cols-1 gap-1 py-3 sm:grid-cols-3 sm:gap-4">
                 <dt className="text-[12px] text-neutral-400">{r.label}</dt>
                 <dd className="sm:col-span-2">
-                  <p className="text-[13px] text-neutral-900">{r.value}</p>
+                  {/* div, nu p: rândul „Setări" are o listă */}
+                  <div className="text-[13px] text-neutral-900">{r.value}</div>
                   {r.hint && <p className="mt-0.5 text-[11px] text-neutral-400 leading-relaxed">{r.hint}</p>}
                 </dd>
               </div>

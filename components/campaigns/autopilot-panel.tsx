@@ -109,7 +109,7 @@ export function AutopilotPanel({ mode, maxDailyBudget, currency, proposals, jour
     }
     if (a.kind === 'add_negatives') {
       const list = (a.params.terms as { term: string; cost: number; clicks: number }[] | undefined) ?? []
-      return list.slice(0, 10).map(x => ({ key: x.term, text: `„${x.term}"`, note: t('campaigns.item_term', { spend: fmt.format(x.cost), clicks: String(x.clicks) }) }))
+      return list.slice(0, 10).map(x => ({ key: x.term, text: t('campaigns.item_term_text', { term: x.term }), note: t('campaigns.item_term', { spend: fmt.format(x.cost), clicks: fmtNum.format(x.clicks) }) }))
     }
     return []
   }

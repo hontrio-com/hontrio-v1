@@ -131,7 +131,7 @@ export default function ReportsPage() {
     { label: t('reports.kpi_value'), value: fmt.format(k.value) },
     { label: t('reports.kpi_roas'), value: k.roas === null ? '—' : fmtNum.format(k.roas), sub: be !== null ? t('reports.kpi_roas_be', { roas: fmtNum.format(be) }) : undefined, warn: k.roas !== null && be !== null && k.roas < be },
     { label: t('reports.kpi_profit'), value: k.profit === null ? '—' : fmt.format(k.profit), sub: k.profit === null ? t('reports.kpi_profit_need_costs') : t('reports.kpi_profit_sub'), warn: k.profit !== null && k.profit < 0 },
-    { label: t('reports.kpi_conversions'), value: fmtNum.format(k.conversions), sub: t('reports.kpi_clicks', { count: k.clicks }) },
+    { label: t('reports.kpi_conversions'), value: fmtNum.format(k.conversions), sub: t('reports.kpi_clicks', { count: k.clicks, value: fmtInt.format(k.clicks) }) },
   ]
 
   const maxDaily = Math.max(1, ...(ads?.daily ?? []).flatMap(d => [d.cost, d.value]))
