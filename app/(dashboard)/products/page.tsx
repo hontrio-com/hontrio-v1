@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useT } from '@/lib/i18n/context'
 import {
   AlertCircle, ChevronLeft, ChevronRight, ExternalLink, ImageIcon, Info, Loader2,
-  Package, RefreshCw, Search, Store, X,
+  Package, Percent, RefreshCw, Search, Store, X,
 } from 'lucide-react'
 
 // =============================================
@@ -22,6 +22,8 @@ type Offer = {
   price: number; compare_at_price: number | null; currency: string
   available: boolean; stock: number | null; sku: string | null; gtin: string | null; brand: string | null
   google_status: string | null; cost_price: number | null; sales: Sales
+  /** De unde vine costul: scris de om, estimat în masă sau preluat din platformă */
+  cost_source: 'manual' | 'estimate' | 'woocommerce' | null
 }
 type StoreInfo = {
   id: string; platform: string; platform_name: string; store_name: string | null; currency: string
@@ -55,10 +57,12 @@ function marginOf(o: Offer): { amount: number; pct: number } | null {
   return { amount, pct: (amount / o.price) * 100 }
 }
 
-function CostInput({ offer, fmt, siblings, onSaved }: {
+function CostInput({ offer, fmt, siblings, platform, onSaved }: {
   offer: Offer
   fmt: Intl.NumberFormat
   siblings: number
+  /** Magazinul din care pot veni costuri, cu explicația lor */
+  platform: { name: string; hint: string }
   onSaved: (offerIds: string[], cost: number | null) => void
 }) {
   const { t } = useT()
@@ -126,6 +130,12 @@ function CostInput({ offer, fmt, siblings, onSaved }: {
         {state === 'saving' && <Loader2 className="ml-1 h-3 w-3 animate-spin text-neutral-400 shrink-0" />}
       </div>
       {state === 'error' && <p className="mt-0.5 text-[10px] text-red-500">{t('catalog.cost_invalid')}</p>}
+      {state !== 'error' && offer.cost_price !== null && offer.cost_source === 'estimate' && (
+        <p className="mt-0.5 text-[10px] text-amber-600" title={t('catalog.cost_estimated_hint')}>{t('catalog.cost_estimated')}</p>
+      )}
+      {state !== 'error' && offer.cost_price !== null && offer.cost_source === 'woocommerce' && (
+        <p className="mt-0.5 text-[10px] text-neutral-400" title={platform.hint}>{t('catalog.cost_from_platform', { platform: platform.name })}</p>
+      )}
       {state !== 'error' && siblings > 0 && offer.cost_price !== null && (
         <button onClick={applyToVariants} disabled={applying}
           title={t('catalog.apply_variants_hint', { cost: fmt.format(offer.cost_price) })}
@@ -133,6 +143,136 @@ function CostInput({ offer, fmt, siblings, onSaved }: {
           {applying ? t('catalog.applying') : t('catalog.apply_variants', { count: String(siblings + 1) })}
         </button>
       )}
+    </div>
+  )
+}
+
+type Scope = 'all' | `c:${string}` | `b:${string}`
+
+/** Valorile unui câmp, cu câte oferte are fiecare, cele mai dese întâi. */
+function countBy(offers: Offer[], pick: (o: Offer) => string | null): [string, number][] {
+  const m = new Map<string, number>()
+  for (const o of offers) { const v = pick(o); if (v) m.set(v, (m.get(v) ?? 0) + 1) }
+  return [...m].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+}
+
+/**
+ * Costul ca procent din preț, în masă: pe tot catalogul, pe o categorie sau pe
+ * o marcă. Implicit doar unde costul lipsește; costurile completate așa sunt
+ * „estimate" și omul le poate corecta una câte una.
+ */
+function BulkCostPanel({ offers, fmt, fmtInt, onClose, onApplied }: {
+  offers: Offer[]
+  fmt: Intl.NumberFormat
+  fmtInt: Intl.NumberFormat
+  onClose: () => void
+  onApplied: (count: number) => void
+}) {
+  const { t } = useT()
+  const [percent, setPercent] = useState('60')
+  const [scope, setScope] = useState<Scope>('all')
+  const [onlyMissing, setOnlyMissing] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const categories = useMemo(() => countBy(offers, o => o.category), [offers])
+  const brands = useMemo(() => countBy(offers, o => o.brand), [offers])
+  const pct = Number(percent.trim().replace(',', '.'))
+  const valid = Number.isFinite(pct) && pct >= 1 && pct <= 99
+  const inScope = (o: Offer) => scope === 'all' || (scope.startsWith('c:') ? o.category === scope.slice(2) : o.brand === scope.slice(2))
+  // Ca în funcția din baza de date: fără preț nu are din ce să se calculeze
+  const matches = offers.filter(o => o.price > 0 && inScope(o) && (!onlyMissing || o.cost_price === null))
+  const overwrites = onlyMissing ? 0 : matches.filter(o => o.cost_source === 'manual').length
+  const example = matches[0]
+
+  async function apply() {
+    if (!valid || !matches.length) return
+    setSaving(true); setError(null)
+    try {
+      const r = await fetch('/api/catalog/cost/bulk', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          percent: pct, only_missing: onlyMissing,
+          category: scope.startsWith('c:') ? scope.slice(2) : undefined,
+          brand: scope.startsWith('b:') ? scope.slice(2) : undefined,
+        }),
+      })
+      const d = await r.json().catch(() => ({}))
+      if (!r.ok) throw new Error(d.error)
+      onApplied(Number(d.updated) || 0)
+    } catch (e) {
+      setError((e as Error).message || t('catalog.bulk_error'))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="rounded-xl border border-neutral-200 bg-white p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-[14px] font-semibold text-neutral-900">{t('catalog.bulk_title')}</p>
+          <p className="mt-0.5 text-[12px] text-neutral-500 leading-relaxed max-w-2xl">{t('catalog.bulk_hint')}</p>
+        </div>
+        <button onClick={onClose} className="text-neutral-300 hover:text-neutral-600" aria-label={t('catalog.bulk_cancel')}><X className="h-4 w-4" /></button>
+      </div>
+
+      <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
+        <label className="block">
+          <span className="text-[11px] font-medium uppercase tracking-wide text-neutral-400">{t('catalog.bulk_percent_label')}</span>
+          <div className="mt-1 flex items-center h-9 w-40 rounded-xl border border-neutral-200 bg-white px-3 focus-within:border-neutral-400">
+            <input value={percent} onChange={e => setPercent(e.target.value)} inputMode="decimal" aria-label={t('catalog.bulk_percent_label')}
+              className="w-full min-w-0 bg-transparent text-[13px] font-medium text-neutral-900 tabular-nums text-right focus:outline-none" />
+            <span className="ml-1 text-[12px] text-neutral-400 shrink-0">{t('catalog.bulk_percent_suffix')}</span>
+          </div>
+        </label>
+        <label className="block flex-1 min-w-0">
+          <span className="text-[11px] font-medium uppercase tracking-wide text-neutral-400">{t('catalog.bulk_scope_label')}</span>
+          <select value={scope} onChange={e => setScope(e.target.value as Scope)}
+            className="mt-1 h-9 w-full px-3 rounded-xl border border-neutral-200 bg-white text-[13px] text-neutral-700 focus:outline-none focus:border-neutral-400">
+            <option value="all">{t('catalog.bulk_scope_all', { count: fmtInt.format(offers.length) })}</option>
+            {categories.length > 0 && (
+              <optgroup label={t('catalog.bulk_scope_categories')}>
+                {categories.map(([name, n]) => <option key={`c:${name}`} value={`c:${name}`}>{name} ({fmtInt.format(n)})</option>)}
+              </optgroup>
+            )}
+            {brands.length > 0 && (
+              <optgroup label={t('catalog.bulk_scope_brands')}>
+                {brands.map(([name, n]) => <option key={`b:${name}`} value={`b:${name}`}>{name} ({fmtInt.format(n)})</option>)}
+              </optgroup>
+            )}
+          </select>
+        </label>
+      </div>
+
+      <label className="mt-3 flex items-center gap-2 text-[12px] text-neutral-600 cursor-pointer select-none">
+        <input type="checkbox" checked={onlyMissing} onChange={e => setOnlyMissing(e.target.checked)} className="h-3.5 w-3.5 accent-neutral-900" />
+        {t('catalog.bulk_only_missing')}
+      </label>
+
+      <div className="mt-3 rounded-lg bg-neutral-50 px-3 py-2.5 text-[12px] text-neutral-600 leading-relaxed">
+        {!valid ? <span className="text-red-500">{t('catalog.bulk_invalid')}</span>
+          : !matches.length ? t('catalog.bulk_nothing')
+          : (
+            <>
+              {t('catalog.bulk_preview', { count: fmtInt.format(matches.length) })}
+              {example && <> {t('catalog.bulk_example', { product: example.product_name || example.title, price: fmt.format(example.price), cost: fmt.format(Math.round(example.price * pct) / 100) })}</>}
+              {overwrites > 0 && <span className="block mt-1 text-amber-700">{t('catalog.bulk_overwrite_warning', { count: fmtInt.format(overwrites) })}</span>}
+            </>
+          )}
+      </div>
+
+      {error && <p className="mt-2 text-[12px] text-red-500">{error}</p>}
+
+      <div className="mt-3 flex gap-2">
+        <button onClick={apply} disabled={!valid || !matches.length || saving}
+          className="inline-flex items-center gap-1.5 h-9 px-4 rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white text-[12px] font-medium disabled:opacity-40 transition-all">
+          {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}{t('catalog.bulk_apply')}
+        </button>
+        <button onClick={onClose} className="h-9 px-4 rounded-xl border border-neutral-200 text-[12px] font-medium text-neutral-600 hover:border-neutral-300">
+          {t('catalog.bulk_cancel')}
+        </button>
+      </div>
     </div>
   )
 }
@@ -150,6 +290,7 @@ export default function ProductsPage() {
   const [page, setPage] = useState(1)
   const [syncing, setSyncing] = useState(false)
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null)
+  const [bulkOpen, setBulkOpen] = useState(false)
   const loadedOnce = useRef(false)
 
   const load = useCallback(async (period: Period) => {
@@ -231,10 +372,17 @@ export default function ProductsPage() {
   const visible = filtered.slice((current - 1) * PER_PAGE, current * PER_PAGE)
   useEffect(() => { setPage(1) }, [search, quick, sort])
 
+  // Costul scris de om e „manual": nici estimările în masă, nici platforma nu-l mai schimbă
   const onSaved = useCallback((ids: string[], cost: number | null) => {
     const set = new Set(ids)
-    setOffers(list => list.map(o => (set.has(o.offer_id) ? { ...o, cost_price: cost } : o)))
+    setOffers(list => list.map(o => (set.has(o.offer_id) ? { ...o, cost_price: cost, cost_source: cost === null ? null : 'manual' } : o)))
   }, [])
+
+  async function onBulkApplied(count: number) {
+    setBulkOpen(false)
+    setNotice({ ok: true, text: t('catalog.bulk_done', { count: fmtInt.format(count) }) })
+    await load(days)
+  }
 
   async function handleSync() {
     if (!store) return
@@ -336,6 +484,11 @@ export default function ProductsPage() {
 
   const vatHint = store.prices_include_vat === true ? t('catalog.cost_hint_vat')
     : store.prices_include_vat === false ? t('catalog.cost_hint_no_vat') : t('catalog.cost_hint_unknown')
+  // Costul preluat din magazin e contabil (fără TVA): îl aducem pe baza prețului, ca la sincronizare
+  const platformCost = {
+    name: store.platform_name,
+    hint: t(store.prices_include_vat === false ? 'catalog.cost_from_platform_hint' : 'catalog.cost_from_platform_hint_vat', { platform: store.platform_name }),
+  }
 
   return (
     <div className="space-y-5">
@@ -395,11 +548,21 @@ export default function ProductsPage() {
             })}
           </div>
 
-          {counts.no_cost > 0 && (
+          {counts.no_cost > 0 && !bulkOpen && (
             <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl text-[12px] leading-relaxed bg-neutral-50 border border-neutral-100 text-neutral-600">
               <Info className="h-4 w-4 shrink-0 mt-px text-neutral-400" />
-              <span>{t('catalog.cost_explainer')} {vatHint}</span>
+              <span className="flex-1">
+                {t('catalog.cost_explainer')} {vatHint}
+                {store.platform === 'woocommerce' && <> {t('catalog.cost_cogs_hint_woocommerce')}</>}
+              </span>
+              <button onClick={() => setBulkOpen(true)} className="shrink-0 font-medium text-neutral-900 underline underline-offset-2 hover:text-neutral-600">
+                {t('catalog.bulk_open')}
+              </button>
             </div>
+          )}
+
+          {bulkOpen && (
+            <BulkCostPanel offers={offers} fmt={fmt} fmtInt={fmtInt} onClose={() => setBulkOpen(false)} onApplied={onBulkApplied} />
           )}
 
           <div className="bg-white border border-neutral-200 rounded-xl overflow-hidden">
@@ -418,6 +581,11 @@ export default function ProductsPage() {
                 className="h-9 px-3 rounded-xl border border-neutral-200 bg-white text-[12px] font-medium text-neutral-600 focus:outline-none focus:border-neutral-400">
                 {SORTS.map(s => <option key={s} value={s}>{t(`catalog.sort_${s}`)}</option>)}
               </select>
+              <button onClick={() => setBulkOpen(o => !o)} aria-pressed={bulkOpen}
+                className={`flex items-center justify-center gap-1.5 h-9 px-3 rounded-xl border text-[12px] font-medium transition-all
+                  ${bulkOpen ? 'border-neutral-900 bg-neutral-900 text-white' : 'border-neutral-200 bg-white text-neutral-600 hover:border-neutral-300 hover:text-neutral-900'}`}>
+                <Percent className="h-3.5 w-3.5" />{t('catalog.bulk_button')}
+              </button>
             </div>
 
             {filtered.length === 0 ? (
@@ -499,7 +667,7 @@ export default function ProductsPage() {
                             ) : <span className="text-[12px] text-neutral-300">—</span>}
                           </td>
                           <td className="px-3 py-3">
-                            <CostInput offer={o} fmt={fmt} onSaved={onSaved}
+                            <CostInput offer={o} fmt={fmt} platform={platformCost} onSaved={onSaved}
                               siblings={o.item_group_id ? Math.max(0, (siblingsByProduct.get(o.external_product_id) ?? 1) - 1) : 0} />
                           </td>
                           <td className="px-4 py-3 text-right whitespace-nowrap">

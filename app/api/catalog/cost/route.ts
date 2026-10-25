@@ -45,7 +45,8 @@ export async function PATCH(request: Request) {
   const { data: store } = await getActiveStore<{ id: string }>(supabase, userId, 'id')
   if (!store) return NextResponse.json({ error: 'Nu ai un magazin conectat' }, { status: 404 })
 
-  let q = supabase.from('commerce_offers').update({ cost_price: cost }).eq('store_id', store.id)
+  // Scris de om: nici estimările în masă, nici preluarea din platformă nu-l mai suprascriu
+  let q = supabase.from('commerce_offers').update({ cost_price: cost, cost_source: cost === null ? null : 'manual' }).eq('store_id', store.id)
   q = offerId ? q.eq('offer_id', offerId) : q.eq('external_product_id', productId!)
   const { data, error } = await q.select('offer_id')
   if (error) {

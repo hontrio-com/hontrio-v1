@@ -1,5 +1,5 @@
 import { round2, str, type Ctx, type LineRow, type OfferRow, type OrderRow, type OrderState } from '@/lib/commerce/rows'
-import type { GlaConnection, WooMeta, WooOrder, WooProduct, WooSetting, WooSiteInfo, WooSystemStatus, WooVariation } from './types'
+import type { GlaConnection, WooCogs, WooMeta, WooOrder, WooProduct, WooSetting, WooSiteInfo, WooSystemStatus, WooVariation } from './types'
 
 // =============================================
 // WooCommerce → rândurile modelului comun (commerce_*)
@@ -129,6 +129,31 @@ export function offerRows(ctx: Ctx, p: WooProduct, variations: WooVariation[], s
       source_updated_at: gmt(v.date_modified_gmt) ?? gmt(p.date_modified_gmt),
     }]
   })
+}
+
+/** Costul din „Cost of Goods Sold": totalul efectiv, altfel suma valorilor scrise. */
+export function cogsOf(x: { cost_of_goods_sold?: WooCogs }): number | null {
+  const c = x.cost_of_goods_sold
+  if (!c) return null
+  const total = num(c.total_value)
+  const sum = (c.values ?? []).reduce((s, v) => s + num(v.defined_value), 0)
+  const cost = total > 0 ? total : sum
+  return cost > 0 ? cost : null
+}
+
+/**
+ * Costurile ofertelor unui produs, din WooCommerce, aduse pe baza prețului:
+ * `multiplier` adaugă TVA-ul când prețurile îl includ (costul din WooCommerce e
+ * contabil, fără TVA). Costul produsului variabil e cel implicit al variațiilor
+ * care nu au unul al lor. Sincronizarea le scrie doar unde omul n-a pus el costul.
+ */
+export function costRows(p: WooProduct, variations: WooVariation[], multiplier: number): { offer_id: string; cost: number }[] {
+  if (!isListed(p)) return []
+  const own = cogsOf(p)
+  const sources: { id: number; cost: number | null }[] = isVariable(p)
+    ? variations.filter(v => v.status === 'publish').map(v => ({ id: v.id, cost: cogsOf(v) ?? own }))
+    : [{ id: p.id, cost: own }]
+  return sources.flatMap(x => (x.cost ? [{ offer_id: String(x.id), cost: round2(x.cost * multiplier) }] : []))
 }
 
 // ── Comenzile ──────────────────────────────────────────────────────────────

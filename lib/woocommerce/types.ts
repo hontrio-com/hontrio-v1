@@ -33,8 +33,12 @@ export type WooProduct = {
   brands?: { name: string }[]
   /** GTIN / UPC / EAN / ISBN (WooCommerce 9.2+) */
   global_unique_id?: string
+  /** „Cost of Goods Sold" (WooCommerce 9.6+, când e pornit): costul fără TVA */
+  cost_of_goods_sold?: WooCogs
   meta_data?: WooMeta[]
 }
+
+export type WooCogs = { values?: { defined_value?: number | string }[]; total_value?: number | string }
 
 export type WooVariation = {
   id: number
@@ -54,6 +58,8 @@ export type WooVariation = {
   image?: { src: string } | null
   attributes?: { name: string; option: string }[]
   global_unique_id?: string
+  /** Costul variației; `total_value` îl include și pe al produsului, când se adună */
+  cost_of_goods_sold?: WooCogs
   meta_data?: WooMeta[]
 }
 

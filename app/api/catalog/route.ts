@@ -18,7 +18,7 @@ const PERIOADE = [30, 90, 365]
 // PostgREST întoarce cel mult 1000 de rânduri pe cerere
 const PAGINA = 1000
 
-const COLOANE = 'offer_id, external_product_id, item_group_id, title, product_name, variant_title, category, url, image_url, price, compare_at_price, currency, available, stock, sku, gtin, brand, google_status, cost_price, synced_at'
+const COLOANE = 'offer_id, external_product_id, item_group_id, title, product_name, variant_title, category, url, image_url, price, compare_at_price, currency, available, stock, sku, gtin, brand, google_status, cost_price, cost_source, synced_at'
 
 export async function GET(request: Request) {
   const session = await getServerSession(authOptions)
