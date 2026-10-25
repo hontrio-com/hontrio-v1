@@ -1,0 +1,23 @@
+{
+  "dashboard": "Overview",
+  "campaigns": "Campaigns",
+  "ai_recommendations": "AI Recommendations",
+  "reports": "Reports",
+  "products": "Products",
+  "ai_agent": "AI Agent",
+  "ai_images": "AI Images",
+  "seo": "SEO",
+  "risk_shield": "Risk Shield",
+  "subscription": "Subscription",
+  "settings": "Settings",
+  "support": "Support",
+  "config": "Configuration",
+  "triggers": "Triggers",
+  "inbox": "Inbox",
+  "insights": "Insights",
+  "seo_optimize": "SEO Optimization",
+  "seo_competitors": "Competitor Analysis",
+  "agent_triggers": "Agent Triggers",
+  "agent_inbox": "Agent Inbox",
+  "brand_settings": "Brand Settings"
+}

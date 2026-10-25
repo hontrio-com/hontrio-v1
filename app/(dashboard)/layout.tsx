@@ -8,6 +8,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import NotificationBell from '@/components/notification-bell'
 import StoreSwitcher from '@/components/store-switcher'
+import LanguageSwitcher from '@/components/language-switcher'
 import {
   LayoutDashboard, Shield, Package, ImageIcon, Search, CreditCard, Settings,
   LogOut, Menu, X, Sparkles, AlertTriangle,
@@ -260,6 +261,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             {/* Right actions */}
             <div className="flex items-center gap-1.5 shrink-0">
               <StoreSwitcher />
+              <LanguageSwitcher className="hidden sm:inline-flex" />
               <Link href="/credits"><button className="hidden sm:flex items-center gap-1.5 h-9 px-3 rounded-xl text-[12px] font-medium text-neutral-600 hover:bg-neutral-100 border border-neutral-100 transition-all"><Zap className="h-3.5 w-3.5 text-amber-500 shrink-0" /><span className="hidden md:inline">{t('common.credits_label')}</span></button></Link>
               <Link href="/credits"><button className="flex items-center gap-1.5 h-9 px-3 rounded-xl text-[12px] font-semibold text-white bg-neutral-900 hover:bg-neutral-800 transition-all"><Crown className="h-3.5 w-3.5 shrink-0" /><span className="hidden md:inline">{t("common.upgrade")}</span></button></Link>
               <NotificationBell />

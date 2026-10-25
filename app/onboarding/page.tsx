@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useT } from '@/lib/i18n/context'
+import LanguageSwitcher from '@/components/language-switcher'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -229,9 +230,12 @@ export default function OnboardingPage() {
           </div>
         )}
 
-        {isMiddle ? (
-          <button onClick={finish} disabled={!!busy} className="text-[13px] text-neutral-400 hover:text-neutral-900 transition-colors">{t('onboarding.skip_all')}</button>
-        ) : <div className="w-10" />}
+        <div className="flex items-center gap-3">
+          <LanguageSwitcher />
+          {isMiddle && (
+            <button onClick={finish} disabled={!!busy} className="text-[13px] text-neutral-400 hover:text-neutral-900 transition-colors">{t('onboarding.skip_all')}</button>
+          )}
+        </div>
       </nav>
 
       {isMiddle && (

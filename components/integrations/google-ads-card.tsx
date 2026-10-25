@@ -210,7 +210,7 @@ export default function GoogleAdsCard() {
                           <span className="block text-[11px] text-amber-700">{t('google_ads.currency_mismatch', { account: a.currency_code!, store: store.currency! })}</span>
                         )}
                         {others.length > 0 && (
-                          <span className="block text-[11px] text-neutral-400">{t('google_ads.used_by_other', { store: others.map(storeName).join(', ') })}</span>
+                          <span className="block text-[11px] text-neutral-400">{t('google_ads.used_by_other_store', { store: others.map(storeName).join(', ') })}</span>
                         )}
                       </span>
                       {selecting === a.customer_id && <Loader2 className="h-3.5 w-3.5 animate-spin text-neutral-400" />}

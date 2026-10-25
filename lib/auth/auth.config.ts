@@ -19,7 +19,7 @@ async function ensureUserProfile(params: {
 
   const { data: existing } = await supabase
     .from('users')
-    .select('id, name, role, plan, credits, onboarding_completed')
+    .select('id, name, role, plan, credits, onboarding_completed, ui_locale')
     .eq('id', params.id)
     .maybeSingle()
 
@@ -93,6 +93,7 @@ export const authOptions: NextAuthOptions = {
           plan: profile?.plan || 'free',
           credits: profile?.credits || 20,
           onboarding_completed: profile?.onboarding_completed || false,
+          ui_locale: profile?.ui_locale ?? null,
         }
       },
     }),
@@ -160,6 +161,7 @@ export const authOptions: NextAuthOptions = {
             token.plan = profile.plan || 'free'
             token.credits = profile.credits || 20
             token.onboardingCompleted = profile.onboarding_completed || false
+            token.locale = profile.ui_locale ?? null
           }
         } else {
           token.id = user.id
@@ -168,6 +170,7 @@ export const authOptions: NextAuthOptions = {
           token.plan = (user as any).plan
           token.credits = (user as any).credits
           token.onboardingCompleted = (user as any).onboarding_completed || false
+          token.locale = (user as any).ui_locale ?? null
         }
         // Record the timestamp of the last DB sync
         token.refreshedAt = Date.now()
@@ -184,7 +187,7 @@ export const authOptions: NextAuthOptions = {
             const supabase = createAdminClient()
             const { data: profile } = await supabase
               .from('users')
-              .select('name, role, plan, credits, onboarding_completed')
+              .select('name, role, plan, credits, onboarding_completed, ui_locale')
               .eq('id', token.id as string)
               .maybeSingle()
 
@@ -194,6 +197,8 @@ export const authOptions: NextAuthOptions = {
               token.plan = profile.plan || 'free'
               token.credits = profile.credits ?? token.credits
               token.onboardingCompleted = profile.onboarding_completed ?? token.onboardingCompleted
+              // Limba aleasă în cont (o folosește interfața pe dispozitivele fără alegere)
+              token.locale = profile.ui_locale ?? null
             }
             token.refreshedAt = Date.now()
           } catch {
@@ -213,6 +218,7 @@ export const authOptions: NextAuthOptions = {
         ;(session.user as any).plan = token.plan
         ;(session.user as any).credits = token.credits
         ;(session.user as any).onboardingCompleted = token.onboardingCompleted
+        ;(session.user as any).locale = token.locale ?? null
       }
       return session
     },

@@ -1,6 +1,7 @@
 'use client'
 
 import { useT } from '@/lib/i18n/context'
+import LanguageSwitcher from '@/components/language-switcher'
 import GoogleAdsCard from '@/components/integrations/google-ads-card'
 import { EdinioConnectCard, EdinioStoreCard, type EdinioStore } from '@/components/integrations/edinio-card'
 
@@ -439,6 +440,10 @@ export default function SettingsPage() {
                 </Field>
                 <Field label={t('settings.email')}>
                   <Inp value={userEmail} disabled />
+                </Field>
+                {/* Limba se salvează imediat (în cont și în browser) */}
+                <Field label={t('common.language')}>
+                  <LanguageSwitcher variant="select" className="w-full" />
                 </Field>
               </div>
 

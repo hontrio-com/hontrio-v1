@@ -4,18 +4,24 @@ import './globals.css'
 import { Providers } from '@/components/providers'
 import Script from 'next/script'
 import { CookieConsent } from '@/components/cookie-consent'
+import { getLocale, tFor } from '@/lib/i18n/server'
+import { clientMessages } from '@/lib/i18n/dictionaries'
 
 const outfit = Outfit({ subsets: ['latin'], variable: '--font-outfit' })
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://hontrio.com'
 
-export const metadata: Metadata = {
+// Titlul și descrierile se scriu în limba vizitatorului
+export async function generateMetadata(): Promise<Metadata> {
+  const locale = await getLocale()
+  const t = tFor(locale)
+  return {
   metadataBase: new URL('https://hontrio.com'),
   title: {
-    default: 'Hontrio - Platforma AI pentru magazine online',
+    default: t('marketing.meta_title'),
     template: '%s | Hontrio',
   },
-  description: 'Genereaza imagini profesionale, optimizeaza SEO, automatizeaza suportul cu AI si protejeaza comenzile. Tot ce are nevoie magazinul tau online, intr-o singura platforma.',
+  description: t('marketing.meta_description'),
   keywords: [
     'platforma ecommerce Romania',
     'optimizare imagini produse AI',
@@ -36,18 +42,18 @@ export const metadata: Metadata = {
   },
   openGraph: {
     type: 'website',
-    locale: 'ro_RO',
-    alternateLocale: ['en_US'],
+    locale: locale === 'ro' ? 'ro_RO' : 'en_US',
+    alternateLocale: [locale === 'ro' ? 'en_US' : 'ro_RO'],
     url: 'https://hontrio.com',
     siteName: 'Hontrio',
-    title: 'Hontrio - Platforma AI pentru magazine online',
-    description: 'Imagini AI, SEO automat, agent de vanzari si protectie comenzi. Tot intr-o singura platforma.',
-    images: [{ url: '/opengraph-image', width: 1200, height: 630, alt: 'Hontrio - AI Platform for eCommerce', type: 'image/png' }],
+    title: t('marketing.meta_title'),
+    description: t('marketing.meta_og_description'),
+    images: [{ url: '/opengraph-image', width: 1200, height: 630, alt: t('marketing.meta_og_alt'), type: 'image/png' }],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Hontrio - Platforma AI pentru magazine online',
-    description: 'Imagini AI, SEO automat, agent de vanzari si protectie comenzi.',
+    title: t('marketing.meta_title'),
+    description: t('marketing.meta_twitter_description'),
     images: ['/opengraph-image'],
     creator: '@hontrio',
     site: '@hontrio',
@@ -69,6 +75,7 @@ export const metadata: Metadata = {
   verification: {
     google: undefined, // will be added if needed
   },
+  }
 }
 
 const jsonLd = {
@@ -178,13 +185,16 @@ const jsonLd = {
   ],
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
+  // Limba se alege pe server: pagina vine din prima randare în limba omului
+  const locale = await getLocale()
+  const { messages, fallback } = clientMessages(locale)
   return (
-    <html lang="ro">
+    <html lang={locale}>
       <head>
         {/* Google Consent Mode v2 — must be before GA4 */}
         <Script
@@ -243,8 +253,11 @@ export default function RootLayout({
         />
       </head>
       <body className={`${outfit.variable} font-sans antialiased`}>
-        <Providers>{children}</Providers>
-        <CookieConsent />
+        <Providers locale={locale} messages={messages} fallback={fallback}>
+          {children}
+          {/* În provider, ca bannerul de cookie-uri să fie și el tradus */}
+          <CookieConsent />
+        </Providers>
       </body>
     </html>
   )

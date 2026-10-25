@@ -1,6 +1,7 @@
 'use client'
 
 import { motion } from 'framer-motion'
+import LanguageSwitcher from '@/components/language-switcher'
 
 function LiquidBg() {
   return (
@@ -21,6 +22,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
   return (
     <div className="min-h-[100dvh] bg-white relative overflow-x-hidden">
       <LiquidBg />
+      <div className="absolute top-4 right-4 z-20"><LanguageSwitcher /></div>
       {children}
     </div>
   )

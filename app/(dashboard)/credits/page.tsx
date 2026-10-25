@@ -212,7 +212,7 @@ function SubscriptionPageInner() {
               <div className="flex items-center gap-2">
                 <p className="text-[15px] font-semibold text-neutral-900">Plan {currentPlan.name}</p>
                 {userPlan !== 'free' && (
-                  <span className="text-[10px] font-semibold bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded-md">{t('agent.active')}</span>
+                  <span className="text-[10px] font-semibold bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded-md">{t('common.active')}</span>
                 )}
               </div>
               <p className="text-[12px] text-neutral-400">{currentPlan.description}</p>

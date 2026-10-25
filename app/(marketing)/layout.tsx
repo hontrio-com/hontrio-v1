@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import LanguageSwitcher from '@/components/language-switcher'
 import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import {
@@ -225,6 +226,7 @@ function MarketingHeader() {
 
           {/* Desktop CTA */}
           <div className="hidden md:flex items-center gap-1.5">
+            <LanguageSwitcher />
             <Link
               href="/login"
               className="px-3.5 py-1.5 text-[13.5px] font-medium text-neutral-500 hover:text-neutral-900 rounded-lg hover:bg-black/[0.04] transition-all duration-150"

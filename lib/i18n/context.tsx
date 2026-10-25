@@ -1,108 +1,81 @@
 'use client'
 
-import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, type ReactNode } from 'react'
+import { useSession } from 'next-auth/react'
+import { INTL_LOCALE, LOCALE_COOKIE, LOCALE_COOKIE_MAX_AGE, isLocale, type Locale } from './config'
+import { createT, type Messages, type TFunction } from './translate'
 
-// ─── Types ───────────────────────────────────────────────────────────────────
-export type UILocale = 'ro' | 'en'
+// =============================================
+// Traducerea în browser. Limba și dicționarul vin de pe server (layout-ul
+// rădăcină), deci textele sunt traduse din prima randare: nicio cheie sau
+// bucată de cheie nu apare cât se încarcă pagina.
+// =============================================
 
-type Messages = Record<string, string | Record<string, string | Record<string, string>>>
+/** @deprecated folosește `Locale` din `@/lib/i18n/config` */
+export type UILocale = Locale
 
 type LanguageContextType = {
-  locale: UILocale
-  setLocale: (locale: UILocale) => void
-  t: (key: string, params?: Record<string, string | number>) => string
+  locale: Locale
+  /** Formatul numerelor și datelor pentru limba curentă (ro-RO / en-GB) */
+  intlLocale: string
+  t: TFunction
+  /** Schimbă limba: o ține minte (cookie și cont) și reîncarcă pagina în limba nouă. */
+  setLocale: (locale: Locale) => void
 }
 
-// ─── Lazy-loaded message files ───────────────────────────────────────────────
-const messageCache: Record<UILocale, Messages | null> = { ro: null, en: null }
-
-async function loadMessages(locale: UILocale): Promise<Messages> {
-  if (messageCache[locale]) return messageCache[locale]!
-  try {
-    const mod = locale === 'en'
-      ? await import('./messages/en.json')
-      : await import('./messages/ro.json')
-    messageCache[locale] = mod.default || mod
-    return messageCache[locale]!
-  } catch {
-    return {}
-  }
-}
-
-// ─── Detect locale from IP geolocation ───────────────────────────────────────
-async function detectLocaleFromGeo(): Promise<UILocale> {
-  try {
-    const res = await fetch('/api/geo', { cache: 'no-store' })
-    if (!res.ok) return 'en'
-    const { country } = await res.json()
-    return country === 'RO' ? 'ro' : 'en'
-  } catch {
-    return 'en'
-  }
-}
-
-// ─── Deep get from nested object with dot notation ───────────────────────────
-function deepGet(obj: any, path: string): string | undefined {
-  const parts = path.split('.')
-  let current = obj
-  for (const part of parts) {
-    if (current == null || typeof current !== 'object') return undefined
-    current = current[part]
-  }
-  return typeof current === 'string' ? current : undefined
-}
-
-// ─── Context ─────────────────────────────────────────────────────────────────
 const LanguageContext = createContext<LanguageContextType>({
   locale: 'ro',
+  intlLocale: INTL_LOCALE.ro,
+  t: createT('ro', {}),
   setLocale: () => {},
-  t: (key) => key,
 })
 
+function rememberLocale(locale: Locale) {
+  document.cookie = `${LOCALE_COOKIE}=${locale}; path=/; max-age=${LOCALE_COOKIE_MAX_AGE}; samesite=lax`
+}
+
+function hasLocaleCookie(): boolean {
+  return document.cookie.split(';').some(c => c.trim().startsWith(`${LOCALE_COOKIE}=`))
+}
+
+export function LanguageProvider({ locale, messages, fallback, children }: {
+  locale: Locale
+  messages: Messages
+  fallback?: Messages | null
+  children: ReactNode
+}) {
+  const t = useMemo(() => createT(locale, messages, fallback ?? undefined), [locale, messages, fallback])
+  const { data: session, status } = useSession()
+
+  const setLocale = useCallback((next: Locale) => {
+    if (next === locale) return
+    rememberLocale(next)
+    // În cont, ca limba să-l urmeze pe om și pe alte dispozitive (fără cont, cererea e refuzată, nu contează)
+    fetch('/api/user/locale', {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ locale: next }), keepalive: true,
+    }).catch(() => {})
+    window.location.reload()
+  }, [locale])
+
+  // Pe un dispozitiv nou (fără alegere salvată), limba aleasă în cont câștigă
+  const accountLocale = (session?.user as { locale?: unknown } | undefined)?.locale
+  useEffect(() => {
+    if (status !== 'authenticated' || !isLocale(accountLocale) || hasLocaleCookie()) return
+    rememberLocale(accountLocale)
+    if (accountLocale !== locale) window.location.reload()
+  }, [status, accountLocale, locale])
+
+  const value = useMemo(() => ({ locale, intlLocale: INTL_LOCALE[locale], t, setLocale }), [locale, t, setLocale])
+  return <LanguageContext.Provider value={value}>{children}</LanguageContext.Provider>
+}
+
+/** Limba, traducerea și comutatorul. */
 export function useLocale() {
   return useContext(LanguageContext)
 }
 
+/** Traducerea și limba curentă. */
 export function useT() {
-  const { t, locale } = useContext(LanguageContext)
-  return { t, locale }
-}
-
-// ─── Provider ────────────────────────────────────────────────────────────────
-export function LanguageProvider({ children }: { children: ReactNode }) {
-  const [locale, setLocaleState] = useState<UILocale>('ro')
-  const [messages, setMessages] = useState<Messages>({})
-  const [ready, setReady] = useState(false)
-
-  useEffect(() => {
-    detectLocaleFromGeo().then(locale => {
-      setLocaleState(locale)
-      loadMessages(locale).then(msgs => {
-        setMessages(msgs)
-        setReady(true)
-      })
-    })
-  }, [])
-
-  const setLocale = useCallback((newLocale: UILocale) => {
-    setLocaleState(newLocale)
-    loadMessages(newLocale).then(setMessages)
-  }, [])
-
-  const t = useCallback((key: string, params?: Record<string, string | number>): string => {
-    let value = deepGet(messages, key)
-    if (!value) return key.split('.').pop() || key
-    if (params) {
-      for (const [k, v] of Object.entries(params)) {
-        value = value.replace(new RegExp(`\\{\\{${k}\\}\\}`, 'g'), String(v))
-      }
-    }
-    return value
-  }, [messages])
-
-  return (
-    <LanguageContext.Provider value={{ locale, setLocale, t }}>
-      {children}
-    </LanguageContext.Provider>
-  )
+  const { t, locale, intlLocale } = useContext(LanguageContext)
+  return { t, locale, intlLocale }
 }

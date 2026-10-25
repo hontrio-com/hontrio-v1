@@ -1,0 +1,8 @@
+{
+  "unauthorized": "Trebuie să fii autentificat.",
+  "forbidden": "Nu ai acces la această acțiune.",
+  "invalid_request": "Cerere invalidă.",
+  "save_failed": "Nu am putut salva. Încearcă din nou.",
+  "internal_error": "A apărut o eroare. Încearcă din nou.",
+  "rate_limited": "Prea multe cereri. Încearcă din nou peste un minut."
+}
