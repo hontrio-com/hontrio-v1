@@ -28,7 +28,8 @@ export type OrderRow = {
   placed_at: string; source_updated_at: string; status: string; state: OrderState
   payment_status: string | null; payment_method: string | null; channel: string; currency: string
   subtotal: number; shipping: number; discount: number; fees: number; tax: number; total: number
-  discount_code: string | null; country: string | null
+  /** Lipsă = platforma nu ne-a dat adresa acum: upsert-ul lasă țara știută */
+  discount_code: string | null; country?: string | null
   gclid: string | null; utm_source: string | null; utm_medium: string | null; utm_campaign: string | null
   attribution: Record<string, string | boolean>; synced_at: string
 }

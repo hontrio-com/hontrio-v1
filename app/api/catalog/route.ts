@@ -9,8 +9,7 @@ import { getActiveStore } from '@/lib/stores/active'
 // =============================================
 // GET /api/catalog?days=30|90|365
 // Ofertele magazinului pe noul model (commerce_offers), cu vânzările de pe
-// site din perioada aleasă. Le au Edinio și WooCommerce; Shopify trece pe
-// același model mai târziu.
+// site din perioada aleasă. Le au Edinio, WooCommerce și Shopify.
 // =============================================
 
 const ROUTE = '/api/catalog'

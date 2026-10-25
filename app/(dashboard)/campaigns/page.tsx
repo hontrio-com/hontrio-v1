@@ -219,6 +219,8 @@ export default function CampaignsPage() {
 
   const { economics: econ, campaign, budget, forecast } = plan
   const ready = plan.blockers.length === 0
+  // De ce „de verificat": pluginul (WooCommerce) sau canalele pe care Shopify nu le spune
+  const launchCheck = plan.platform.id === 'shopify' ? 'campaigns.verified_at_launch_shopify' : 'campaigns.verified_at_launch'
   const place = [nameOf('region', campaign.country), nameOf('language', campaign.language)].filter(Boolean).join(' · ')
   const adjustments = [
     econ.vat_pct > 0 ? t(econ.vat_assumed ? 'campaigns.adjust_vat_assumed' : 'campaigns.adjust_vat', { vat: String(econ.vat_pct) }) : null,
@@ -240,14 +242,14 @@ export default function CampaignsPage() {
       value: campaign.merchant.status === 'missing'
         ? <span className="text-neutral-400">{t('campaigns.merchant_missing')}</span>
         : t(`campaigns.merchant_${campaign.merchant.status}${campaign.merchant.via ? '' : '_unknown'}`, { via: campaign.merchant.via ?? '' }),
-      hint: campaign.merchant.status === 'unverified' ? t('campaigns.verified_at_launch') : undefined,
+      hint: campaign.merchant.status === 'unverified' ? t(launchCheck) : undefined,
     },
     {
       label: t('campaigns.row_conversion'),
       value: campaign.conversion.status === 'missing'
         ? <span className="text-neutral-400">{t('campaigns.conversion_missing')}</span>
         : t(`campaigns.conversion_${campaign.conversion.status}${campaign.conversion.via ? '' : '_unknown'}`, { via: campaign.conversion.via ?? '' }),
-      hint: campaign.conversion.status === 'unverified' ? t('campaigns.verified_at_launch') : undefined,
+      hint: campaign.conversion.status === 'unverified' ? t(launchCheck) : undefined,
     },
     {
       label: t('campaigns.row_bidding'),

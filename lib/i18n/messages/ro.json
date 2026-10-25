@@ -216,8 +216,8 @@
     "no_store_title": "Conectează magazinul ca să vezi produsele",
     "no_store_desc": "Hontrio citește catalogul și vânzările din magazinul tău, ca să știe ce produse merită promovate.",
     "connect_store": "Conectează magazinul",
-    "unsupported_title": "Produsele vin deocamdată din Edinio și WooCommerce",
-    "unsupported_desc": "Magazinele Shopify trec în curând pe noul model de reclame. Până atunci, produsele lor nu apar aici.",
+    "unsupported_title": "Platforma magazinului nu e încă pe noul model",
+    "unsupported_desc": "Produsele vin deocamdată din Edinio, WooCommerce și Shopify; alte platforme urmează.",
     "revoked": "Accesul la magazinul {{platform}} a fost oprit, deci produsele nu se mai actualizează.",
     "first_sync_title": "Prima sincronizare e în curs",
     "first_sync_desc": "Aducem catalogul și comenzile din magazin. Poate dura câteva minute.",
@@ -255,7 +255,8 @@
     "bulk_cancel": "Renunță",
     "bulk_error": "Nu am putut completa costurile. Încearcă din nou.",
     "bulk_done": "Costuri completate: {{count}}. Sunt marcate „estimat\": corectează-le când afli costul real.",
-    "cost_from_platform_hint_vat": "Preluat din {{platform}} la fiecare sincronizare. Acolo costul e cel contabil, fără TVA; aici are TVA-ul adăugat, ca să se compare cu prețul. Dacă îl schimbi aici, rămâne costul scris de tine."
+    "cost_from_platform_hint_vat": "Preluat din {{platform}} la fiecare sincronizare. Acolo costul e cel contabil, fără TVA; aici are TVA-ul adăugat, ca să se compare cu prețul. Dacă îl schimbi aici, rămâne costul scris de tine.",
+    "cost_cogs_hint_shopify": "Dacă ții costurile în Shopify („Cost per item\", la fiecare produs), Hontrio le preia singur la sincronizare."
   },
   "overview": {
     "subtitle": "Ce vinde magazinul și cât de pregătit e pentru campanii",
@@ -311,7 +312,9 @@
     "check_conversion_woocommerce": "Măsoară cumpărările în Google Ads",
     "check_unverified": "de verificat la lansare",
     "check_unverified_via": "prin {{via}}, de verificat la lansare",
-    "check_costs_sales": "Prețuri de cost la {{pct}}% din vânzări (minim 50%)"
+    "check_costs_sales": "Prețuri de cost la {{pct}}% din vânzări (minim 50%)",
+    "check_merchant_shopify": "Trimite produsele în Merchant Center (Google & YouTube)",
+    "check_conversion_shopify": "Măsoară cumpărările în Google Ads (Google & YouTube)"
   },
   "recs": {
     "title": "Recomandări",
@@ -391,7 +394,10 @@
     "conversion_fix_edinio": "Se setează din Edinio, la Google Ads.",
     "conversion_fix_woocommerce": "În WooCommerce, Google for WooCommerce o pune singur când legi contul Google Ads; merge și un plugin ca Pixel Manager.",
     "action_open_woocommerce": "Deschide în WooCommerce",
-    "break_even_vat_assumed": "Pragul presupune TVA de {{vat}}%, cota standard a țării, fiindcă în comenzi nu apare TVA: Google Ads raportează valoarea comenzii cu TVA, dar ție îți rămâne suma fără."
+    "break_even_vat_assumed": "Pragul presupune TVA de {{vat}}%, cota standard a țării, fiindcă în comenzi nu apare TVA: Google Ads raportează valoarea comenzii cu TVA, dar ție îți rămâne suma fără.",
+    "merchant_fix_shopify": "În Shopify, cel mai simplu e aplicația gratuită Google & YouTube: trimite produsele la Merchant Center și ține feedul la zi.",
+    "conversion_fix_shopify": "În Shopify, aplicația Google & YouTube o pune singură când legi contul Google Ads.",
+    "action_open_shopify": "Deschide în Shopify"
   },
   "campaigns": {
     "title": "Campanii",
@@ -507,7 +513,10 @@
     "conversion_unverified": "Cumpărarea, prin {{via}}",
     "conversion_unverified_unknown": "Încă nu știm",
     "verified_at_launch": "Hontrio nu poate întreba pluginul de aici: îl verificăm la lansare, din contul Google.",
-    "adjust_vat_assumed": "Magazinul nu calculează TVA, așa că socoteala presupune cota standard de {{vat}}%, pe care nu o păstrezi."
+    "adjust_vat_assumed": "Magazinul nu calculează TVA, așa că socoteala presupune cota standard de {{vat}}%, pe care nu o păstrezi.",
+    "blocker_merchant_shopify": "Trimite produsele în Merchant Center (aplicația Google & YouTube)",
+    "blocker_conversion_shopify": "Măsoară cumpărările în Google Ads (aplicația Google & YouTube)",
+    "verified_at_launch_shopify": "Shopify nu le spune aplicațiilor ce canale de vânzare are magazinul (Google & YouTube): verificăm la lansare, din contul Google."
   },
   "sidebar": {
     "dashboard": "Prezentare generală",

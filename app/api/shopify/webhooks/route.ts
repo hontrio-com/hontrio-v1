@@ -1,13 +1,16 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { logApiError } from '@/lib/logger'
+import { logApiError, logWarn } from '@/lib/logger'
 import crypto from 'crypto'
 
 // =============================================
 // POST /api/shopify/webhooks
-// Receptor webhooks Shopify (comandă, produs, dezinstalare)
-// Returnează ÎNTOTDEAUNA 200 — chiar și la erori interne
+// Dezinstalarea aplicației și webhook-urile obligatorii de confidențialitate.
+// Catalogul și comenzile vin prin sincronizare (cronul), nu de aici.
+// Returnează 200 și la erori interne (altfel Shopify retrimite); 401 la HMAC invalid.
 // =============================================
+
+const ROUTE = '/api/shopify/webhooks'
 
 function verifyShopifyHmac(rawBody: string, hmacHeader: string): boolean {
   // Shopify semnează TOATE webhook-urile cu CLIENT_SECRET (nu cu webhook secret separat)
@@ -39,93 +42,57 @@ export async function POST(request: Request) {
   }
 
   try {
-    const hmacHeader  = request.headers.get('x-shopify-hmac-sha256') || ''
-    const topic       = request.headers.get('x-shopify-topic') || ''
-    const shopDomain  = request.headers.get('x-shopify-shop-domain') || ''
+    const hmacHeader = request.headers.get('x-shopify-hmac-sha256') || ''
+    const topic = request.headers.get('x-shopify-topic') || ''
+    const shopDomain = request.headers.get('x-shopify-shop-domain') || ''
 
     // Verifică HMAC — Shopify cere 401 pentru HMAC invalid (cerință compliance)
     if (!verifyShopifyHmac(rawBody, hmacHeader)) {
-      logApiError('/api/shopify/webhooks', 401, 'HMAC webhook Shopify invalid', {
-        shop: shopDomain, topic,
-      })
+      logApiError(ROUTE, 401, 'HMAC webhook Shopify invalid', { shop: shopDomain, topic })
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    let payload: any
-    try {
-      payload = JSON.parse(rawBody)
-    } catch {
-      return NextResponse.json({ ok: true }, { status: 200 })
-    }
-
     const supabase = createAdminClient()
-
-    // Găsim magazinul în baza de date
     const { data: store } = await supabase
       .from('stores')
-      .select('id, user_id')
+      .select('id')
       .eq('store_url', shopDomain)
       .eq('platform', 'shopify')
       .maybeSingle()
 
-    if (!store) {
-      // Shop necunoscut — ignorăm
-      return NextResponse.json({ ok: true }, { status: 200 })
-    }
-
-    // ─── Gestionare topics ────────────────────────────────────────────────────
+    // Shop necunoscut — ignorăm
+    if (!store) return NextResponse.json({ ok: true }, { status: 200 })
 
     switch (topic) {
-      case 'products/create':
-      case 'products/update': {
-        // Actualizăm produsul în DB dacă există și nu a fost optimizat
-        if (payload.id) {
-          const externalId = String(payload.id)
-          const updateData: Record<string, any> = {}
-
-          if (payload.title) updateData.original_title = payload.title
-          if (payload.body_html !== undefined) updateData.original_description = payload.body_html
-          if (payload.variants?.[0]?.price) {
-            const price = parseFloat(payload.variants[0].price)
-            if (!isNaN(price)) updateData.price = price
-          }
-
-          if (Object.keys(updateData).length > 0) {
-            await supabase
-              .from('products')
-              .update(updateData)
-              .eq('store_id', store.id)
-              .eq('external_id', externalId)
-              .eq('status', 'draft') // Nu suprascrie optimizările deja publicate
-          }
-        }
-        break
-      }
-
       case 'app/uninstalled': {
-        // Magazin dezinstalat — marcăm cu eroare
-        await supabase
-          .from('stores')
-          .update({ sync_status: 'error' })
-          .eq('id', store.id)
-
-        console.warn(
-          `[ShopifyWebhook] App dezinstalată din shop: ${shopDomain}, store_id: ${store.id}`
-        )
+        // Tokenul nu mai e bun: sincronizările se opresc până la reconectare
+        await supabase.from('stores').update({
+          connection_status: 'revoked',
+          sync_status: 'active',
+          last_error: 'Aplicația Hontrio a fost dezinstalată din Shopify',
+        }).eq('id', store.id)
+        logWarn(ROUTE, 'Aplicația a fost dezinstalată din Shopify', { storeId: store.id })
         break
       }
 
+      case 'shop/redact': {
+        // La 48 de ore după dezinstalare, Shopify cere ștergerea datelor magazinului:
+        // magazinul, cu ofertele și comenzile lui (în cascadă)
+        await supabase.from('stores').delete().eq('id', store.id)
+        logWarn(ROUTE, 'Datele magazinului Shopify au fost șterse la cererea Shopify', { storeId: store.id })
+        break
+      }
+
+      // customers/data_request, customers/redact: Hontrio nu ține date despre clienți
+      // (din comenzi păstrează doar țara), deci nu e nimic de trimis sau de șters
       default:
-        // Topic necunoscut — ignorăm fără eroare
         break
     }
 
     return NextResponse.json({ ok: true }, { status: 200 })
   } catch (err) {
     // Eroare internă — logăm dar returnăm 200 ca Shopify să nu retrimită
-    logApiError('/api/shopify/webhooks', 200, 'Eroare internă webhook Shopify (non-fatal)', {
-      error: (err as Error).message,
-    })
+    logApiError(ROUTE, 200, 'Eroare internă webhook Shopify (non-fatal)', { error: (err as Error).message })
     return NextResponse.json({ ok: true }, { status: 200 })
   }
 }

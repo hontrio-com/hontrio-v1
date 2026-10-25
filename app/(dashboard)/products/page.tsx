@@ -24,7 +24,7 @@ type Offer = {
   available: boolean; stock: number | null; sku: string | null; gtin: string | null; brand: string | null
   google_status: string | null; cost_price: number | null; sales: Sales
   /** De unde vine costul: scris de om, estimat în masă sau preluat din platformă */
-  cost_source: 'manual' | 'estimate' | 'woocommerce' | null
+  cost_source: 'manual' | 'estimate' | 'woocommerce' | 'shopify' | null
 }
 type StoreInfo = {
   id: string; platform: string; platform_name: string; store_name: string | null; currency: string
@@ -41,6 +41,8 @@ const PER_PAGE = 50
 const PERIODS: Period[] = [30, 90, 365]
 const SORTS: Sort[] = ['sales', 'revenue', 'margin', 'price', 'name']
 const QUICKS: Quick[] = ['all', 'out', 'no_cost', 'google_issue']
+// Platformele din care Hontrio preia singur prețul de cost
+const COST_PLATFORMS = ['woocommerce', 'shopify']
 // Stări la Google cu care oferta nu poate rula în reclame
 const GOOGLE_PROBLEMS = ['disapproved', 'error', 'expirat', 'exclus']
 
@@ -135,7 +137,7 @@ function CostInput({ offer, fmt, siblings, platform, onSaved }: {
       {state !== 'error' && offer.cost_price !== null && offer.cost_source === 'estimate' && (
         <p className="mt-0.5 text-[10px] text-amber-600" title={t('catalog.cost_estimated_hint')}>{t('catalog.cost_estimated')}</p>
       )}
-      {state !== 'error' && offer.cost_price !== null && offer.cost_source === 'woocommerce' && (
+      {state !== 'error' && offer.cost_price !== null && (offer.cost_source === 'woocommerce' || offer.cost_source === 'shopify') && (
         <p className="mt-0.5 text-[10px] text-neutral-400" title={platform.hint}>{t('catalog.cost_from_platform', { platform: platform.name })}</p>
       )}
       {state !== 'error' && siblings > 0 && offer.cost_price !== null && (
@@ -566,7 +568,7 @@ function ProductsView() {
               <Info className="h-4 w-4 shrink-0 mt-px text-neutral-400" />
               <span className="flex-1">
                 {t('catalog.cost_explainer')} {vatHint}
-                {store.platform === 'woocommerce' && <> {t('catalog.cost_cogs_hint_woocommerce')}</>}
+                {COST_PLATFORMS.includes(store.platform) && <> {t(`catalog.cost_cogs_hint_${store.platform}`)}</>}
               </span>
               <button onClick={() => setBulkOpen(true)} className="shrink-0 font-medium text-neutral-900 underline underline-offset-2 hover:text-neutral-600">
                 {t('catalog.bulk_open')}

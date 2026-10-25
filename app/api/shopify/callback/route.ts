@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+import { after, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/auth.config'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -6,6 +6,8 @@ import { encrypt } from '@/lib/security/encryption'
 import { rateLimit } from '@/lib/security/rate-limit'
 import { logApiError } from '@/lib/logger'
 import { setActiveStore } from '@/lib/stores/active'
+import { syncCommerceStore } from '@/lib/commerce/sync'
+import { ShopifyApi } from '@/lib/shopify/api'
 import { cookies } from 'next/headers'
 import crypto from 'crypto'
 
@@ -14,41 +16,26 @@ import crypto from 'crypto'
 // Callback OAuth Shopify — rută publică (verifică sesiunea manual)
 // =============================================
 
-async function registerShopifyWebhooks(shop: string, accessToken: string): Promise<void> {
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL || 'https://app.hontrio.com'
-  const webhookUrl = `${appUrl}/api/shopify/webhooks`
+const ROUTE = '/api/shopify/callback'
 
-  const topics = [
-    'orders/create',
-    'orders/updated',
-    'products/create',
-    'products/update',
-    'app/uninstalled',
-  ]
-
-  for (const topic of topics) {
+/**
+ * După răspunsul către om: anunțul la dezinstalare și prima sincronizare
+ * completă în modelul de reclame (un magazin mare continuă la cron).
+ */
+function afterConnect(storeId: string, shop: string, accessToken: string) {
+  after(async () => {
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL || 'https://app.hontrio.com'
     try {
-      const res = await fetch(`https://${shop}/admin/api/2024-01/webhooks.json`, {
-        method: 'POST',
-        headers: {
-          'X-Shopify-Access-Token': accessToken,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          webhook: { topic, address: webhookUrl, format: 'json' },
-        }),
-        signal: AbortSignal.timeout(10000),
-      })
-      if (res.ok) {
-        console.log(`[ShopifyCallback] Webhook înregistrat: ${topic}`)
-      } else {
-        const err = await res.text()
-        console.warn(`[ShopifyCallback] Webhook ${topic} — ${res.status}: ${err.substring(0, 200)}`)
-      }
-    } catch (e: any) {
-      console.warn(`[ShopifyCallback] Webhook ${topic} — eroare (non-fatal):`, e.message)
+      await new ShopifyApi(shop, accessToken).subscribeUninstalled(`${appUrl}/api/shopify/webhooks`)
+    } catch (e) {
+      // Fără anunț, sincronizarea află oricum la primul refuz al lui Shopify
+      logApiError(ROUTE, 500, 'Abonarea Shopify la dezinstalare a eșuat', { storeId, error: (e as Error).message })
     }
-  }
+    const result = await syncCommerceStore(storeId, 'shopify', 'full')
+    if (!result.ok && result.reason !== 'locked') {
+      logApiError(ROUTE, 500, 'Prima sincronizare Shopify a eșuat', { storeId, reason: result.reason, message: result.message })
+    }
+  })
 }
 
 export async function GET(request: Request) {
@@ -155,7 +142,7 @@ export async function GET(request: Request) {
       return NextResponse.redirect(loginUrl)
     }
 
-    const userId = (session.user as any).id
+    const userId = session.user.id
     const supabase = createAdminClient()
 
     // ─── Verifică duplicat: shop conectat deja ────────────────────────────────
@@ -167,7 +154,16 @@ export async function GET(request: Request) {
 
     if (existingByUrl) {
       if (existingByUrl.user_id === userId) {
-        // Deja conectat la acest cont — redirecționează normal
+        // Reconectare (ex. după dezinstalare): tokenul vechi nu mai merge, cel nou da
+        const { error: eUpdate } = await supabase.from('stores').update({
+          api_key: encrypt(accessToken), connection_status: 'active', last_error: null,
+        }).eq('id', existingByUrl.id)
+        if (eUpdate) {
+          logApiError(ROUTE, 500, 'Eroare la reconectarea magazinului Shopify', { error: eUpdate.message, shop })
+          return NextResponse.json({ error: 'Eroare la reconectarea magazinului' }, { status: 500 })
+        }
+        await setActiveStore(supabase, userId, existingByUrl.id)
+        afterConnect(existingByUrl.id, shop, accessToken)
         const destination = isOnboardingReturn
           ? '/onboarding?step=3&shopify=connected'
           : '/dashboard?shopify=connected'
@@ -208,6 +204,7 @@ export async function GET(request: Request) {
         api_key: encryptedToken,
         api_secret: null,
         sync_status: 'active',
+        connection_status: 'active',
         webhook_secret: crypto.randomUUID(),
       })
       .select('id')
@@ -225,9 +222,7 @@ export async function GET(request: Request) {
 
     // Magazinul abia legat e cel pe care omul vrea să-l vadă
     await setActiveStore(supabase, userId, saved.id)
-
-    // ─── Înregistrează webhooks (fire-and-forget) ─────────────────────────────
-    void registerShopifyWebhooks(shop, accessToken)
+    afterConnect(saved.id, shop, accessToken)
 
     console.log('[ShopifyCallback] Magazin conectat cu succes:', shop, 'user:', userId)
 

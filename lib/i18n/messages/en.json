@@ -216,8 +216,8 @@
     "no_store_title": "Connect your store to see your products",
     "no_store_desc": "Hontrio reads your catalog and sales so it knows which products are worth promoting.",
     "connect_store": "Connect your store",
-    "unsupported_title": "Products come from Edinio and WooCommerce for now",
-    "unsupported_desc": "Shopify stores move to the new ads model soon. Until then, their products do not show here.",
+    "unsupported_title": "This store's platform isn't on the new model yet",
+    "unsupported_desc": "Products come from Edinio, WooCommerce and Shopify for now; other platforms are coming.",
     "revoked": "Access to the {{platform}} store was stopped, so products are no longer updated.",
     "first_sync_title": "The first sync is running",
     "first_sync_desc": "We are bringing in your catalog and orders. It can take a few minutes.",
@@ -255,7 +255,8 @@
     "bulk_cancel": "Cancel",
     "bulk_error": "Could not fill in the costs. Try again.",
     "bulk_done": "Costs filled in: {{count}}. They are marked \"estimated\": correct them when you know the real cost.",
-    "cost_from_platform_hint_vat": "Taken from {{platform}} at every sync. There it is the accounting cost, without VAT; here VAT is added so it compares with the price. If you change it here, the cost you entered is kept."
+    "cost_from_platform_hint_vat": "Taken from {{platform}} at every sync. There it is the accounting cost, without VAT; here VAT is added so it compares with the price. If you change it here, the cost you entered is kept.",
+    "cost_cogs_hint_shopify": "If you keep costs in Shopify (\"Cost per item\" on each product), Hontrio picks them up at every sync."
   },
   "overview": {
     "subtitle": "What your store sells and how ready it is for campaigns",
@@ -311,7 +312,9 @@
     "check_conversion_woocommerce": "Measure purchases in Google Ads",
     "check_unverified": "to verify at launch",
     "check_unverified_via": "via {{via}}, to verify at launch",
-    "check_costs_sales": "Cost prices on {{pct}}% of sales (50% needed)"
+    "check_costs_sales": "Cost prices on {{pct}}% of sales (50% needed)",
+    "check_merchant_shopify": "Send your products to Merchant Center (Google & YouTube)",
+    "check_conversion_shopify": "Measure purchases in Google Ads (Google & YouTube)"
   },
   "recs": {
     "title": "Recommendations",
@@ -391,7 +394,10 @@
     "conversion_fix_edinio": "You set it up from Edinio, under Google Ads.",
     "conversion_fix_woocommerce": "In WooCommerce, Google for WooCommerce sets it up when you link your Google Ads account; a plugin like Pixel Manager works too.",
     "action_open_woocommerce": "Open in WooCommerce",
-    "break_even_vat_assumed": "The threshold assumes {{vat}}% VAT, the country's standard rate, because orders show no VAT: Google Ads reports the order value with VAT, but you keep the amount without it."
+    "break_even_vat_assumed": "The threshold assumes {{vat}}% VAT, the country's standard rate, because orders show no VAT: Google Ads reports the order value with VAT, but you keep the amount without it.",
+    "merchant_fix_shopify": "In Shopify, the easiest way is the free Google & YouTube app: it sends your products to Merchant Center and keeps the feed up to date.",
+    "conversion_fix_shopify": "In Shopify, the Google & YouTube app sets it up when you link your Google Ads account.",
+    "action_open_shopify": "Open in Shopify"
   },
   "campaigns": {
     "title": "Campaigns",
@@ -507,7 +513,10 @@
     "conversion_unverified": "Purchase, via {{via}}",
     "conversion_unverified_unknown": "Not known yet",
     "verified_at_launch": "Hontrio cannot ask the plugin from here: we check it at launch, from the Google account.",
-    "adjust_vat_assumed": "Your store does not calculate VAT, so the math assumes the {{vat}}% standard rate, which you do not keep."
+    "adjust_vat_assumed": "Your store does not calculate VAT, so the math assumes the {{vat}}% standard rate, which you do not keep.",
+    "blocker_merchant_shopify": "Send your products to Merchant Center (Google & YouTube app)",
+    "blocker_conversion_shopify": "Measure purchases in Google Ads (Google & YouTube app)",
+    "verified_at_launch_shopify": "Shopify doesn't tell apps which sales channels a store has (Google & YouTube): we check at launch, from the Google account."
   },
   "sidebar": {
     "dashboard": "Overview",
