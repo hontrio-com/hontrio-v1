@@ -120,6 +120,7 @@ for (const d of SCAN_DIRS) walk(join(ROOT, d))
 
 const usedKeys = new Set()
 const usedPrefixes = new Set()
+const NAMESPACES = new Set([...ro.keys()].map(k => k.split('.')[0]))
 const findings = new Map() // fișier → [{ line, text }]
 
 // Ce se poate lăsa netradus: mărci, nume de produse, coduri și simboluri
@@ -176,16 +177,24 @@ for (const path of files) {
   const visit = (node, ctx) => {
     // Cheile folosite: t('a.b') și t(`a.b_${x}`)
     if (ts.isCallExpression(node) && /(^|\.)t$/.test(calleeName(node)) && node.arguments.length) {
-      const a = node.arguments[0]
-      if (ts.isStringLiteral(a) || ts.isNoSubstitutionTemplateLiteral(a)) {
-        usedKeys.add(a.text)
-        if (!ro.has(a.text) && !ro.has(`${a.text}_other`)) err(`cheie inexistentă „${a.text}" în ${rel}:${sf.getLineAndCharacterOfPosition(a.getStart(sf)).line + 1}`)
-      } else if (ts.isTemplateExpression(a)) {
-        const prefix = a.head.text
-        usedPrefixes.add(prefix)
-        if (prefix && ![...ro.keys()].some(k => k.startsWith(prefix))) err(`nicio cheie nu începe cu „${prefix}" (${rel})`)
+      // t(cond ? 'a.b' : 'a.c') — fiecare ramură e o cheie
+      const branches = (a) => ts.isParenthesizedExpression(a) ? branches(a.expression)
+        : ts.isConditionalExpression(a) ? [...branches(a.whenTrue), ...branches(a.whenFalse)] : [a]
+      for (const a of branches(node.arguments[0])) {
+        if (ts.isStringLiteral(a) || ts.isNoSubstitutionTemplateLiteral(a)) {
+          usedKeys.add(a.text)
+          if (!ro.has(a.text) && !ro.has(`${a.text}_other`)) err(`cheie inexistentă „${a.text}" în ${rel}:${sf.getLineAndCharacterOfPosition(a.getStart(sf)).line + 1}`)
+        } else if (ts.isTemplateExpression(a)) {
+          const prefix = a.head.text
+          usedPrefixes.add(prefix)
+          if (prefix && ![...ro.keys()].some(k => k.startsWith(prefix))) err(`nicio cheie nu începe cu „${prefix}" (${rel})`)
+        }
       }
     }
+    // Orice alt șir care e exact o cheie din dicționar (hărți, ternare, date) contează ca folosit,
+    // la fel un prefix de cheie construit din date: { key: `recs.status_${s}` }
+    if ((ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) && (ro.has(node.text) || ro.has(`${node.text}_other`))) usedKeys.add(node.text)
+    if (ts.isTemplateExpression(node) && NAMESPACES.has(node.head.text.split('.')[0]) && /^[a-z_]+\.[a-z0-9_]+$/.test(node.head.text)) usedPrefixes.add(node.head.text)
     // Chei date mai departe ca date: storedMessage('a.b') și proprietăți ca `key: 'a.b'` / `label_key: 'a.b'`
     const keyLiteral = (lit) => {
       if (!lit || !(ts.isStringLiteral(lit) || ts.isNoSubstitutionTemplateLiteral(lit)) || !/^[a-z_]+\.[a-z0-9_]+$/.test(lit.text)) return
@@ -249,7 +258,7 @@ const unused = [...ro.keys()].filter(k => {
   const base = k.replace(PLURAL_RE, '')
   return !usedKeys.has(k) && !usedKeys.has(base) && ![...usedPrefixes].some(p => p && k.startsWith(p))
 })
-if (unused.length) warn(`${unused.length} chei nefolosite (ex. ${unused.slice(0, 5).join(', ')})`)
+if (unused.length) warn(`${unused.length} chei nefolosite (${verbose ? unused.join(', ') : `ex. ${unused.slice(0, 5).join(', ')}`})`)
 
 const hardcoded = [...findings.values()].reduce((s, l) => s + l.length, 0)
 if (hardcoded) err(`${hardcoded} texte scrise direct, în ${findings.size} fișiere`)
