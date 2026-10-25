@@ -22,6 +22,7 @@ export async function generateMetadata(): Promise<Metadata> {
     template: '%s | Hontrio',
   },
   description: t('marketing.meta_description'),
+  // Cuvinte-cheie SEO, în ambele limbi deodată: nu sunt text afișat  i18n-ignore-start
   keywords: [
     'platforma ecommerce Romania',
     'optimizare imagini produse AI',
@@ -32,6 +33,7 @@ export async function generateMetadata(): Promise<Metadata> {
     'ecommerce SEO automation',
     'AI sales agent online store',
   ],
+  // i18n-ignore-end
   authors: [{ name: 'Hontrio', url: 'https://hontrio.com' }],
   creator: 'Hontrio',
   publisher: 'Hontrio',
@@ -78,6 +80,7 @@ export async function generateMetadata(): Promise<Metadata> {
   }
 }
 
+// Date structurate pentru motoarele de căutare (nu sunt text afișat)  i18n-ignore-start
 const jsonLd = {
   '@context': 'https://schema.org',
   '@graph': [
@@ -184,6 +187,7 @@ const jsonLd = {
     },
   ],
 }
+// i18n-ignore-end
 
 export default async function RootLayout({
   children,

@@ -10,9 +10,13 @@
 // Avertismente: chei nefolosite, propoziții identice în ambele limbi.
 //
 // Un text care chiar nu se traduce (o marcă, un exemplu de cod) se marchează cu
-// un comentariu `i18n-ignore` pe aceeași linie sau pe cea de deasupra; un fișier
-// întreg de conținut pe limbi (ex. un document legal cu variantele ro/en) cu
-// `i18n-content-file` în primele rânduri.
+// un comentariu `i18n-ignore` pe aceeași linie sau pe cea de deasupra; un bloc
+// întreg (ex. date structurate JSON-LD) între `i18n-ignore-start` și
+// `i18n-ignore-end`; un fișier întreg de conținut pe limbi (ex. un document legal
+// cu variantele ro/en) cu `i18n-content-file` în primele rânduri.
+//
+// Site-ul de prezentare (app/(marketing), imaginea de previzualizare) se reface
+// în întregime, deci deocamdată nu se verifică.
 // =============================================
 
 import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs'
@@ -92,6 +96,8 @@ for (const base of pluralBases) {
 
 // ── Codul ────────────────────────────────────────────────────────────────────
 const SCAN_DIRS = ['app', 'components', 'lib', 'hooks']
+// Site-ul de prezentare se reface în întregime: cheile folosite acolo se numără, textele nu se verifică încă
+const EXCLUDED = ['app/(marketing)/', 'app/opengraph-image.tsx']
 const files = []
 function walk(dir) {
   if (!existsSync(dir)) return
@@ -128,10 +134,18 @@ const isSentence = (s) => {
   return /^[A-ZĂÂÎȘȚ]/.test(t) && words.length >= 1 && !/^[A-Z0-9_]+$/.test(t) && !/^[A-Z][a-zA-Z]+$/.test(t) || (words.length >= 3 && /^[a-zăâîșț]/.test(t) && !/[a-z]+-[a-z0-9]+/.test(t))
 }
 
+function ignoredBlock(lines, line) {
+  for (let i = line; i >= 0; i--) {
+    if (/i18n-ignore-end/.test(lines[i])) return false
+    if (/i18n-ignore-start/.test(lines[i])) return true
+  }
+  return false
+}
+
 function record(file, sf, node, text) {
   const { line } = sf.getLineAndCharacterOfPosition(node.getStart(sf))
   const lines = sf.text.split('\n')
-  if (/i18n-ignore/.test(lines[line] ?? '') || /i18n-ignore/.test(lines[line - 1] ?? '')) return
+  if (/i18n-ignore(?!-)/.test(lines[line] ?? '') || /i18n-ignore(?!-)/.test(lines[line - 1] ?? '') || ignoredBlock(lines, line)) return
   if (!findings.has(file)) findings.set(file, [])
   findings.get(file).push({ line: line + 1, text: text.replace(/\s+/g, ' ').trim().slice(0, 100) })
 }
@@ -150,7 +164,8 @@ for (const path of files) {
   const contentFile = /i18n-content-file/.test(src.split('\n').slice(0, 15).join('\n'))
   const isApi = rel.startsWith('app/api/')
   const isLib = !path.endsWith('x') && !rel.startsWith('app/')
-  const checkText = !contentFile && (!filter || rel.startsWith(filter))
+  const excluded = EXCLUDED.some(p => rel.startsWith(p))
+  const checkText = !contentFile && !excluded && (!filter || rel.startsWith(filter))
 
   const visit = (node, ctx) => {
     // Cheile folosite: t('a.b') și t(`a.b_${x}`)
