@@ -58,5 +58,13 @@
   "check_merchant_shopify": "Trimite produsele în Merchant Center (Google & YouTube)",
   "check_conversion_shopify": "Măsoară cumpărările în Google Ads (Google & YouTube)",
   "source_unknown": "Altă sursă",
-  "check_generic": "Un pas de configurare"
+  "check_generic": "Un pas de configurare",
+  "ads_title": "Din Google Ads",
+  "ads_open_reports": "Vezi rapoartele",
+  "ads_spend": "Cheltuială",
+  "ads_value": "Valoare vânzări",
+  "ads_roas": "ROAS",
+  "ads_roas_be": "pragul de profit: {{roas}}",
+  "ads_profit": "Profit după reclame",
+  "ads_profit_hint": "estimat din pragul de profit"
 }

@@ -58,6 +58,8 @@ export async function GET(request: Request) {
   let overview: Record<string, unknown> | null = null
   let topProducts: unknown[] = []
   let costs: Costs = { with_cost: 0, total: 0, coverage: 0, basis: null, ready: false }
+  // Cifrele din Google Ads ale perioadei (din cronul zilnic), cu profitul estimat după prag
+  let googleAds: { cost: number; value: number; conversions: number; roas: number | null; break_even: number | null; profit: number | null } | null = null
   const googleConnected = googleRes.data?.status === 'active'
   // Contul Google Ads e al magazinului (fiecare magazin își alege contul)
   const account = googleConnected && store ? await storeAdsAccount(supabase, userId, store.google_ads_customer_id) : null
@@ -76,6 +78,23 @@ export async function GET(request: Request) {
 
     // Pasul costurilor are regula planului de campanie, ca să nu se contrazică
     if (ads.context) {
+      const since = new Date(Date.now() - days * 86_400_000).toISOString().slice(0, 10)
+      const sums = { cost: 0, value: 0, conversions: 0 }
+      for (let from = 0; ; from += 1000) {
+        const { data: rows } = await supabase.from('ad_metrics_daily').select('cost, conversions, conversions_value')
+          .eq('store_id', store.id).gte('date', since).range(from, from + 999)
+        for (const r of rows ?? []) { sums.cost += Number(r.cost); sums.value += Number(r.conversions_value); sums.conversions += Number(r.conversions) }
+        if (!rows || rows.length < 1000) break
+      }
+      if (sums.cost > 0 || sums.value > 0) {
+        const be = ads.context.plan.economics.break_even
+        googleAds = {
+          cost: Math.round(sums.cost * 100) / 100, value: Math.round(sums.value * 100) / 100, conversions: Math.round(sums.conversions * 10) / 10,
+          roas: sums.cost > 0 ? Math.round((sums.value / sums.cost) * 100) / 100 : null,
+          break_even: be,
+          profit: be ? Math.round((sums.value / be - sums.cost) * 100) / 100 : null,
+        }
+      }
       const { economics } = ads.context.plan
       costs = {
         with_cost: ads.context.data.offers.filter(o => o.cost_price !== null).length,
@@ -153,6 +172,7 @@ export async function GET(request: Request) {
     },
     checklist,
     costs,
+    ads: googleAds,
     overview,
     top_products: topProducts,
   })

@@ -37,6 +37,8 @@ type Data = {
   /** `unverified`: un plugin pe care Hontrio nu-l poate întreba (se verifică la lansare); `variant`: platforma. */
   checklist: { id: string; done: boolean; href: string; external: boolean; unverified?: boolean; variant?: string | null; via?: string | null }[]
   costs: { with_cost: number; total: number; coverage: number; basis: 'sales' | 'catalog' | null; ready: boolean }
+  /** Cifrele din Google Ads ale perioadei (null = nicio cheltuială încă), cu profitul estimat după prag. */
+  ads: { cost: number; value: number; conversions: number; roas: number | null; break_even: number | null; profit: number | null } | null
   overview: Overview | null
   top_products: TopProduct[]
 }
@@ -252,6 +254,10 @@ export default function DashboardPage() {
   }
 
   const store = data.store
+  // Cifrele din Google Ads ale perioadei (din cronul zilnic)
+  const adsData = data?.ads ?? null
+  const fmtRoas = new Intl.NumberFormat(numberLocale, { maximumFractionDigits: 1 })
+
   const kpis = [
     { key: 'revenue', icon: Wallet, label: t('overview.kpi_revenue'), value: fmt.format(cur?.revenue ?? 0), delta: change(cur?.revenue ?? 0, prev?.revenue ?? 0), sub: null as string | null },
     { key: 'orders', icon: ShoppingBag, label: t('overview.kpi_orders'), value: fmtInt.format(cur?.orders ?? 0), delta: change(cur?.orders ?? 0, prev?.orders ?? 0), sub: null },
@@ -296,6 +302,34 @@ export default function DashboardPage() {
           </div>
         ))}
       </div>
+
+      {/* Din Google Ads: ce au costat reclamele și ce au adus, față de pragul de profit */}
+      {adsData && (
+        <div className="bg-white border border-neutral-200 rounded-xl p-4">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-[13px] font-semibold text-neutral-900">{t('overview.ads_title')}</p>
+            <Link href="/reports" className="text-[12px] font-medium text-neutral-600 hover:text-neutral-900 underline underline-offset-2">{t('overview.ads_open_reports')}</Link>
+          </div>
+          <dl className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {[
+              { label: t('overview.ads_spend'), value: fmt.format(adsData.cost) },
+              { label: t('overview.ads_value'), value: fmt.format(adsData.value) },
+              {
+                label: t('overview.ads_roas'), value: adsData.roas === null ? '—' : fmtRoas.format(adsData.roas),
+                sub: adsData.break_even !== null ? t('overview.ads_roas_be', { roas: fmtRoas.format(adsData.break_even) }) : undefined,
+                warn: adsData.roas !== null && adsData.break_even !== null && adsData.roas < adsData.break_even,
+              },
+              { label: t('overview.ads_profit'), value: adsData.profit === null ? '—' : fmt.format(adsData.profit), sub: t('overview.ads_profit_hint'), warn: adsData.profit !== null && adsData.profit < 0 },
+            ].map(k => (
+              <div key={k.label} className="rounded-lg bg-neutral-50 px-3 py-2">
+                <dt className="text-[11px] text-neutral-400">{k.label}</dt>
+                <dd className={`text-[15px] font-semibold tabular-nums ${k.warn ? 'text-red-600' : 'text-neutral-900'}`}>{k.value}</dd>
+                {k.sub && <dd className="text-[10px] text-neutral-400">{k.sub}</dd>}
+              </div>
+            ))}
+          </dl>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         {/* Venitul pe zile (pe săptămâni la 12 luni) */}

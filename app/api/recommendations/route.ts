@@ -8,6 +8,7 @@ import { getActiveStore } from '@/lib/stores/active'
 import { buildRecommendations, CSS_COUNTRIES } from '@/lib/recommendations/engine'
 import { loadPlanContext, STORE_PLAN_COLUMNS, statusesKnown, type PlanStore } from '@/lib/campaigns/context'
 import { merchantIdForStore, type BestSellerRow, type PriceCompetitivenessRow, type PriceInsightRow } from '@/lib/merchant/sync'
+import type { EdinioStore } from '@/lib/edinio/types'
 import { getT } from '@/lib/i18n/server'
 
 // =============================================
@@ -19,7 +20,7 @@ import { getT } from '@/lib/i18n/server'
 
 const ROUTE = '/api/recommendations'
 
-type EdinioAds = { google_ads?: { conversie_id?: string | null; cos?: boolean } | null }
+type EdinioAds = { google_ads?: Pick<NonNullable<EdinioStore['google_ads']>, 'conversie_id' | 'cos'> | null }
 
 export async function GET() {
   const t = await getT()
