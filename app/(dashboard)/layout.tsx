@@ -11,6 +11,7 @@ import { useCredits } from '@/hooks/use-credits'
 import { Sidebar } from '@/components/app/shell/sidebar'
 import { Topbar } from '@/components/app/shell/topbar'
 import { CommandMenu } from '@/components/app/shell/command-menu'
+import { Toaster } from '@/components/app/toaster'
 import { activeItem } from '@/components/app/shell/nav'
 import { storeLabel, useStores } from '@/components/app/shell/stores'
 
@@ -119,6 +120,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
 
         <CommandMenu open={searchOpen} onOpenChange={setSearchOpen} admin={admin} stores={stores} activeStoreId={active?.id ?? null} onChooseStore={choose} />
+        <Toaster />
       </div>
     </TooltipProvider>
   )

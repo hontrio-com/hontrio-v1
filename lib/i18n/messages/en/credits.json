@@ -98,5 +98,6 @@
   "prompt_warning_left_other": "Heads up: only {{count}} credits left",
   "prompt_trial_ended": "Your free trial has ended. Upgrade to continue.",
   "prompt_buy_more": "Buy more credits to keep generating.",
-  "prompt_top_up": "We recommend topping up your credits so you're not interrupted."
+  "prompt_top_up": "We recommend topping up your credits so you're not interrupted.",
+  "costs_title": "What each action costs"
 }

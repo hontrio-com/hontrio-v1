@@ -63,5 +63,8 @@
   "source_google_ads": "Google Ads",
   "sales_empty": "Nicio vânzare pe site în perioada aleasă.",
   "sales_tooltip": "{{day}}: {{revenue}}, din care Google Ads {{google}}",
-  "footer": "Cifrele Google Ads vin zilnic, până ieri inclusiv; valoarea vânzărilor e cea raportată de conversie (cu TVA). Profitul e estimat: valoarea împărțită la pragul de profit, minus cheltuiala."
+  "footer": "Cifrele Google Ads vin zilnic, până ieri inclusiv; valoarea vânzărilor e cea raportată de conversie (cu TVA). Profitul e estimat: valoarea împărțită la pragul de profit, minus cheltuiala.",
+  "kpi_conversions_count_one": "{{value}} conversie",
+  "kpi_conversions_count_few": "{{value}} conversii",
+  "kpi_conversions_count_other": "{{value}} de conversii"
 }

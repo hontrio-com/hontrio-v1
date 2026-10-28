@@ -10,7 +10,7 @@ import { Button } from '@/components/app/button'
 import { Input } from '@/components/app/input'
 import { Segmented } from '@/components/app/tabs'
 import { Table, Td, Th, Tr } from '@/components/app/table'
-import type { Formats } from '@/components/campaigns/formats'
+import type { Formats } from '@/components/app/formats'
 import type { Plan, PlanOffer } from '@/lib/campaigns/plan'
 import type { AdsMode } from '@/lib/commerce/ads-data'
 
@@ -156,7 +156,7 @@ export function PlanProducts({ plan, groupNames, f, onChanged, onError, onOpenGr
                       </Badge>
                     </Td>
                   )}
-                  {tab === 'groups' && <Td><Badge tone="sky">{groupNames.get(o.group_id ?? '') ?? '—'}</Badge></Td>}
+                  {tab === 'groups' && <Td><Badge tone="outline">{groupNames.get(o.group_id ?? '') ?? '—'}</Badge></Td>}
                   <Td align="right" className="whitespace-nowrap">
                     {saving ? <Loader2 className="ml-auto size-4 animate-spin text-neutral-400" />
                       : o.reason === 'in_group' ? (

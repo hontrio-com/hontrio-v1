@@ -34,6 +34,12 @@ export const buttonStyles = cva(
   },
 )
 
+/** Un link în text: negru, subliniat discret; sublinierea se închide la hover. */
+export const linkStyles = 'font-medium text-neutral-900 underline decoration-neutral-300 underline-offset-[3px] transition-colors hover:decoration-neutral-900'
+
+/** O acțiune scrisă (cu săgeată după ea): neagră, se estompează la hover. */
+export const textActionStyles = 'inline-flex items-center gap-1 font-medium text-neutral-900 transition-colors hover:text-neutral-500 [&_svg]:size-3.5'
+
 type Props = React.ComponentProps<'button'> & VariantProps<typeof buttonStyles> & {
   /** Randează copilul (ex. un Link) cu stilul butonului. */
   asChild?: boolean

@@ -6,7 +6,7 @@ import { ExternalLink, Pause, Play } from 'lucide-react'
 import { Badge, type Tone } from '@/components/app/badge'
 import { Button } from '@/components/app/button'
 import { cn } from '@/lib/utils'
-import type { Formats } from '@/components/campaigns/formats'
+import type { Formats } from '@/components/app/formats'
 
 // =============================================
 // O campanie Hontrio din Google Ads: starea, cifrele pe 30 de zile (din

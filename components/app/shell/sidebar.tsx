@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { DropdownMenu } from 'radix-ui'
 import { motion } from 'framer-motion'
-import { Check, ChevronsUpDown, Crown, Languages, LogOut, PanelLeftClose, PanelLeftOpen, Plus, Search, Settings, Zap } from 'lucide-react'
+import { Check, ChevronsUpDown, Crown, Languages, LogOut, PanelLeftClose, PanelLeftOpen, Plus, Search, Settings, X, Zap } from 'lucide-react'
 import { useLocale } from '@/lib/i18n/context'
 import { LOCALES, LOCALE_NAMES } from '@/lib/i18n/config'
 import { cn } from '@/lib/utils'
@@ -13,9 +13,9 @@ import { NAV, activeItem, type NavItem } from '@/components/app/shell/nav'
 import { PLATFORM_NAME, storeLabel, type StoreItem } from '@/components/app/shell/stores'
 
 // =============================================
-// Meniul platformei (ca la Linear): sus magazinul pe care lucrezi și
-// căutarea, la mijloc paginile în grupe, jos creditele și contul tău.
-// Se poate strânge la iconițe.
+// Meniul platformei (ca la Linear): sus logo-ul, magazinul pe care lucrezi
+// și căutarea, la mijloc paginile în grupe, jos creditele și contul tău.
+// Se poate strânge la iconițe (rămâne iconița logo-ului).
 // =============================================
 
 type Props = {
@@ -45,19 +45,42 @@ export function Sidebar(p: Props) {
 
   return (
     <div className="flex h-full flex-col">
+      {/* Logo-ul */}
+      <div className={cn('flex h-16 shrink-0 items-center', p.collapsed ? 'justify-center px-2' : 'justify-between pl-5 pr-3')}>
+        <Link href="/dashboard" onClick={p.onNavigate} className="flex items-center rounded-md outline-none focus-visible:ring-[3px] focus-visible:ring-neutral-900/20">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          {p.collapsed ? <img src="/logo-icon.png" alt="Hontrio" className="h-7 w-auto" /> : <img src="/logo-black.png" alt="Hontrio" className="h-[22px] w-auto" />}
+        </Link>
+        {!p.collapsed && (
+          <>
+            <button onClick={p.onToggleCollapsed} aria-label={t('sidebar.collapse')}
+              className="hidden size-7 shrink-0 items-center justify-center rounded-md text-neutral-400 transition-colors hover:bg-black/[0.04] hover:text-neutral-700 lg:flex">
+              <PanelLeftClose className="size-4" />
+            </button>
+            <button onClick={p.onNavigate} aria-label={t('common.close')}
+              className="flex size-7 shrink-0 items-center justify-center rounded-md text-neutral-400 transition-colors hover:bg-black/[0.04] hover:text-neutral-700 lg:hidden">
+              <X className="size-4" />
+            </button>
+          </>
+        )}
+      </div>
+
       {/* Magazinul pe care lucrezi */}
-      <div className={cn('flex h-14 items-center gap-1', p.collapsed ? 'justify-center px-2' : 'px-3')}>
+      <div className={cn('pb-2', p.collapsed ? 'flex justify-center px-2' : 'px-3')}>
         <DropdownMenu.Root>
           <DropdownMenu.Trigger asChild>
-            <button className={cn('group flex min-w-0 items-center gap-2.5 rounded-lg py-1.5 text-left outline-none transition-colors hover:bg-black/[0.04] data-[state=open]:bg-black/[0.05]', p.collapsed ? 'px-1.5' : 'flex-1 px-2')}>
-              <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-brand-500 to-brand-700 text-[13px] font-semibold text-white shadow-[inset_0_1px_0_rgb(255_255_255/0.2),0_1px_2px_rgb(16_24_40/0.2)]">
+            <button aria-label={t('sidebar.stores')}
+              className={cn('group flex min-w-0 items-center gap-2.5 rounded-lg text-left outline-none transition-[background-color,box-shadow]',
+                p.collapsed ? 'p-1 hover:bg-black/[0.04] data-[state=open]:bg-black/[0.05]'
+                  : 'w-full bg-white px-2 py-1.5 shadow-[0_1px_2px_rgb(16_24_40/0.04)] ring-1 ring-black/[0.07] hover:ring-black/[0.12] data-[state=open]:ring-black/[0.14]')}>
+              <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-neutral-900 text-[12px] font-semibold text-white">
                 {initial}
               </span>
               {!p.collapsed && (
                 <>
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[13px] font-semibold text-neutral-900">{p.activeStore ? storeLabel(p.activeStore) : 'Hontrio'}</span>
-                    <span className="block truncate text-[11px] text-neutral-500">{p.activeStore ? PLATFORM_NAME[p.activeStore.platform] ?? p.activeStore.platform : t('sidebar.store_none')}</span>
+                    <span className="block truncate text-[13px] font-semibold text-neutral-900">{p.activeStore ? storeLabel(p.activeStore) : t('sidebar.store_none')}</span>
+                    <span className="block truncate text-[11px] text-neutral-500">{p.activeStore ? PLATFORM_NAME[p.activeStore.platform] ?? p.activeStore.platform : t('sidebar.action_connect_store')}</span>
                   </span>
                   <ChevronsUpDown className="size-3.5 shrink-0 text-neutral-400 group-hover:text-neutral-600" />
                 </>
@@ -84,12 +107,6 @@ export function Sidebar(p: Props) {
             </DropdownMenu.Content>
           </DropdownMenu.Portal>
         </DropdownMenu.Root>
-        {!p.collapsed && (
-          <button onClick={p.onToggleCollapsed} aria-label={t('sidebar.collapse')}
-            className="hidden size-7 shrink-0 items-center justify-center rounded-md text-neutral-400 transition-colors hover:bg-black/[0.04] hover:text-neutral-700 lg:flex">
-            <PanelLeftClose className="size-4" />
-          </button>
-        )}
       </div>
 
       {/* Căutarea */}

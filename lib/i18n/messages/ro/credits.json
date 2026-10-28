@@ -104,5 +104,6 @@
   "prompt_warning_left_other": "Atenție: mai ai doar {{count}} de credite",
   "prompt_trial_ended": "Perioada de probă s-a încheiat. Fă upgrade ca să continui.",
   "prompt_buy_more": "Cumpără credite în plus ca să continui generările.",
-  "prompt_top_up": "Îți recomandăm să-ți suplimentezi creditele, ca să nu fii întrerupt."
+  "prompt_top_up": "Îți recomandăm să-ți suplimentezi creditele, ca să nu fii întrerupt.",
+  "costs_title": "Cât costă fiecare acțiune"
 }

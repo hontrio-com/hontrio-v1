@@ -8,7 +8,7 @@ import { Table, Td, Th, Tr } from '@/components/app/table'
 import { Sparkline, CHART } from '@/components/app/charts'
 import type { GroupRules } from '@/lib/campaigns/groups'
 import type { Plan } from '@/lib/campaigns/plan'
-import type { Formats } from '@/components/campaigns/formats'
+import type { Formats } from '@/components/app/formats'
 import type { CampaignView, ViewStatus } from '@/components/campaigns/views'
 
 // =============================================
@@ -20,7 +20,7 @@ import type { CampaignView, ViewStatus } from '@/components/campaigns/views'
 export const STATUS: Record<ViewStatus, { tone: Tone; key: string; live?: boolean }> = {
   running: { tone: 'green', key: 'campaigns.status_active', live: true },
   paused: { tone: 'amber', key: 'campaigns.status_paused' },
-  draft: { tone: 'sky', key: 'campaigns.g_status_draft' },
+  draft: { tone: 'outline', key: 'campaigns.g_status_draft' },
   ended: { tone: 'neutral', key: 'campaigns.status_ended' },
   not_launched: { tone: 'neutral', key: 'campaigns.board_not_launched' },
 }
@@ -91,7 +91,7 @@ export function CampaignTable({ views, plan, f, onOpen, compact }: {
               <Td>
                 <div className="flex items-center gap-3">
                   <span className={cn('flex size-8 shrink-0 items-center justify-center rounded-lg ring-1',
-                    v.kind === 'main' ? 'bg-brand-50 text-brand-600 ring-brand-100' : 'bg-neutral-50 text-neutral-600 ring-neutral-200/70')}>
+                    v.kind === 'main' ? 'bg-neutral-900 text-white ring-neutral-900' : 'bg-neutral-50 text-neutral-600 ring-neutral-200/70')}>
                     <Icon className="size-4" />
                   </span>
                   <div className="min-w-0">

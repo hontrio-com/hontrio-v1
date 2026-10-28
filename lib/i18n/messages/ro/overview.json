@@ -66,5 +66,17 @@
   "ads_roas": "ROAS",
   "ads_roas_be": "pragul de profit: {{roas}}",
   "ads_profit": "Profit după reclame",
-  "ads_profit_hint": "estimat din pragul de profit"
+  "ads_profit_hint": "estimat din pragul de profit",
+  "period_short_7": "7 zile",
+  "period_short_30": "30 de zile",
+  "period_short_90": "90 de zile",
+  "period_short_365": "12 luni",
+  "kpi_revenue_help": "Totalul comenzilor de pe site, fără cele anulate, comparat cu perioada de aceeași lungime de dinainte.",
+  "kpi_orders_help": "Comenzile de pe site, fără cele anulate.",
+  "kpi_aov_help": "Venitul împărțit la numărul de comenzi.",
+  "kpi_google_ads_help": "Venitul din comenzile venite dintr-un clic pe o reclamă Google Ads, după sursa salvată la comandă.",
+  "chart_revenue": "Venit",
+  "chart_orders": "Comenzi",
+  "no_sales_title": "Nicio vânzare încă",
+  "google_connect": "Conectează"
 }

@@ -1,9 +1,21 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import Link from 'next/link'
+import { AlertCircle, ArrowRight, ImageIcon, Info, Store } from 'lucide-react'
 import { useT } from '@/lib/i18n/context'
-import { AlertCircle, ImageIcon, Info, Store } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { PageHeader } from '@/components/app/page-header'
+import { Card, CardHeader } from '@/components/app/surface'
+import { Badge, type Tone } from '@/components/app/badge'
+import { Button } from '@/components/app/button'
+import { Segmented } from '@/components/app/tabs'
+import { KpiCard } from '@/components/app/kpi'
+import { ChartLegend, DualTrend, StackedBars } from '@/components/app/charts'
+import { Table, Td, Th, Tr } from '@/components/app/table'
+import { Callout, EmptyState, Skeleton } from '@/components/app/feedback'
+import { FadeIn } from '@/components/app/motion'
+import { day, useFormats } from '@/components/app/formats'
 import { campaignKindKey } from '@/components/campaigns/live-campaigns'
 
 // =============================================
@@ -42,10 +54,10 @@ type Data = {
 }
 
 const PERIODS = [7, 30, 90]
-const VERDICT_STYLE = { loses: 'bg-red-50 text-red-600', profitable: 'bg-emerald-50 text-emerald-700', no_sales: 'bg-amber-50 text-amber-700', none: 'bg-neutral-100 text-neutral-500' } as const
+const VERDICT_TONE: Record<'loses' | 'profitable' | 'no_sales' | 'none', Tone> = { loses: 'red', profitable: 'green', no_sales: 'amber', none: 'neutral' }
 
 export default function ReportsPage() {
-  const { t, intlLocale } = useT()
+  const { t } = useT()
   const [days, setDays] = useState(30)
   const [data, setData] = useState<Data | null>(null)
   const [loading, setLoading] = useState(true)
@@ -66,64 +78,47 @@ export default function ReportsPage() {
 
   useEffect(() => { load(days) }, [load, days])
 
-  const currency = data?.store?.currency || 'RON'
-  const fmt = useMemo(() => {
-    try { return new Intl.NumberFormat(intlLocale, { style: 'currency', currency, maximumFractionDigits: 0 }) }
-    catch { return new Intl.NumberFormat(intlLocale, { maximumFractionDigits: 0 }) }
-  }, [intlLocale, currency])
-  const fmtNum = useMemo(() => new Intl.NumberFormat(intlLocale, { maximumFractionDigits: 1 }), [intlLocale])
-  const fmtInt = useMemo(() => new Intl.NumberFormat(intlLocale, { maximumFractionDigits: 0 }), [intlLocale])
-  const fmtDay = useCallback((d: string) => new Intl.DateTimeFormat(intlLocale, { day: 'numeric', month: 'short', timeZone: 'UTC' }).format(new Date(`${d}T00:00:00Z`)), [intlLocale])
+  const f = useFormats(data?.store?.currency || 'RON')
+  const label = (d: string) => f.shortDate.format(day(d))
 
   const header = (
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-      <div>
-        <h1 className="text-[22px] font-semibold text-neutral-900 tracking-tight">{t('reports.title')}</h1>
-        <p className="text-[13px] text-neutral-400 mt-0.5">{t('reports.subtitle')}</p>
-      </div>
-      <div className="flex items-center gap-1 rounded-xl bg-neutral-100 p-1 self-start">
-        {PERIODS.map(p => (
-          <button key={p} onClick={() => { setDays(p); setLoading(true) }}
-            className={`h-8 px-3 rounded-lg text-[12px] font-medium transition-all ${days === p ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-500 hover:text-neutral-800'}`}>
-            {t('reports.period_days', { count: p })}
-          </button>
-        ))}
-      </div>
-    </div>
+    <PageHeader title={t('reports.title')} description={t('reports.subtitle')}
+      actions={<Segmented id="reports-period" value={String(days)} onChange={v => setDays(Number(v))}
+        items={PERIODS.map(p => ({ value: String(p), label: t('reports.period_days', { count: p }) }))} />} />
   )
 
   if (loading) {
     return (
-      <div className="space-y-5">
-        {header}
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">{[0, 1, 2, 3, 4].map(i => <div key={i} className="h-24 rounded-xl bg-neutral-100 animate-pulse" />)}</div>
-        <div className="h-64 rounded-xl bg-neutral-100 animate-pulse" />
+      <div className="space-y-6">
+        <div className="space-y-2"><Skeleton className="h-8 w-40" /><Skeleton className="h-4 w-[420px] max-w-full" /></div>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">{[0, 1, 2, 3].map(i => <Skeleton key={i} className="h-[136px] rounded-xl" />)}</div>
+        <Skeleton className="h-[320px] rounded-xl" />
       </div>
     )
   }
 
   if (failed && !data) {
     return (
-      <div className="space-y-5">
+      <div className="space-y-6">
         {header}
-        <div className="flex flex-col items-center justify-center rounded-2xl border border-neutral-200 bg-white py-16 text-center">
-          <AlertCircle className="h-6 w-6 text-neutral-400" />
-          <p className="mt-3 text-[14px] font-medium text-neutral-900">{t('reports.load_error')}</p>
-          <button onClick={() => load(days)} className="mt-4 h-9 px-4 rounded-xl bg-neutral-900 text-white text-[13px] font-medium hover:bg-neutral-800">{t('catalog.retry')}</button>
-        </div>
+        <Card>
+          <EmptyState icon={<AlertCircle />} title={t('reports.load_error')} description={t('campaigns.load_error_hint')}
+            action={<Button variant="primary" onClick={() => load(days)}>{t('catalog.retry')}</Button>} />
+        </Card>
       </div>
     )
   }
 
   if (!data?.store || !data.store.supported) {
     return (
-      <div className="space-y-5">
+      <div className="space-y-6">
         {header}
-        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-neutral-200 bg-white py-16 px-6 text-center">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-neutral-100"><Store className="h-6 w-6 text-neutral-500" /></div>
-          <p className="mt-4 text-[15px] font-semibold text-neutral-900">{data?.store ? t('catalog.unsupported_title') : t('reports.no_store_title')}</p>
-          <p className="mt-1 max-w-md text-[13px] text-neutral-400 leading-relaxed">{data?.store ? t('catalog.unsupported_desc') : t('reports.no_store_desc')}</p>
-        </div>
+        <Card>
+          <EmptyState icon={<Store />}
+            title={data?.store ? t('catalog.unsupported_title') : t('reports.no_store_title')}
+            description={data?.store ? t('catalog.unsupported_desc') : t('reports.no_store_desc')}
+            action={!data?.store && <Button asChild variant="primary"><Link href="/settings?tab=integrations">{t('catalog.connect_store')}</Link></Button>} />
+        </Card>
       </div>
     )
   }
@@ -132,203 +127,196 @@ export default function ReportsPage() {
   const be = data.break_even ?? null
   const sales = data.sales ?? null
   const noAdsReason = !data.google?.connected ? 'reports.no_ads_google' : !data.google.account ? 'reports.no_ads_account' : data.google.synced_at ? 'reports.no_ads_empty' : 'reports.no_ads_waiting'
-
-  const kpis = (k: Kpi) => [
-    { label: t('reports.kpi_spend'), value: fmt.format(k.cost) },
-    { label: t('reports.kpi_value'), value: fmt.format(k.value) },
-    { label: t('reports.kpi_roas'), value: k.roas === null ? '—' : fmtNum.format(k.roas), sub: be !== null ? t('reports.kpi_roas_be', { roas: fmtNum.format(be) }) : undefined, warn: k.roas !== null && be !== null && k.roas < be },
-    { label: t('reports.kpi_profit'), value: k.profit === null ? '—' : fmt.format(k.profit), sub: k.profit === null ? t('reports.kpi_profit_need_costs') : t('reports.kpi_profit_sub'), warn: k.profit !== null && k.profit < 0 },
-    { label: t('reports.kpi_conversions'), value: fmtNum.format(k.conversions), sub: t('reports.kpi_clicks', { count: k.clicks, value: fmtInt.format(k.clicks) }) },
-  ]
-
-  const maxDaily = Math.max(1, ...(ads?.daily ?? []).flatMap(d => [d.cost, d.value]))
-  const maxSales = Math.max(1, ...(sales?.daily ?? []).map(d => Number(d.revenue)))
+  const daily = ads?.daily ?? []
+  const spark = (pick: (d: { cost: number; value: number }) => number | null) =>
+    daily.length > 1 ? daily.flatMap(d => { const v = pick(d); return v === null ? [] : [{ label: label(d.date), value: v }] }) : undefined
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       {header}
 
       {/* Google Ads */}
       {!ads ? (
-        <div className="flex items-start gap-2 px-4 py-3 rounded-xl text-[13px] leading-relaxed bg-white border border-neutral-200 text-neutral-600">
-          <Info className="h-4 w-4 shrink-0 mt-0.5 text-neutral-400" />
-          <div>
-            <p>{t(noAdsReason)}</p>
-            {noAdsReason !== 'reports.no_ads_empty' && noAdsReason !== 'reports.no_ads_waiting' && (
-              <Link href="/settings?tab=integrations" className="mt-1 inline-block text-[12px] font-medium text-neutral-900 underline underline-offset-2">{t('reports.go_settings')}</Link>
-            )}
-          </div>
-        </div>
+        <Callout tone="info"
+          action={noAdsReason !== 'reports.no_ads_empty' && noAdsReason !== 'reports.no_ads_waiting' && (
+            <Button asChild size="sm"><Link href="/settings?tab=integrations">{t('reports.go_settings')}<ArrowRight /></Link></Button>
+          )}>
+          {t(noAdsReason)}
+        </Callout>
       ) : (
         <>
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-            {kpis(ads.total).map(k => (
-              <div key={k.label} className="bg-white border border-neutral-200 rounded-xl p-4">
-                <p className="text-[11px] text-neutral-400">{k.label}</p>
-                <p className={`mt-1 text-[20px] font-bold tabular-nums leading-tight ${k.warn ? 'text-red-600' : 'text-neutral-900'}`}>{k.value}</p>
-                {k.sub && <p className="mt-0.5 text-[11px] text-neutral-400 leading-snug">{k.sub}</p>}
-              </div>
-            ))}
-          </div>
+          <FadeIn>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              <KpiCard label={t('reports.kpi_spend')} value={ads.total.cost} format={n => f.money.format(n)} series={spark(d => d.cost)} color="#a3a3a3"
+                footnote={t('reports.kpi_clicks', { count: ads.total.clicks, value: f.int.format(ads.total.clicks) })} />
+              <KpiCard label={t('reports.kpi_value')} value={ads.total.value} format={n => f.money.format(n)} series={spark(d => d.value)}
+                footnote={t('reports.kpi_conversions_count', { count: Math.round(ads.total.conversions), value: f.num.format(ads.total.conversions) })} />
+              <KpiCard label={t('reports.kpi_roas')} value={ads.total.roas} format={n => f.num.format(n)} series={spark(d => (d.cost > 0 ? d.value / d.cost : null))}
+                footnote={be !== null ? t('reports.kpi_roas_be', { roas: f.num.format(be) }) : undefined} />
+              <KpiCard label={t('reports.kpi_profit')} value={ads.total.profit} format={n => f.money.format(n)} color="#10b981"
+                footnote={ads.total.profit === null ? t('reports.kpi_profit_need_costs') : t('reports.kpi_profit_sub')} />
+            </div>
+          </FadeIn>
           {ads.hontrio && (
-            <p className="text-[12px] text-neutral-500">
-              {t('reports.hontrio_line', { spend: fmt.format(ads.hontrio.cost), value: fmt.format(ads.hontrio.value), roas: ads.hontrio.roas === null ? '—' : fmtNum.format(ads.hontrio.roas) })}
+            <p className="-mt-2 text-[13px] text-neutral-500">
+              {t('reports.hontrio_line', { spend: f.money.format(ads.hontrio.cost), value: f.money.format(ads.hontrio.value), roas: ads.hontrio.roas === null ? '—' : f.num.format(ads.hontrio.roas) })}
             </p>
           )}
 
-          {/* Pe zile: cheltuiala și valoarea conversiilor */}
-          <div className="bg-white border border-neutral-200 rounded-xl p-5">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="text-[15px] font-semibold text-neutral-900">{t('reports.daily_title')}</p>
-              <div className="flex items-center gap-3 text-[11px] text-neutral-500">
-                <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-neutral-900" />{t('reports.kpi_spend')}</span>
-                <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-emerald-400" />{t('reports.kpi_value')}</span>
+          {/* Pe zile: valoarea vânzărilor față de cheltuială */}
+          <FadeIn delay={0.04}>
+            <Card>
+              <CardHeader title={t('reports.daily_title')} description={data.period ? `${label(data.period.from)} – ${label(data.period.to)}` : undefined}
+                action={<ChartLegend items={[{ label: t('reports.kpi_value'), className: 'bg-neutral-900' }, { label: t('reports.kpi_spend'), className: 'bg-neutral-400' }]} />} />
+              <div className="px-3 pb-4 pt-4">
+                <DualTrend data={daily.map(d => ({ label: label(d.date), a: d.value, b: d.cost }))} names={{ a: t('reports.kpi_value'), b: t('reports.kpi_spend') }}
+                  format={n => f.money.format(n)} axisFormat={n => f.compact.format(n)} />
               </div>
-            </div>
-            <div className="mt-4 flex h-40 items-end gap-[2px]">
-              {ads.daily.map(d => (
-                <div key={d.date} className="group relative flex h-full flex-1 items-end gap-[1px]"
-                  title={t('reports.daily_tooltip', { day: fmtDay(d.date), spend: fmt.format(d.cost), value: fmt.format(d.value) })}>
-                  <div className="flex-1 rounded-t-sm bg-neutral-900" style={{ height: `${Math.max(1, (d.cost / maxDaily) * 100)}%` }} />
-                  <div className="flex-1 rounded-t-sm bg-emerald-400" style={{ height: `${Math.max(1, (d.value / maxDaily) * 100)}%` }} />
-                </div>
-              ))}
-            </div>
-            <div className="mt-1 flex justify-between text-[10px] text-neutral-400">
-              <span>{ads.daily[0] ? fmtDay(ads.daily[0].date) : ''}</span>
-              <span>{ads.daily.length ? fmtDay(ads.daily[ads.daily.length - 1].date) : ''}</span>
-            </div>
-          </div>
+            </Card>
+          </FadeIn>
 
           {/* Campaniile */}
-          <Table title={t('reports.campaigns_title')} empty={t('reports.empty')}
-            head={[t('reports.col_campaign'), t('reports.kpi_spend'), t('reports.kpi_value'), t('reports.kpi_roas'), t('reports.kpi_conversions'), t('reports.kpi_profit')]}
-            rows={ads.campaigns.map(c => {
-              // Campaniile pe marje au pragul lor
-              const cbe = c.break_even ?? be
-              return [
-                <div key="n" className="min-w-0">
-                  <p className="text-[13px] font-medium text-neutral-900 truncate">{c.name}</p>
-                  <p className="text-[11px] text-neutral-400">
-                    {c.kind ? t(campaignKindKey(c.kind)) : t.has(`reports.channel_${c.channel.toLowerCase()}`) ? t(`reports.channel_${c.channel.toLowerCase()}`) : c.channel}
-                    {c.hontrio ? ` · ${t('reports.by_hontrio')}` : ''}
-                  </p>
-                </div>,
-                fmt.format(c.cost), fmt.format(c.value),
-                <span key="r" className={c.roas !== null && cbe !== null && c.roas < cbe ? 'text-red-600 font-semibold' : ''}>{c.roas === null ? '—' : fmtNum.format(c.roas)}</span>,
-                fmtNum.format(c.conversions),
-                <span key="p" className={c.profit !== null && c.profit < 0 ? 'text-red-600' : ''}>{c.profit === null ? '—' : fmt.format(c.profit)}</span>,
-              ]
-            })} />
+          <FadeIn delay={0.06}>
+            <ReportTable title={t('reports.campaigns_title')} empty={t('reports.empty')} count={ads.campaigns.length}
+              head={<tr>
+                <Th>{t('reports.col_campaign')}</Th>
+                <Th align="right">{t('reports.kpi_spend')}</Th><Th align="right">{t('reports.kpi_value')}</Th>
+                <Th align="right">{t('reports.kpi_roas')}</Th><Th align="right">{t('reports.kpi_conversions')}</Th><Th align="right">{t('reports.kpi_profit')}</Th>
+              </tr>}>
+              {ads.campaigns.map(c => {
+                // Campaniile pe marje au pragul lor
+                const cbe = c.break_even ?? be
+                return (
+                  <Tr key={c.id}>
+                    <Td className="max-w-[340px]">
+                      <p className="truncate font-medium text-neutral-900">{c.name}</p>
+                      <p className="mt-0.5 flex items-center gap-1.5 text-[12px] text-neutral-500">
+                        {c.kind ? t(campaignKindKey(c.kind)) : t.has(`reports.channel_${c.channel.toLowerCase()}`) ? t(`reports.channel_${c.channel.toLowerCase()}`) : c.channel}
+                        {c.hontrio && <Badge tone="brand" className="h-[18px] px-1 text-[10px]">{t('reports.by_hontrio')}</Badge>}
+                      </p>
+                    </Td>
+                    <Td align="right">{f.money.format(c.cost)}</Td>
+                    <Td align="right">{f.money.format(c.value)}</Td>
+                    <Td align="right" className={c.roas !== null && cbe !== null && c.roas < cbe ? 'font-semibold text-red-600' : 'font-medium text-neutral-900'}>{c.roas === null ? '—' : f.num.format(c.roas)}</Td>
+                    <Td align="right">{f.num.format(c.conversions)}</Td>
+                    <Td align="right" className={cn('font-medium', c.profit === null ? 'text-neutral-300' : c.profit < 0 ? 'text-red-600' : c.profit > 0 ? 'text-emerald-600' : 'text-neutral-700')}>
+                      {c.profit === null ? '—' : f.money.format(c.profit)}
+                    </Td>
+                  </Tr>
+                )
+              })}
+            </ReportTable>
+          </FadeIn>
 
           {/* Produsele */}
-          <Table title={t('reports.products_title')} hint={t('reports.products_hint')} empty={t('reports.empty')}
-            head={[t('catalog.col_product'), t('reports.kpi_spend'), t('reports.kpi_value'), t('reports.kpi_roas'), t('reports.col_break_even'), t('reports.col_verdict')]}
-            rows={ads.products.map(p => [
-              <div key="n" className="flex items-center gap-2.5 min-w-0">
-                <div className="h-8 w-8 shrink-0 overflow-hidden rounded-md border border-neutral-100 bg-neutral-50 flex items-center justify-center">
-                  {p.image_url
-                    // eslint-disable-next-line @next/next/no-img-element
-                    ? <img src={p.image_url} alt="" loading="lazy" className="h-full w-full object-cover" />
-                    : <ImageIcon className="h-3.5 w-3.5 text-neutral-300" />}
-                </div>
-                <span className="text-[13px] text-neutral-900 line-clamp-2">{p.title}</span>
-              </div>,
-              fmt.format(p.cost), fmt.format(p.value),
-              p.roas === null ? '—' : fmtNum.format(p.roas),
-              p.break_even === null ? '—' : fmtNum.format(p.break_even),
-              <span key="v" className={`inline-flex text-[11px] font-medium px-1.5 py-0.5 rounded-md ${VERDICT_STYLE[p.verdict]}`}>{t(`reports.verdict_${p.verdict}`)}</span>,
-            ])} />
+          <FadeIn delay={0.08}>
+            <ReportTable title={t('reports.products_title')} hint={t('reports.products_hint')} empty={t('reports.empty')} count={ads.products.length}
+              head={<tr>
+                <Th>{t('catalog.col_product')}</Th>
+                <Th align="right">{t('reports.kpi_spend')}</Th><Th align="right">{t('reports.kpi_value')}</Th>
+                <Th align="right">{t('reports.kpi_roas')}</Th><Th align="right">{t('reports.col_break_even')}</Th><Th>{t('reports.col_verdict')}</Th>
+              </tr>}>
+              {ads.products.map(p => (
+                <Tr key={p.item_id}>
+                  <Td className="max-w-[340px]">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <div className="flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-md bg-neutral-50 ring-1 ring-inset ring-neutral-200/70">
+                        {p.image_url
+                          // eslint-disable-next-line @next/next/no-img-element
+                          ? <img src={p.image_url} alt="" loading="lazy" className="size-full object-cover" />
+                          : <ImageIcon className="size-3.5 text-neutral-300" />}
+                      </div>
+                      <span className="line-clamp-2 text-neutral-900">{p.title}</span>
+                    </div>
+                  </Td>
+                  <Td align="right">{f.money.format(p.cost)}</Td>
+                  <Td align="right">{f.money.format(p.value)}</Td>
+                  <Td align="right" className="font-medium text-neutral-900">{p.roas === null ? '—' : f.num.format(p.roas)}</Td>
+                  <Td align="right" className="text-neutral-500">{p.break_even === null ? '—' : f.num.format(p.break_even)}</Td>
+                  <Td><Badge tone={VERDICT_TONE[p.verdict]} dot>{t(`reports.verdict_${p.verdict}`)}</Badge></Td>
+                </Tr>
+              ))}
+            </ReportTable>
+          </FadeIn>
 
           {/* Termenii de căutare */}
           {ads.search_terms.length > 0 && (
-            <Table title={t('reports.terms_title')} hint={t('reports.terms_hint')} empty={t('reports.empty')}
-              head={[t('reports.col_term'), t('reports.kpi_spend'), t('reports.kpi_clicks_short'), t('reports.kpi_conversions'), t('reports.kpi_value')]}
-              rows={ads.search_terms.map(s => [s.term, fmt.format(s.cost), fmtInt.format(s.clicks), fmtNum.format(s.conversions), fmt.format(s.value)])} />
+            <FadeIn delay={0.1}>
+              <ReportTable title={t('reports.terms_title')} hint={t('reports.terms_hint')} empty={t('reports.empty')} count={ads.search_terms.length}
+                head={<tr>
+                  <Th>{t('reports.col_term')}</Th>
+                  <Th align="right">{t('reports.kpi_spend')}</Th><Th align="right">{t('reports.kpi_clicks_short')}</Th>
+                  <Th align="right">{t('reports.kpi_conversions')}</Th><Th align="right">{t('reports.kpi_value')}</Th>
+                </tr>}>
+                {ads.search_terms.map(s => (
+                  <Tr key={s.term}>
+                    <Td className="max-w-[340px] truncate font-medium text-neutral-900">{s.term}</Td>
+                    <Td align="right">{f.money.format(s.cost)}</Td>
+                    <Td align="right">{f.int.format(s.clicks)}</Td>
+                    <Td align="right">{f.num.format(s.conversions)}</Td>
+                    <Td align="right">{f.money.format(s.value)}</Td>
+                  </Tr>
+                ))}
+              </ReportTable>
+            </FadeIn>
           )}
         </>
       )}
 
       {/* Vânzările de pe site */}
       {sales && (
-        <div className="bg-white border border-neutral-200 rounded-xl p-5">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <p className="text-[15px] font-semibold text-neutral-900">{t('reports.sales_title')}</p>
-              <p className="text-[12px] text-neutral-400 mt-0.5">
-                {t('reports.sales_hint', { revenue: fmt.format(Number(sales.total.revenue)), orders: t('common.orders_count', { count: Number(sales.total.orders) }) })}
-                {Number(sales.hontrio.orders) > 0 && ` ${t('reports.sales_hontrio', { revenue: fmt.format(Number(sales.hontrio.revenue)), orders: t('common.orders_count', { count: Number(sales.hontrio.orders) }) })}`}
-              </p>
-            </div>
-            <div className="flex items-center gap-3 text-[11px] text-neutral-500">
-              <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-sky-500" />{t('reports.source_google_ads')}</span>
-              <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-neutral-300" />{t('reports.sales_other')}</span>
-            </div>
-          </div>
-          {sales.daily.length === 0 ? (
-            <p className="mt-6 text-center text-[13px] text-neutral-400">{t('reports.sales_empty')}</p>
-          ) : (
-            <div className="mt-4 flex h-32 items-end gap-[2px]">
-              {sales.daily.map(d => {
-                const total = Number(d.revenue)
-                const g = Number(d.google_ads)
-                return (
-                  <div key={d.day} className="flex h-full flex-1 flex-col justify-end"
-                    title={t('reports.sales_tooltip', { day: fmtDay(d.day), revenue: fmt.format(total), google: fmt.format(g) })}>
-                    <div className="rounded-t-sm bg-neutral-300" style={{ height: `${Math.max(0, ((total - g) / maxSales) * 100)}%` }} />
-                    <div className="bg-sky-500" style={{ height: `${Math.max(0, (g / maxSales) * 100)}%` }} />
-                  </div>
-                )
-              })}
-            </div>
-          )}
-          {sales.sources.length > 0 && (
-            <ul className="mt-4 divide-y divide-neutral-100">
-              {sales.sources.map(s => (
-                <li key={s.source} className="flex items-center justify-between py-2 text-[12px]">
-                  <span className="text-neutral-700">{t.has(`overview.source_${s.source}`) ? t(`overview.source_${s.source}`) : s.source}</span>
-                  <span className="tabular-nums text-neutral-500">{t('common.orders_count', { count: Number(s.orders) })} · <span className="font-medium text-neutral-900">{fmt.format(Number(s.revenue))}</span></span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
+        <FadeIn delay={0.12}>
+          <Card>
+            <CardHeader title={t('reports.sales_title')}
+              description={<>
+                {t('reports.sales_hint', { revenue: f.money.format(Number(sales.total.revenue)), orders: t('common.orders_count', { count: Number(sales.total.orders) }) })}
+                {Number(sales.hontrio.orders) > 0 && ` ${t('reports.sales_hontrio', { revenue: f.money.format(Number(sales.hontrio.revenue)), orders: t('common.orders_count', { count: Number(sales.hontrio.orders) }) })}`}
+              </>}
+              action={<ChartLegend items={[{ label: t('reports.source_google_ads'), className: 'bg-neutral-900' }, { label: t('reports.sales_other'), className: 'bg-neutral-300' }]} />} />
+            {sales.daily.length === 0 ? (
+              <p className="px-5 py-12 text-center text-[13px] text-neutral-400">{t('reports.sales_empty')}</p>
+            ) : (
+              <div className="px-3 pb-2 pt-4">
+                <StackedBars data={sales.daily.map(d => ({ label: label(d.day), a: Number(d.google_ads), b: Math.max(0, Number(d.revenue) - Number(d.google_ads)) }))}
+                  names={{ a: t('reports.source_google_ads'), b: t('reports.sales_other') }} format={n => f.money.format(n)} axisFormat={n => f.compact.format(n)} />
+              </div>
+            )}
+            {sales.sources.length > 0 && (
+              <ul className="mx-5 mb-5 mt-2 divide-y divide-neutral-100 border-t border-neutral-100">
+                {sales.sources.map(s => (
+                  <li key={s.source} className="flex items-center justify-between gap-3 py-2.5 text-[13px]">
+                    <span className="text-neutral-700">{t.has(`overview.source_${s.source}`) ? t(`overview.source_${s.source}`) : s.source}</span>
+                    <span className="tabular-nums text-neutral-500">{t('common.orders_count', { count: Number(s.orders) })} · <span className="font-medium text-neutral-900">{f.money.format(Number(s.revenue))}</span></span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Card>
+        </FadeIn>
       )}
 
-      <p className="flex items-start gap-1.5 text-[11px] text-neutral-400 leading-relaxed">
-        <Info className="h-3.5 w-3.5 shrink-0 mt-px" />{t('reports.footer')}
+      <p className="flex items-start gap-2 text-[12px] leading-relaxed text-neutral-400">
+        <Info className="mt-0.5 size-3.5 shrink-0" />{t('reports.footer')}
       </p>
     </div>
   )
 }
 
-function Table({ title, hint, head, rows, empty }: { title: string; hint?: string; head: string[]; rows: ReactNode[][]; empty: string }) {
+/** Un tabel al raportului, într-un card cu titlul lui. */
+function ReportTable({ title, hint, head, count, empty, children }: { title: string; hint?: string; head: ReactNode; count: number; empty: string; children: ReactNode }) {
   return (
-    <div className="bg-white border border-neutral-200 rounded-xl overflow-hidden">
-      <div className="p-4 border-b border-neutral-100">
-        <p className="text-[15px] font-semibold text-neutral-900">{title}</p>
-        {hint && <p className="text-[12px] text-neutral-400 mt-0.5">{hint}</p>}
-      </div>
-      {rows.length === 0 ? (
-        <p className="py-10 text-center text-[13px] text-neutral-400">{empty}</p>
+    <Card className="overflow-hidden">
+      <CardHeader title={title} description={hint} />
+      {count === 0 ? (
+        <p className="px-5 py-12 text-center text-[13px] text-neutral-400">{empty}</p>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[680px] text-left">
-            <thead>
-              <tr className="border-b border-neutral-100 text-[11px] font-medium uppercase tracking-wide text-neutral-400">
-                {head.map((h, i) => <th key={h} className={`px-4 py-2.5 ${i ? 'text-right' : ''}`}>{h}</th>)}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-neutral-50">
-              {rows.map((r, i) => (
-                <tr key={i} className="align-middle">
-                  {r.map((c, j) => <td key={j} className={`px-4 py-2.5 text-[13px] ${j ? 'text-right tabular-nums text-neutral-700 whitespace-nowrap' : 'max-w-[320px]'}`}>{c}</td>)}
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="mt-4">
+          <Table className="min-w-[720px]">
+            <thead>{head}</thead>
+            <tbody>{children}</tbody>
+          </Table>
         </div>
       )}
-    </div>
+    </Card>
   )
 }

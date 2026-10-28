@@ -32,7 +32,6 @@
   "faq_cms_q": "Which store platforms does Hontrio work with?",
   "faq_cms_a": "Edinio, WooCommerce and Shopify. Other platforms are coming.",
   "network_error": "Network error",
-  "ticket_sent_redirect": "Ticket sent successfully! Redirecting...",
   "describe_short": "Briefly describe the problem or question...",
   "describe_detailed": "Describe your problem or question in detail...",
   "write_reply": "Write your reply...",
@@ -57,5 +56,6 @@
   "category_bug": "Bug",
   "file_too_large": "“{{name}}” is larger than 10 MB.",
   "unread_count_one": "{{count}} new",
-  "unread_count_other": "{{count}} new"
+  "unread_count_other": "{{count}} new",
+  "ticket_sent": "Your ticket was sent. We'll reply within 24 hours."
 }

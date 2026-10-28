@@ -1,136 +1,136 @@
 'use client'
 
-import { useT } from '@/lib/i18n/context'
-import { translateStored } from '@/lib/i18n/stored'
-
-import { useState, useEffect, Suspense } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { useSearchParams } from 'next/navigation'
-import { motion, AnimatePresence } from 'framer-motion'
+import { toast } from 'sonner'
 import {
-  CreditCard, Loader2, ImageIcon, FileText, CheckCircle,
-  Sparkles, Zap, Crown, Shield, Clock, Receipt,
-  ChevronDown, ChevronUp, Rocket, Gift, ExternalLink,
-  AlertCircle, Plus, Settings, TrendingDown, TrendingUp,
+  Check, ChevronDown, ChevronUp, CreditCard, Crown, ExternalLink, FileText, Gift, ImageIcon, Plus, Receipt, Rocket,
+  Settings, Shield, Sparkles, Zap,
 } from 'lucide-react'
+import { useT } from '@/lib/i18n/context'
+import { translateStored } from '@/lib/i18n/stored'
+import { cn } from '@/lib/utils'
+import { PageHeader } from '@/components/app/page-header'
+import { PageTabs } from '@/components/app/tabs'
+import { Card, CardHeader } from '@/components/app/surface'
+import { Badge } from '@/components/app/badge'
+import { Button, textActionStyles } from '@/components/app/button'
+import { Skeleton } from '@/components/app/feedback'
+import { FadeIn, NumberTicker } from '@/components/app/motion'
+import { ProgressBar } from '@/components/app/progress'
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// =============================================
+// Abonament și credite — planul curent cu creditele rămase, planurile,
+// pachetele de credite și istoricul. Plata se face prin Stripe; fila aleasă
+// stă în adresă (?tab=), iar după o plată pagina deschide istoricul.
+// =============================================
 
 type Transaction = {
   id: string; type: string; amount: number; balance_after: number
   description: string; reference_type: string; created_at: string
 }
+type Tab = 'plans' | 'credits' | 'history'
+type Translate = (k: string, p?: Record<string, string | number>) => string
 
-// ─── Config ───────────────────────────────────────────────────────────────────
+const TABS: Tab[] = ['plans', 'credits', 'history']
 
-const getPlans = (t: (k: string, p?: Record<string, string | number>) => string) => [
+const getPlans = (t: Translate) => [
   {
     id: 'free', name: t('credits.plan_free'), price: 0, period: '',
     description: t('credits.test_platform'),
-    icon: Gift, credits: 20,
+    icon: Gift, credits: 20, popular: false,
     features: [t('credits.credits_included', { count: 20 }), t('credits.ai_text_gen'), t('credits.ai_image_gen'), t('credits.feat_1_store'), t('credits.email_support')],
     limitations: [t('credits.no_bulk_gen'), t('credits.no_priority_support')],
   },
   {
     id: 'starter', name: t('credits.plan_starter'), price: 19, period: t('credits.per_month_label'),
     description: t('credits.test_platform'),
-    icon: Zap, credits: 150,
+    icon: Zap, credits: 150, popular: false,
     features: [t('credits.feat_credits_month', { count: 150 }), t('credits.feat_unlimited_text'), t('credits.feat_all_styles'), t('credits.feat_1_store'), t('credits.feat_priority_support'), t('credits.feat_full_seo')],
     limitations: [],
   },
   {
     id: 'professional', name: t('credits.plan_professional'), price: 49, period: t('credits.per_month_label'),
     description: t('credits.plan_for_growing'),
-    icon: Rocket, credits: 400,
+    icon: Rocket, credits: 400, popular: true,
     features: [t('credits.feat_credits_month', { count: 400 }), t('credits.feat_includes_starter'), t('credits.feat_batch_gen'), t('credits.feat_3_stores'), t('credits.feat_priority_247'), t('credits.feat_advanced_reports')],
-    limitations: [], popular: true,
+    limitations: [],
   },
   {
     id: 'enterprise', name: t('credits.plan_enterprise'), price: 99, period: t('credits.per_month_label'),
     description: t('credits.plan_for_scale'),
-    icon: Crown, credits: 900,
+    icon: Crown, credits: 900, popular: false,
     features: [t('credits.feat_credits_month', { count: 900 }), t('credits.feat_includes_pro'), t('credits.feat_unlimited_stores'), t('credits.feat_dedicated_manager'), t('credits.feat_sla'), t('credits.feat_personal_training')],
     limitations: [],
   },
 ]
 
 const PACKS = [
-  { id: 'pack_50',   credits: 50,   price: 9,  perCredit: 0.18, popular: false },
-  { id: 'pack_100',  credits: 100,  price: 15, perCredit: 0.15, popular: false },
-  { id: 'pack_300',  credits: 300,  price: 35, perCredit: 0.12, popular: true  },
-  { id: 'pack_500',  credits: 500,  price: 55, perCredit: 0.11, popular: false },
+  { id: 'pack_50', credits: 50, price: 9, perCredit: 0.18, popular: false },
+  { id: 'pack_100', credits: 100, price: 15, perCredit: 0.15, popular: false },
+  { id: 'pack_300', credits: 300, price: 35, perCredit: 0.12, popular: true },
+  { id: 'pack_500', credits: 500, price: 55, perCredit: 0.11, popular: false },
   { id: 'pack_1000', credits: 1000, price: 99, perCredit: 0.10, popular: false },
 ]
 
-const getCosts = (t: (k: string, p?: Record<string, string | number>) => string) => [
-  { label: t('credits.ai_text_gen'),          cost: `3 ${t('common.credits_short')}`, icon: FileText  },
-  { label: t('credits.image_white'),          cost: `6 ${t('common.credits_short')}`, icon: ImageIcon },
-  { label: t('credits.image_lifestyle'),      cost: `7 ${t('common.credits_short')}`, icon: ImageIcon },
-  { label: t('credits.image_premium'),        cost: `7 ${t('common.credits_short')}`, icon: ImageIcon },
-  { label: t('credits.image_seasonal'),       cost: `8 ${t('common.credits_short')}`, icon: ImageIcon },
-  { label: t('credits.auto_gen_3x_label'),    cost: `18 ${t('common.credits_short')}`, icon: Sparkles  },
+const getCosts = (t: Translate) => [
+  { label: t('credits.ai_text_gen'), cost: 3, icon: FileText },
+  { label: t('credits.image_white'), cost: 6, icon: ImageIcon },
+  { label: t('credits.image_lifestyle'), cost: 7, icon: ImageIcon },
+  { label: t('credits.image_premium'), cost: 7, icon: ImageIcon },
+  { label: t('credits.image_seasonal'), cost: 8, icon: ImageIcon },
+  { label: t('credits.auto_gen_3x_label'), cost: 18, icon: Sparkles },
 ]
-
-// ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function txIcon(refType: string) {
   if (refType === 'image_generation') return ImageIcon
-  if (refType === 'text_generation')  return FileText
+  if (refType === 'text_generation') return FileText
   return Plus
 }
 
-function Card({ children, className = '' }: { children: React.ReactNode; className?: string }) {
-  return <div className={`bg-white border border-neutral-200 rounded-xl ${className}`}>{children}</div>
-}
-
-function Btn({ onClick, disabled, children, variant = 'primary', className = '' }: {
-  onClick?: () => void; disabled?: boolean; children: React.ReactNode
-  variant?: 'primary' | 'outline'; className?: string
-}) {
-  const base = 'inline-flex items-center gap-1.5 h-9 px-4 rounded-xl text-[13px] font-medium transition-all disabled:opacity-50'
-  const v = { primary: 'bg-neutral-900 hover:bg-neutral-800 text-white', outline: 'border border-neutral-200 text-neutral-600 hover:bg-neutral-50' }
-  return <button onClick={onClick} disabled={disabled} className={`${base} ${v[variant]} ${className}`}>{children}</button>
-}
-
-// ─── Inner page ───────────────────────────────────────────────────────────────
-
-function SubscriptionPageInner() {
+function SubscriptionView() {
   const { t, intlLocale } = useT()
   const PLANS = getPlans(t)
   const COSTS = getCosts(t)
   const { data: session, update: updateSession } = useSession()
-  const searchParams = useSearchParams()
+  const params = useSearchParams()
+  const paid = params.get('success') === 'true' || params.get('credits_success') === 'true'
+  const tabParam = params.get('tab') as Tab | null
+  // După o plată, istoricul arată ce s-a adăugat
+  const tab: Tab = tabParam && TABS.includes(tabParam) ? tabParam : paid ? 'history' : 'plans'
   const [transactions, setTransactions] = useState<Transaction[]>([])
-  const [loading, setLoading]           = useState(true)
-  const [balance, setBalance]           = useState(0)
-  const [tab, setTab]                   = useState('plans')
-  const [showAll, setShowAll]           = useState(false)
-  const [checkoutId, setCheckoutId]     = useState('')
+  const [loading, setLoading] = useState(true)
+  const [balance, setBalance] = useState(0)
+  const [showAll, setShowAll] = useState(false)
+  const [checkoutId, setCheckoutId] = useState('')
   const [portalLoading, setPortalLoading] = useState(false)
-  const [msg, setMsg]                   = useState({ type: '', text: '' })
 
-  const userPlan = (session?.user as any)?.plan || 'free'
+  const userPlan = (session?.user as { plan?: string } | undefined)?.plan || 'free'
 
+  // Întoarcerea din Stripe: un mesaj (și planul nou în sesiune)
   useEffect(() => {
-    if (searchParams.get('success') === 'true') {
-      setMsg({ type: 'success', text: t('credits.subscription_activated') })
-      setTab('history')
-      updateSession() // force JWT refresh so new plan shows immediately
+    if (params.get('success') === 'true') {
+      toast.success(t('credits.subscription_activated'))
+      updateSession() // planul nou se vede imediat
     }
-    if (searchParams.get('credits_success') === 'true') {
-      setMsg({ type: 'success', text: t('credits.credits_purchased_success') })
-      setTab('history')
-    }
-    if (searchParams.get('canceled') === 'true') {
-      setMsg({ type: 'error', text: t('credits.payment_cancelled') })
-    }
-  }, [searchParams, t])
+    if (params.get('credits_success') === 'true') toast.success(t('credits.credits_purchased_success'))
+    if (params.get('canceled') === 'true') toast.error(t('credits.payment_cancelled'))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params])
 
   useEffect(() => { fetchCredits() }, [])
 
   async function fetchCredits() {
     try { const r = await fetch('/api/credits'); const d = await r.json(); setBalance(d.balance || 0); setTransactions(d.transactions || []) }
     catch {} finally { setLoading(false) }
+  }
+
+  const goTab = (next: Tab) => {
+    const q = new URLSearchParams(window.location.search)
+    for (const k of ['success', 'credits_success', 'canceled']) q.delete(k)
+    if (next === 'plans') q.delete('tab'); else q.set('tab', next)
+    window.history.pushState(null, '', `${window.location.pathname}${q.size ? `?${q}` : ''}`)
   }
 
   async function handleSubscribe(planId: string) {
@@ -140,8 +140,8 @@ function SubscriptionPageInner() {
       const r = await fetch('/api/stripe/checkout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ plan: planId }) })
       const d = await r.json()
       if (d.url) window.location.href = d.url
-      else setMsg({ type: 'error', text: d.error || t('credits.error_payment') })
-    } catch { setMsg({ type: 'error', text: t('common.error_connection') }) }
+      else toast.error(d.error || t('credits.error_payment'))
+    } catch { toast.error(t('common.error_connection')) }
     finally { setCheckoutId('') }
   }
 
@@ -151,8 +151,8 @@ function SubscriptionPageInner() {
       const r = await fetch('/api/stripe/credits', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pack_id: packId }) })
       const d = await r.json()
       if (d.url) window.location.href = d.url
-      else setMsg({ type: 'error', text: d.error || t('credits.error_payment_init') })
-    } catch { setMsg({ type: 'error', text: t('common.error_connection') }) }
+      else toast.error(d.error || t('credits.error_payment_init'))
+    } catch { toast.error(t('common.error_connection')) }
     finally { setCheckoutId('') }
   }
 
@@ -161,378 +161,269 @@ function SubscriptionPageInner() {
     try {
       const r = await fetch('/api/stripe/portal', { method: 'POST' }); const d = await r.json()
       if (d.url) window.location.href = d.url
-      else setMsg({ type: 'error', text: d.error || t('credits.no_active_subscription') })
-    } catch { setMsg({ type: 'error', text: t('common.error_connection') }) }
+      else toast.error(d.error || t('credits.no_active_subscription'))
+    } catch { toast.error(t('common.error_connection')) }
     finally { setPortalLoading(false) }
   }
 
-  const currentPlan  = PLANS.find(p => p.id === userPlan) || PLANS[0]
-  const planIdx      = PLANS.findIndex(p => p.id === userPlan)
-  const totalUsed    = transactions.filter(t => t.type === 'usage').reduce((s, t) => s + Math.abs(t.amount), 0)
-  const displayed    = showAll ? transactions : transactions.slice(0, 8)
+  const currentPlan = PLANS.find(p => p.id === userPlan) || PLANS[0]
+  const planIdx = PLANS.findIndex(p => p.id === userPlan)
+  const totalUsed = transactions.filter(tx => tx.type === 'usage').reduce((s, tx) => s + Math.abs(tx.amount), 0)
+  const displayed = showAll ? transactions : transactions.slice(0, 8)
+  const fmtInt = new Intl.NumberFormat(intlLocale)
 
-  if (loading) return (
-    <div className="space-y-4">
-      <div className="h-8 w-48 bg-neutral-100 rounded-xl animate-pulse" />
-      <div className="h-32 bg-neutral-50 rounded-xl animate-pulse" />
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        {[1,2,3,4].map(i => <div key={i} className="h-72 bg-neutral-50 rounded-xl animate-pulse" />)}
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="space-y-2"><Skeleton className="h-8 w-56" /><Skeleton className="h-4 w-72 max-w-full" /></div>
+        <Skeleton className="h-[120px] rounded-xl" />
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">{[0, 1, 2, 3].map(i => <Skeleton key={i} className="h-[380px] rounded-xl" />)}</div>
       </div>
-    </div>
-  )
+    )
+  }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
+      <PageHeader title={t('credits.title')} description={t('credits.manage_plan_desc')}
+        actions={userPlan !== 'free' && <Button loading={portalLoading} onClick={handlePortal}>{!portalLoading && <Settings />}{t('credits.manage_btn')}</Button>} />
 
-      {/* Header */}
-      <div>
-        <h1 className="text-[22px] font-semibold text-neutral-900 tracking-tight">{t('credits.title')}</h1>
-        <p className="text-[13px] text-neutral-400 mt-0.5">{t('credits.manage_plan_desc')}</p>
-      </div>
-
-      {/* Toast */}
-      <AnimatePresence>
-        {msg.text && (
-          <motion.div initial={{ y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-            className={`flex items-center gap-3 px-4 py-3 rounded-xl text-[13px] ${msg.type === 'success' ? 'bg-neutral-900 text-white' : 'bg-red-50 border border-red-100 text-red-700'}`}>
-            {msg.type === 'success' ? <CheckCircle className="h-4 w-4 shrink-0" /> : <AlertCircle className="h-4 w-4 shrink-0" />}
-            <span>{msg.text}</span>
-            <button onClick={() => setMsg({ type: '', text: '' })} className="ml-auto opacity-50 hover:opacity-100">✕</button>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Current plan banner */}
-      <Card className="p-5">
-        <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-          <div className="flex items-center gap-3 flex-1">
-            <div className="h-12 w-12 rounded-xl bg-neutral-100 flex items-center justify-center shrink-0">
-              <currentPlan.icon className="h-6 w-6 text-neutral-500" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <p className="text-[15px] font-semibold text-neutral-900">{t('credits.plan_name', { name: currentPlan.name })}</p>
-                {userPlan !== 'free' && (
-                  <span className="text-[10px] font-semibold bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded-md">{t('common.active')}</span>
-                )}
-              </div>
-              <p className="text-[12px] text-neutral-400">{currentPlan.description}</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-4">
-            <div>
-              <p className="text-[11px] text-neutral-400 mb-0.5">{t('credits.credits_remaining')}</p>
-              <p className="text-[28px] font-bold text-neutral-900 tabular-nums leading-none">{balance}</p>
-              <div className="h-1 w-24 bg-neutral-100 rounded-full mt-1.5">
-                <motion.div initial={{ width: 0 }} animate={{ width: `${Math.min((balance / currentPlan.credits) * 100, 100)}%` }}
-                  transition={{ duration: 0.8, delay: 0.2 }}
-                  className="h-full bg-neutral-900 rounded-full" />
+      {/* Planul curent și creditele rămase */}
+      <FadeIn>
+        <Card>
+          <div className="flex flex-col gap-5 p-5 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-4">
+              <span className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-neutral-900 text-white"><currentPlan.icon className="size-5" /></span>
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-[16px] font-semibold tracking-[-0.01em] text-neutral-900">{t('credits.plan_name', { name: currentPlan.name })}</p>
+                  {userPlan !== 'free' && <Badge tone="green" dot>{t('common.active')}</Badge>}
+                </div>
+                <p className="mt-0.5 text-[13px] text-neutral-500">{currentPlan.description}</p>
               </div>
             </div>
-            {userPlan !== 'free' && (
-              <Btn variant="outline" onClick={handlePortal} disabled={portalLoading}>
-                {portalLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Settings className="h-3.5 w-3.5" />}
-                {t('credits.manage_btn')}
-              </Btn>
-            )}
+            <div className="sm:w-64">
+              <div className="flex items-baseline justify-between gap-3">
+                <span className="text-[13px] text-neutral-500">{t('credits.credits_remaining')}</span>
+                <span className="text-[24px] font-semibold leading-none tabular-nums tracking-[-0.02em] text-neutral-950">
+                  <NumberTicker value={balance} format={n => fmtInt.format(Math.round(n))} />
+                </span>
+              </div>
+              <ProgressBar value={currentPlan.credits ? (balance / currentPlan.credits) * 100 : 0} className="mt-2.5" />
+            </div>
           </div>
-        </div>
-      </Card>
+        </Card>
+      </FadeIn>
 
-      {/* Tab nav */}
-      <div className="flex items-center gap-1 overflow-x-auto pb-0.5 scrollbar-none">
-        {[
-          { value: 'plans',   label: t('credits.tab_plans'),   icon: Sparkles   },
-          { value: 'credits', label: t('credits.buy_more'),     icon: CreditCard },
-          { value: 'history', label: t('credits.tab_history'),  icon: Receipt    },
-        ].map(tabItem => {
-          const Icon = tabItem.icon
-          return (
-            <button key={tabItem.value} onClick={() => setTab(tabItem.value)}
-              className={`flex items-center gap-1.5 h-8 px-3 rounded-xl text-[12px] font-medium transition-all whitespace-nowrap shrink-0
-                ${tab === tabItem.value ? 'bg-neutral-900 text-white' : 'text-neutral-500 hover:bg-neutral-100 hover:text-neutral-700'}`}>
-              <Icon className="h-3.5 w-3.5 shrink-0" />{tabItem.label}
-            </button>
-          )
-        })}
-      </div>
+      <PageTabs id="credits" value={tab} onChange={goTab} items={[
+        { value: 'plans', label: t('credits.tab_plans'), icon: <Sparkles /> },
+        { value: 'credits', label: t('credits.buy_more'), icon: <CreditCard /> },
+        { value: 'history', label: t('credits.tab_history'), icon: <Receipt />, count: transactions.length || undefined },
+      ]} />
 
-      {/* ═══ PLANURI ═══ */}
-      {tab === 'plans' && (
-        <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-            {PLANS.map((plan, i) => {
-              const isCurrent = userPlan === plan.id
-              const isUpgrade = i > planIdx
-              const PlanIcon  = plan.icon
-              return (
-                <motion.div key={plan.id} initial={{ y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
-                  <div className={`relative h-full flex flex-col bg-white rounded-xl border-2 overflow-hidden transition-all
-                    ${(plan as any).popular ? 'border-neutral-900' : isCurrent ? 'border-neutral-300' : 'border-neutral-200 hover:border-neutral-300'}`}>
-                    {(plan as any).popular && (
-                      <div className="absolute top-0 right-0 bg-neutral-900 text-white text-[9px] font-bold px-3 py-1 rounded-bl-xl tracking-wide">{t('credits.recommended')}</div>
-                    )}
-                    <div className="p-5 flex flex-col flex-1">
-                      <div className="flex items-center gap-3 mb-4">
-                        <div className="h-9 w-9 rounded-xl bg-neutral-100 flex items-center justify-center">
-                          <PlanIcon className="h-4 w-4 text-neutral-500" />
-                        </div>
-                        <div>
-                          <p className="text-[13px] font-semibold text-neutral-900">{plan.name}</p>
-                          <p className="text-[11px] text-neutral-400">{plan.description}</p>
-                        </div>
+      <FadeIn key={tab}>
+        {/* ═══ PLANURI ═══ */}
+        {tab === 'plans' && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+              {PLANS.map((plan, i) => {
+                const isCurrent = userPlan === plan.id
+                const isUpgrade = i > planIdx
+                return (
+                  <div key={plan.id} className={cn('relative flex flex-col rounded-xl border bg-white p-5 shadow-card transition-shadow hover:shadow-raised',
+                    plan.popular ? 'border-neutral-900 ring-1 ring-neutral-900' : 'border-neutral-200/80')}>
+                    {plan.popular && <Badge tone="brand" className="absolute -top-2.5 left-5 h-5 text-[11px]">{t('campaigns.recommended')}</Badge>}
+                    <div className="flex items-center gap-3">
+                      <span className={cn('flex size-9 items-center justify-center rounded-lg', plan.popular ? 'bg-neutral-900 text-white' : 'bg-neutral-100 text-neutral-600')}><plan.icon className="size-4" /></span>
+                      <div className="min-w-0">
+                        <p className="text-[14px] font-semibold text-neutral-900">{plan.name}</p>
+                        <p className="truncate text-[12px] text-neutral-500">{plan.description}</p>
                       </div>
-
-                      <div className="mb-4">
-                        {plan.price === 0
-                          ? <p className="text-[28px] font-bold text-neutral-900">{t('credits.plan_free')}</p>
-                          : <p className="text-[28px] font-bold text-neutral-900">${plan.price} <span className="text-[14px] font-normal text-neutral-400">{plan.period}</span></p>
-                        }
-                        <p className="text-[11px] text-neutral-400 mt-0.5"><span className="font-medium text-neutral-600">{t('credits.credits_count', { count: plan.credits })}</span> {t('credits.included_word', { count: plan.credits })}</p>
-                      </div>
-
-                      <div className="space-y-1.5 flex-1 mb-4">
-                        {plan.features.map((f, j) => (
-                          <div key={j} className="flex items-start gap-2">
-                            <CheckCircle className="h-3.5 w-3.5 text-emerald-500 mt-0.5 shrink-0" />
-                            <span className="text-[12px] text-neutral-600">{f}</span>
-                          </div>
-                        ))}
-                        {plan.limitations.map((l, j) => (
-                          <div key={j} className="flex items-start gap-2 opacity-40">
-                            <div className="h-3.5 w-3.5 rounded-full border border-neutral-300 mt-0.5 shrink-0" />
-                            <span className="text-[12px] text-neutral-400 line-through">{l}</span>
-                          </div>
-                        ))}
-                      </div>
-
+                    </div>
+                    <div className="mt-5">
+                      {plan.price === 0
+                        ? <p className="text-[30px] font-semibold leading-none tracking-[-0.03em] text-neutral-950">{t('credits.plan_free')}</p>
+                        : <p className="text-[30px] font-semibold leading-none tracking-[-0.03em] text-neutral-950">${plan.price}<span className="ml-1 text-[14px] font-normal tracking-normal text-neutral-500">{plan.period}</span></p>}
+                      <p className="mt-2 text-[12px] text-neutral-500"><span className="font-medium text-neutral-800">{t('credits.credits_count', { count: plan.credits })}</span> {t('credits.included_word', { count: plan.credits })}</p>
+                    </div>
+                    <ul className="mt-5 flex-1 space-y-2 border-t border-neutral-100 pt-5">
+                      {plan.features.map(feat => (
+                        <li key={feat} className="flex items-start gap-2 text-[13px] text-neutral-700">
+                          <Check className="mt-0.5 size-3.5 shrink-0 text-neutral-900" strokeWidth={2.5} />{feat}
+                        </li>
+                      ))}
+                      {plan.limitations.map(lim => (
+                        <li key={lim} className="flex items-start gap-2 text-[13px] text-neutral-400 line-through">
+                          <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-neutral-300" />{lim}
+                        </li>
+                      ))}
+                    </ul>
+                    <div className="mt-5">
                       {isCurrent ? (
-                        <button disabled className="w-full h-9 rounded-xl bg-neutral-100 text-neutral-400 text-[12px] font-medium flex items-center justify-center gap-1.5">
-                          <CheckCircle className="h-3.5 w-3.5" />{t('credits.current_plan_btn')}
-                        </button>
+                        <Button disabled className="w-full"><Check />{t('credits.current_plan_btn')}</Button>
                       ) : isUpgrade ? (
-                        <button onClick={() => handleSubscribe(plan.id)} disabled={checkoutId === plan.id}
-                          className="w-full h-9 rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white text-[12px] font-medium flex items-center justify-center gap-1.5 disabled:opacity-50 transition-all">
-                          {checkoutId === plan.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Zap className="h-3.5 w-3.5" />}
-                          {checkoutId === plan.id ? t('credits.processing_checkout') : t('credits.upgrade_to', { plan: plan.name })}
-                        </button>
+                        <Button variant={plan.popular ? 'primary' : 'secondary'} loading={checkoutId === plan.id} onClick={() => handleSubscribe(plan.id)} className="w-full">
+                          {checkoutId !== plan.id && <Zap />}{checkoutId === plan.id ? t('credits.processing_checkout') : t('credits.upgrade_to', { plan: plan.name })}
+                        </Button>
                       ) : (
-                        <button onClick={handlePortal} disabled={portalLoading}
-                          className="w-full h-9 rounded-xl border border-neutral-200 text-neutral-500 hover:bg-neutral-50 text-[12px] font-medium flex items-center justify-center gap-1.5 disabled:opacity-50 transition-all">
-                          {t('credits.manage_btn')}
-                        </button>
+                        <Button variant="ghost" loading={portalLoading} onClick={handlePortal} className="w-full">{t('credits.manage_btn')}</Button>
                       )}
                     </div>
                   </div>
-                </motion.div>
-              )
-            })}
-          </div>
-
-          <Card className="p-4 bg-neutral-50">
-            <div className="flex items-start gap-3">
-              <div className="h-8 w-8 rounded-xl bg-white border border-neutral-200 flex items-center justify-center shrink-0">
-                <Shield className="h-4 w-4 text-neutral-400" />
-              </div>
-              <div>
-                <p className="text-[13px] font-medium text-neutral-700 mb-0.5">{t('credits.secure_stripe')}</p>
-                <p className="text-[12px] text-neutral-400 leading-relaxed">
-                  {t('credits.payments_secure_desc')}
-                </p>
-              </div>
+                )
+              })}
             </div>
-          </Card>
-        </div>
-      )}
+            <p className="flex items-start gap-2 text-[12px] leading-relaxed text-neutral-500">
+              <Shield className="mt-0.5 size-3.5 shrink-0 text-neutral-400" />
+              <span><span className="font-medium text-neutral-700">{t('credits.secure_stripe')}.</span> {t('credits.payments_secure_desc')}</span>
+            </p>
+          </div>
+        )}
 
-      {/* ═══ CREDITE ═══ */}
-      {tab === 'credits' && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-          <div className="lg:col-span-2">
-            <Card className="p-5">
-              <p className="text-[13px] font-semibold text-neutral-900 mb-0.5">{t('credits.buy_credits')}</p>
-              <p className="text-[12px] text-neutral-400 mb-4">{t('credits.credits_no_expire')}</p>
-              <div className="space-y-2">
+        {/* ═══ CREDITE ═══ */}
+        {tab === 'credits' && (
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+            <Card className="lg:col-span-2">
+              <CardHeader title={t('credits.buy_credits')} description={t('credits.credits_no_expire')} />
+              <ul className="space-y-2 p-5">
                 {PACKS.map(pack => (
-                  <div key={pack.id} className={`flex items-center justify-between px-4 py-3.5 rounded-xl border-2 transition-all
-                    ${pack.popular ? 'border-neutral-900 bg-neutral-50' : 'border-neutral-200 hover:border-neutral-300'}`}>
+                  <li key={pack.id} className={cn('flex items-center justify-between gap-3 rounded-xl border px-4 py-3 transition-colors',
+                    pack.popular ? 'border-neutral-900 ring-1 ring-neutral-900' : 'border-neutral-200/80 hover:border-neutral-300')}>
                     <div className="flex items-center gap-3">
-                      <div className={`h-10 w-10 rounded-xl flex items-center justify-center ${pack.popular ? 'bg-neutral-900' : 'bg-neutral-100'}`}>
-                        <Sparkles className={`h-4 w-4 ${pack.popular ? 'text-white' : 'text-neutral-400'}`} />
-                      </div>
+                      <span className={cn('flex size-9 items-center justify-center rounded-lg', pack.popular ? 'bg-neutral-900 text-white' : 'bg-neutral-100 text-neutral-500')}><Sparkles className="size-4" /></span>
                       <div>
-                        <div className="flex items-center gap-2">
-                          <p className="text-[14px] font-semibold text-neutral-900">{t('credits.credits_count', { count: pack.credits })}</p>
-                          {pack.popular && <span className="text-[9px] font-bold bg-neutral-900 text-white px-1.5 py-0.5 rounded-md">{t('credits.popular').toUpperCase()}</span>}
-                        </div>
-                        <p className="text-[11px] text-neutral-400 tabular-nums">${pack.perCredit.toFixed(2)} / {t('credits.per_credit')}</p>
+                        <p className="flex items-center gap-2 text-[14px] font-semibold text-neutral-900">
+                          {t('credits.credits_count', { count: pack.credits })}
+                          {pack.popular && <Badge tone="brand" className="h-5 text-[11px]">{t('credits.popular')}</Badge>}
+                        </p>
+                        <p className="text-[12px] tabular-nums text-neutral-500">${pack.perCredit.toFixed(2)} / {t('credits.per_credit')}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
-                      <p className="text-[15px] font-bold text-neutral-900 tabular-nums">${pack.price}</p>
-                      <button onClick={() => handleBuyPack(pack.id)} disabled={!!checkoutId}
-                        className="h-8 px-3 rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white text-[12px] font-medium disabled:opacity-50 transition-all flex items-center gap-1.5">
-                        {checkoutId === pack.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : t('credits.buy_btn')}
-                      </button>
+                      <p className="text-[15px] font-semibold tabular-nums text-neutral-900">${pack.price}</p>
+                      <Button size="sm" variant={pack.popular ? 'primary' : 'secondary'} loading={checkoutId === pack.id} disabled={!!checkoutId} onClick={() => handleBuyPack(pack.id)}>
+                        {t('credits.buy_btn')}
+                      </Button>
                     </div>
-                  </div>
+                  </li>
                 ))}
-              </div>
-            </Card>
-          </div>
-
-          <div className="space-y-4">
-            <Card className="p-5">
-              <p className="text-[11px] font-medium text-neutral-400 uppercase tracking-wide mb-3">{t('images.credits_cost')}</p>
-              <div className="space-y-2">
-                {COSTS.map((item, i) => {
-                  const Icon = item.icon
-                  return (
-                    <div key={i} className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Icon className="h-3.5 w-3.5 text-neutral-300" />
-                        <span className="text-[13px] text-neutral-600">{item.label}</span>
-                      </div>
-                      <span className="text-[11px] font-semibold text-neutral-700 bg-neutral-100 px-2 py-0.5 rounded-md tabular-nums">{item.cost}</span>
-                    </div>
-                  )
-                })}
-              </div>
+              </ul>
             </Card>
 
-            <Card className="p-5 bg-neutral-50">
-              <div className="flex items-center gap-2 mb-1.5">
-                <Shield className="h-3.5 w-3.5 text-neutral-400" />
-                <p className="text-[12px] font-semibold text-neutral-700">{t('credits.secure_payment')}</p>
-              </div>
-              <p className="text-[12px] text-neutral-500 leading-relaxed">
-                {t('credits.transactions_secure_stripe')}
+            <div className="space-y-4">
+              <Card>
+                <CardHeader title={t('credits.costs_title')} />
+                <ul className="divide-y divide-neutral-100 px-5 pb-2 pt-3">
+                  {COSTS.map(item => (
+                    <li key={item.label} className="flex items-center justify-between gap-3 py-2.5 text-[13px]">
+                      <span className="flex items-center gap-2 text-neutral-600"><item.icon className="size-3.5 text-neutral-400" />{item.label}</span>
+                      <Badge>{item.cost} {t('common.credits_short')}</Badge>
+                    </li>
+                  ))}
+                </ul>
+              </Card>
+              <p className="flex items-start gap-2 px-1 text-[12px] leading-relaxed text-neutral-500">
+                <Shield className="mt-0.5 size-3.5 shrink-0 text-neutral-400" />{t('credits.transactions_secure_stripe')}
               </p>
-            </Card>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* ═══ ISTORIC ═══ */}
-      {tab === 'history' && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-          <div className="lg:col-span-2">
-            <Card className="p-5">
-              <div className="flex items-center justify-between mb-4">
-                <p className="text-[13px] font-semibold text-neutral-900">{t('credits.transaction_history')}</p>
-                <span className="text-[11px] text-neutral-400">{t('credits.transactions_total', { count: transactions.length })}</span>
-              </div>
-
+        {/* ═══ ISTORIC ═══ */}
+        {tab === 'history' && (
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+            <Card className="lg:col-span-2">
+              <CardHeader title={t('credits.transaction_history')} description={t('credits.transactions_total', { count: transactions.length })} />
               {transactions.length === 0 ? (
-                <div className="text-center py-12">
-                  <Clock className="h-8 w-8 text-neutral-200 mx-auto mb-3" />
-                  <p className="text-[13px] font-medium text-neutral-500">{t('credits.no_transactions')}</p>
-                  <p className="text-[12px] text-neutral-400 mt-1">{t('credits.transactions_appear')}</p>
+                <div className="px-5 py-14 text-center">
+                  <p className="text-[14px] font-medium text-neutral-700">{t('credits.no_transactions')}</p>
+                  <p className="mt-1 text-[13px] text-neutral-500">{t('credits.transactions_appear')}</p>
                 </div>
               ) : (
                 <>
-                  <div className="divide-y divide-neutral-50">
+                  <ul className="mt-3 divide-y divide-neutral-100 border-t border-neutral-100">
                     {displayed.map(tx => {
                       const Icon = txIcon(tx.reference_type)
                       return (
-                        <div key={tx.id} className="flex items-center gap-3 py-2.5">
-                          <div className={`h-8 w-8 rounded-xl flex items-center justify-center shrink-0 ${tx.amount > 0 ? 'bg-emerald-50' : 'bg-neutral-100'}`}>
-                            <Icon className={`h-3.5 w-3.5 ${tx.amount > 0 ? 'text-emerald-600' : 'text-neutral-400'}`} />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-[13px] text-neutral-700 truncate">
+                        <li key={tx.id} className="flex items-center gap-3 px-5 py-3">
+                          <span className={cn('flex size-8 shrink-0 items-center justify-center rounded-lg', tx.amount > 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-neutral-100 text-neutral-500')}>
+                            <Icon className="size-3.5" />
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-[13px] text-neutral-800">
                               {translateStored(t, tx.description) || (t.has(`credits.tx_type_${tx.type}`) ? t(`credits.tx_type_${tx.type}`) : tx.type)}
                             </p>
-                            <p className="text-[11px] text-neutral-400">
+                            <p className="text-[12px] text-neutral-400">
                               {new Date(tx.created_at).toLocaleDateString(intlLocale, { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                             </p>
                           </div>
-                          <div className="text-right shrink-0">
-                            <p className={`text-[13px] font-semibold tabular-nums ${tx.amount > 0 ? 'text-emerald-600' : 'text-neutral-700'}`}>
-                              {tx.amount > 0 ? '+' : ''}{tx.amount}
-                            </p>
-                            <p className="text-[10px] text-neutral-400 tabular-nums">{t('settings.balance_label')} {tx.balance_after}</p>
+                          <div className="shrink-0 text-right">
+                            <p className={cn('text-[13px] font-semibold tabular-nums', tx.amount > 0 ? 'text-emerald-600' : 'text-neutral-800')}>{tx.amount > 0 ? '+' : ''}{tx.amount}</p>
+                            <p className="text-[11px] tabular-nums text-neutral-400">{t('settings.balance_label')} {tx.balance_after}</p>
                           </div>
-                        </div>
+                        </li>
                       )
                     })}
-                  </div>
+                  </ul>
                   {transactions.length > 8 && (
-                    <button onClick={() => setShowAll(s => !s)}
-                      className="w-full mt-3 py-2 text-[12px] text-neutral-500 hover:text-neutral-700 font-medium flex items-center justify-center gap-1 transition-colors">
-                      {showAll
-                        ? <><ChevronUp className="h-3 w-3" />{t('credits.show_less')}</>
-                        : <><ChevronDown className="h-3 w-3" />{t('credits.show_all', { count: transactions.length })}</>}
-                    </button>
+                    <div className="border-t border-neutral-100 px-5 py-3">
+                      <button onClick={() => setShowAll(s => !s)} className={cn(textActionStyles, 'text-[12px]')}>
+                        {showAll ? <>{t('credits.show_less')}<ChevronUp /></> : <>{t('credits.show_all', { count: transactions.length })}<ChevronDown /></>}
+                      </button>
+                    </div>
                   )}
                 </>
               )}
             </Card>
-          </div>
 
-          <div className="space-y-4">
-            <Card className="p-5">
-              <p className="text-[11px] font-medium text-neutral-400 uppercase tracking-wide mb-4">{t('credits.usage_summary')}</p>
-              <div className="space-y-4">
-                <div>
-                  <div className="flex items-center justify-between text-[13px] mb-1.5">
-                    <span className="text-neutral-500">{t('credits.credits_used')}</span>
-                    <span className="font-semibold text-neutral-900 tabular-nums">{totalUsed}</span>
+            <div className="space-y-4">
+              <Card>
+                <CardHeader title={t('credits.usage_summary')} />
+                <div className="space-y-4 px-5 pb-5 pt-4">
+                  <div>
+                    <div className="mb-1.5 flex items-center justify-between text-[13px]">
+                      <span className="text-neutral-500">{t('credits.credits_used')}</span>
+                      <span className="font-semibold tabular-nums text-neutral-900">{fmtInt.format(totalUsed)}</span>
+                    </div>
+                    <ProgressBar value={currentPlan.credits ? (totalUsed / currentPlan.credits) * 100 : 0} barClassName="bg-neutral-400" />
                   </div>
-                  <div className="h-1.5 bg-neutral-100 rounded-full overflow-hidden">
-                    <div className="h-full bg-neutral-400 rounded-full transition-all" style={{ width: `${Math.min((totalUsed / currentPlan.credits) * 100, 100)}%` }} />
+                  <div>
+                    <div className="mb-1.5 flex items-center justify-between text-[13px]">
+                      <span className="text-neutral-500">{t('credits.credits_remaining')}</span>
+                      <span className="font-semibold tabular-nums text-neutral-900">{fmtInt.format(balance)}</span>
+                    </div>
+                    <ProgressBar value={currentPlan.credits ? (balance / currentPlan.credits) * 100 : 0} />
                   </div>
-                </div>
-                <div>
-                  <div className="flex items-center justify-between text-[13px] mb-1.5">
-                    <span className="text-neutral-500">{t('credits.credits_remaining')}</span>
-                    <span className="font-semibold text-neutral-900 tabular-nums">{balance}</span>
-                  </div>
-                  <div className="h-1.5 bg-neutral-100 rounded-full overflow-hidden">
-                    <div className="h-full bg-emerald-500 rounded-full transition-all" style={{ width: `${Math.min((balance / currentPlan.credits) * 100, 100)}%` }} />
-                  </div>
-                </div>
-
-                <div className="pt-2 border-t border-neutral-100 space-y-2">
-                  {[
-                    { label: t('credits.texts_generated'), icon: FileText, count: transactions.filter(tx => tx.reference_type === 'text_generation').length },
-                    { label: t('credits.images_generated'), icon: ImageIcon, count: transactions.filter(tx => tx.reference_type === 'image_generation').length },
-                  ].map((item, i) => {
-                    const Icon = item.icon
-                    return (
-                      <div key={i} className="flex items-center justify-between text-[13px]">
-                        <div className="flex items-center gap-2 text-neutral-500"><Icon className="h-3.5 w-3.5" />{item.label}</div>
-                        <span className="font-medium text-neutral-900 tabular-nums">{item.count}</span>
+                  <dl className="space-y-2 border-t border-neutral-100 pt-4">
+                    {[
+                      { label: t('credits.texts_generated'), icon: FileText, count: transactions.filter(tx => tx.reference_type === 'text_generation').length },
+                      { label: t('credits.images_generated'), icon: ImageIcon, count: transactions.filter(tx => tx.reference_type === 'image_generation').length },
+                    ].map(item => (
+                      <div key={item.label} className="flex items-center justify-between text-[13px]">
+                        <dt className="flex items-center gap-2 text-neutral-500"><item.icon className="size-3.5" />{item.label}</dt>
+                        <dd className="font-medium tabular-nums text-neutral-900">{item.count}</dd>
                       </div>
-                    )
-                  })}
+                    ))}
+                  </dl>
                 </div>
-              </div>
-            </Card>
-
-            {userPlan !== 'free' && (
-              <Card className="p-5">
-                <p className="text-[13px] font-semibold text-neutral-900 mb-1">{t('credits.billing')}</p>
-                <p className="text-[12px] text-neutral-400 leading-relaxed mb-3">
-                  {t('credits.manage_stripe_desc')}
-                </p>
-                <Btn variant="outline" onClick={handlePortal} disabled={portalLoading} className="w-full justify-center">
-                  {portalLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ExternalLink className="h-3.5 w-3.5" />}
-                  {t('credits.billing_portal')}
-                </Btn>
               </Card>
-            )}
+
+              {userPlan !== 'free' && (
+                <Card>
+                  <CardHeader title={t('credits.billing')} description={t('credits.manage_stripe_desc')} />
+                  <div className="px-5 pb-5 pt-4">
+                    <Button loading={portalLoading} onClick={handlePortal} className="w-full">{!portalLoading && <ExternalLink />}{t('credits.billing_portal')}</Button>
+                  </div>
+                </Card>
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </FadeIn>
     </div>
   )
 }
 
+// useSearchParams cere o graniță Suspense la randarea statică
 export default function SubscriptionPage() {
-  return (
-    <Suspense fallback={<div className="flex items-center justify-center h-64"><Loader2 className="h-6 w-6 animate-spin text-neutral-300" /></div>}>
-      <SubscriptionPageInner />
-    </Suspense>
-  )
+  return <Suspense fallback={null}><SubscriptionView /></Suspense>
 }

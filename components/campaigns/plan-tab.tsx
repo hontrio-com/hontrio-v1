@@ -7,7 +7,7 @@ import { useT } from '@/lib/i18n/context'
 import { cn } from '@/lib/utils'
 import { Card, CardHeader, Field } from '@/components/app/surface'
 import { Badge } from '@/components/app/badge'
-import { Button } from '@/components/app/button'
+import { Button, linkStyles } from '@/components/app/button'
 import { Callout } from '@/components/app/feedback'
 import { ChoiceCard, Input } from '@/components/app/input'
 import { InfoTip } from '@/components/app/info-tip'
@@ -15,7 +15,7 @@ import { FadeIn } from '@/components/app/motion'
 import { LaunchCard } from '@/components/campaigns/launch-card'
 import { PlanProducts } from '@/components/campaigns/plan-products'
 import type { AuditData } from '@/components/campaigns/types'
-import type { Formats } from '@/components/campaigns/formats'
+import type { Formats } from '@/components/app/formats'
 import { CONVERSIONS_PER_MONTH, GOAL_KEEP, GOALS, type Goal, type Plan } from '@/lib/campaigns/plan'
 
 // =============================================
@@ -216,7 +216,7 @@ export function PlanTab({ plan, audit, running, currency, groupNames, f, onSaveS
                   <BudgetInput key={String(budget.chosen)} chosen={budget.chosen} suggested={budget.suggested} currency={currency}
                     onSave={value => onSaveSettings({ daily_budget: value })} />
                   {budget.chosen !== null && budget.suggested !== null && budget.chosen !== budget.suggested && (
-                    <button onClick={() => onSaveSettings({ daily_budget: null })} className="mt-2 text-[12px] font-medium text-brand-700 hover:text-brand-800">
+                    <button onClick={() => onSaveSettings({ daily_budget: null })} className={cn(linkStyles, 'mt-2 text-[12px]')}>
                       {t('campaigns.budget_use_suggested', { budget: f.money.format(budget.suggested) })}
                     </button>
                   )}

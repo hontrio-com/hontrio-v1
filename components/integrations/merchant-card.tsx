@@ -1,9 +1,13 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { RefreshCw, ShoppingBag } from 'lucide-react'
 import { useT } from '@/lib/i18n/context'
 import { translateStored } from '@/lib/i18n/stored'
-import { AlertCircle, CheckCircle2, Loader2, RefreshCw, ShoppingBag } from 'lucide-react'
+import { Card, CardHeader } from '@/components/app/surface'
+import { Button } from '@/components/app/button'
+import { Checkbox, Input, Select } from '@/components/app/input'
+import { Callout, Skeleton } from '@/components/app/feedback'
 
 // =============================================
 // Merchant Center-ul magazinului activ: contul folosit (din Edinio, legat de
@@ -74,36 +78,24 @@ export default function MerchantCard() {
     }
   }
 
-  if (loading) return <div className="h-28 rounded-xl bg-neutral-100 animate-pulse" />
+  if (loading) return <Skeleton className="h-36 rounded-xl" />
   if (!state) return null
 
   const options = [...new Set([state.edinio, ...state.linked, state.chosen].filter((x): x is string => !!x))]
   const syncedAt = state.synced_at ? new Intl.DateTimeFormat(intlLocale, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(state.synced_at)) : null
 
   return (
-    <div className="rounded-xl border border-neutral-200 bg-white p-5">
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex items-start gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-neutral-100"><ShoppingBag className="h-4 w-4 text-neutral-600" /></div>
-          <div>
-            <p className="text-[14px] font-semibold text-neutral-900">{t('settings.merchant_title')}</p>
-            <p className="text-[12px] text-neutral-400 mt-0.5 leading-relaxed">{t('settings.merchant_desc')}</p>
-          </div>
-        </div>
-        {state.merchant_center_id && (
-          <button onClick={sync} disabled={!!busy}
-            className="shrink-0 inline-flex items-center gap-1.5 h-8 px-3 rounded-lg border border-neutral-200 text-[12px] font-medium text-neutral-700 hover:border-neutral-300 disabled:opacity-50">
-            {busy === 'sync' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-            {t('settings.merchant_sync')}
-          </button>
-        )}
-      </div>
+    <Card>
+      <CardHeader icon={<ShoppingBag />} title={t('settings.merchant_title')} description={t('settings.merchant_desc')}
+        action={state.merchant_center_id && (
+          <Button size="sm" loading={busy === 'sync'} disabled={!!busy} onClick={sync}>{busy !== 'sync' && <RefreshCw />}{t('settings.merchant_sync')}</Button>
+        )} />
 
-      <div className="mt-4 space-y-3 text-[12px]">
+      <div className="space-y-4 px-5 pb-5 pt-4 text-[13px]">
         {state.merchant_center_id ? (
-          <p className="text-neutral-700">
+          <p className="text-neutral-800">
             {t('settings.merchant_account', { id: state.merchant_center_id })}{' '}
-            <span className="text-neutral-400">
+            <span className="text-neutral-500">
               {state.chosen ? t('settings.merchant_from_chosen') : state.edinio ? t('settings.merchant_from_edinio') : t('settings.merchant_from_ads')}
             </span>
           </p>
@@ -114,46 +106,34 @@ export default function MerchantCard() {
         {/* Alt cont: dintre cele știute, sau scris de mână */}
         <div className="flex flex-wrap items-center gap-2">
           {options.length > 1 && (
-            <select value={state.merchant_center_id ?? ''} disabled={!!busy}
-              onChange={e => patch({ merchant_center_id: e.target.value || null }, 'choose')}
-              className="h-8 rounded-lg border border-neutral-200 bg-white px-2 text-[12px]">
+            <Select value={state.merchant_center_id ?? ''} disabled={!!busy} wrapperClassName="w-48"
+              onChange={e => patch({ merchant_center_id: e.target.value || null }, 'choose')}>
               {options.map(id => <option key={id} value={id}>{id}</option>)}
-            </select>
+            </Select>
           )}
-          <input value={manual} onChange={e => setManual(e.target.value.replace(/\D/g, ''))} inputMode="numeric"
-            placeholder={t('settings.merchant_manual_placeholder')} aria-label={t('settings.merchant_manual_placeholder')}
-            className="h-8 w-44 rounded-lg border border-neutral-200 px-2 text-[12px] tabular-nums placeholder:text-neutral-300" />
-          <button onClick={() => { if (manual) patch({ merchant_center_id: manual }, 'choose').then(() => setManual('')) }} disabled={!manual || !!busy}
-            className="h-8 px-3 rounded-lg bg-neutral-900 text-white text-[12px] font-medium disabled:opacity-40">
-            {busy === 'choose' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : t('settings.merchant_use')}
-          </button>
+          <Input value={manual} onChange={e => setManual(e.target.value.replace(/\D/g, ''))} inputMode="numeric" wrapperClassName="w-48" className="tabular-nums"
+            placeholder={t('settings.merchant_manual_placeholder')} aria-label={t('settings.merchant_manual_placeholder')} />
+          <Button variant="dark" loading={busy === 'choose'} disabled={!manual || !!busy}
+            onClick={() => { if (manual) patch({ merchant_center_id: manual }, 'choose').then(() => setManual('')) }}>
+            {t('settings.merchant_use')}
+          </Button>
         </div>
 
         {/* Costurile trimise la Google */}
-        <label className="flex items-start gap-2 cursor-pointer">
-          <input type="checkbox" checked={state.send_costs_to_google} disabled={!!busy}
-            onChange={e => patch({ send_costs_to_google: e.target.checked }, 'costs')} className="mt-0.5" />
-          <span className="text-neutral-700 leading-relaxed">
-            <span className="font-medium">{t('settings.merchant_costs')}</span> — {t('settings.merchant_costs_hint')}
-          </span>
-        </label>
+        <Checkbox checked={state.send_costs_to_google} onChange={v => { if (!busy) patch({ send_costs_to_google: v }, 'costs') }} className="items-start">
+          <span className="leading-relaxed"><span className="font-medium text-neutral-900">{t('settings.merchant_costs')}</span> — {t('settings.merchant_costs_hint')}</span>
+        </Checkbox>
 
         {state.merchant_center_id && (
-          <p className="text-neutral-400 leading-relaxed">
+          <p className="text-[12px] leading-relaxed text-neutral-500">
             {syncedAt
               ? t('settings.merchant_status', { when: syncedAt, matched: fmtInt.format(state.matched), sent: fmtInt.format(state.costs_sent) })
               : t('settings.merchant_never')}
           </p>
         )}
-        {state.error && (
-          <p className="flex items-start gap-1.5 text-red-600 leading-relaxed"><AlertCircle className="h-3.5 w-3.5 shrink-0 mt-px" />{translateStored(t, state.error)}</p>
-        )}
-        {notice && (
-          <p className={`flex items-start gap-1.5 leading-relaxed ${notice.ok ? 'text-emerald-700' : 'text-red-600'}`}>
-            {notice.ok ? <CheckCircle2 className="h-3.5 w-3.5 shrink-0 mt-px" /> : <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-px" />}{notice.text}
-          </p>
-        )}
+        {state.error && <Callout tone="danger">{translateStored(t, state.error)}</Callout>}
+        {notice && <Callout tone={notice.ok ? 'success' : 'danger'} onClose={() => setNotice(null)}>{notice.text}</Callout>}
       </div>
-    </div>
+    </Card>
   )
 }

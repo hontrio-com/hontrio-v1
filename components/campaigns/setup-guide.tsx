@@ -1,14 +1,14 @@
 'use client'
 
 import Link from 'next/link'
-import { motion } from 'framer-motion'
 import { ArrowRight, Check, ExternalLink, Rocket } from 'lucide-react'
 import { useT } from '@/lib/i18n/context'
 import { cn } from '@/lib/utils'
 import { Card } from '@/components/app/surface'
 import { Button } from '@/components/app/button'
+import { ProgressRing } from '@/components/app/progress'
 import type { Plan } from '@/lib/campaigns/plan'
-import type { Formats } from '@/components/campaigns/formats'
+import type { Formats } from '@/components/app/formats'
 
 // =============================================
 // Ghidul de pornire (ca „Get started" la Stripe): pașii până la prima
@@ -119,20 +119,5 @@ export function SetupGuide({ plan, f, onLaunch }: { plan: Plan; f: Formats; onLa
         </div>
       </div>
     </Card>
-  )
-}
-
-function ProgressRing({ value }: { value: number }) {
-  const r = 18
-  const c = 2 * Math.PI * r
-  return (
-    <div className="relative size-12 shrink-0">
-      <svg viewBox="0 0 44 44" className="size-12 -rotate-90">
-        <circle cx="22" cy="22" r={r} fill="none" stroke="#ececf0" strokeWidth="4" />
-        <motion.circle cx="22" cy="22" r={r} fill="none" stroke="#5b5bd6" strokeWidth="4" strokeLinecap="round"
-          strokeDasharray={c} initial={{ strokeDashoffset: c }} animate={{ strokeDashoffset: c * (1 - value / 100) }} transition={{ duration: 1, ease: 'easeOut' }} />
-      </svg>
-      <span className="absolute inset-0 flex items-center justify-center text-[11px] font-semibold tabular-nums text-neutral-700">{value}%</span>
-    </div>
   )
 }

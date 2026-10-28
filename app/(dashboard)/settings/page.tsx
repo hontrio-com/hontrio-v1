@@ -1,34 +1,41 @@
 'use client'
 
-import { useT } from '@/lib/i18n/context'
+import { Suspense, useEffect, useRef, useState, type ReactNode } from 'react'
+import { useSearchParams } from 'next/navigation'
+import { useSession } from 'next-auth/react'
+import { toast } from 'sonner'
+import {
+  Bell, Briefcase, Camera, Check, CircleCheck, Coffee, CreditCard, ExternalLink, Eye, EyeOff, Gem, Globe, KeyRound,
+  Loader2, Lock, Mail, Package, Plug, RefreshCw, Shield, SlidersHorizontal, Smile, Sparkles, Store, Trash2,
+  TrendingDown, TrendingUp, Unplug, User, Wifi, X, Zap,
+} from 'lucide-react'
+import { useT, useLocale } from '@/lib/i18n/context'
+import { LOCALES, LOCALE_NAMES, type Locale } from '@/lib/i18n/config'
 import { translateStored } from '@/lib/i18n/stored'
-import LanguageSwitcher from '@/components/language-switcher'
+import { cn } from '@/lib/utils'
+import { PageHeader } from '@/components/app/page-header'
+import { PageTabs, Segmented } from '@/components/app/tabs'
+import { Card, CardFooter, CardHeader } from '@/components/app/surface'
+import { Badge } from '@/components/app/badge'
+import { Button, linkStyles } from '@/components/app/button'
+import { ChoiceCard, Input, Select, Switch } from '@/components/app/input'
+import { Callout, Skeleton } from '@/components/app/feedback'
+import { FadeIn } from '@/components/app/motion'
 import GoogleAdsCard from '@/components/integrations/google-ads-card'
 import MerchantCard from '@/components/integrations/merchant-card'
 import { EdinioConnectCard, EdinioStoreCard, type EdinioStore } from '@/components/integrations/edinio-card'
 
-import { useState, useEffect, useRef } from 'react'
-import { useSession } from 'next-auth/react'
-import { motion, AnimatePresence } from 'framer-motion'
-import {
-  User, Plug, Shield, SlidersHorizontal, Store,
-  Loader2, CheckCircle, AlertCircle, RefreshCw, Trash2,
-  ExternalLink, Eye, EyeOff, Save, Globe, Lock, Key,
-  Mail, Camera, Unplug, Package, Sparkles, CreditCard,
-  TrendingDown, TrendingUp, Zap, ArrowRight,
-  CheckCircle2, XCircle, Wifi,
-  Bell, ChevronRight,
-} from 'lucide-react'
-
-// ─── Types ────────────────────────────────────────────────────────────────────
+// =============================================
+// Setări — contul, brandul pentru AI, integrările (magazinele, Google Ads,
+// Merchant Center), creditele, securitatea și preferințele. Fiecare filă e
+// o listă de secțiuni: în stânga ce e și de ce contează, în dreapta setarea.
+// Fila aleasă stă în adresă (?tab=), ca linkurile să ducă direct la ea.
+// =============================================
 
 type StoreData = EdinioStore & {
   id: string; store_url: string; store_name: string; platform: string
   products_count: number; last_sync_at: string | null; status: string
 }
-
-// Rezultatul conectării Edinio (redirect înapoi din /api/integrations/edinio/callback)
-const EDINIO_ERRORS = ['access_denied', 'state', 'expired', 'store_exists', 'store_read', 'save', 'rate_limited', 'not_configured']
 type UserProfile = {
   id: string; name: string | null; email: string; avatar_url: string | null
   credits: number; plan: string; role: string; business_name: string | null
@@ -39,168 +46,146 @@ type Transaction = {
   id: string; type: string; amount: number; balance_after: number
   description: string; created_at: string; reference_type: string
 }
+type Tab = 'general' | 'brand' | 'integrations' | 'credits' | 'security' | 'preferences'
 
-// ─── Config ───────────────────────────────────────────────────────────────────
+// Rezultatul conectării Edinio (redirect înapoi din /api/integrations/edinio/callback)
+const EDINIO_ERRORS = ['access_denied', 'state', 'expired', 'store_exists', 'store_read', 'save', 'rate_limited', 'not_configured']
+const TABS: Tab[] = ['general', 'brand', 'integrations', 'credits', 'security', 'preferences']
 
 const CREDIT_PACKS = [
-  { id: 'pack_50',   credits: 50,   price: 39,  popular: false },
-  { id: 'pack_100',  credits: 100,  price: 69,  popular: false },
-  { id: 'pack_300',  credits: 300,  price: 159, popular: true  },
-  { id: 'pack_500',  credits: 500,  price: 249, popular: false },
+  { id: 'pack_50', credits: 50, price: 39, popular: false },
+  { id: 'pack_100', credits: 100, price: 69, popular: false },
+  { id: 'pack_300', credits: 300, price: 159, popular: true },
+  { id: 'pack_500', credits: 500, price: 249, popular: false },
   { id: 'pack_1000', credits: 1000, price: 399, popular: false },
 ]
 
 const PLANS = [
-  { id: 'starter',      name: 'Starter',      price: 99,  credits: 250  },
-  { id: 'professional', name: 'Professional', price: 249, credits: 750  },
-  { id: 'enterprise',   name: 'Enterprise',   price: 499, credits: 2000 },
+  { id: 'starter', name: 'Starter', price: 99, credits: 250 },
+  { id: 'professional', name: 'Professional', price: 249, credits: 750 },
+  { id: 'enterprise', name: 'Enterprise', price: 499, credits: 2000 },
 ]
 
-const getTabs = (t: (k: string, p?: Record<string, string | number>) => string) => [
-  { value: 'general',      label: t('settings.tab_general'), icon: User },
-  { value: 'brand',        label: t('settings.brand_ai'), icon: Sparkles },
-  { value: 'integrations', label: t('settings.tab_integrations'),  icon: Plug },
-  { value: 'credits',      label: t('common.credits_label'),    icon: CreditCard },
-  { value: 'security',     label: t('settings.security'), icon: Shield },
-  { value: 'preferences',  label: t('settings.tab_preferences'), icon: SlidersHorizontal },
+const TONES = [
+  { value: 'professional', icon: Briefcase, label: 'settings.tone_professional_label', example: 'settings.tone_pro_example' },
+  { value: 'friendly', icon: Smile, label: 'settings.tone_friendly_label', example: 'settings.tone_friendly_example' },
+  { value: 'luxury', icon: Gem, label: 'settings.tone_premium_label', example: 'settings.tone_luxury_example' },
+  { value: 'casual', icon: Coffee, label: 'settings.tone_casual_label', example: 'settings.tone_casual_example' },
 ]
 
-const getPwStrength = (t: (k: string, p?: Record<string, string | number>) => string) => (p: string) => {
+/** Cât de bună e o parolă nouă: 0–5, cu eticheta și culoarea barei. */
+function passwordStrength(p: string, t: (k: string) => string) {
   if (!p) return { score: 0, label: '', color: '' }
   let s = 0
-  if (p.length >= 8)           s++
-  if (p.length >= 12)          s++
-  if (/[A-Z]/.test(p))         s++
-  if (/[0-9]/.test(p))         s++
+  if (p.length >= 8) s++
+  if (p.length >= 12) s++
+  if (/[A-Z]/.test(p)) s++
+  if (/[0-9]/.test(p)) s++
   if (/[^A-Za-z0-9]/.test(p)) s++
-  if (s <= 1) return { score: s, label: t('settings.pw_weak'),    color: 'bg-red-400' }
-  if (s <= 2) return { score: s, label: t('settings.pw_fair'),    color: 'bg-amber-400' }
-  if (s <= 3) return { score: s, label: t('settings.pw_good'),     color: 'bg-neutral-400' }
-  return              { score: s, label: t('settings.pw_strong'), color: 'bg-emerald-500' }
+  if (s <= 1) return { score: s, label: t('settings.pw_weak'), color: 'bg-red-500' }
+  if (s <= 2) return { score: s, label: t('settings.pw_fair'), color: 'bg-amber-500' }
+  if (s <= 3) return { score: s, label: t('settings.pw_good'), color: 'bg-neutral-500' }
+  return { score: s, label: t('settings.pw_strong'), color: 'bg-emerald-500' }
 }
 
-// ─── Shared UI ────────────────────────────────────────────────────────────────
-
-function Toggle({ value, onChange }: { value: boolean; onChange: () => void }) {
+/** O secțiune a setărilor: în stânga ce e, în dreapta setarea. */
+function Section({ title, description, children }: { title: ReactNode; description?: ReactNode; children: ReactNode }) {
   return (
-    <button onClick={onChange}
-      className={`relative h-6 w-11 rounded-full transition-colors shrink-0 ${value ? 'bg-neutral-900' : 'bg-neutral-200'}`}>
-      <span className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${value ? 'translate-x-5' : ''}`} />
-    </button>
+    <section className="grid grid-cols-1 gap-4 border-b border-neutral-200/70 py-8 first:pt-2 last:border-0 lg:grid-cols-[260px_minmax(0,1fr)] lg:gap-10">
+      <div>
+        <h2 className="text-[15px] font-semibold tracking-[-0.01em] text-neutral-900">{title}</h2>
+        {description && <div className="mt-1 text-[13px] leading-relaxed text-neutral-500">{description}</div>}
+      </div>
+      <div className="min-w-0 space-y-4">{children}</div>
+    </section>
   )
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+/** Eticheta unui câmp, cu câmpul sub ea. */
+function Label({ text, hint, children }: { text: string; hint?: string; children: ReactNode }) {
   return (
-    <div>
-      <label className="block text-[11px] font-medium text-neutral-400 uppercase tracking-wide mb-1.5">{label}</label>
-      {children}
+    <label className="block">
+      <span className="text-[13px] font-medium text-neutral-700">{text}</span>
+      <div className="mt-1.5">{children}</div>
+      {hint && <span className="mt-1.5 block text-[12px] text-neutral-500">{hint}</span>}
+    </label>
+  )
+}
+
+/** Un câmp de parolă, cu buton de arătat / ascuns. */
+function PasswordInput({ value, onChange, placeholder, autoComplete }: { value: string; onChange: (v: string) => void; placeholder?: string; autoComplete: string }) {
+  const { t } = useT()
+  const [shown, setShown] = useState(false)
+  return (
+    <div className="relative">
+      <Input type={shown ? 'text' : 'password'} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} autoComplete={autoComplete} className="h-10 pr-10" />
+      <button type="button" onClick={() => setShown(s => !s)} aria-label={t(shown ? 'settings.hide_password' : 'settings.show_password')}
+        className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-neutral-400 hover:text-neutral-700">
+        {shown ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+      </button>
     </div>
   )
 }
 
-function Inp({ value, onChange, placeholder, disabled, type = 'text', className = '', name, autoComplete }: {
-  value: string; onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void
-  placeholder?: string; disabled?: boolean; type?: string; className?: string
-  name?: string; autoComplete?: string
-}) {
-  return (
-    <input value={value} onChange={onChange} placeholder={placeholder} disabled={disabled} type={type} name={name} autoComplete={autoComplete}
-      className={`w-full h-10 px-3.5 rounded-xl border border-neutral-200 bg-white text-[13px] text-neutral-900 placeholder:text-neutral-300
-        focus:outline-none focus:border-neutral-400 disabled:bg-neutral-50 disabled:text-neutral-400 transition-all ${className}`} />
-  )
-}
-
-function Btn({ onClick, disabled, children, variant = 'primary', type = 'button', className = '' }: {
-  onClick?: () => void; disabled?: boolean; children: React.ReactNode
-  variant?: 'primary' | 'outline' | 'danger'; type?: 'button' | 'submit'; className?: string
-}) {
-  const base = 'inline-flex items-center gap-1.5 h-9 px-4 rounded-xl text-[13px] font-medium transition-all disabled:opacity-50'
-  const variants = {
-    primary: 'bg-neutral-900 hover:bg-neutral-800 text-white',
-    outline: 'border border-neutral-200 text-neutral-600 hover:bg-neutral-50',
-    danger:  'border border-red-200 text-red-600 hover:bg-red-50',
-  }
-  return <button type={type} onClick={onClick} disabled={disabled} className={`${base} ${variants[variant]} ${className}`}>{children}</button>
-}
-
-function Card({ children, className = '' }: { children: React.ReactNode; className?: string }) {
-  return <div className={`bg-white border border-neutral-200 rounded-xl ${className}`}>{children}</div>
-}
-
-function Toast({ type, text, onClose }: { type: string; text: string; onClose: () => void }) {
-  return (
-    <motion.div initial={{ y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-      className={`flex items-center gap-3 px-4 py-3 rounded-xl text-[13px] ${type === 'success' ? 'bg-neutral-900 text-white' : 'bg-red-50 border border-red-100 text-red-700'}`}>
-      {type === 'success' ? <CheckCircle className="h-4 w-4 shrink-0" /> : <AlertCircle className="h-4 w-4 shrink-0" />}
-      <span>{text}</span>
-      <button onClick={onClose} className="ml-auto opacity-50 hover:opacity-100 text-[12px]">✕</button>
-    </motion.div>
-  )
-}
-
-// ─── Main ─────────────────────────────────────────────────────────────────────
-
-export default function SettingsPage() {
+function SettingsView() {
   const { t, intlLocale } = useT()
-  const TABS = getTabs(t)
-  const pwStrength = getPwStrength(t)
+  const { locale, setLocale } = useLocale()
   const { data: session } = useSession()
-  const [tab, setTab]             = useState('general')
+  const params = useSearchParams()
+  const tabParam = params.get('tab') as Tab | null
+  const tab: Tab = tabParam && TABS.includes(tabParam) ? tabParam : 'general'
+
   // Un cont poate avea mai multe magazine; paginile lucrează pe cel activ
-  const [stores, setStores]       = useState<StoreData[]>([])
+  const [stores, setStores] = useState<StoreData[]>([])
   const [activeStoreId, setActiveStoreId] = useState<string | null>(null)
-  const [profile, setProfile]     = useState<UserProfile | null>(null)
-  const [loading, setLoading]     = useState(true)
-  const [msg, setMsg]             = useState({ type: '', text: '' })
-  const avatarRef                 = useRef<HTMLInputElement>(null)
+  const [profile, setProfile] = useState<UserProfile | null>(null)
+  const [loading, setLoading] = useState(true)
+  const avatarRef = useRef<HTMLInputElement>(null)
 
-  const [connecting, setConnecting]       = useState(false)
-  const [syncingId, setSyncingId]             = useState<string | null>(null)
+  const [connecting, setConnecting] = useState(false)
+  const [syncingId, setSyncingId] = useState<string | null>(null)
   const [disconnectingId, setDisconnectingId] = useState<string | null>(null)
-  const [switchingId, setSwitchingId]         = useState<string | null>(null)
-  const [saving, setSaving]               = useState(false)
-  const [savingBrand, setSavingBrand]     = useState(false)
-  const [savingPw, setSavingPw]           = useState(false)
-  const [savingPrefs, setSavingPrefs]     = useState(false)
+  const [switchingId, setSwitchingId] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [savingBrand, setSavingBrand] = useState(false)
+  const [savingPw, setSavingPw] = useState(false)
+  const [savingPrefs, setSavingPrefs] = useState(false)
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
-  const [testingConn, setTestingConn]     = useState(false)
-  const [connTest, setConnTest]           = useState<{ ok: boolean; msg: string } | null>(null)
-  const [buyingPack, setBuyingPack]       = useState<string | null>(null)
-  const [showKeys, setShowKeys]           = useState(false)
+  const [testingConn, setTestingConn] = useState(false)
+  const [connTest, setConnTest] = useState<{ ok: boolean; msg: string } | null>(null)
+  const [buyingPack, setBuyingPack] = useState<string | null>(null)
+  const [showKeys, setShowKeys] = useState(false)
 
-  const [credits, setCredits]           = useState(0)
+  const [credits, setCredits] = useState(0)
   const [transactions, setTransactions] = useState<Transaction[]>([])
 
-  const [storeForm, setStoreForm]     = useState({ store_url: '', consumer_key: '', consumer_secret: '' })
-  const [shopifyUrl, setShopifyUrl]   = useState('')
+  const [storeForm, setStoreForm] = useState({ store_url: '', consumer_key: '', consumer_secret: '' })
+  const [shopifyUrl, setShopifyUrl] = useState('')
   const [connectingShopify, setConnectingShopify] = useState(false)
   const [profileForm, setProfileForm] = useState({ name: '' })
-  const [brandForm, setBrandForm]     = useState({ businessName: '', website: '', tone: 'professional', language: 'ro', niche: '' })
-  const [pwForm, setPwForm]           = useState({ current: '', new: '', confirm: '' })
-  const [showPw, setShowPw]           = useState({ current: false, new: false, confirm: false })
-  const [prefs, setPrefs]             = useState({ emailNotifications: true, weeklyReport: true, autoOptimize: false })
+  const [brandForm, setBrandForm] = useState({ businessName: '', website: '', tone: 'professional', language: 'ro', niche: '' })
+  const [pwForm, setPwForm] = useState({ current: '', new: '', confirm: '' })
+  const [prefs, setPrefs] = useState({ emailNotifications: true, weeklyReport: true, autoOptimize: false })
 
-  useEffect(() => { fetchProfile(); fetchStore(); fetchCredits() }, [])
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-    const requested = params.get('tab')
-    if (requested && TABS.some(x => x.value === requested)) setTab(requested)
-
-    const edinioError = params.get('edinio_error')
-    if (edinioError) toast('error', t(`edinio.error_${EDINIO_ERRORS.includes(edinioError) ? edinioError : 'generic'}`))
-    else if (params.get('edinio') === 'connected') toast('success', t('edinio.connected_success'))
-    if (edinioError || params.get('edinio')) {
-      params.delete('edinio'); params.delete('edinio_error')
-      const qs = params.toString()
+    fetchProfile(); fetchStore(); fetchCredits()
+    // Rezultatul conectării Edinio: un mesaj, apoi adresa curată
+    const q = new URLSearchParams(window.location.search)
+    const edinioError = q.get('edinio_error')
+    if (edinioError) toast.error(t(`edinio.error_${EDINIO_ERRORS.includes(edinioError) ? edinioError : 'generic'}`))
+    else if (q.get('edinio') === 'connected') toast.success(t('edinio.connected_success'))
+    if (edinioError || q.get('edinio')) {
+      q.delete('edinio'); q.delete('edinio_error')
+      const qs = q.toString()
       window.history.replaceState(null, '', window.location.pathname + (qs ? `?${qs}` : ''))
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const toast = (type: string, text: string) => {
-    setMsg({ type, text })
-    setTimeout(() => setMsg({ type: '', text: '' }), 5000)
+  const goTab = (next: Tab) => {
+    const q = new URLSearchParams(window.location.search)
+    if (next === 'general') q.delete('tab'); else q.set('tab', next)
+    window.history.pushState(null, '', `${window.location.pathname}${q.size ? `?${q}` : ''}`)
   }
 
   async function fetchProfile() {
@@ -232,21 +217,21 @@ export default function SettingsPage() {
     try {
       const fd = new FormData(); fd.append('avatar', file)
       const r = await fetch('/api/user/avatar', { method: 'POST', body: fd }); const d = await r.json()
-      if (!r.ok) { toast('error', d.error || t('settings.error_upload_avatar')); return }
-      setProfile(p => p ? { ...p, avatar_url: d.avatar_url } : p); toast('success', t('settings.avatar_updated'))
-    } catch { toast('error', t('settings.error_avatar')) }
+      if (!r.ok) { toast.error(d.error || t('settings.error_upload_avatar')); return }
+      setProfile(p => p ? { ...p, avatar_url: d.avatar_url } : p); toast.success(t('settings.avatar_updated'))
+    } catch { toast.error(t('settings.error_avatar')) }
     finally { setUploadingAvatar(false); if (avatarRef.current) avatarRef.current.value = '' }
   }
 
   async function handleSaveProfile() {
-    if (!profileForm.name.trim()) { toast('error', t('settings.name_required')); return }
+    if (!profileForm.name.trim()) { toast.error(t('settings.name_required')); return }
     setSaving(true)
     try {
       const r = await fetch('/api/user/profile', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: profileForm.name.trim() }) })
       const d = await r.json()
-      if (!r.ok) { toast('error', d.error || t('settings.error_save')); return }
-      setProfile(p => p ? { ...p, name: d.user.name } : p); toast('success', t('settings.profile_saved'))
-    } catch { toast('error', t('settings.error_save')) } finally { setSaving(false) }
+      if (!r.ok) { toast.error(d.error || t('settings.error_save')); return }
+      setProfile(p => p ? { ...p, name: d.user.name } : p); toast.success(t('settings.profile_saved'))
+    } catch { toast.error(t('settings.error_save')) } finally { setSaving(false) }
   }
 
   async function handleSaveBrand() {
@@ -254,22 +239,22 @@ export default function SettingsPage() {
     try {
       const r = await fetch('/api/user/profile', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ business_name: brandForm.businessName.trim(), website: brandForm.website.trim(), brand_tone: brandForm.tone, brand_language: brandForm.language, niche: brandForm.niche.trim() }) })
       const d = await r.json()
-      if (!r.ok) { toast('error', d.error || t('settings.error_save')); return }
-      toast('success', t('settings.brand_saved'))
-    } catch { toast('error', t('settings.error_save')) } finally { setSavingBrand(false) }
+      if (!r.ok) { toast.error(d.error || t('settings.error_save')); return }
+      toast.success(t('settings.brand_saved'))
+    } catch { toast.error(t('settings.error_save')) } finally { setSavingBrand(false) }
   }
 
   async function handleChangePw() {
-    if (!pwForm.current || !pwForm.new || !pwForm.confirm) { toast('error', t('settings.pw_fill_all')); return }
-    if (pwForm.new.length < 6) { toast('error', t('settings.pw_min_6')); return }
-    if (pwForm.new !== pwForm.confirm) { toast('error', t('settings.pw_mismatch')); return }
+    if (!pwForm.current || !pwForm.new || !pwForm.confirm) { toast.error(t('settings.pw_fill_all')); return }
+    if (pwForm.new.length < 6) { toast.error(t('settings.pw_min_6')); return }
+    if (pwForm.new !== pwForm.confirm) { toast.error(t('settings.pw_mismatch')); return }
     setSavingPw(true)
     try {
       const r = await fetch('/api/user/change-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ currentPassword: pwForm.current, newPassword: pwForm.new }) })
       const d = await r.json()
-      if (!r.ok) { toast('error', d.error || t('common.error')); return }
-      toast('success', t('settings.pw_changed')); setPwForm({ current: '', new: '', confirm: '' })
-    } catch { toast('error', t('settings.error_network')) } finally { setSavingPw(false) }
+      if (!r.ok) { toast.error(d.error || t('common.error')); return }
+      toast.success(t('settings.pw_changed')); setPwForm({ current: '', new: '', confirm: '' })
+    } catch { toast.error(t('settings.error_network')) } finally { setSavingPw(false) }
   }
 
   async function handleSavePrefs() {
@@ -277,9 +262,9 @@ export default function SettingsPage() {
     try {
       const r = await fetch('/api/user/profile', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ preferences: prefs }) })
       const d = await r.json()
-      if (!r.ok) { toast('error', d.error); return }
-      toast('success', t('settings.prefs_saved'))
-    } catch { toast('error', t('settings.error_save')) } finally { setSavingPrefs(false) }
+      if (!r.ok) { toast.error(d.error); return }
+      toast.success(t('settings.prefs_saved'))
+    } catch { toast.error(t('settings.error_save')) } finally { setSavingPrefs(false) }
   }
 
   async function handleTestConn() {
@@ -295,28 +280,28 @@ export default function SettingsPage() {
   }
 
   async function handleConnect() {
-    if (!storeForm.store_url || !storeForm.consumer_key || !storeForm.consumer_secret) { toast('error', t('settings.pw_fill_all')); return }
+    if (!storeForm.store_url || !storeForm.consumer_key || !storeForm.consumer_secret) { toast.error(t('settings.pw_fill_all')); return }
     setConnecting(true)
     try {
       const r = await fetch('/api/stores/connect', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(storeForm) })
       const d = await r.json()
-      if (!r.ok) { toast('error', d.error); return }
+      if (!r.ok) { toast.error(d.error); return }
       // Magazinul nou devine cel activ (serverul l-a ales); îl vedem în listă
-      toast('success', t('settings.store_connected_msg')); setStoreForm({ store_url: '', consumer_key: '', consumer_secret: '' }); setConnTest(null)
+      toast.success(t('settings.store_connected_msg')); setStoreForm({ store_url: '', consumer_key: '', consumer_secret: '' }); setConnTest(null)
       await fetchStore()
-    } catch { toast('error', t('settings.error_connect')) } finally { setConnecting(false) }
+    } catch { toast.error(t('settings.error_connect')) } finally { setConnecting(false) }
   }
 
   async function handleSync(s: StoreData) {
     setSyncingId(s.id)
     try {
       const r = await fetch(`/api/stores/${s.id}/sync`, { method: 'POST' }); const d = await r.json()
-      if (!r.ok) { toast('error', d.error); return }
+      if (!r.ok) { toast.error(d.error); return }
       // Un magazin mare nu încape într-o rulare: restul vine la sincronizările următoare
-      toast('success', d.complete === false
+      toast.success(d.complete === false
         ? t('catalog.sync_partial', { offers: t('common.offers_count', { count: Number(d.synced ?? 0) }), orders: t('common.orders_count', { count: Number(d.orders ?? 0) }) })
         : t('settings.sync_complete', { count: Number(d.synced ?? 0) })); fetchStore()
-    } catch { toast('error', t('settings.error_sync')) } finally { setSyncingId(null) }
+    } catch { toast.error(t('settings.error_sync')) } finally { setSyncingId(null) }
   }
 
   /** Paginile (Prezentare, Produse, Campanii...) lucrează pe magazinul activ: se reîncarcă tot. */
@@ -324,19 +309,16 @@ export default function SettingsPage() {
     setSwitchingId(s.id)
     try {
       const r = await fetch('/api/stores/active', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ store_id: s.id }) })
-      if (!r.ok) { toast('error', t('settings.error_switch_store')); setSwitchingId(null); return }
+      if (!r.ok) { toast.error(t('settings.error_switch_store')); setSwitchingId(null); return }
       window.location.reload()
-    } catch { toast('error', t('settings.error_switch_store')); setSwitchingId(null) }
+    } catch { toast.error(t('settings.error_switch_store')); setSwitchingId(null) }
   }
 
   function handleConnectShopify() {
     const raw = shopifyUrl.trim().toLowerCase()
-    if (!raw) { toast('error', t('settings.shopify_url_required')); return }
+    if (!raw) { toast.error(t('settings.shopify_url_required')); return }
     const shop = raw.replace(/^https?:\/\//, '').replace(/\/$/, '')
-    if (!shop.includes('.myshopify.com')) {
-      toast('error', t('onboarding.shopify_url_invalid'))
-      return
-    }
+    if (!shop.includes('.myshopify.com')) { toast.error(t('onboarding.shopify_url_invalid')); return }
     setConnectingShopify(true)
     window.location.href = `/api/shopify/install?shop=${encodeURIComponent(shop)}`
   }
@@ -344,8 +326,8 @@ export default function SettingsPage() {
   async function handleDisconnect(s: StoreData) {
     if (!confirm(t('settings.disconnect_confirm'))) return
     setDisconnectingId(s.id)
-    try { await fetch(`/api/stores/${s.id}`, { method: 'DELETE' }); await fetchStore(); toast('success', t('settings.store_disconnected')) }
-    catch { toast('error', t('settings.error_disconnect')) } finally { setDisconnectingId(null) }
+    try { await fetch(`/api/stores/${s.id}`, { method: 'DELETE' }); await fetchStore(); toast.success(t('settings.store_disconnected')) }
+    catch { toast.error(t('settings.error_disconnect')) } finally { setDisconnectingId(null) }
   }
 
   async function handleBuyPack(packId: string) {
@@ -354,727 +336,476 @@ export default function SettingsPage() {
       const r = await fetch('/api/stripe/credits', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pack: packId }) })
       const d = await r.json()
       if (r.ok && d.url) window.location.href = d.url
-      else toast('error', d.error || t('settings.error_processing'))
-    } catch { toast('error', t('settings.error_network')) } finally { setBuyingPack(null) }
+      else toast.error(d.error || t('settings.error_processing'))
+    } catch { toast.error(t('settings.error_network')) } finally { setBuyingPack(null) }
   }
 
   async function handleManageSub() {
     try {
       const r = await fetch('/api/stripe/portal', { method: 'POST' }); const d = await r.json()
       if (r.ok && d.url) window.location.href = d.url
-      else toast('error', d.error || t('settings.error_portal'))
-    } catch { toast('error', t('settings.error_network')) }
+      else toast.error(d.error || t('settings.error_portal'))
+    } catch { toast.error(t('settings.error_network')) }
   }
 
-  const userName   = profile?.name || session?.user?.name || t('settings.default_user')
-  const userEmail  = profile?.email || session?.user?.email || ''
-  const userPlan   = profile?.plan || (session?.user as any)?.plan || 'free'
+  const userName = profile?.name || session?.user?.name || t('settings.default_user')
+  const userEmail = profile?.email || session?.user?.email || ''
+  const userPlan = profile?.plan || (session?.user as { plan?: string } | undefined)?.plan || 'free'
   const memberSince = profile?.created_at ? new Date(profile.created_at).toLocaleDateString(intlLocale, { year: 'numeric', month: 'long' }) : ''
   const planName = t.has(`credits.plan_${userPlan}`) ? t(`credits.plan_${userPlan}`) : userPlan
-  const pw         = pwStrength(pwForm.new)
+  const pw = passwordStrength(pwForm.new, t)
+  const fmtInt = new Intl.NumberFormat(intlLocale)
 
-  if (loading) return (
-    <div className="space-y-4">
-      <div className="h-8 w-48 bg-neutral-100 rounded-xl animate-pulse" />
-      <div className="h-64 bg-neutral-50 rounded-xl animate-pulse" />
-    </div>
+  const header = (
+    <PageHeader title={t('settings.title')} description={t('settings.admin_settings_desc')}>
+      <PageTabs id="settings" value={tab} onChange={goTab} items={[
+        { value: 'general', label: t('settings.tab_general'), icon: <User /> },
+        { value: 'brand', label: t('settings.brand_ai'), icon: <Sparkles /> },
+        { value: 'integrations', label: t('settings.tab_integrations'), icon: <Plug /> },
+        { value: 'credits', label: t('common.credits_label'), icon: <CreditCard /> },
+        { value: 'security', label: t('settings.security'), icon: <Shield /> },
+        { value: 'preferences', label: t('settings.tab_preferences'), icon: <SlidersHorizontal /> },
+      ]} />
+    </PageHeader>
   )
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="space-y-2"><Skeleton className="h-8 w-40" /><Skeleton className="h-4 w-80 max-w-full" /></div>
+        <div className="flex gap-6 border-b border-neutral-200 pb-3">{['w-[72px]', 'w-[96px]', 'w-[84px]', 'w-[64px]'].map(w => <Skeleton key={w} className={`h-5 ${w}`} />)}</div>
+        <Skeleton className="h-[280px] rounded-xl" />
+      </div>
+    )
+  }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
+      {header}
 
-      {/* Header */}
-      <div>
-        <h1 className="text-[22px] font-semibold text-neutral-900 tracking-tight">{t('settings.title')}</h1>
-        <p className="text-[13px] text-neutral-400 mt-0.5">{t('settings.admin_settings_desc')}</p>
-      </div>
-
-      <AnimatePresence>
-        {msg.text && <Toast type={msg.type} text={msg.text} onClose={() => setMsg({ type: '', text: '' })} />}
-      </AnimatePresence>
-
-      {/* Tab nav */}
-      <div className="flex items-center gap-1 overflow-x-auto pb-0.5 scrollbar-none">
-        {TABS.map(t => {
-          const Icon = t.icon
-          return (
-            <button key={t.value} onClick={() => setTab(t.value)}
-              className={`flex items-center gap-1.5 h-8 px-3 rounded-xl text-[12px] font-medium transition-all whitespace-nowrap shrink-0
-                ${tab === t.value ? 'bg-neutral-900 text-white' : 'text-neutral-500 hover:bg-neutral-100 hover:text-neutral-700'}`}>
-              <Icon className="h-3.5 w-3.5 shrink-0" />{t.label}
-            </button>
-          )
-        })}
-      </div>
-
-      {/* ═══════ GENERAL ═══════ */}
-      {tab === 'general' && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-          <div className="lg:col-span-2">
-            <Card className="p-5">
-              <p className="text-[11px] font-medium text-neutral-400 uppercase tracking-wide mb-4">{t('settings.profile_info')}</p>
-              {/* Avatar */}
-              <div className="flex items-center gap-4 mb-5">
-                <div className="relative group">
-                  <div className="h-14 w-14 rounded-xl bg-neutral-200 overflow-hidden">
-                    {profile?.avatar_url
-                      ? <img src={profile.avatar_url} alt="" className="h-full w-full object-cover" />
-                      : <div className="h-full w-full flex items-center justify-center text-xl font-semibold text-neutral-500">{userName[0]?.toUpperCase()}</div>
-                    }
-                  </div>
-                  <button onClick={() => avatarRef.current?.click()} disabled={uploadingAvatar}
-                    className="absolute inset-0 bg-black/40 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                    {uploadingAvatar ? <Loader2 className="h-4 w-4 text-white animate-spin" /> : <Camera className="h-4 w-4 text-white" />}
-                  </button>
-                  <input ref={avatarRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={handleAvatarUpload} className="hidden" />
-                </div>
-                <div>
-                  <p className="text-[13px] font-medium text-neutral-900">{userName}</p>
-                  <p className="text-[12px] text-neutral-400">{userEmail}</p>
-                  <button onClick={() => avatarRef.current?.click()} className="text-[11px] text-neutral-500 hover:text-neutral-800 mt-1 underline underline-offset-2">
-                    {t('settings.change_avatar')}
-                  </button>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-                <Field label={t('settings.full_name')}>
-                  <Inp value={profileForm.name} onChange={e => setProfileForm(p => ({ ...p, name: e.target.value }))} />
-                </Field>
-                <Field label={t('settings.email')}>
-                  <Inp value={userEmail} disabled />
-                </Field>
-                {/* Limba se salvează imediat (în cont și în browser) */}
-                <Field label={t('common.language')}>
-                  <LanguageSwitcher variant="select" className="w-full" />
-                </Field>
-              </div>
-
-              <Btn onClick={handleSaveProfile} disabled={saving}>
-                {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-                {saving ? t('common.saving') : t('common.save')}
-              </Btn>
-            </Card>
-          </div>
-
-          <div className="space-y-4">
-            <Card className="p-5">
-              <p className="text-[11px] font-medium text-neutral-400 uppercase tracking-wide mb-3">{t('settings.account_details')}</p>
-              <div className="space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-[13px] text-neutral-500">{t('common.plan')}</span>
-                  <span className="text-[12px] font-medium bg-neutral-100 text-neutral-700 px-2 py-0.5 rounded-md capitalize">{planName}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-[13px] text-neutral-500">{t('settings.credits_available')}</span>
-                  <span className="text-[13px] font-semibold text-neutral-900">{credits}</span>
-                </div>
-                {memberSince && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-[13px] text-neutral-500">{t('settings.member_since')}</span>
-                    <span className="text-[13px] text-neutral-700">{memberSince}</span>
-                  </div>
-                )}
-              </div>
-            </Card>
-
-            <Card className="p-5">
-              <p className="text-[11px] font-medium text-red-500 uppercase tracking-wide mb-2">{t('settings.danger_zone')}</p>
-              <p className="text-[12px] text-neutral-400 mb-3">{t('settings.danger_zone_desc')}</p>
-              <Btn variant="danger" className="w-full justify-center">
-                <Trash2 className="h-3.5 w-3.5" />{t('settings.delete_account')}
-              </Btn>
-            </Card>
-          </div>
-        </div>
-      )}
-
-      {/* ═══════ BRAND & AI ═══════ */}
-      {tab === 'brand' && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-          <div className="lg:col-span-2">
-            <Card className="p-5">
-              <div className="flex items-center gap-2 mb-4">
-                <div className="h-8 w-8 rounded-xl bg-neutral-100 flex items-center justify-center">
-                  <Sparkles className="h-4 w-4 text-neutral-500" />
-                </div>
-                <div>
-                  <p className="text-[13px] font-semibold text-neutral-900">{t('settings.brand_identity')}</p>
-                  <p className="text-[11px] text-neutral-400">{t('settings.brand_identity_desc')}</p>
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <Field label={t('settings.business_name')}>
-                    <Inp value={brandForm.businessName} onChange={e => setBrandForm(p => ({ ...p, businessName: e.target.value }))} placeholder={t('settings.store_name_placeholder')} />
-                  </Field>
-                  <Field label={t('settings.website')}>
-                    <Inp value={brandForm.website} onChange={e => setBrandForm(p => ({ ...p, website: e.target.value }))} placeholder={t('onboarding.store_url_placeholder')} />
-                  </Field>
-                </div>
-
-                <Field label={t('settings.niche_label')}>
-                  <Inp value={brandForm.niche} onChange={e => setBrandForm(p => ({ ...p, niche: e.target.value }))} placeholder={t('settings.niche_placeholder')} />
-                  <p className="text-[11px] text-neutral-400 mt-1">{t('settings.niche_help')}</p>
-                </Field>
-
-                <div>
-                  <label className="block text-[11px] font-medium text-neutral-400 uppercase tracking-wide mb-2">{t('settings.tone_label')}</label>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                    {[
-                      { value: 'professional', label: t('settings.tone_professional_label'), emoji: '👔' },
-                      { value: 'friendly',     label: t('settings.tone_friendly_label'),     emoji: '😊' },
-                      { value: 'luxury',       label: t('settings.tone_premium_label'),       emoji: '💎' },
-                      { value: 'casual',       label: t('settings.tone_casual_label'),        emoji: '✌️' },
-                    ].map(t => (
-                      <button key={t.value} onClick={() => setBrandForm(p => ({ ...p, tone: t.value }))}
-                        className={`p-3 rounded-xl border-2 text-left transition-all
-                          ${brandForm.tone === t.value ? 'border-neutral-900 bg-neutral-50' : 'border-neutral-100 hover:border-neutral-200'}`}>
-                        <div className="text-base mb-1">{t.emoji}</div>
-                        <p className="text-[12px] font-medium text-neutral-900">{t.label}</p>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-medium text-neutral-400 uppercase tracking-wide mb-2">{t('settings.language_label')}</label>
-                  <div className="flex gap-2">
-                    {[{ value: 'ro', label: t('settings.lang_ro') }, { value: 'en', label: t('settings.lang_en') }].map(l => (
-                      <button key={l.value} onClick={() => setBrandForm(p => ({ ...p, language: l.value }))}
-                        className={`h-9 px-4 rounded-xl border-2 text-[13px] font-medium transition-all
-                          ${brandForm.language === l.value ? 'border-neutral-900 bg-neutral-900 text-white' : 'border-neutral-200 text-neutral-500 hover:border-neutral-300'}`}>
-                        {l.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <Btn onClick={handleSaveBrand} disabled={savingBrand}>
-                  {savingBrand ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-                  {savingBrand ? t('common.saving') : t('common.save_brand')}
-                </Btn>
-              </div>
-            </Card>
-          </div>
-
-          <div className="space-y-4">
-            <Card className="p-5">
-              <p className="text-[11px] font-medium text-neutral-400 uppercase tracking-wide mb-3">{t('settings.tone_preview_label')}</p>
-              <p className="text-[13px] text-neutral-600 leading-relaxed italic">
-                {brandForm.tone === 'professional' && t('settings.tone_pro_example')}
-                {brandForm.tone === 'friendly'     && t('settings.tone_friendly_example')}
-                {brandForm.tone === 'luxury'       && t('settings.tone_luxury_example')}
-                {brandForm.tone === 'casual'       && t('settings.tone_casual_example')}
-              </p>
-            </Card>
-
-            <Card className="p-5 bg-neutral-50">
-              <p className="text-[12px] font-semibold text-neutral-700 mb-2">{t('settings.how_ai_influences')}</p>
-              <div className="space-y-2 text-[12px] text-neutral-500">
-                {t('settings.brand_affects_list').split(',').map((item: string, i: number) => (
-                  <div key={i} className="flex items-start gap-2">
-                    <CheckCircle2 className="h-3.5 w-3.5 mt-0.5 shrink-0 text-neutral-400" />
-                    <span>{item}</span>
-                  </div>
-                ))}
-              </div>
-            </Card>
-          </div>
-        </div>
-      )}
-
-      {/* ═══════ INTEGRĂRI ═══════ */}
-      {tab === 'integrations' && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-          <div className="lg:col-span-2 space-y-4">
-            {/* ── Magazinele legate; paginile lucrează pe cel activ ─────────── */}
-            {stores.map(s => (
-              <div key={s.id} className="space-y-2">
-                {stores.length > 1 && (
-                  <div className="flex items-center justify-between gap-2 px-1">
-                    <p className="text-[12px] font-medium text-neutral-500 truncate">{s.store_name || s.store_url.replace(/^https?:\/\//, '')}</p>
-                    {s.id === activeStoreId ? (
-                      <span className="shrink-0 inline-flex items-center gap-1 text-[11px] font-medium text-white bg-neutral-900 px-2 py-0.5 rounded-md">
-                        <CheckCircle2 className="h-3 w-3" />{t('settings.store_active')}
-                      </span>
-                    ) : (
-                      <button onClick={() => handleUseStore(s)} disabled={!!switchingId}
-                        className="shrink-0 inline-flex items-center gap-1 text-[11px] font-medium text-neutral-600 border border-neutral-200 hover:border-neutral-300 hover:text-neutral-900 px-2 py-0.5 rounded-md disabled:opacity-50 transition-all">
-                        {switchingId === s.id && <Loader2 className="h-3 w-3 animate-spin" />}{t('settings.store_use')}
-                      </button>
-                    )}
-                  </div>
-                )}
-                {s.platform === 'edinio' ? (
-                  <EdinioStoreCard
-                    store={s}
-                    onChanged={fetchStore}
-                    onDisconnected={() => { fetchStore(); toast('success', t('settings.store_disconnected')) }}
-                  />
-                ) : (
-                  <Card className="p-5">
-                    <div className="flex items-center gap-2 mb-4">
-                      <div className="h-8 w-8 rounded-xl bg-neutral-100 flex items-center justify-center">
-                        <Store className="h-4 w-4 text-neutral-500" />
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-[13px] font-semibold text-neutral-900">{t('settings.store_connected')}</p>
-                        <p className="text-[11px] text-neutral-400">
-                          {s.platform === 'shopify' ? 'Shopify — OAuth 2.0' : t('settings.woo_active')}
-                        </p>
-                      </div>
-                      {s.connection_status === 'revoked' || s.connection_status === 'error' ? (
-                        <span className={`flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-md ${s.connection_status === 'revoked' ? 'text-red-600 bg-red-50' : 'text-amber-700 bg-amber-50'}`}>
-                          <span className={`h-1.5 w-1.5 rounded-full ${s.connection_status === 'revoked' ? 'bg-red-500' : 'bg-amber-500'}`} />
-                          {s.connection_status === 'revoked' ? t('edinio.revoked') : t('catalog.store_unreachable')}
-                        </span>
-                      ) : (
-                        <span className="flex items-center gap-1 text-[11px] font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md">
-                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />{t('settings.connected')}
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Ce a răspuns magazinul la ultima sincronizare, ca omul să știe ce să repare */}
-                    {(s.connection_status === 'revoked' || s.connection_status === 'error') && s.last_error && (
-                      <p className="mb-4 px-3 py-2.5 rounded-xl bg-amber-50 border border-amber-100 text-[12px] text-amber-800 leading-relaxed">{translateStored(t, s.last_error)}</p>
-                    )}
-
-                    <div className="space-y-2 mb-4">
-                      {[
-                        { icon: Globe,     label: t('settings.store_url_label'),          value: <a href={s.platform === 'shopify' ? `https://${s.store_url}` : s.store_url} target="_blank" rel="noopener" className="text-[13px] text-neutral-600 flex items-center gap-1 hover:text-neutral-900">{s.store_url.replace(/^https?:\/\//, '')}<ExternalLink className="h-3 w-3" /></a> },
-                        { icon: Package,   label: t('settings.products_synced'), value: <span className="text-[13px] font-semibold text-neutral-900">{s.products_count}</span> },
-                        { icon: RefreshCw, label: t('settings.last_sync'),  value: <span className="text-[13px] text-neutral-600">{s.last_sync_at ? new Date(s.last_sync_at).toLocaleString(intlLocale) : t('settings.never_synced')}</span> },
-                        // Shopify: afișăm "OAuth 2.0" badge în loc de chei API
-                        ...(s.platform === 'shopify' ? [{
-                          icon: Key,
-                          label: t('settings.access_token'),
-                          value: (
-                            <div className="flex items-center gap-2">
-                              <span className="text-[13px] font-mono text-neutral-500">••••••••••••••••</span>
-                              <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-md">OAuth 2.0</span>
-                            </div>
-                          ),
-                        }] : []),
-                      ].map((row, i) => (
-                        <div key={i} className="flex items-center justify-between px-3 py-2.5 bg-neutral-50 rounded-xl">
-                          <div className="flex items-center gap-2">
-                            <row.icon className="h-3.5 w-3.5 text-neutral-400" />
-                            <span className="text-[13px] text-neutral-500">{row.label}</span>
-                          </div>
-                          {row.value}
-                        </div>
-                      ))}
-                    </div>
-
-                    <div className="flex gap-2">
-                      <Btn onClick={() => handleSync(s)} disabled={syncingId === s.id}>
-                        {syncingId === s.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-                        {syncingId === s.id ? t('common.syncing') : t('products.sync')}
-                      </Btn>
-                      <Btn variant="danger" onClick={() => handleDisconnect(s)} disabled={disconnectingId === s.id}>
-                        {disconnectingId === s.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Unplug className="h-3.5 w-3.5" />}
-                        {t('settings.disconnect_store')}
-                      </Btn>
-                    </div>
-                  </Card>
-                )}
-              </div>
-            ))}
-
-            {/* ── Încă un magazin: Edinio, WooCommerce sau Shopify ─────────── */}
-            {stores.length > 0 && (
-              <div className="pt-2">
-                <p className="text-[14px] font-semibold text-neutral-900">{t('settings.add_store_title')}</p>
-                <p className="text-[12px] text-neutral-400 mt-0.5">{t('settings.add_store_hint')}</p>
-              </div>
-            )}
-            <EdinioConnectCard />
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* ── Card WooCommerce ──────────────────────────────────────── */}
-              <Card className="p-5">
-                <div className="flex items-center gap-2 mb-4">
-                  <div className="h-8 w-8 rounded-xl bg-[#7F54B3]/10 flex items-center justify-center">
-                    <Store className="h-4 w-4 text-[#7F54B3]" />
-                  </div>
-                  <div>
-                    <p className="text-[13px] font-semibold text-neutral-900">WooCommerce</p>
-                    <p className="text-[11px] text-neutral-400">WordPress + REST API</p>
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  {/* Nu e un formular de autentificare: managerul de parole nu are ce completa aici */}
-                  <Field label={t('settings.store_url_label')}>
-                    <Inp value={storeForm.store_url} onChange={e => { setStoreForm(p => ({ ...p, store_url: e.target.value })); setConnTest(null) }} placeholder={t('onboarding.store_url_placeholder')}
-                      name="woo_store_url" autoComplete="url" />
-                  </Field>
-
-                  <Field label={t('settings.consumer_key')}>
-                    <div className="relative">
-                      <Inp type={showKeys ? 'text' : 'password'} value={storeForm.consumer_key}
-                        onChange={e => { setStoreForm(p => ({ ...p, consumer_key: e.target.value })); setConnTest(null) }}
-                        placeholder="ck_..." className="pr-10" name="woo_consumer_key" autoComplete="new-password" />
-                      <button onClick={() => setShowKeys(s => !s)} className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600">
-                        {showKeys ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </button>
-                    </div>
-                  </Field>
-
-                  <Field label={t('settings.consumer_secret')}>
-                    <Inp type={showKeys ? 'text' : 'password'} value={storeForm.consumer_secret}
-                      onChange={e => { setStoreForm(p => ({ ...p, consumer_secret: e.target.value })); setConnTest(null) }}
-                      placeholder="cs_..." name="woo_consumer_secret" autoComplete="new-password" />
-                  </Field>
-
-                  <AnimatePresence>
-                    {connTest && (
-                      <motion.div initial={{ y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                        className={`flex items-center gap-2 px-3 py-2.5 rounded-xl text-[13px] ${connTest.ok ? 'bg-neutral-900 text-white' : 'bg-red-50 border border-red-100 text-red-600'}`}>
-                        {connTest.ok ? <CheckCircle2 className="h-4 w-4 shrink-0" /> : <XCircle className="h-4 w-4 shrink-0" />}
-                        {connTest.msg}
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-
-                  <div className="flex gap-2">
-                    <Btn variant="outline" onClick={handleTestConn} disabled={testingConn}>
-                      {testingConn ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wifi className="h-3.5 w-3.5" />}
-                      {t('settings.test_btn')}
-                    </Btn>
-                    <Btn onClick={handleConnect} disabled={connecting} className="flex-1 justify-center">
-                      {connecting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plug className="h-3.5 w-3.5" />}
-                      {connecting ? t('common.connecting') : t('onboarding.connect_store')}
-                    </Btn>
-                  </div>
-                </div>
-              </Card>
-
-              {/* ── Card Shopify ──────────────────────────────────────────── */}
-              <Card className="p-5">
-                <div className="flex items-center gap-2 mb-4">
-                  <div className="h-8 w-8 rounded-xl bg-[#96BF48]/10 flex items-center justify-center">
-                    <Zap className="h-4 w-4 text-[#96BF48]" />
-                  </div>
-                  <div>
-                    <p className="text-[13px] font-semibold text-neutral-900">Shopify</p>
-                    <p className="text-[11px] text-neutral-400">{t('onboarding.shopify_subtitle')}</p>
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  <div className="p-3 bg-neutral-50 rounded-xl">
-                    <p className="text-[12px] text-neutral-500 leading-relaxed">
-                      {t('onboarding.shopify_desc')}
-                    </p>
-                  </div>
-
-                  <Field label={t('onboarding.shopify_url_label')}>
-                    <Inp
-                      value={shopifyUrl}
-                      onChange={e => setShopifyUrl(e.target.value)}
-                      placeholder={t('onboarding.shopify_url_placeholder')}
-                    />
-                  </Field>
-
-                  <Btn
-                    onClick={handleConnectShopify}
-                    disabled={connectingShopify}
-                    className="w-full justify-center"
-                  >
-                    {connectingShopify
-                      ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      : <Zap className="h-3.5 w-3.5" />
-                    }
-                    {connectingShopify ? t('common.redirecting') : t('onboarding.shopify_connect')}
-                  </Btn>
-                </div>
-              </Card>
-            </div>
-
-            <div className="pt-1 space-y-4">
-              <GoogleAdsCard />
-              <MerchantCard />
-            </div>
-          </div>
-
+      <FadeIn key={tab}>
+        {/* ═══════ GENERAL ═══════ */}
+        {tab === 'general' && (
           <div>
-            <Card className="p-5 bg-neutral-50">
-              <div className="flex items-center gap-2 mb-3">
-                <Key className="h-3.5 w-3.5 text-neutral-500" />
-                <p className="text-[12px] font-semibold text-neutral-700">{t('settings.how_get_api_keys')}</p>
-              </div>
-              <div className="space-y-1.5 text-[12px] text-neutral-500 leading-relaxed">
-                {t('settings.tutorial_wp_steps').split(',').map((s: string, i: number) => (
-                  <p key={i}>{s}</p>
-                ))}
-              </div>
-            </Card>
-          </div>
-        </div>
-      )}
-
-      {/* ═══════ CREDITE ═══════ */}
-      {tab === 'credits' && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-          <div className="lg:col-span-2 space-y-4">
-
-            {/* Balance */}
-            <Card className="p-5">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-[11px] font-medium text-neutral-400 uppercase tracking-wide mb-1">{t('settings.credits_available')}</p>
-                  <p className="text-4xl font-bold text-neutral-900 tabular-nums">{credits}</p>
-                  <p className="text-[12px] text-neutral-400 mt-1">{t('settings.plan_label')} <span className="text-neutral-700 font-medium capitalize">{planName}</span></p>
+            <Section title={t('settings.profile_info')} description={t('settings.profile_info_desc')}>
+              <Card>
+                <div className="space-y-5 p-5">
+                  <div className="flex items-center gap-4">
+                    <div className="group relative">
+                      <div className="size-16 overflow-hidden rounded-full bg-neutral-100 ring-1 ring-neutral-200">
+                        {profile?.avatar_url
+                          // eslint-disable-next-line @next/next/no-img-element
+                          ? <img src={profile.avatar_url} alt="" className="size-full object-cover" />
+                          : <div className="flex size-full items-center justify-center text-[20px] font-semibold text-neutral-500">{userName[0]?.toUpperCase()}</div>}
+                      </div>
+                      <button onClick={() => avatarRef.current?.click()} disabled={uploadingAvatar} aria-label={t('settings.change_avatar')}
+                        className="absolute inset-0 flex items-center justify-center rounded-full bg-black/45 opacity-0 transition-opacity group-hover:opacity-100">
+                        {uploadingAvatar ? <Loader2 className="size-4 animate-spin text-white" /> : <Camera className="size-4 text-white" />}
+                      </button>
+                      <input ref={avatarRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={handleAvatarUpload} className="hidden" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="truncate text-[15px] font-semibold text-neutral-900">{userName}</p>
+                      <p className="truncate text-[13px] text-neutral-500">{userEmail}</p>
+                      <button onClick={() => avatarRef.current?.click()} className={cn(linkStyles, 'mt-1 text-[12px]')}>{t('settings.change_avatar')}</button>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <Label text={t('settings.full_name')}>
+                      <Input value={profileForm.name} onChange={e => setProfileForm({ name: e.target.value })} autoComplete="name" className="h-10" />
+                    </Label>
+                    <Label text={t('settings.email')}>
+                      <Input value={userEmail} disabled className="h-10" />
+                    </Label>
+                    {/* Limba se salvează imediat (în cont și în browser) */}
+                    <Label text={t('common.language')} hint={t('settings.language_hint')}>
+                      <Select value={locale} onChange={e => setLocale(e.target.value as Locale)} className="h-10">
+                        {LOCALES.map(l => <option key={l} value={l}>{LOCALE_NAMES[l]}</option>)}
+                      </Select>
+                    </Label>
+                  </div>
                 </div>
-                <div className="h-14 w-14 rounded-xl bg-neutral-100 flex items-center justify-center">
-                  <Zap className="h-7 w-7 text-neutral-400" />
-                </div>
-              </div>
-              <div className="mt-4 pt-4 border-t border-neutral-100">
-                <Btn variant="outline" onClick={handleManageSub}>
-                  <CreditCard className="h-3.5 w-3.5" />{t('settings.manage_subscription')}
-                </Btn>
-              </div>
-            </Card>
+                <CardFooter>
+                  <p className="text-[12px] text-neutral-500">{t('settings.profile_footer')}</p>
+                  <Button variant="primary" loading={saving} onClick={handleSaveProfile}>{!saving && <Check />}{saving ? t('common.saving') : t('common.save')}</Button>
+                </CardFooter>
+              </Card>
+            </Section>
 
-            {/* Packs */}
-            <Card className="p-5">
-              <p className="text-[13px] font-semibold text-neutral-900 mb-0.5">{t('settings.buy_extra_credits')}</p>
-              <p className="text-[12px] text-neutral-400 mb-4">{t('settings.credits_no_expire')}</p>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {CREDIT_PACKS.map(pack => (
-                  <button key={pack.id} onClick={() => handleBuyPack(pack.id)} disabled={!!buyingPack}
-                    className={`relative p-3.5 rounded-xl border-2 text-left transition-all hover:border-neutral-400 hover:shadow-sm disabled:opacity-50
-                      ${pack.popular ? 'border-neutral-900' : 'border-neutral-200'}`}>
-                    {pack.popular && (
-                      <span className="absolute -top-2.5 left-3 text-[9px] font-bold bg-neutral-900 text-white px-2 py-0.5 rounded-full">{t('settings.popular')}</span>
-                    )}
-                    <p className="text-[16px] font-bold text-neutral-900">{pack.credits} <span className="text-[13px] font-normal text-neutral-400">{t('common.credits_short')}</span></p>
-                    <p className="text-[13px] font-semibold text-neutral-700 mt-0.5">{pack.price} RON</p>
-                    <p className="text-[10px] text-neutral-400 mt-1">{(pack.price / pack.credits * 100).toFixed(0)} {t('settings.bani_per_credit')}</p>
-                    {buyingPack === pack.id && (
-                      <div className="absolute inset-0 flex items-center justify-center bg-white/70 rounded-xl">
-                        <Loader2 className="h-5 w-5 animate-spin text-neutral-500" />
-                      </div>
-                    )}
-                  </button>
-                ))}
-              </div>
-            </Card>
-
-            {/* Transactions */}
-            <Card className="p-5">
-              <p className="text-[13px] font-semibold text-neutral-900 mb-4">{t('settings.transaction_history')}</p>
-              {transactions.length === 0 ? (
-                <div className="text-center py-8">
-                  <CreditCard className="h-8 w-8 text-neutral-200 mx-auto mb-2" />
-                  <p className="text-[13px] text-neutral-400">{t('settings.no_transactions')}</p>
-                </div>
-              ) : (
-                <div className="divide-y divide-neutral-50">
-                  {transactions.slice(0, 15).map(tx => (
-                    <div key={tx.id} className="flex items-center gap-3 py-2.5">
-                      <div className={`h-8 w-8 rounded-xl flex items-center justify-center shrink-0 ${tx.amount > 0 ? 'bg-emerald-50' : 'bg-neutral-100'}`}>
-                        {tx.amount > 0 ? <TrendingUp className="h-3.5 w-3.5 text-emerald-600" /> : <TrendingDown className="h-3.5 w-3.5 text-neutral-400" />}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[13px] text-neutral-700 truncate">{translateStored(t, tx.description)}</p>
-                        <p className="text-[11px] text-neutral-400">{new Date(tx.created_at).toLocaleDateString(intlLocale, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</p>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <p className={`text-[13px] font-semibold tabular-nums ${tx.amount > 0 ? 'text-emerald-600' : 'text-neutral-700'}`}>
-                          {tx.amount > 0 ? '+' : ''}{tx.amount}
-                        </p>
-                        <p className="text-[10px] text-neutral-400">{t('settings.balance_label')} {tx.balance_after}</p>
-                      </div>
+            <Section title={t('settings.account_details')} description={t('settings.account_details_desc')}>
+              <Card>
+                <dl className="divide-y divide-neutral-100">
+                  {[
+                    { label: t('common.plan'), value: <Badge tone="brand">{planName}</Badge> },
+                    { label: t('settings.credits_available'), value: <span className="font-semibold tabular-nums text-neutral-900">{fmtInt.format(credits)}</span> },
+                    ...(memberSince ? [{ label: t('settings.member_since'), value: <span className="text-neutral-800">{memberSince}</span> }] : []),
+                  ].map(r => (
+                    <div key={r.label} className="flex items-center justify-between gap-3 px-5 py-3.5 text-[13px]">
+                      <dt className="text-neutral-500">{r.label}</dt>
+                      <dd>{r.value}</dd>
                     </div>
                   ))}
-                </div>
-              )}
-            </Card>
-          </div>
+                </dl>
+              </Card>
+            </Section>
 
-          <div className="space-y-4">
-            <Card className="p-5">
-              <p className="text-[11px] font-medium text-neutral-400 uppercase tracking-wide mb-3">{t('settings.ai_action_costs')}</p>
-              <div className="space-y-2">
-                {[
-                  { label: t('settings.action_ai_image'),     cost: '2–4', icon: '🖼️' },
-                ].map((item, i) => (
-                  <div key={i} className="flex items-center justify-between py-1.5">
-                    <span className="text-[13px] text-neutral-600 flex items-center gap-2"><span>{item.icon}</span>{item.label}</span>
-                    <span className="text-[11px] font-semibold text-neutral-700 bg-neutral-100 px-2 py-0.5 rounded-md tabular-nums">{item.cost} {t('common.credits_short')}</span>
-                  </div>
-                ))}
-              </div>
-            </Card>
-
-            <Card className="p-5 bg-neutral-50">
-              <p className="text-[12px] font-semibold text-neutral-700 mb-2">{t('settings.available_plans')}</p>
-              <div className="space-y-1.5">
-                {PLANS.map(plan => (
-                  <div key={plan.id} className={`flex items-center justify-between text-[12px] px-2 py-1.5 rounded-lg
-                    ${userPlan === plan.id ? 'bg-neutral-900 text-white' : 'text-neutral-500'}`}>
-                    <span className="font-medium">{plan.name}</span>
-                    <span className="tabular-nums">{plan.credits} {t('common.credits_short')} / {plan.price} RON</span>
-                  </div>
-                ))}
-              </div>
-            </Card>
-          </div>
-        </div>
-      )}
-
-      {/* ═══════ SECURITATE ═══════ */}
-      {tab === 'security' && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-          <div className="lg:col-span-2 space-y-4">
-            <Card className="p-5">
-              <div className="flex items-center gap-2 mb-4">
-                <div className="h-8 w-8 rounded-xl bg-neutral-100 flex items-center justify-center">
-                  <Lock className="h-4 w-4 text-neutral-500" />
-                </div>
-                <div>
-                  <p className="text-[13px] font-semibold text-neutral-900">{t('settings.change_password')}</p>
-                  <p className="text-[11px] text-neutral-400">{t('settings.update_pw_desc')}</p>
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <Field label={t('settings.current_pw_label')}>
-                  <div className="relative">
-                    <Inp type={showPw.current ? 'text' : 'password'} value={pwForm.current}
-                      onChange={e => setPwForm(p => ({ ...p, current: e.target.value }))} placeholder="••••••••" className="pr-10" />
-                    <button onClick={() => setShowPw(p => ({ ...p, current: !p.current }))} className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600">
-                      {showPw.current ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </button>
-                  </div>
-                </Field>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <Field label={t('settings.new_pw_label')}>
-                    <div className="relative">
-                      <Inp type={showPw.new ? 'text' : 'password'} value={pwForm.new}
-                        onChange={e => setPwForm(p => ({ ...p, new: e.target.value }))} placeholder={t('settings.pw_min_placeholder')} className="pr-10" />
-                      <button onClick={() => setShowPw(p => ({ ...p, new: !p.new }))} className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600">
-                        {showPw.new ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </button>
-                    </div>
-                    {pwForm.new && (
-                      <div className="mt-1.5 space-y-1">
-                        <div className="flex gap-1">
-                          {[1,2,3,4].map(i => <div key={i} className={`flex-1 h-1 rounded-full transition-all ${i <= pw.score ? pw.color : 'bg-neutral-100'}`} />)}
-                        </div>
-                        <p className={`text-[10px] font-medium ${pw.score <= 1 ? 'text-red-500' : pw.score <= 2 ? 'text-amber-500' : pw.score <= 3 ? 'text-neutral-500' : 'text-emerald-600'}`}>{pw.label}</p>
-                      </div>
-                    )}
-                  </Field>
-
-                  <Field label={t('settings.confirm_pw_label')}>
-                    <div className="relative">
-                      <Inp type={showPw.confirm ? 'text' : 'password'} value={pwForm.confirm}
-                        onChange={e => setPwForm(p => ({ ...p, confirm: e.target.value }))} placeholder={t('settings.pw_repeat_placeholder')} className="pr-10" />
-                      <button onClick={() => setShowPw(p => ({ ...p, confirm: !p.confirm }))} className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600">
-                        {showPw.confirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </button>
-                    </div>
-                    {pwForm.confirm && pwForm.new && (
-                      <p className={`text-[11px] mt-1 flex items-center gap-1 font-medium ${pwForm.new === pwForm.confirm ? 'text-emerald-600' : 'text-red-500'}`}>
-                        {pwForm.new === pwForm.confirm
-                          ? <><CheckCircle2 className="h-3 w-3" />{t('settings.pw_match')}</>
-                          : <><XCircle className="h-3 w-3" />{t('settings.pw_no_match')}</>}
-                      </p>
-                    )}
-                  </Field>
-                </div>
-
-                <Btn onClick={handleChangePw} disabled={savingPw}>
-                  {savingPw ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Lock className="h-3.5 w-3.5" />}
-                  {savingPw ? t('settings.updating_pw') : t('settings.update_pw_btn')}
-                </Btn>
-              </div>
-            </Card>
-
-            <Card className="p-5">
-              <p className="text-[11px] font-medium text-neutral-400 uppercase tracking-wide mb-3">{t('settings.active_sessions')}</p>
-              <div className="flex items-center justify-between px-3 py-2.5 bg-neutral-50 rounded-xl">
-                <div className="flex items-center gap-3">
-                  <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+            <Section title={<span className="text-red-600">{t('settings.danger_zone')}</span>} description={t('settings.danger_zone_desc')}>
+              <Card className="border-red-200/80">
+                <div className="flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <p className="text-[13px] font-medium text-neutral-900">{t('settings.current_session')}</p>
-                    <p className="text-[11px] text-neutral-400">{t('settings.active_now_browser')}</p>
+                    <p className="text-[14px] font-semibold text-neutral-900">{t('settings.delete_account')}</p>
+                    <p className="mt-0.5 text-[13px] text-neutral-500">{t('settings.delete_account_desc')}</p>
+                  </div>
+                  <Button variant="danger" className="shrink-0"><Trash2 />{t('settings.delete_account')}</Button>
+                </div>
+              </Card>
+            </Section>
+          </div>
+        )}
+
+        {/* ═══════ BRAND & AI ═══════ */}
+        {tab === 'brand' && (
+          <div>
+            <Section title={t('settings.brand_identity')} description={t('settings.brand_identity_desc')}>
+              <Card>
+                <div className="space-y-5 p-5">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <Label text={t('settings.business_name')}>
+                      <Input value={brandForm.businessName} onChange={e => setBrandForm(p => ({ ...p, businessName: e.target.value }))} placeholder={t('settings.store_name_placeholder')} className="h-10" />
+                    </Label>
+                    <Label text={t('settings.website')}>
+                      <Input value={brandForm.website} onChange={e => setBrandForm(p => ({ ...p, website: e.target.value }))} placeholder={t('onboarding.store_url_placeholder')} icon={<Globe />} className="h-10" />
+                    </Label>
+                  </div>
+                  <Label text={t('settings.niche_label')} hint={t('settings.niche_help')}>
+                    <Input value={brandForm.niche} onChange={e => setBrandForm(p => ({ ...p, niche: e.target.value }))} placeholder={t('settings.niche_placeholder')} className="h-10" />
+                  </Label>
+                  <div>
+                    <p className="text-[13px] font-medium text-neutral-700">{t('settings.tone_label')}</p>
+                    <div className="mt-1.5 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                      {TONES.map(tone => (
+                        <ChoiceCard key={tone.value} active={brandForm.tone === tone.value} onClick={() => setBrandForm(p => ({ ...p, tone: tone.value }))}
+                          title={<span className="flex items-center gap-2"><tone.icon className="size-4 text-neutral-500" />{t(tone.label)}</span>} />
+                      ))}
+                    </div>
+                    <div className="mt-3 rounded-xl bg-neutral-50 px-4 py-3 ring-1 ring-inset ring-neutral-200/60">
+                      <p className="text-[12px] font-medium text-neutral-500">{t('settings.tone_preview_label')}</p>
+                      <p className="mt-1 text-[13px] italic leading-relaxed text-neutral-700">{t(TONES.find(x => x.value === brandForm.tone)?.example ?? 'settings.tone_pro_example')}</p>
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-[13px] font-medium text-neutral-700">{t('settings.language_label')}</p>
+                    <div className="mt-1.5">
+                      <Segmented id="brand-language" value={brandForm.language} onChange={v => setBrandForm(p => ({ ...p, language: v }))}
+                        items={[{ value: 'ro', label: t('settings.lang_ro') }, { value: 'en', label: t('settings.lang_en') }]} />
+                    </div>
                   </div>
                 </div>
-                <span className="text-[10px] font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md">{t('settings.active_badge')}</span>
-              </div>
-            </Card>
-          </div>
+                <CardFooter>
+                  <span />
+                  <Button variant="primary" loading={savingBrand} onClick={handleSaveBrand}>{!savingBrand && <Check />}{savingBrand ? t('common.saving') : t('common.save_brand')}</Button>
+                </CardFooter>
+              </Card>
+            </Section>
 
+            <Section title={t('settings.how_ai_influences')}>
+              <Card>
+                <ul className="space-y-3 p-5">
+                  {t('settings.brand_affects_list').split(',').map(item => (
+                    <li key={item} className="flex items-start gap-2.5 text-[13px] leading-relaxed text-neutral-700">
+                      <CircleCheck className="mt-0.5 size-4 shrink-0 text-neutral-400" />{item}
+                    </li>
+                  ))}
+                </ul>
+              </Card>
+            </Section>
+          </div>
+        )}
+
+        {/* ═══════ INTEGRĂRI ═══════ */}
+        {tab === 'integrations' && (
           <div>
-            <Card className="p-5 bg-neutral-50">
-              <div className="flex items-center gap-2 mb-2">
-                <Shield className="h-3.5 w-3.5 text-neutral-500" />
-                <p className="text-[12px] font-semibold text-neutral-700">{t('settings.account_security_title')}</p>
-              </div>
-              <p className="text-[12px] text-neutral-500 leading-relaxed">
-                {t('settings.security_desc')}
-              </p>
-            </Card>
-          </div>
-        </div>
-      )}
+            {stores.length > 0 && (
+              <Section title={t('settings.section_stores')} description={t('settings.add_store_hint')}>
+                {stores.map(s => {
+                  const active = s.id === activeStoreId
+                  const switcher = stores.length > 1 && (active
+                    ? <Badge tone="brand"><Check className="size-3" />{t('settings.store_active')}</Badge>
+                    : <Button size="xs" loading={switchingId === s.id} disabled={!!switchingId} onClick={() => handleUseStore(s)}>{t('settings.store_use')}</Button>)
+                  return s.platform === 'edinio' ? (
+                    <EdinioStoreCard key={s.id} store={s} header={switcher} onChanged={fetchStore}
+                      onDisconnected={() => { fetchStore(); toast.success(t('settings.store_disconnected')) }} />
+                  ) : (
+                    <Card key={s.id}>
+                      <CardHeader icon={s.platform === 'shopify' ? <Zap /> : <Store />} title={s.store_name || s.store_url.replace(/^https?:\/\//, '')}
+                        description={s.platform === 'shopify' ? t('settings.shopify_active') : t('settings.woo_active')}
+                        action={<>
+                          {switcher}
+                          {s.connection_status === 'revoked' || s.connection_status === 'error'
+                            ? <Badge tone={s.connection_status === 'revoked' ? 'red' : 'amber'} dot>{s.connection_status === 'revoked' ? t('edinio.revoked') : t('catalog.store_unreachable')}</Badge>
+                            : <Badge tone="green" dot>{t('settings.connected')}</Badge>}
+                        </>} />
+                      <div className="space-y-4 px-5 pb-5 pt-4">
+                        {/* Ce a răspuns magazinul la ultima sincronizare, ca omul să știe ce să repare */}
+                        {(s.connection_status === 'revoked' || s.connection_status === 'error') && s.last_error && <Callout tone="warning">{translateStored(t, s.last_error)}</Callout>}
+                        <dl className="divide-y divide-neutral-100 rounded-xl ring-1 ring-inset ring-neutral-200/70">
+                          {[
+                            { icon: Globe, label: t('settings.store_url_label'), value: <a href={s.platform === 'shopify' ? `https://${s.store_url}` : s.store_url} target="_blank" rel="noopener" className="flex items-center gap-1 truncate text-neutral-700 hover:text-neutral-950">{s.store_url.replace(/^https?:\/\//, '')}<ExternalLink className="size-3 shrink-0" /></a> },
+                            { icon: Package, label: t('settings.products_synced'), value: <span className="font-semibold tabular-nums text-neutral-900">{fmtInt.format(s.products_count)}</span> },
+                            { icon: RefreshCw, label: t('settings.last_sync'), value: <span className="text-neutral-700">{s.last_sync_at ? new Date(s.last_sync_at).toLocaleString(intlLocale) : t('settings.never_synced')}</span> },
+                            // Shopify: accesul e prin OAuth, nu prin chei API
+                            ...(s.platform === 'shopify' ? [{ icon: KeyRound, label: t('settings.access_token'), value: <Badge tone="green">OAuth 2.0</Badge> }] : []),
+                          ].map(row => (
+                            <div key={row.label} className="flex items-center justify-between gap-3 px-4 py-2.5 text-[13px]">
+                              <dt className="flex shrink-0 items-center gap-2 text-neutral-500"><row.icon className="size-3.5 text-neutral-400" />{row.label}</dt>
+                              <dd className="min-w-0 text-right">{row.value}</dd>
+                            </div>
+                          ))}
+                        </dl>
+                        <div className="flex flex-wrap gap-2">
+                          <Button loading={syncingId === s.id} onClick={() => handleSync(s)}>{syncingId !== s.id && <RefreshCw />}{syncingId === s.id ? t('common.syncing') : t('products.sync')}</Button>
+                          <Button variant="danger" loading={disconnectingId === s.id} onClick={() => handleDisconnect(s)}>{disconnectingId !== s.id && <Unplug />}{t('settings.disconnect_store')}</Button>
+                        </div>
+                      </div>
+                    </Card>
+                  )
+                })}
+              </Section>
+            )}
 
-      {/* ═══════ PREFERINȚE ═══════ */}
-      {tab === 'preferences' && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-          <div className="lg:col-span-2 space-y-4">
-            <Card className="p-5">
-              <p className="text-[11px] font-medium text-neutral-400 uppercase tracking-wide mb-4">{t('settings.notif_automations')}</p>
-              <div className="space-y-3">
-                {[
-                  { key: 'emailNotifications', icon: Mail,     title: t('settings.pref_email_notifs'), desc: t('settings.pref_email_desc') },
-                  { key: 'weeklyReport',        icon: Bell,     title: t('settings.pref_weekly_report'), desc: t('settings.pref_weekly_desc') },
-                  { key: 'autoOptimize',        icon: Sparkles, title: t('settings.pref_auto_optimize'), desc: t('settings.pref_auto_desc') },
-                ].map(pref => (
-                  <div key={pref.key} className="flex items-center justify-between px-4 py-3.5 bg-neutral-50 rounded-xl gap-4">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="h-9 w-9 rounded-xl bg-white border border-neutral-200 flex items-center justify-center shrink-0">
-                        <pref.icon className="h-4 w-4 text-neutral-400" />
+            <Section title={stores.length ? t('settings.add_store_title') : t('settings.section_connect_store')} description={t('settings.section_add_store_desc')}>
+              <EdinioConnectCard />
+              <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+                {/* WooCommerce: cheile REST, cu permisiunea de citire */}
+                <Card className="flex flex-col">
+                  <CardHeader icon={<Store />} title="WooCommerce" description={t('settings.woo_subtitle')} />
+                  <div className="flex flex-1 flex-col gap-3 px-5 pb-5 pt-4">
+                    {/* Nu e un formular de autentificare: managerul de parole nu are ce completa aici */}
+                    <Label text={t('settings.store_url_label')}>
+                      <Input value={storeForm.store_url} onChange={e => { setStoreForm(p => ({ ...p, store_url: e.target.value })); setConnTest(null) }}
+                        placeholder={t('onboarding.store_url_placeholder')} name="woo_store_url" autoComplete="url" />
+                    </Label>
+                    <Label text={t('settings.consumer_key')}>
+                      <div className="relative">
+                        <Input type={showKeys ? 'text' : 'password'} value={storeForm.consumer_key} placeholder="ck_..." className="pr-10" name="woo_consumer_key" autoComplete="new-password"
+                          onChange={e => { setStoreForm(p => ({ ...p, consumer_key: e.target.value })); setConnTest(null) }} />
+                        <button type="button" onClick={() => setShowKeys(s => !s)} aria-label={t(showKeys ? 'settings.hide_password' : 'settings.show_password')}
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-neutral-400 hover:text-neutral-700">
+                          {showKeys ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                        </button>
                       </div>
-                      <div className="min-w-0">
-                        <p className="text-[13px] font-medium text-neutral-900">{pref.title}</p>
-                        <p className="text-[11px] text-neutral-400 leading-relaxed">{pref.desc}</p>
-                      </div>
+                    </Label>
+                    <Label text={t('settings.consumer_secret')}>
+                      <Input type={showKeys ? 'text' : 'password'} value={storeForm.consumer_secret} placeholder="cs_..." name="woo_consumer_secret" autoComplete="new-password"
+                        onChange={e => { setStoreForm(p => ({ ...p, consumer_secret: e.target.value })); setConnTest(null) }} />
+                    </Label>
+                    {connTest && <Callout tone={connTest.ok ? 'success' : 'danger'}>{connTest.msg}</Callout>}
+                    <details className="group rounded-lg bg-neutral-50 px-3 py-2 text-[12px] text-neutral-600 ring-1 ring-inset ring-neutral-200/60">
+                      <summary className="flex cursor-pointer list-none items-center gap-1.5 font-medium text-neutral-700"><KeyRound className="size-3.5 text-neutral-400" />{t('settings.how_get_api_keys')}</summary>
+                      <ol className="mt-2 space-y-1 leading-relaxed">
+                        {t('settings.tutorial_wp_steps').split(',').map(step => <li key={step}>{step}</li>)}
+                      </ol>
+                    </details>
+                    <div className="mt-auto flex gap-2 pt-1">
+                      <Button loading={testingConn} onClick={handleTestConn}>{!testingConn && <Wifi />}{t('settings.test_btn')}</Button>
+                      <Button variant="primary" loading={connecting} onClick={handleConnect} className="flex-1">{!connecting && <Plug />}{connecting ? t('common.connecting') : t('onboarding.connect_store')}</Button>
                     </div>
-                    <Toggle value={prefs[pref.key as keyof typeof prefs]} onChange={() => setPrefs(p => ({ ...p, [pref.key]: !p[pref.key as keyof typeof p] }))} />
                   </div>
+                </Card>
+
+                {/* Shopify: aprobarea se face în Shopify (OAuth) */}
+                <Card className="flex flex-col">
+                  <CardHeader icon={<Zap />} title="Shopify" description={t('onboarding.shopify_subtitle')} />
+                  <div className="flex flex-1 flex-col gap-3 px-5 pb-5 pt-4">
+                    <p className="text-[13px] leading-relaxed text-neutral-500">{t('onboarding.shopify_desc')}</p>
+                    <Label text={t('onboarding.shopify_url_label')}>
+                      <Input value={shopifyUrl} onChange={e => setShopifyUrl(e.target.value)} placeholder={t('onboarding.shopify_url_placeholder')} />
+                    </Label>
+                    <Button variant="primary" loading={connectingShopify} onClick={handleConnectShopify} className="mt-auto w-full">
+                      {!connectingShopify && <Zap />}{connectingShopify ? t('common.redirecting') : t('onboarding.shopify_connect')}
+                    </Button>
+                  </div>
+                </Card>
+              </div>
+            </Section>
+
+            <Section title={t('settings.section_google')} description={t('settings.section_google_desc')}>
+              <GoogleAdsCard />
+              <MerchantCard />
+            </Section>
+          </div>
+        )}
+
+        {/* ═══════ CREDITE ═══════ */}
+        {tab === 'credits' && (
+          <div>
+            <Section title={t('settings.credits_available')} description={t('settings.section_balance_desc')}>
+              <Card>
+                <div className="flex items-center justify-between gap-4 p-5">
+                  <div>
+                    <p className="text-[36px] font-semibold leading-none tabular-nums tracking-[-0.03em] text-neutral-950">{fmtInt.format(credits)}</p>
+                    <p className="mt-2 text-[13px] text-neutral-500">{t('settings.plan_label')} <span className="font-medium text-neutral-900">{planName}</span></p>
+                  </div>
+                  <span className="flex size-12 items-center justify-center rounded-xl bg-neutral-900 text-white"><Zap className="size-5" /></span>
+                </div>
+                <CardFooter>
+                  <p className="text-[12px] text-neutral-500">{t('settings.credits_no_expire')}</p>
+                  <Button onClick={handleManageSub}><CreditCard />{t('settings.manage_subscription')}</Button>
+                </CardFooter>
+              </Card>
+            </Section>
+
+            <Section title={t('settings.buy_extra_credits')} description={t('settings.credits_no_expire')}>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                {CREDIT_PACKS.map(pack => (
+                  <button key={pack.id} onClick={() => handleBuyPack(pack.id)} disabled={!!buyingPack}
+                    className={cn('group relative rounded-xl border bg-white p-4 text-left shadow-card transition-all hover:border-neutral-400 hover:shadow-raised disabled:opacity-50',
+                      pack.popular ? 'border-neutral-900 ring-1 ring-neutral-900' : 'border-neutral-200/80')}>
+                    {pack.popular && <Badge tone="brand" className="absolute -top-2.5 left-3 h-5 text-[10px]">{t('settings.popular')}</Badge>}
+                    <p className="text-[18px] font-semibold tabular-nums tracking-[-0.02em] text-neutral-950">{fmtInt.format(pack.credits)} <span className="text-[13px] font-normal text-neutral-500">{t('common.credits_short')}</span></p>
+                    <p className="mt-1 text-[14px] font-medium tabular-nums text-neutral-800">{pack.price} RON</p>
+                    <p className="mt-1 text-[12px] text-neutral-400">{(pack.price / pack.credits * 100).toFixed(0)} {t('settings.bani_per_credit')}</p>
+                    {buyingPack === pack.id && <span className="absolute inset-0 flex items-center justify-center rounded-xl bg-white/70"><Loader2 className="size-5 animate-spin text-neutral-500" /></span>}
+                  </button>
                 ))}
               </div>
-            </Card>
+            </Section>
 
-            <Btn onClick={handleSavePrefs} disabled={savingPrefs}>
-              {savingPrefs ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-              {savingPrefs ? t('settings.saving_prefs') : t('settings.save_prefs_btn')}
-            </Btn>
+            <Section title={t('settings.transaction_history')} description={t('settings.section_history_desc')}>
+              <Card>
+                {transactions.length === 0 ? (
+                  <p className="px-5 py-10 text-center text-[13px] text-neutral-400">{t('settings.no_transactions')}</p>
+                ) : (
+                  <ul className="divide-y divide-neutral-100">
+                    {transactions.slice(0, 15).map(tx => (
+                      <li key={tx.id} className="flex items-center gap-3 px-5 py-3">
+                        <span className={cn('flex size-8 shrink-0 items-center justify-center rounded-lg', tx.amount > 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-neutral-100 text-neutral-500')}>
+                          {tx.amount > 0 ? <TrendingUp className="size-3.5" /> : <TrendingDown className="size-3.5" />}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-[13px] text-neutral-800">{translateStored(t, tx.description)}</p>
+                          <p className="text-[12px] text-neutral-400">{new Date(tx.created_at).toLocaleDateString(intlLocale, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</p>
+                        </div>
+                        <div className="shrink-0 text-right">
+                          <p className={cn('text-[13px] font-semibold tabular-nums', tx.amount > 0 ? 'text-emerald-600' : 'text-neutral-800')}>{tx.amount > 0 ? '+' : ''}{tx.amount}</p>
+                          <p className="text-[11px] text-neutral-400">{t('settings.balance_label')} {tx.balance_after}</p>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </Card>
+            </Section>
+
+            <Section title={t('settings.available_plans')} description={t('settings.ai_action_costs_desc', { cost: '2–4' })}>
+              <Card>
+                <ul className="divide-y divide-neutral-100">
+                  {PLANS.map(plan => (
+                    <li key={plan.id} className="flex items-center justify-between gap-3 px-5 py-3 text-[13px]">
+                      <span className="flex items-center gap-2 font-medium text-neutral-900">{plan.name}{userPlan === plan.id && <Badge tone="brand">{t('settings.store_active')}</Badge>}</span>
+                      <span className="tabular-nums text-neutral-500">{fmtInt.format(plan.credits)} {t('common.credits_short')} / {plan.price} RON</span>
+                    </li>
+                  ))}
+                </ul>
+              </Card>
+            </Section>
           </div>
+        )}
 
+        {/* ═══════ SECURITATE ═══════ */}
+        {tab === 'security' && (
           <div>
-            <Card className="p-5 bg-neutral-50">
-              <div className="flex items-center gap-2 mb-2">
-                <SlidersHorizontal className="h-3.5 w-3.5 text-neutral-500" />
-                <p className="text-[12px] font-semibold text-neutral-700">{t('settings.about_prefs')}</p>
-              </div>
-              <p className="text-[12px] text-neutral-500 leading-relaxed">
-                {t('settings.auto_optimize_warning')}
-              </p>
-            </Card>
-          </div>
-        </div>
-      )}
+            <Section title={t('settings.change_password')} description={t('settings.update_pw_desc')}>
+              <Card>
+                <div className="space-y-4 p-5">
+                  <Label text={t('settings.current_pw_label')}>
+                    <PasswordInput value={pwForm.current} onChange={v => setPwForm(p => ({ ...p, current: v }))} placeholder="••••••••" autoComplete="current-password" />
+                  </Label>
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div>
+                      <Label text={t('settings.new_pw_label')}>
+                        <PasswordInput value={pwForm.new} onChange={v => setPwForm(p => ({ ...p, new: v }))} placeholder={t('settings.pw_min_placeholder')} autoComplete="new-password" />
+                      </Label>
+                      {pwForm.new && (
+                        <div className="mt-2 space-y-1">
+                          <div className="flex gap-1">{[1, 2, 3, 4].map(i => <div key={i} className={cn('h-1 flex-1 rounded-full transition-colors', i <= pw.score ? pw.color : 'bg-neutral-100')} />)}</div>
+                          <p className="text-[12px] font-medium text-neutral-500">{pw.label}</p>
+                        </div>
+                      )}
+                    </div>
+                    <div>
+                      <Label text={t('settings.confirm_pw_label')}>
+                        <PasswordInput value={pwForm.confirm} onChange={v => setPwForm(p => ({ ...p, confirm: v }))} placeholder={t('settings.pw_repeat_placeholder')} autoComplete="new-password" />
+                      </Label>
+                      {pwForm.confirm && pwForm.new && (
+                        <p className={cn('mt-2 flex items-center gap-1 text-[12px] font-medium', pwForm.new === pwForm.confirm ? 'text-emerald-600' : 'text-red-600')}>
+                          {pwForm.new === pwForm.confirm ? <><Check className="size-3.5" />{t('settings.pw_match')}</> : <><X className="size-3.5" />{t('settings.pw_no_match')}</>}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <CardFooter>
+                  <p className="text-[12px] text-neutral-500">{t('settings.pw_footer')}</p>
+                  <Button variant="primary" loading={savingPw} onClick={handleChangePw}>{!savingPw && <Lock />}{savingPw ? t('settings.updating_pw') : t('settings.update_pw_btn')}</Button>
+                </CardFooter>
+              </Card>
+            </Section>
 
+            <Section title={t('settings.active_sessions')} description={t('settings.security_desc')}>
+              <Card>
+                <div className="flex items-center justify-between gap-3 p-5">
+                  <div className="flex items-center gap-3">
+                    <span className="relative flex size-2.5"><span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-400 opacity-60" /><span className="relative inline-flex size-2.5 rounded-full bg-emerald-500" /></span>
+                    <div>
+                      <p className="text-[13px] font-medium text-neutral-900">{t('settings.current_session')}</p>
+                      <p className="text-[12px] text-neutral-500">{t('settings.active_now_browser')}</p>
+                    </div>
+                  </div>
+                  <Badge tone="green">{t('settings.active_badge')}</Badge>
+                </div>
+              </Card>
+            </Section>
+          </div>
+        )}
+
+        {/* ═══════ PREFERINȚE ═══════ */}
+        {tab === 'preferences' && (
+          <div>
+            <Section title={t('settings.notif_automations')} description={t('settings.auto_optimize_warning')}>
+              <Card>
+                <ul className="divide-y divide-neutral-100">
+                  {[
+                    { key: 'emailNotifications' as const, icon: Mail, title: t('settings.pref_email_notifs'), desc: t('settings.pref_email_desc') },
+                    { key: 'weeklyReport' as const, icon: Bell, title: t('settings.pref_weekly_report'), desc: t('settings.pref_weekly_desc') },
+                    { key: 'autoOptimize' as const, icon: Sparkles, title: t('settings.pref_auto_optimize'), desc: t('settings.pref_auto_desc') },
+                  ].map(pref => (
+                    <li key={pref.key} className="flex items-center justify-between gap-4 px-5 py-4">
+                      <div className="flex min-w-0 items-start gap-3">
+                        <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-neutral-50 text-neutral-500 ring-1 ring-inset ring-neutral-200/70"><pref.icon className="size-4" /></span>
+                        <div className="min-w-0">
+                          <p className="text-[13px] font-medium text-neutral-900">{pref.title}</p>
+                          <p className="text-[12px] leading-relaxed text-neutral-500">{pref.desc}</p>
+                        </div>
+                      </div>
+                      <Switch checked={prefs[pref.key]} label={pref.title} onChange={v => setPrefs(p => ({ ...p, [pref.key]: v }))} />
+                    </li>
+                  ))}
+                </ul>
+                <CardFooter>
+                  <span />
+                  <Button variant="primary" loading={savingPrefs} onClick={handleSavePrefs}>{!savingPrefs && <Check />}{savingPrefs ? t('settings.saving_prefs') : t('settings.save_prefs_btn')}</Button>
+                </CardFooter>
+              </Card>
+            </Section>
+          </div>
+        )}
+      </FadeIn>
     </div>
   )
+}
+
+// useSearchParams cere o graniță Suspense la randarea statică
+export default function SettingsPage() {
+  return <Suspense fallback={null}><SettingsView /></Suspense>
 }

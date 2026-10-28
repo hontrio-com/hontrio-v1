@@ -117,5 +117,6 @@
   "cart_data_missing_title": "The conversion doesn't send the cart's products",
   "cart_data_missing_body": "With the order's products (the cart) in the conversion, Google sees which products each ad sells and, together with your costs, the profit. Update Edinio: the purchase conversion sends the cart.",
   "css_partner_title": "A CSS partner can lower your cost per click",
-  "css_partner_body": "In the EEA, Shopping ads run through a comparison shopping service (CSS). The default is Google's; CSS partners say they cut the cost per click by ~20% (their figure). It's chosen in Merchant Center."
+  "css_partner_body": "In the EEA, Shopping ads run through a comparison shopping service (CSS). The default is Google's; CSS partners say they cut the cost per click by ~20% (their figure). It's chosen in Merchant Center.",
+  "filter_all": "All"
 }

@@ -4,7 +4,8 @@ import { useMemo, useState } from 'react'
 import { ArrowRight, Bot, ChartLine, Inbox, Sparkles } from 'lucide-react'
 import { useT } from '@/lib/i18n/context'
 import { Card, CardHeader } from '@/components/app/surface'
-import { Button } from '@/components/app/button'
+import { Button, textActionStyles } from '@/components/app/button'
+import { cn } from '@/lib/utils'
 import { Badge } from '@/components/app/badge'
 import { KpiCard } from '@/components/app/kpi'
 import { TrendChart, CHART } from '@/components/app/charts'
@@ -13,7 +14,7 @@ import { FadeIn } from '@/components/app/motion'
 import { EmptyState } from '@/components/app/feedback'
 import { useTimeAgo } from '@/components/app/time'
 import { CampaignTable } from '@/components/campaigns/campaign-table'
-import { day, type Formats } from '@/components/campaigns/formats'
+import { day, type Formats } from '@/components/app/formats'
 import type { CampaignView } from '@/components/campaigns/views'
 import type { ActionItem, SeriesPoint } from '@/components/campaigns/types'
 import type { Mode, Plan } from '@/lib/campaigns/plan'
@@ -90,7 +91,7 @@ export function OverviewTab({ plan, views, series, mode, proposals, journal, f, 
               // Graficul umple cardul cât e de înalt (îl întinde cardul pilotului de alături)
               <div className="relative min-h-[240px] flex-1">
                 <div className="absolute inset-x-3 bottom-4 top-4">
-                  <TrendChart data={line(metric) ?? []} format={n => f.compact.format(n)} height="100%"
+                  <TrendChart data={line(metric) ?? []} format={n => f.money.format(n)} axisFormat={n => f.compact.format(n)} height="100%"
                     color={metric === 'profit' ? CHART.green : metric === 'cost' ? CHART.neutral : CHART.brand} />
                 </div>
               </div>
@@ -134,8 +135,8 @@ export function OverviewTab({ plan, views, series, mode, proposals, journal, f, 
                 </ul>
               )}
               {journal.length > 0 && (
-                <button onClick={() => onTab('pilot')} className="mt-auto pt-4 text-left text-[13px] font-medium text-brand-700 hover:text-brand-800">
-                  {t('campaigns.overview_see_journal')}
+                <button onClick={() => onTab('pilot')} className={cn(textActionStyles, 'mt-auto self-start pt-4 text-[13px]')}>
+                  {t('campaigns.overview_see_journal')}<ArrowRight />
                 </button>
               )}
             </div>

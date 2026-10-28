@@ -6,13 +6,13 @@ import { useT } from '@/lib/i18n/context'
 import { cn } from '@/lib/utils'
 import { Sheet, SheetHeader } from '@/components/app/sheet'
 import { Badge } from '@/components/app/badge'
-import { Button } from '@/components/app/button'
+import { Button, textActionStyles } from '@/components/app/button'
 import { Callout } from '@/components/app/feedback'
 import { TrendChart, CHART } from '@/components/app/charts'
 import { LiveCampaignItem } from '@/components/campaigns/live-campaigns'
 import { STATUS, iconOf, useViewLabels } from '@/components/campaigns/campaign-table'
 import { noteParams, type Step } from '@/components/campaigns/group-editor'
-import { day, type Formats } from '@/components/campaigns/formats'
+import { day, type Formats } from '@/components/app/formats'
 import type { CampaignView } from '@/components/campaigns/views'
 import type { GroupPlan } from '@/lib/campaigns/groups'
 import type { Plan } from '@/lib/campaigns/plan'
@@ -155,7 +155,7 @@ function SheetBody({ view: v, onClose, plan, f, onEdit, onPlan, onChanged }: Omi
             {v.trend.length > 1 && v.trend.some(p => p.value > 0) && (
               <div className="mt-4 rounded-xl border border-neutral-200/80 px-2 pb-2 pt-3">
                 <p className="px-2 text-[12px] font-medium text-neutral-500">{t('campaigns.sheet_trend')}</p>
-                <TrendChart height={150} color={CHART.brand} format={n => f.compact.format(n)}
+                <TrendChart height={150} color={CHART.brand} format={n => f.money.format(n)} axisFormat={n => f.compact.format(n)}
                   data={v.trend.map(p => ({ label: f.shortDate.format(day(p.date)), value: p.value }))} />
               </div>
             )}
@@ -207,7 +207,7 @@ function SheetBody({ view: v, onClose, plan, f, onEdit, onPlan, onChanged }: Omi
             </p>
             {g && <RuleChips plan={g} f={f} />}
             {!g && (
-              <button onClick={onPlan} className="mt-3 inline-flex items-center gap-1 text-[13px] font-medium text-brand-700 hover:text-brand-800">
+              <button onClick={onPlan} className={cn(textActionStyles, 'mt-3 text-[13px]')}>
                 {t('campaigns.sheet_see_products')}<ArrowRight className="size-3.5" />
               </button>
             )}

@@ -32,7 +32,6 @@
   "faq_cms_q": "Cu ce platforme de magazin funcționează Hontrio?",
   "faq_cms_a": "Cu Edinio, WooCommerce și Shopify. Alte platforme urmează.",
   "network_error": "Eroare de rețea",
-  "ticket_sent_redirect": "Tichetul a fost trimis cu succes! Te redirecționăm înapoi...",
   "describe_short": "Descrie pe scurt problema sau întrebarea...",
   "describe_detailed": "Descrie detaliat problema sau întrebarea ta...",
   "write_reply": "Scrie răspunsul tău...",
@@ -60,5 +59,6 @@
   "file_too_large": "„{{name}}” depășește 10 MB.",
   "unread_count_one": "{{count}} nou",
   "unread_count_few": "{{count}} noi",
-  "unread_count_other": "{{count}} noi"
+  "unread_count_other": "{{count}} noi",
+  "ticket_sent": "Tichetul a fost trimis. Îți răspundem în cel mult 24 de ore."
 }

@@ -10,7 +10,7 @@ import { EmptyState } from '@/components/app/feedback'
 import { FadeIn } from '@/components/app/motion'
 import { CampaignTable } from '@/components/campaigns/campaign-table'
 import { STATUS_ORDER, type CampaignView } from '@/components/campaigns/views'
-import type { Formats } from '@/components/campaigns/formats'
+import type { Formats } from '@/components/app/formats'
 import type { Plan } from '@/lib/campaigns/plan'
 
 // =============================================

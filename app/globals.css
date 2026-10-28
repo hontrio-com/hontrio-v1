@@ -91,24 +91,25 @@
 
 /* ═══════════════════════════════════════════════════════════════════════
    Platforma (după autentificare): sistemul de design, în spiritul Stripe /
-   Linear. Un singur accent (indigo, scara Radix „iris"), suprafețe albe pe
-   un fundal gri foarte fin, umbre în straturi, mișcări scurte și discrete.
-   Componentele lui sunt în components/app.
+   Linear, în alb și negru, ca logo-ul Hontrio. Accentul („brand") e negrul:
+   butoanele principale, starea activă, selecția; restul e în nuanțe de gri.
+   Culorile rămân doar unde spun ceva (verde = câștig / rulează, roșu =
+   pierdere / problemă, chihlimbar = atenție). Componentele: components/app.
    ═══════════════════════════════════════════════════════════════════════ */
 @theme {
-  --color-brand-50: #f8f8ff;
-  --color-brand-100: #f0f1fe;
-  --color-brand-200: #e6e7ff;
-  --color-brand-300: #cbcdff;
-  --color-brand-400: #9b9ef0;
-  --color-brand-500: #7472e0;
-  --color-brand-600: #5b5bd6;
-  --color-brand-700: #4f4bc4;
-  --color-brand-800: #3e3a9c;
-  --color-brand-900: #272962;
+  --color-brand-50: #fafafa;
+  --color-brand-100: #f5f5f5;
+  --color-brand-200: #e5e5e5;
+  --color-brand-300: #d4d4d4;
+  --color-brand-400: #a3a3a3;
+  --color-brand-500: #525252;
+  --color-brand-600: #171717;
+  --color-brand-700: #262626;
+  --color-brand-800: #0a0a0a;
+  --color-brand-900: #000000;
 
   /* Fundalul aplicației, sub meniu și sub panouri */
-  --color-canvas: #f7f7f8;
+  --color-canvas: #fafafa;
 
   --shadow-card: 0 1px 2px 0 rgb(16 24 40 / 0.04), 0 1px 3px 0 rgb(16 24 40 / 0.03);
   --shadow-raised: 0 12px 32px -8px rgb(16 24 40 / 0.14), 0 4px 8px -4px rgb(16 24 40 / 0.06);

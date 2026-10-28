@@ -16,7 +16,7 @@ import { ChoiceCard, Input } from '@/components/app/input'
 import { FadeIn } from '@/components/app/motion'
 import { useTimeAgo } from '@/components/app/time'
 import { campaignKindKey, type LiveCampaign } from '@/components/campaigns/live-campaigns'
-import { day, type Formats } from '@/components/campaigns/formats'
+import { day, type Formats } from '@/components/app/formats'
 import type { ActionItem } from '@/components/campaigns/types'
 import { MODES, type Mode } from '@/lib/campaigns/plan'
 
@@ -64,7 +64,7 @@ const KIND_ICON: Record<string, LucideIcon> = {
 }
 
 const STATUS_TONE: Record<ActionItem['status'], Tone> = {
-  proposed: 'sky', applied: 'green', rejected: 'neutral', failed: 'red', expired: 'neutral',
+  proposed: 'outline', applied: 'green', rejected: 'neutral', failed: 'red', expired: 'neutral',
 }
 
 const RULES = ['pilot_rule_target', 'pilot_rule_budget', 'pilot_rule_learning', 'pilot_rule_loss'] as const

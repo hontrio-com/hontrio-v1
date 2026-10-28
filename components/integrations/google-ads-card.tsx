@@ -1,8 +1,19 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { ExternalLink, Loader2, RefreshCw, Unplug } from 'lucide-react'
 import { useT } from '@/lib/i18n/context'
-import { AlertCircle, CheckCircle2, Loader2, RefreshCw, Unplug, ExternalLink } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { Card, CardHeader } from '@/components/app/surface'
+import { Badge } from '@/components/app/badge'
+import { Button, linkStyles } from '@/components/app/button'
+import { ChoiceCard, Select } from '@/components/app/input'
+import { Callout, Skeleton } from '@/components/app/feedback'
+
+// =============================================
+// Google Ads în Setări → Integrări: legarea contului Google (o dată pe om) și
+// contul Google Ads în care rulează campaniile fiecărui magazin.
+// =============================================
 
 type Connection = { id: string; google_email: string | null; status: 'active' | 'revoked' | 'error'; last_error: string | null }
 type AdsAccount = {
@@ -21,9 +32,9 @@ function formatCustomerId(id: string) {
 
 const storeName = (s: StoreRef) => s.store_name || s.store_url.replace(/^https?:\/\//, '').replace(/\/+$/, '')
 
-function GoogleLogo() {
+export function GoogleLogo({ className = 'size-4' }: { className?: string }) {
   return (
-    <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden>
+    <svg viewBox="0 0 24 24" className={className} aria-hidden>
       <path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.5a5.6 5.6 0 0 1-2.4 3.6v3h3.9c2.3-2.1 3.5-5.2 3.5-8.8z" />
       <path fill="#34A853" d="M12 24c3.2 0 6-1.1 8-2.9l-3.9-3c-1.1.7-2.5 1.2-4.1 1.2-3.1 0-5.8-2.1-6.7-5H1.3v3.1A12 12 0 0 0 12 24z" />
       <path fill="#FBBC05" d="M5.3 14.3a7.2 7.2 0 0 1 0-4.6V6.6H1.3a12 12 0 0 0 0 10.8l4-3.1z" />
@@ -122,125 +133,76 @@ export default function GoogleAdsCard() {
   const chosen = store?.google_ads_customer_id ?? null
 
   return (
-    <div className="bg-white border border-neutral-200 rounded-xl p-5">
-      <div className="flex items-center gap-2 mb-4">
-        <div className="h-8 w-8 rounded-xl bg-neutral-100 flex items-center justify-center"><GoogleLogo /></div>
-        <div className="flex-1 min-w-0">
-          <p className="text-[13px] font-semibold text-neutral-900">Google Ads</p>
-          <p className="text-[11px] text-neutral-400 truncate">
-            {connection?.google_email || t('google_ads.subtitle')}
-          </p>
-        </div>
-        {connection && !revoked && (
-          <span className="flex items-center gap-1 text-[11px] font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />{t('settings.connected')}
-          </span>
-        )}
-        {revoked && (
-          <span className="text-[11px] font-medium text-red-600 bg-red-50 px-2 py-0.5 rounded-md">{t('google_ads.revoked')}</span>
+    <Card>
+      <CardHeader icon={<GoogleLogo />} title="Google Ads" description={connection?.google_email || t('google_ads.subtitle')}
+        action={connection && !revoked ? <Badge tone="green" dot>{t('settings.connected')}</Badge> : revoked ? <Badge tone="red" dot>{t('google_ads.revoked')}</Badge> : undefined} />
+
+      <div className="space-y-4 px-5 pb-5 pt-4">
+        {notice && <Callout tone={notice.ok ? 'success' : 'warning'} onClose={() => setNotice(null)}>{notice.text}</Callout>}
+
+        {loading ? (
+          <Skeleton className="h-16 rounded-xl" />
+        ) : !connection || revoked ? (
+          <div className="space-y-3">
+            <p className="text-[13px] leading-relaxed text-neutral-500">{revoked ? t('google_ads.revoked_desc') : t('google_ads.connect_desc')}</p>
+            <Button asChild variant="primary" className="w-full">
+              <a href="/api/integrations/google/connect"><GoogleLogo />{revoked ? t('google_ads.reconnect') : t('google_ads.connect')}</a>
+            </Button>
+            <a href="https://ads.google.com/home/" target="_blank" rel="noopener"
+              className="flex items-center justify-center gap-1 text-[12px] text-neutral-500 hover:text-neutral-800">
+              {t('google_ads.no_account')}<ExternalLink className="size-3" />
+            </a>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {advertisers.length === 0 ? (
+              <Callout tone="info">{t('google_ads.no_accounts')}</Callout>
+            ) : !store ? (
+              <Callout tone="info">{t('google_ads.no_store')}</Callout>
+            ) : (
+              <div className="space-y-3">
+                {stores.length > 1 && (
+                  <label className="block">
+                    <span className="text-[12px] font-medium text-neutral-600">{t('google_ads.store_label')}</span>
+                    <Select value={store.id} onChange={e => setStoreId(e.target.value)} wrapperClassName="mt-1.5">
+                      {stores.map(s => <option key={s.id} value={s.id}>{storeName(s)}</option>)}
+                    </Select>
+                    <span className="mt-1.5 block text-[12px] text-neutral-500">{t('google_ads.per_store_hint')}</span>
+                  </label>
+                )}
+                <p className="text-[12px] font-medium text-neutral-600">{t('google_ads.account_for_store', { store: storeName(store) })}</p>
+                <div className="max-h-80 space-y-2 overflow-y-auto">
+                  {advertisers.map(a => {
+                    const selected = a.customer_id === chosen
+                    const others = stores.filter(s => s.id !== store.id && s.google_ads_customer_id === a.customer_id)
+                    const currencyDiffers = !!a.currency_code && !!store.currency && a.currency_code !== store.currency
+                    return (
+                      <ChoiceCard key={a.customer_id} active={selected} disabled={!!selecting} onClick={() => !selected && handleSelect(a.customer_id)}
+                        title={<span className="flex items-center gap-1.5">{a.descriptive_name || formatCustomerId(a.customer_id)}{a.is_test_account && <Badge tone="amber" className="h-[18px] px-1 text-[10px]">TEST</Badge>}</span>}
+                        aside={selecting === a.customer_id ? <Loader2 className="size-3.5 animate-spin text-neutral-400" /> : undefined}
+                        description={<>
+                          <span className="block tabular-nums">{formatCustomerId(a.customer_id)}{a.currency_code ? ` · ${a.currency_code}` : ''}{a.time_zone ? ` · ${a.time_zone}` : ''}</span>
+                          {currencyDiffers && <span className="block text-amber-700">{t('google_ads.currency_mismatch', { account: a.currency_code!, store: store.currency! })}</span>}
+                          {others.length > 0 && <span className="block">{t('google_ads.used_by_other_store', { store: others.map(storeName).join(', ') })}</span>}
+                        </>} />
+                    )
+                  })}
+                </div>
+                {chosen && (
+                  <button onClick={() => handleSelect(null)} disabled={!!selecting} className={cn(linkStyles, 'text-[12px] font-normal text-neutral-500 disabled:opacity-50')}>
+                    {selecting === 'none' ? <Loader2 className="inline size-3 animate-spin" /> : t('google_ads.clear_account')}
+                  </button>
+                )}
+              </div>
+            )}
+
+            <div className="flex flex-wrap gap-2 border-t border-neutral-100 pt-4">
+              <Button loading={refreshing} onClick={handleRefresh}>{!refreshing && <RefreshCw />}{t('google_ads.refresh')}</Button>
+              <Button variant="danger" loading={disconnecting} onClick={handleDisconnect}>{!disconnecting && <Unplug />}{t('google_ads.disconnect')}</Button>
+            </div>
+          </div>
         )}
       </div>
-
-      {notice && (
-        <div className={`flex items-start gap-2 px-3 py-2.5 mb-3 rounded-xl text-[12px] leading-relaxed ${notice.ok ? 'bg-neutral-900 text-white' : 'bg-amber-50 border border-amber-100 text-amber-800'}`}>
-          {notice.ok ? <CheckCircle2 className="h-4 w-4 shrink-0 mt-px" /> : <AlertCircle className="h-4 w-4 shrink-0 mt-px" />}
-          <span className="flex-1">{notice.text}</span>
-          <button onClick={() => setNotice(null)} className="opacity-50 hover:opacity-100">✕</button>
-        </div>
-      )}
-
-      {loading ? (
-        <div className="h-16 bg-neutral-50 rounded-xl animate-pulse" />
-      ) : !connection || revoked ? (
-        <div className="space-y-3">
-          <p className="text-[12px] text-neutral-500 leading-relaxed p-3 bg-neutral-50 rounded-xl">
-            {revoked ? t('google_ads.revoked_desc') : t('google_ads.connect_desc')}
-          </p>
-          <a href="/api/integrations/google/connect"
-            className="inline-flex w-full items-center justify-center gap-1.5 h-9 px-4 rounded-xl text-[13px] font-medium bg-neutral-900 hover:bg-neutral-800 text-white transition-all">
-            <GoogleLogo />{revoked ? t('google_ads.reconnect') : t('google_ads.connect')}
-          </a>
-          <a href="https://ads.google.com/home/" target="_blank" rel="noopener"
-            className="flex items-center justify-center gap-1 text-[11px] text-neutral-400 hover:text-neutral-600">
-            {t('google_ads.no_account')}<ExternalLink className="h-3 w-3" />
-          </a>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {advertisers.length === 0 ? (
-            <p className="text-[12px] text-neutral-500 leading-relaxed p-3 bg-neutral-50 rounded-xl">{t('google_ads.no_accounts')}</p>
-          ) : !store ? (
-            <p className="text-[12px] text-neutral-500 leading-relaxed p-3 bg-neutral-50 rounded-xl">{t('google_ads.no_store')}</p>
-          ) : (
-            <div>
-              {stores.length > 1 ? (
-                <label className="block mb-2.5">
-                  <span className="text-[11px] font-medium text-neutral-400 uppercase tracking-wide">{t('google_ads.store_label')}</span>
-                  <select value={store.id} onChange={e => setStoreId(e.target.value)}
-                    className="mt-1 h-9 w-full px-3 rounded-xl border border-neutral-200 bg-white text-[13px] text-neutral-700 focus:outline-none focus:border-neutral-400">
-                    {stores.map(s => <option key={s.id} value={s.id}>{storeName(s)}</option>)}
-                  </select>
-                  <span className="block mt-1 text-[11px] text-neutral-400">{t('google_ads.per_store_hint')}</span>
-                </label>
-              ) : null}
-              <p className="text-[11px] font-medium text-neutral-400 uppercase tracking-wide mb-1.5">
-                {t('google_ads.account_for_store', { store: storeName(store) })}
-              </p>
-              <div className="space-y-1.5 max-h-72 overflow-y-auto">
-                {advertisers.map(a => {
-                  const selected = a.customer_id === chosen
-                  const others = stores.filter(s => s.id !== store.id && s.google_ads_customer_id === a.customer_id)
-                  const currencyDiffers = !!a.currency_code && !!store.currency && a.currency_code !== store.currency
-                  return (
-                    <button key={a.customer_id} onClick={() => !selected && handleSelect(a.customer_id)} disabled={!!selecting}
-                      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border text-left transition-all
-                        ${selected ? 'border-neutral-900 bg-neutral-50' : 'border-neutral-200 hover:border-neutral-300'}`}>
-                      <span className={`h-4 w-4 rounded-full border-2 shrink-0 flex items-center justify-center ${selected ? 'border-neutral-900' : 'border-neutral-300'}`}>
-                        {selected && <span className="h-2 w-2 rounded-full bg-neutral-900" />}
-                      </span>
-                      <span className="flex-1 min-w-0">
-                        <span className="flex items-center gap-1.5">
-                          <span className="text-[13px] font-medium text-neutral-900 truncate">{a.descriptive_name || formatCustomerId(a.customer_id)}</span>
-                          {a.is_test_account && <span className="text-[10px] font-semibold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded-md">TEST</span>}
-                        </span>
-                        <span className="block text-[11px] text-neutral-400">
-                          {formatCustomerId(a.customer_id)}{a.currency_code ? ` · ${a.currency_code}` : ''}{a.time_zone ? ` · ${a.time_zone}` : ''}
-                        </span>
-                        {currencyDiffers && (
-                          <span className="block text-[11px] text-amber-700">{t('google_ads.currency_mismatch', { account: a.currency_code!, store: store.currency! })}</span>
-                        )}
-                        {others.length > 0 && (
-                          <span className="block text-[11px] text-neutral-400">{t('google_ads.used_by_other_store', { store: others.map(storeName).join(', ') })}</span>
-                        )}
-                      </span>
-                      {selecting === a.customer_id && <Loader2 className="h-3.5 w-3.5 animate-spin text-neutral-400" />}
-                    </button>
-                  )
-                })}
-              </div>
-              {chosen && (
-                <button onClick={() => handleSelect(null)} disabled={!!selecting}
-                  className="mt-2 text-[11px] text-neutral-400 hover:text-neutral-700 underline-offset-2 hover:underline disabled:opacity-50">
-                  {selecting === 'none' ? <Loader2 className="inline h-3 w-3 animate-spin" /> : t('google_ads.clear_account')}
-                </button>
-              )}
-            </div>
-          )}
-
-          <div className="flex gap-2">
-            <button onClick={handleRefresh} disabled={refreshing}
-              className="inline-flex items-center gap-1.5 h-9 px-4 rounded-xl text-[13px] font-medium border border-neutral-200 text-neutral-600 hover:bg-neutral-50 transition-all disabled:opacity-50">
-              {refreshing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-              {t('google_ads.refresh')}
-            </button>
-            <button onClick={handleDisconnect} disabled={disconnecting}
-              className="inline-flex items-center gap-1.5 h-9 px-4 rounded-xl text-[13px] font-medium border border-red-200 text-red-600 hover:bg-red-50 transition-all disabled:opacity-50">
-              {disconnecting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Unplug className="h-3.5 w-3.5" />}
-              {t('google_ads.disconnect')}
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
+    </Card>
   )
 }

@@ -1,19 +1,27 @@
 'use client'
 
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
+import { AlertCircle, Check, ChevronLeft, ChevronRight, ExternalLink, ImageIcon, Loader2, Package, Percent, RefreshCw, Search, Store, X } from 'lucide-react'
 import { useT } from '@/lib/i18n/context'
 import { translateStored } from '@/lib/i18n/stored'
-import {
-  AlertCircle, ChevronLeft, ChevronRight, ExternalLink, ImageIcon, Info, Loader2,
-  Package, Percent, RefreshCw, Search, Store, X,
-} from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { PageHeader } from '@/components/app/page-header'
+import { Card, CardHeader } from '@/components/app/surface'
+import { Badge, type Tone } from '@/components/app/badge'
+import { Button, linkStyles } from '@/components/app/button'
+import { Checkbox, Input, Select } from '@/components/app/input'
+import { Segmented } from '@/components/app/tabs'
+import { Table, Td, Th, Tr } from '@/components/app/table'
+import { Callout, EmptyState, Skeleton } from '@/components/app/feedback'
+import { FadeIn } from '@/components/app/motion'
+import { useFormats, type Formats } from '@/components/app/formats'
 
 // =============================================
 // Produse — ofertele magazinului, cum ajung la Google, cu vânzările de pe
-// site și prețul de cost. Pe ele se vor sprijini campaniile: ce produse
-// merită promovate și cât poate costa o vânzare.
+// site și prețul de cost. Pe ele se sprijină campaniile: ce produse merită
+// promovate și cât poate costa o vânzare. Cifrele de sus sunt și filtre.
 // =============================================
 
 type Sales = { units: number; revenue: number; orders: number }
@@ -46,14 +54,8 @@ const QUICKS: Quick[] = ['all', 'out', 'no_cost', 'google_issue']
 const COST_PLATFORMS = ['woocommerce', 'shopify']
 // Stări la Google cu care oferta nu poate rula în reclame
 const GOOGLE_PROBLEMS = ['disapproved', 'error', 'expirat', 'exclus']
-
-const GOOGLE_STYLE: Record<string, string> = {
-  active: 'bg-emerald-50 text-emerald-700',
-  pending: 'bg-amber-50 text-amber-700',
-  expirat: 'bg-amber-50 text-amber-700',
-  disapproved: 'bg-red-50 text-red-600',
-  error: 'bg-red-50 text-red-600', // i18n-ignore: clase CSS
-  exclus: 'bg-neutral-100 text-neutral-500',
+const GOOGLE_TONE: Record<string, Tone> = {
+  active: 'green', pending: 'amber', expirat: 'amber', disapproved: 'red', error: 'red', exclus: 'neutral',
 }
 
 function marginOf(o: Offer): { amount: number; pct: number } | null {
@@ -62,9 +64,10 @@ function marginOf(o: Offer): { amount: number; pct: number } | null {
   return { amount, pct: (amount / o.price) * 100 }
 }
 
-function CostInput({ offer, fmt, siblings, platform, onSaved }: {
+/** Prețul de cost al unei oferte: se salvează la Enter sau la ieșirea din câmp. */
+function CostInput({ offer, f, siblings, platform, onSaved }: {
   offer: Offer
-  fmt: Intl.NumberFormat
+  f: Formats
   siblings: number
   /** Magazinul din care pot veni costuri, cu explicația lor */
   platform: { name: string; hint: string }
@@ -75,8 +78,9 @@ function CostInput({ offer, fmt, siblings, platform, onSaved }: {
   const [value, setValue] = useState(shown)
   const [state, setState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const [applying, setApplying] = useState(false)
-
-  useEffect(() => { setValue(shown) }, [shown])
+  // Costul schimbat din afară (în masă, pe toate variantele) intră în câmp
+  const [seen, setSeen] = useState(shown)
+  if (seen !== shown) { setSeen(shown); setValue(shown) }
 
   async function patch(body: Record<string, unknown>) {
     const r = await fetch('/api/catalog/cost', {
@@ -118,33 +122,26 @@ function CostInput({ offer, fmt, siblings, platform, onSaved }: {
   }
 
   return (
-    <div className="w-[120px]">
-      <div className={`flex items-center h-8 rounded-lg border bg-white px-2 transition-colors
-        ${state === 'error' ? 'border-red-300' : state === 'saved' ? 'border-emerald-300' : 'border-neutral-200 focus-within:border-neutral-400'}`}>
-        <input
-          value={value}
-          inputMode="decimal"
-          aria-label={t('catalog.cost')}
-          placeholder="—"
+    <div className="w-[132px]">
+      <div className="relative">
+        <Input value={value} inputMode="decimal" aria-label={t('catalog.cost')} placeholder="—" aria-invalid={state === 'error'} suffix={offer.currency}
+          className={cn('h-8 text-right tabular-nums', state === 'saved' && 'border-emerald-400')}
           onChange={e => { setValue(e.target.value); if (state === 'error') setState('idle') }}
           onBlur={save}
-          onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); if (e.key === 'Escape') { setValue(shown); setState('idle') } }}
-          className="w-full min-w-0 bg-transparent text-[13px] text-neutral-900 tabular-nums text-right focus:outline-none placeholder:text-neutral-300"
-        />
-        <span className="ml-1 text-[11px] text-neutral-400 shrink-0">{offer.currency}</span>
-        {state === 'saving' && <Loader2 className="ml-1 h-3 w-3 animate-spin text-neutral-400 shrink-0" />}
+          onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); if (e.key === 'Escape') { setValue(shown); setState('idle') } }} />
+        {state === 'saving' && <Loader2 className="absolute -right-5 top-1/2 size-3.5 -translate-y-1/2 animate-spin text-neutral-400" />}
+        {state === 'saved' && <Check className="absolute -right-5 top-1/2 size-3.5 -translate-y-1/2 text-emerald-600" />}
       </div>
-      {state === 'error' && <p className="mt-0.5 text-[10px] text-red-500">{t('catalog.cost_invalid')}</p>}
+      {state === 'error' && <p className="mt-1 text-[11px] text-red-600">{t('catalog.cost_invalid')}</p>}
       {state !== 'error' && offer.cost_price !== null && offer.cost_source === 'estimate' && (
-        <p className="mt-0.5 text-[10px] text-amber-600" title={t('catalog.cost_estimated_hint')}>{t('catalog.cost_estimated')}</p>
+        <p className="mt-1 text-[11px] font-medium text-amber-600" title={t('catalog.cost_estimated_hint')}>{t('catalog.cost_estimated')}</p>
       )}
       {state !== 'error' && offer.cost_price !== null && (offer.cost_source === 'woocommerce' || offer.cost_source === 'shopify') && (
-        <p className="mt-0.5 text-[10px] text-neutral-400" title={platform.hint}>{t('catalog.cost_from_platform', { platform: platform.name })}</p>
+        <p className="mt-1 text-[11px] text-neutral-400" title={platform.hint}>{t('catalog.cost_from_platform', { platform: platform.name })}</p>
       )}
       {state !== 'error' && siblings > 0 && offer.cost_price !== null && (
-        <button onClick={applyToVariants} disabled={applying}
-          title={t('catalog.apply_variants_hint', { cost: fmt.format(offer.cost_price) })}
-          className="mt-0.5 text-[10px] text-neutral-400 hover:text-neutral-700 underline-offset-2 hover:underline disabled:opacity-50">
+        <button onClick={applyToVariants} disabled={applying} title={t('catalog.apply_variants_hint', { cost: f.money2.format(offer.cost_price) })}
+          className={cn(linkStyles, 'mt-1 text-left text-[11px] font-normal text-neutral-500 disabled:opacity-50')}>
           {applying ? t('catalog.applying') : t('catalog.apply_variants', { count: siblings + 1 })}
         </button>
       )}
@@ -166,10 +163,9 @@ function countBy(offers: Offer[], pick: (o: Offer) => string | null): [string, n
  * o marcă. Implicit doar unde costul lipsește; costurile completate așa sunt
  * „estimate" și omul le poate corecta una câte una.
  */
-function BulkCostPanel({ offers, fmt, fmtInt, onClose, onApplied }: {
+function BulkCostPanel({ offers, f, onClose, onApplied }: {
   offers: Offer[]
-  fmt: Intl.NumberFormat
-  fmtInt: Intl.NumberFormat
+  f: Formats
   onClose: () => void
   onApplied: (count: number) => void
 }) {
@@ -213,104 +209,96 @@ function BulkCostPanel({ offers, fmt, fmtInt, onClose, onApplied }: {
   }
 
   return (
-    <div className="rounded-xl border border-neutral-200 bg-white p-4">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-[14px] font-semibold text-neutral-900">{t('catalog.bulk_title')}</p>
-          <p className="mt-0.5 text-[12px] text-neutral-500 leading-relaxed max-w-2xl">{t('catalog.bulk_hint')}</p>
+    <Card>
+      <CardHeader icon={<Percent />} title={t('catalog.bulk_title')} description={t('catalog.bulk_hint')}
+        action={<Button size="icon" variant="ghost" onClick={onClose} aria-label={t('catalog.bulk_cancel')}><X /></Button>} />
+      <div className="space-y-4 px-5 pb-5 pt-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-[180px_1fr]">
+          <label className="block">
+            <span className="text-[12px] font-medium text-neutral-600">{t('catalog.bulk_percent_label')}</span>
+            <Input value={percent} onChange={e => setPercent(e.target.value)} inputMode="decimal" aria-invalid={!valid} suffix={t('catalog.bulk_percent_suffix')}
+              wrapperClassName="mt-1.5" className="pr-20 text-right font-medium tabular-nums" />
+          </label>
+          <label className="block min-w-0">
+            <span className="text-[12px] font-medium text-neutral-600">{t('catalog.bulk_scope_label')}</span>
+            <Select value={scope} onChange={e => setScope(e.target.value as Scope)} wrapperClassName="mt-1.5">
+              <option value="all">{t('catalog.bulk_scope_all', { count: f.int.format(offers.length) })}</option>
+              {categories.length > 0 && (
+                <optgroup label={t('catalog.bulk_scope_categories')}>
+                  {categories.map(([name, n]) => <option key={`c:${name}`} value={`c:${name}`}>{name} ({f.int.format(n)})</option>)}
+                </optgroup>
+              )}
+              {brands.length > 0 && (
+                <optgroup label={t('catalog.bulk_scope_brands')}>
+                  {brands.map(([name, n]) => <option key={`b:${name}`} value={`b:${name}`}>{name} ({f.int.format(n)})</option>)}
+                </optgroup>
+              )}
+            </Select>
+          </label>
         </div>
-        <button onClick={onClose} className="text-neutral-300 hover:text-neutral-600" aria-label={t('catalog.bulk_cancel')}><X className="h-4 w-4" /></button>
-      </div>
 
-      <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
-        <label className="block">
-          <span className="text-[11px] font-medium uppercase tracking-wide text-neutral-400">{t('catalog.bulk_percent_label')}</span>
-          <div className="mt-1 flex items-center h-9 w-40 rounded-xl border border-neutral-200 bg-white px-3 focus-within:border-neutral-400">
-            <input value={percent} onChange={e => setPercent(e.target.value)} inputMode="decimal" aria-label={t('catalog.bulk_percent_label')}
-              className="w-full min-w-0 bg-transparent text-[13px] font-medium text-neutral-900 tabular-nums text-right focus:outline-none" />
-            <span className="ml-1 text-[12px] text-neutral-400 shrink-0">{t('catalog.bulk_percent_suffix')}</span>
-          </div>
-        </label>
-        <label className="block flex-1 min-w-0">
-          <span className="text-[11px] font-medium uppercase tracking-wide text-neutral-400">{t('catalog.bulk_scope_label')}</span>
-          <select value={scope} onChange={e => setScope(e.target.value as Scope)}
-            className="mt-1 h-9 w-full px-3 rounded-xl border border-neutral-200 bg-white text-[13px] text-neutral-700 focus:outline-none focus:border-neutral-400">
-            <option value="all">{t('catalog.bulk_scope_all', { count: fmtInt.format(offers.length) })}</option>
-            {categories.length > 0 && (
-              <optgroup label={t('catalog.bulk_scope_categories')}>
-                {categories.map(([name, n]) => <option key={`c:${name}`} value={`c:${name}`}>{name} ({fmtInt.format(n)})</option>)}
-              </optgroup>
+        <Checkbox checked={onlyMissing} onChange={setOnlyMissing}>{t('catalog.bulk_only_missing')}</Checkbox>
+
+        <div className="rounded-lg bg-neutral-50 px-4 py-3 text-[13px] leading-relaxed text-neutral-600 ring-1 ring-inset ring-neutral-200/60">
+          {!valid ? <span className="text-red-600">{t('catalog.bulk_invalid')}</span>
+            : !matches.length ? t('catalog.bulk_nothing')
+            : (
+              <>
+                <span className="font-medium text-neutral-900">{t('catalog.bulk_preview', { count: f.int.format(matches.length) })}</span>
+                {example && <> {t('catalog.bulk_example', { product: example.product_name || example.title, price: f.money2.format(example.price), cost: f.money2.format(Math.round(example.price * pct) / 100) })}</>}
+                {overwrites > 0 && <span className="mt-1 block text-amber-700">{t('catalog.bulk_overwrite_warning', { count: f.int.format(overwrites) })}</span>}
+              </>
             )}
-            {brands.length > 0 && (
-              <optgroup label={t('catalog.bulk_scope_brands')}>
-                {brands.map(([name, n]) => <option key={`b:${name}`} value={`b:${name}`}>{name} ({fmtInt.format(n)})</option>)}
-              </optgroup>
-            )}
-          </select>
-        </label>
+        </div>
+
+        {error && <Callout tone="danger">{error}</Callout>}
+
+        <div className="flex flex-wrap gap-2">
+          <Button variant="primary" loading={saving} disabled={!valid || !matches.length} onClick={apply}>{t('catalog.bulk_apply')}</Button>
+          <Button onClick={onClose}>{t('catalog.bulk_cancel')}</Button>
+        </div>
       </div>
-
-      <label className="mt-3 flex items-center gap-2 text-[12px] text-neutral-600 cursor-pointer select-none">
-        <input type="checkbox" checked={onlyMissing} onChange={e => setOnlyMissing(e.target.checked)} className="h-3.5 w-3.5 accent-neutral-900" />
-        {t('catalog.bulk_only_missing')}
-      </label>
-
-      <div className="mt-3 rounded-lg bg-neutral-50 px-3 py-2.5 text-[12px] text-neutral-600 leading-relaxed">
-        {!valid ? <span className="text-red-500">{t('catalog.bulk_invalid')}</span>
-          : !matches.length ? t('catalog.bulk_nothing')
-          : (
-            <>
-              {t('catalog.bulk_preview', { count: fmtInt.format(matches.length) })}
-              {example && <> {t('catalog.bulk_example', { product: example.product_name || example.title, price: fmt.format(example.price), cost: fmt.format(Math.round(example.price * pct) / 100) })}</>}
-              {overwrites > 0 && <span className="block mt-1 text-amber-700">{t('catalog.bulk_overwrite_warning', { count: fmtInt.format(overwrites) })}</span>}
-            </>
-          )}
-      </div>
-
-      {error && <p className="mt-2 text-[12px] text-red-500">{error}</p>}
-
-      <div className="mt-3 flex gap-2">
-        <button onClick={apply} disabled={!valid || !matches.length || saving}
-          className="inline-flex items-center gap-1.5 h-9 px-4 rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white text-[12px] font-medium disabled:opacity-40 transition-all">
-          {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}{t('catalog.bulk_apply')}
-        </button>
-        <button onClick={onClose} className="h-9 px-4 rounded-xl border border-neutral-200 text-[12px] font-medium text-neutral-600 hover:border-neutral-300">
-          {t('catalog.bulk_cancel')}
-        </button>
-      </div>
-    </div>
+    </Card>
   )
 }
 
 function ProductsView() {
-  const { t, intlLocale: numberLocale } = useT()
-  const [days, setDays] = useState<Period>(30)
-  const [store, setStore] = useState<StoreInfo | null>(null)
-  const [offers, setOffers] = useState<Offer[]>([])
-  const [loading, setLoading] = useState(true)
-  const [loadError, setLoadError] = useState(false)
-  const [search, setSearch] = useState('')
-  const [quick, setQuick] = useState<Quick>('all')
-  const [sort, setSort] = useState<Sort>('sales')
-  const [page, setPage] = useState(1)
-  const [syncing, setSyncing] = useState(false)
-  const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null)
-  const [bulkOpen, setBulkOpen] = useState(false)
-  const loadedOnce = useRef(false)
-
+  const { t, intlLocale } = useT()
   // Căutarea din antet trimite aici cu ?search=; pașii și recomandările cu ?view= (ex. no_cost)
   const params = useSearchParams()
   const urlSearch = params.get('search')
   const urlView = params.get('view')
-  useEffect(() => {
-    if (urlSearch !== null) { setSearch(urlSearch); setQuick('all') }
-  }, [urlSearch])
-  useEffect(() => {
-    if (urlView && QUICKS.includes(urlView as Quick)) setQuick(urlView as Quick)
-  }, [urlView])
+  const viewOf = (v: string | null): Quick | null => (v && QUICKS.includes(v as Quick) ? (v as Quick) : null)
+
+  const [days, setDays] = useState<Period>(30)
+  const [store, setStore] = useState<StoreInfo | null>(null)
+  const [offers, setOffers] = useState<Offer[]>([])
+  const [loading, setLoading] = useState(true)
+  const [hasData, setHasData] = useState(false)
+  const [loadError, setLoadError] = useState(false)
+  const [search, setSearchState] = useState(urlSearch ?? '')
+  const [quick, setQuickState] = useState<Quick>(viewOf(urlView) ?? 'all')
+  const [sort, setSortState] = useState<Sort>('sales')
+  const [page, setPage] = useState(1)
+  const [syncing, setSyncing] = useState(false)
+  const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null)
+  const [bulkOpen, setBulkOpen] = useState(false)
+
+  // Filtrele schimbă lista: se pornește de la prima pagină
+  const setSearch = (v: string) => { setSearchState(v); setPage(1) }
+  const setQuick = (v: Quick) => { setQuickState(v); setPage(1) }
+  const setSort = (v: Sort) => { setSortState(v); setPage(1) }
+
+  // O nouă căutare din antet (sau un link cu ?view=) cât timp pagina e deschisă
+  const [seenUrl, setSeenUrl] = useState(`${urlSearch}|${urlView}`)
+  if (seenUrl !== `${urlSearch}|${urlView}`) {
+    setSeenUrl(`${urlSearch}|${urlView}`)
+    if (urlSearch !== null) { setSearchState(urlSearch); setQuickState('all'); setPage(1) }
+    const view = viewOf(urlView)
+    if (view) { setQuickState(view); setPage(1) }
+  }
 
   const load = useCallback(async (period: Period) => {
-    if (!loadedOnce.current) setLoading(true)
     setLoadError(false)
     try {
       const r = await fetch(`/api/catalog?days=${period}`)
@@ -318,7 +306,7 @@ function ProductsView() {
       const d = await r.json()
       setStore(d.store)
       setOffers(d.offers || [])
-      loadedOnce.current = true
+      setHasData(true)
     } catch {
       setLoadError(true)
     } finally {
@@ -337,12 +325,7 @@ function ProductsView() {
     return () => clearInterval(id)
   }, [firstSyncRunning, days, load])
 
-  const currency = store?.currency || offers[0]?.currency || 'RON'
-  const fmt = useMemo(() => {
-    try { return new Intl.NumberFormat(numberLocale, { style: 'currency', currency, maximumFractionDigits: 2 }) }
-    catch { return new Intl.NumberFormat(numberLocale, { maximumFractionDigits: 2 }) }
-  }, [numberLocale, currency])
-  const fmtInt = useMemo(() => new Intl.NumberFormat(numberLocale, { maximumFractionDigits: 0 }), [numberLocale])
+  const f = useFormats(store?.currency || offers[0]?.currency || 'RON')
 
   const siblingsByProduct = useMemo(() => {
     const m = new Map<string, number>()
@@ -367,7 +350,7 @@ function ProductsView() {
       return [o.title, o.product_name, o.variant_title, o.sku, o.gtin, o.brand, o.category, o.offer_id]
         .some(v => v && v.toLowerCase().includes(q))
     })
-    const byName = (a: Offer, b: Offer) => (a.title || '').localeCompare(b.title || '', numberLocale)
+    const byName = (a: Offer, b: Offer) => (a.title || '').localeCompare(b.title || '', intlLocale)
     return list.sort((a, b) => {
       if (sort === 'name') return byName(a, b)
       if (sort === 'price') return b.price - a.price || byName(a, b)
@@ -380,12 +363,11 @@ function ProductsView() {
       }
       return b.sales.units - a.sales.units || b.sales.revenue - a.sales.revenue || byName(a, b)
     })
-  }, [offers, quick, search, sort, numberLocale])
+  }, [offers, quick, search, sort, intlLocale])
 
   const pages = Math.max(1, Math.ceil(filtered.length / PER_PAGE))
   const current = Math.min(page, pages)
   const visible = filtered.slice((current - 1) * PER_PAGE, current * PER_PAGE)
-  useEffect(() => { setPage(1) }, [search, quick, sort])
 
   // Costul scris de om e „manual": nici estimările în masă, nici platforma nu-l mai schimbă
   const onSaved = useCallback((ids: string[], cost: number | null) => {
@@ -395,7 +377,7 @@ function ProductsView() {
 
   async function onBulkApplied(count: number) {
     setBulkOpen(false)
-    setNotice({ ok: true, text: t('catalog.bulk_done', { count: fmtInt.format(count) }) })
+    setNotice({ ok: true, text: t('catalog.bulk_done', { count: f.int.format(count) }) })
     await load(days)
   }
 
@@ -416,83 +398,54 @@ function ProductsView() {
     }
   }
 
+  const description = store?.supported && offers.length > 0
+    ? `${t('catalog.subtitle', { count: offers.length, store: store.store_name || '' })}${store.last_sync_at ? ` · ${t('catalog.synced_at', { time: f.dateTime.format(new Date(store.last_sync_at)) })}` : ''}`
+    : t('catalog.subtitle_empty')
   const header = (
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-      <div>
-        <h1 className="text-[22px] font-semibold text-neutral-900 tracking-tight">{t('catalog.title')}</h1>
-        <p className="text-[13px] text-neutral-400 mt-0.5">
-          {store?.supported && offers.length > 0
-            ? t('catalog.subtitle', { count: offers.length, store: store.store_name || '' })
-            : t('catalog.subtitle_empty')}
-          {store?.last_sync_at && store.supported && (
-            <> · {t('catalog.synced_at', { time: new Date(store.last_sync_at).toLocaleString(numberLocale, { dateStyle: 'short', timeStyle: 'short' }) })}</>
-          )}
-        </p>
-      </div>
-      {store?.supported && (
-        <div className="flex items-center gap-2">
-          <select value={days} onChange={e => setDays(Number(e.target.value) as Period)} aria-label={t('catalog.period')}
-            className="h-9 px-3 rounded-xl border border-neutral-200 bg-white text-[12px] font-medium text-neutral-600 focus:outline-none focus:border-neutral-400">
-            {PERIODS.map(p => <option key={p} value={p}>{t(`catalog.period_${p}`)}</option>)}
-          </select>
-          <button onClick={handleSync} disabled={syncing || store.connection_status === 'revoked'}
-            className="flex items-center gap-1.5 h-9 px-3.5 rounded-xl border border-neutral-200 bg-white text-[12px] font-medium text-neutral-600 hover:border-neutral-300 hover:text-neutral-900 transition-all disabled:opacity-50">
-            <RefreshCw className={`h-3.5 w-3.5 ${syncing ? 'animate-spin' : ''}`} />
-            <span className="hidden sm:inline">{t('settings.sync_now')}</span>
-          </button>
-        </div>
-      )}
-    </div>
+    <PageHeader title={t('catalog.title')} description={description}
+      actions={store?.supported && (
+        <>
+          <Segmented id="catalog-period" value={String(days)} onChange={v => setDays(Number(v) as Period)}
+            items={PERIODS.map(p => ({ value: String(p), label: t(`catalog.period_short_${p}`) }))} />
+          <Button onClick={handleSync} disabled={syncing || store.connection_status === 'revoked'}>
+            <RefreshCw className={cn(syncing && 'animate-spin')} />{t('settings.sync_now')}
+          </Button>
+        </>
+      )} />
   )
 
   if (loading) {
     return (
-      <div className="space-y-5">
-        {header}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {[0, 1, 2, 3].map(i => <div key={i} className="h-[76px] rounded-xl bg-neutral-100 animate-pulse" />)}
-        </div>
-        <div className="h-96 rounded-xl bg-neutral-100 animate-pulse" />
+      <div className="space-y-6">
+        <div className="space-y-2"><Skeleton className="h-8 w-40" /><Skeleton className="h-4 w-80 max-w-full" /></div>
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">{[0, 1, 2, 3].map(i => <Skeleton key={i} className="h-[92px] rounded-xl" />)}</div>
+        <Skeleton className="h-[420px] rounded-xl" />
       </div>
     )
   }
 
-  if (loadError && !loadedOnce.current) {
+  if (loadError && !hasData) {
     return (
-      <div className="space-y-5">
+      <div className="space-y-6">
         {header}
-        <div className="flex flex-col items-center justify-center rounded-2xl border border-neutral-200 bg-white py-16 text-center">
-          <AlertCircle className="h-6 w-6 text-neutral-400" />
-          <p className="mt-3 text-[14px] font-medium text-neutral-900">{t('catalog.load_error')}</p>
-          <button onClick={() => load(days)} className="mt-4 h-9 px-4 rounded-xl bg-neutral-900 text-white text-[13px] font-medium hover:bg-neutral-800">
-            {t('catalog.retry')}
-          </button>
-        </div>
+        <Card>
+          <EmptyState icon={<AlertCircle />} title={t('catalog.load_error')} description={t('campaigns.load_error_hint')}
+            action={<Button variant="primary" onClick={() => load(days)}>{t('catalog.retry')}</Button>} />
+        </Card>
       </div>
     )
   }
 
   if (!store || !store.supported) {
     return (
-      <div className="space-y-5">
+      <div className="space-y-6">
         {header}
-        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-neutral-200 bg-white py-20 px-6 text-center">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-neutral-100">
-            <Store className="h-6 w-6 text-neutral-500" />
-          </div>
-          <p className="mt-4 text-[15px] font-semibold text-neutral-900">
-            {store ? t('catalog.unsupported_title') : t('catalog.no_store_title')}
-          </p>
-          <p className="mt-1 max-w-md text-[13px] text-neutral-400 leading-relaxed">
-            {store ? t('catalog.unsupported_desc') : t('catalog.no_store_desc')}
-          </p>
-          {!store && (
-            <Link href="/settings?tab=integrations"
-              className="mt-5 inline-flex items-center gap-1.5 h-9 px-4 rounded-xl bg-neutral-900 text-white text-[13px] font-medium hover:bg-neutral-800">
-              {t('catalog.connect_store')}
-            </Link>
-          )}
-        </div>
+        <Card>
+          <EmptyState icon={<Store />}
+            title={store ? t('catalog.unsupported_title') : t('catalog.no_store_title')}
+            description={store ? t('catalog.unsupported_desc') : t('catalog.no_store_desc')}
+            action={!store && <Button asChild variant="primary"><Link href="/settings?tab=integrations">{t('catalog.connect_store')}</Link></Button>} />
+        </Card>
       </div>
     )
   }
@@ -504,221 +457,182 @@ function ProductsView() {
     name: store.platform_name,
     hint: t(store.prices_include_vat === false ? 'catalog.cost_from_platform_hint' : 'catalog.cost_from_platform_hint_vat', { platform: store.platform_name }),
   }
+  const tiles: { key: Quick; value: number; label: string; tone?: 'amber' | 'red' }[] = [
+    { key: 'all', value: counts.all, label: t('catalog.stat_all') },
+    { key: 'out', value: counts.out, label: t('catalog.stat_out'), tone: counts.out ? 'amber' : undefined },
+    { key: 'no_cost', value: counts.no_cost, label: t('catalog.stat_no_cost'), tone: counts.no_cost ? 'amber' : undefined },
+    ...(store.google_status_known ? [{ key: 'google_issue' as Quick, value: counts.google_issue, label: t('catalog.stat_google_issue'), tone: counts.google_issue ? 'red' as const : undefined }] : []),
+  ]
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       {header}
 
       {(store.connection_status === 'revoked' || store.connection_status === 'error') && (
-        <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl text-[12px] leading-relaxed bg-amber-50 border border-amber-100 text-amber-800">
-          <AlertCircle className="h-4 w-4 shrink-0 mt-px" />
-          <span className="flex-1">
-            {store.connection_status === 'revoked' ? t('catalog.revoked', { platform: store.platform_name }) : t('catalog.store_error', { platform: store.platform_name })}
-            {store.connection_status === 'error' && store.last_error && <span className="block text-amber-700/70">{translateStored(t, store.last_error)}</span>}
-          </span>
-          {store.connection_status === 'revoked' && (
-            <Link href="/settings?tab=integrations" className="font-medium underline underline-offset-2">{t('catalog.reconnect')}</Link>
-          )}
-        </div>
+        <Callout tone="warning"
+          action={store.connection_status === 'revoked' && <Button asChild size="sm"><Link href="/settings?tab=integrations">{t('catalog.reconnect')}</Link></Button>}>
+          {store.connection_status === 'revoked' ? t('catalog.revoked', { platform: store.platform_name }) : t('catalog.store_error', { platform: store.platform_name })}
+          {store.connection_status === 'error' && store.last_error && <span className="block opacity-80">{translateStored(t, store.last_error)}</span>}
+        </Callout>
       )}
 
-      {notice && (
-        <div className={`flex items-start gap-2 px-3 py-2.5 rounded-xl text-[12px] leading-relaxed ${notice.ok ? 'bg-neutral-900 text-white' : 'bg-amber-50 border border-amber-100 text-amber-800'}`}>
-          <AlertCircle className="h-4 w-4 shrink-0 mt-px" />
-          <span className="flex-1">{notice.text}</span>
-          <button onClick={() => setNotice(null)} className="opacity-50 hover:opacity-100"><X className="h-3.5 w-3.5" /></button>
-        </div>
-      )}
+      {notice && <Callout tone={notice.ok ? 'success' : 'warning'} onClose={() => setNotice(null)}>{notice.text}</Callout>}
 
       {offers.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-neutral-200 bg-white py-20 text-center">
-          {firstSyncRunning ? <Loader2 className="h-6 w-6 animate-spin text-neutral-400" /> : <Package className="h-6 w-6 text-neutral-400" />}
-          <p className="mt-4 text-[15px] font-semibold text-neutral-900">
-            {firstSyncRunning ? t('catalog.first_sync_title') : t('catalog.empty_title')}
-          </p>
-          <p className="mt-1 max-w-md text-[13px] text-neutral-400">
-            {firstSyncRunning ? t('catalog.first_sync_desc') : t('catalog.empty_desc')}
-          </p>
-        </div>
+        <Card>
+          <EmptyState icon={firstSyncRunning ? <Loader2 className="animate-spin" /> : <Package />}
+            title={firstSyncRunning ? t('catalog.first_sync_title') : t('catalog.empty_title')}
+            description={firstSyncRunning ? t('catalog.first_sync_desc') : t('catalog.empty_desc')} />
+        </Card>
       ) : (
         <>
           {/* Cifrele de sus sunt și filtre */}
-          <div className={`grid grid-cols-2 gap-3 ${store.google_status_known ? 'sm:grid-cols-4' : 'sm:grid-cols-3'}`}>
-            {([
-              { key: 'all', value: counts.all, label: t('catalog.stat_all'), accent: '' },
-              { key: 'out', value: counts.out, label: t('catalog.stat_out'), accent: counts.out ? 'text-amber-600' : '' },
-              { key: 'no_cost', value: counts.no_cost, label: t('catalog.stat_no_cost'), accent: counts.no_cost ? 'text-amber-600' : '' },
-              ...(store.google_status_known
-                ? [{ key: 'google_issue', value: counts.google_issue, label: t('catalog.stat_google_issue'), accent: counts.google_issue ? 'text-red-600' : '' }]
-                : []),
-            ] as { key: Quick; value: number; label: string; accent: string }[]).map(s => {
-              const active = quick === s.key
-              return (
-                <button key={s.key} onClick={() => setQuick(active && s.key !== 'all' ? 'all' : s.key)}
-                  className={`text-left p-4 rounded-xl border transition-all ${active ? 'border-neutral-900 bg-neutral-900' : 'border-neutral-200 bg-white hover:border-neutral-300'}`}>
-                  <p className={`text-[22px] font-bold tabular-nums ${active ? 'text-white' : (s.accent || 'text-neutral-900')}`}>{fmtInt.format(s.value)}</p>
-                  <p className="text-[11px] mt-0.5 text-neutral-400">{s.label}</p>
-                </button>
-              )
-            })}
-          </div>
+          <FadeIn>
+            <div className={cn('grid grid-cols-2 gap-3', tiles.length === 4 ? 'lg:grid-cols-4' : 'lg:grid-cols-3')}>
+              {tiles.map(s => {
+                const active = quick === s.key
+                return (
+                  <button key={s.key} onClick={() => setQuick(active && s.key !== 'all' ? 'all' : s.key)} aria-pressed={active}
+                    className={cn('group rounded-xl border bg-white p-4 text-left shadow-card transition-[border-color,box-shadow]',
+                      active ? 'border-neutral-900 ring-1 ring-neutral-900' : 'border-neutral-200/80 hover:border-neutral-300 hover:shadow-raised')}>
+                    <span className="flex items-center justify-between gap-2">
+                      <span className="text-[13px] font-medium text-neutral-500">{s.label}</span>
+                      {s.tone && <span className={cn('size-2 rounded-full', s.tone === 'red' ? 'bg-red-500' : 'bg-amber-500')} />}
+                    </span>
+                    <span className="mt-1.5 block text-[24px] font-semibold leading-none tabular-nums tracking-[-0.02em] text-neutral-950">{f.int.format(s.value)}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </FadeIn>
 
           {counts.no_cost > 0 && !bulkOpen && (
-            <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl text-[12px] leading-relaxed bg-neutral-50 border border-neutral-100 text-neutral-600">
-              <Info className="h-4 w-4 shrink-0 mt-px text-neutral-400" />
-              <span className="flex-1">
-                {t('catalog.cost_explainer')} {vatHint}
-                {COST_PLATFORMS.includes(store.platform) && <> {t(`catalog.cost_cogs_hint_${store.platform}`)}</>}
-              </span>
-              <button onClick={() => setBulkOpen(true)} className="shrink-0 font-medium text-neutral-900 underline underline-offset-2 hover:text-neutral-600">
-                {t('catalog.bulk_open')}
-              </button>
-            </div>
+            <Callout tone="info" action={<Button size="sm" onClick={() => setBulkOpen(true)}><Percent />{t('catalog.bulk_open')}</Button>}>
+              {t('catalog.cost_explainer')} {vatHint}
+              {COST_PLATFORMS.includes(store.platform) && <> {t(`catalog.cost_cogs_hint_${store.platform}`)}</>}
+            </Callout>
           )}
 
           {bulkOpen && (
-            <BulkCostPanel offers={offers} fmt={fmt} fmtInt={fmtInt} onClose={() => setBulkOpen(false)} onApplied={onBulkApplied} />
+            <FadeIn><BulkCostPanel offers={offers} f={f} onClose={() => setBulkOpen(false)} onApplied={onBulkApplied} /></FadeIn>
           )}
 
-          <div className="bg-white border border-neutral-200 rounded-xl overflow-hidden">
-            <div className="flex flex-col gap-2 p-3 border-b border-neutral-100 sm:flex-row sm:items-center">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-neutral-300 pointer-events-none" />
-                <input value={search} onChange={e => setSearch(e.target.value)} placeholder={t('catalog.search_placeholder')}
-                  className="w-full h-9 pl-9 pr-8 rounded-xl bg-neutral-50 border border-neutral-100 text-[13px] text-neutral-700 placeholder:text-neutral-300 focus:outline-none focus:border-neutral-300 focus:bg-white transition-all" />
-                {search && (
-                  <button onClick={() => setSearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-300 hover:text-neutral-500">
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                )}
+          <FadeIn delay={0.04}>
+            <Card className="overflow-hidden">
+              <div className="flex flex-col gap-2 p-4 sm:flex-row sm:items-center">
+                <div className="relative flex-1">
+                  <Input icon={<Search />} value={search} onChange={e => setSearch(e.target.value)} placeholder={t('catalog.search_placeholder')} className="pr-8" />
+                  {search && (
+                    <button onClick={() => setSearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-neutral-400 hover:text-neutral-600" aria-label={t('common.close')}>
+                      <X className="size-3.5" />
+                    </button>
+                  )}
+                </div>
+                <Select value={sort} onChange={e => setSort(e.target.value as Sort)} aria-label={t('catalog.sort_label')} wrapperClassName="sm:w-52">
+                  {SORTS.map(s => <option key={s} value={s}>{t(`catalog.sort_${s}`)}</option>)}
+                </Select>
+                <Button variant={bulkOpen ? 'dark' : 'secondary'} onClick={() => setBulkOpen(o => !o)} aria-pressed={bulkOpen}>
+                  <Percent />{t('catalog.bulk_button')}
+                </Button>
               </div>
-              <select value={sort} onChange={e => setSort(e.target.value as Sort)} aria-label={t('catalog.sort_label')}
-                className="h-9 px-3 rounded-xl border border-neutral-200 bg-white text-[12px] font-medium text-neutral-600 focus:outline-none focus:border-neutral-400">
-                {SORTS.map(s => <option key={s} value={s}>{t(`catalog.sort_${s}`)}</option>)}
-              </select>
-              <button onClick={() => setBulkOpen(o => !o)} aria-pressed={bulkOpen}
-                className={`flex items-center justify-center gap-1.5 h-9 px-3 rounded-xl border text-[12px] font-medium transition-all
-                  ${bulkOpen ? 'border-neutral-900 bg-neutral-900 text-white' : 'border-neutral-200 bg-white text-neutral-600 hover:border-neutral-300 hover:text-neutral-900'}`}>
-                <Percent className="h-3.5 w-3.5" />{t('catalog.bulk_button')}
-              </button>
-            </div>
 
-            {filtered.length === 0 ? (
-              <p className="py-14 text-center text-[13px] text-neutral-400">{t('catalog.no_results')}</p>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[920px] text-left">
+              {filtered.length === 0 ? (
+                <p className="border-t border-neutral-100 py-14 text-center text-[13px] text-neutral-400">{t('catalog.no_results')}</p>
+              ) : (
+                <Table className="min-w-[960px]">
                   <thead>
-                    <tr className="border-b border-neutral-100 text-[11px] font-medium uppercase tracking-wide text-neutral-400">
-                      <th className="px-4 py-2.5">{t('catalog.col_product')}</th>
-                      <th className="px-3 py-2.5 text-right">{t('catalog.col_price')}</th>
-                      <th className="px-3 py-2.5">{t('catalog.col_stock')}</th>
-                      {store.google_status_known && <th className="px-3 py-2.5">{t('catalog.col_google')}</th>}
-                      <th className="px-3 py-2.5 text-right">{t('catalog.col_sales', { period: t(`catalog.period_short_${days}`) })}</th>
-                      <th className="px-3 py-2.5">{t('catalog.col_cost')}</th>
-                      <th className="px-4 py-2.5 text-right">{t('catalog.col_margin')}</th>
+                    <tr>
+                      <Th>{t('catalog.col_product')}</Th>
+                      <Th align="right">{t('catalog.col_price')}</Th>
+                      <Th>{t('catalog.col_stock')}</Th>
+                      {store.google_status_known && <Th>{t('catalog.col_google')}</Th>}
+                      <Th align="right">{t('catalog.col_sales', { period: t(`catalog.period_short_${days}`) })}</Th>
+                      <Th>{t('catalog.col_cost')}</Th>
+                      <Th align="right">{t('catalog.col_margin')}</Th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-neutral-50">
+                  <tbody>
                     {visible.map(o => {
                       const m = marginOf(o)
                       const onSale = o.compare_at_price !== null && o.compare_at_price > o.price
                       return (
-                        <tr key={o.offer_id} className="align-top hover:bg-neutral-50/60">
-                          <td className="px-4 py-3">
-                            <div className="flex items-start gap-3 min-w-0">
-                              <div className="h-10 w-10 shrink-0 overflow-hidden rounded-lg border border-neutral-100 bg-neutral-50 flex items-center justify-center">
+                        <Tr key={o.offer_id} className="[&>td]:align-top">
+                          <Td>
+                            <div className="flex min-w-0 items-start gap-3">
+                              <div className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-neutral-50 ring-1 ring-inset ring-neutral-200/70">
                                 {o.image_url
                                   // eslint-disable-next-line @next/next/no-img-element
-                                  ? <img src={o.image_url} alt="" loading="lazy" className="h-full w-full object-cover" />
-                                  : <ImageIcon className="h-4 w-4 text-neutral-300" />}
+                                  ? <img src={o.image_url} alt="" loading="lazy" className="size-full object-cover" />
+                                  : <ImageIcon className="size-4 text-neutral-300" />}
                               </div>
                               <div className="min-w-0">
-                                <p className="text-[13px] font-medium text-neutral-900 leading-snug line-clamp-2">{o.product_name || o.title}</p>
-                                <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px] text-neutral-400">
-                                  {o.variant_title && <span className="rounded-md bg-neutral-100 px-1.5 py-0.5 text-neutral-600">{o.variant_title}</span>}
+                                <p className="line-clamp-2 font-medium leading-snug text-neutral-900">{o.product_name || o.title}</p>
+                                <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-neutral-500">
+                                  {o.variant_title && <Badge>{o.variant_title}</Badge>}
                                   {o.sku && <span>SKU {o.sku}</span>}
                                   {o.url && (
-                                    <a href={o.url} target="_blank" rel="noopener" className="inline-flex items-center gap-0.5 hover:text-neutral-700">
-                                      {t('catalog.view')}<ExternalLink className="h-3 w-3" />
+                                    <a href={o.url} target="_blank" rel="noopener" className="inline-flex items-center gap-0.5 hover:text-neutral-900">
+                                      {t('catalog.view')}<ExternalLink className="size-3" />
                                     </a>
                                   )}
                                 </div>
                               </div>
                             </div>
-                          </td>
-                          <td className="px-3 py-3 text-right whitespace-nowrap">
-                            <p className="text-[13px] font-semibold text-neutral-900 tabular-nums">{fmt.format(o.price)}</p>
-                            {onSale && <p className="text-[11px] text-neutral-400 line-through tabular-nums">{fmt.format(o.compare_at_price!)}</p>}
-                          </td>
-                          <td className="px-3 py-3 whitespace-nowrap">
-                            {!o.available ? (
-                              <span className="inline-flex text-[11px] font-medium px-1.5 py-0.5 rounded-md bg-red-50 text-red-600">{t('catalog.stock_out')}</span>
-                            ) : o.stock === null ? (
-                              <span className="text-[12px] text-neutral-500">{t('catalog.stock_untracked')}</span>
-                            ) : (
-                              <span className={`text-[12px] tabular-nums ${o.stock <= 3 ? 'text-amber-600 font-medium' : 'text-neutral-700'}`}>
-                                {t('catalog.stock_units', { count: o.stock })}
-                              </span>
-                            )}
-                          </td>
+                          </Td>
+                          <Td align="right" className="whitespace-nowrap">
+                            <p className="font-semibold text-neutral-900">{f.money2.format(o.price)}</p>
+                            {onSale && <p className="text-[12px] text-neutral-400 line-through">{f.money2.format(o.compare_at_price!)}</p>}
+                          </Td>
+                          <Td className="whitespace-nowrap">
+                            {!o.available ? <Badge tone="red">{t('catalog.stock_out')}</Badge>
+                              : o.stock === null ? <span className="text-neutral-500">{t('catalog.stock_untracked')}</span>
+                              : <span className={cn('tabular-nums', o.stock <= 3 ? 'font-medium text-amber-600' : 'text-neutral-700')}>{t('catalog.stock_units', { count: o.stock })}</span>}
+                          </Td>
                           {store.google_status_known && (
-                            <td className="px-3 py-3 whitespace-nowrap">
-                              {o.google_status ? (
-                                <span className={`inline-flex text-[11px] font-medium px-1.5 py-0.5 rounded-md ${GOOGLE_STYLE[o.google_status] || 'bg-neutral-100 text-neutral-500'}`}>
-                                  {t(`catalog.google_${GOOGLE_STYLE[o.google_status] ? o.google_status : 'other'}`)}
-                                </span>
-                              ) : (
-                                <span className="text-[12px] text-neutral-300" title={t('catalog.google_none_hint')}>{t('catalog.google_none')}</span>
-                              )}
-                            </td>
+                            <Td className="whitespace-nowrap">
+                              {o.google_status
+                                ? <Badge tone={GOOGLE_TONE[o.google_status] ?? 'neutral'} dot>{t(`catalog.google_${GOOGLE_TONE[o.google_status] ? o.google_status : 'other'}`)}</Badge>
+                                : <span className="text-neutral-400" title={t('catalog.google_none_hint')}>{t('catalog.google_none')}</span>}
+                            </Td>
                           )}
-                          <td className="px-3 py-3 text-right whitespace-nowrap">
+                          <Td align="right" className="whitespace-nowrap">
                             {o.sales.units > 0 ? (
                               <>
-                                <p className="text-[13px] font-medium text-neutral-900 tabular-nums">{t('catalog.units', { count: Number(o.sales.units) })}</p>
-                                <p className="text-[11px] text-neutral-400 tabular-nums">{fmt.format(o.sales.revenue)}</p>
+                                <p className="font-medium text-neutral-900">{t('catalog.units', { count: Number(o.sales.units) })}</p>
+                                <p className="text-[12px] text-neutral-400">{f.money.format(o.sales.revenue)}</p>
                               </>
-                            ) : <span className="text-[12px] text-neutral-300">—</span>}
-                          </td>
-                          <td className="px-3 py-3">
-                            <CostInput offer={o} fmt={fmt} platform={platformCost} onSaved={onSaved}
+                            ) : <span className="text-neutral-300">—</span>}
+                          </Td>
+                          <Td>
+                            <CostInput offer={o} f={f} platform={platformCost} onSaved={onSaved}
                               siblings={o.item_group_id ? Math.max(0, (siblingsByProduct.get(o.external_product_id) ?? 1) - 1) : 0} />
-                          </td>
-                          <td className="px-4 py-3 text-right whitespace-nowrap">
+                          </Td>
+                          <Td align="right" className="whitespace-nowrap">
                             {m ? (
                               <>
-                                <p className={`text-[13px] font-semibold tabular-nums ${m.amount < 0 ? 'text-red-600' : m.pct < 20 ? 'text-amber-600' : 'text-emerald-600'}`}>
-                                  {Math.round(m.pct)}%
-                                </p>
-                                <p className="text-[11px] text-neutral-400 tabular-nums">{fmt.format(m.amount)}</p>
+                                <p className={cn('font-semibold', m.amount < 0 ? 'text-red-600' : m.pct < 20 ? 'text-amber-600' : 'text-emerald-600')}>{Math.round(m.pct)}%</p>
+                                <p className="text-[12px] text-neutral-400">{f.money2.format(m.amount)}</p>
                               </>
-                            ) : <span className="text-[12px] text-neutral-300">—</span>}
-                          </td>
-                        </tr>
+                            ) : <span className="text-neutral-300">—</span>}
+                          </Td>
+                        </Tr>
                       )
                     })}
                   </tbody>
-                </table>
-              </div>
-            )}
+                </Table>
+              )}
 
-            {pages > 1 && (
-              <div className="flex items-center justify-between gap-2 px-4 py-3 border-t border-neutral-100 text-[12px] text-neutral-500">
-                <span>{t('catalog.page_of', { from: fmtInt.format((current - 1) * PER_PAGE + 1), to: fmtInt.format(Math.min(current * PER_PAGE, filtered.length)), total: fmtInt.format(filtered.length) })}</span>
-                <div className="flex items-center gap-1">
-                  <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={current === 1}
-                    className="h-8 w-8 flex items-center justify-center rounded-lg border border-neutral-200 hover:bg-neutral-50 disabled:opacity-40" aria-label={t('catalog.prev')}>
-                    <ChevronLeft className="h-4 w-4" />
-                  </button>
-                  <button onClick={() => setPage(p => Math.min(pages, p + 1))} disabled={current === pages}
-                    className="h-8 w-8 flex items-center justify-center rounded-lg border border-neutral-200 hover:bg-neutral-50 disabled:opacity-40" aria-label={t('catalog.next')}>
-                    <ChevronRight className="h-4 w-4" />
-                  </button>
+              {pages > 1 && (
+                <div className="flex items-center justify-between gap-2 border-t border-neutral-100 px-5 py-3 text-[12px] text-neutral-500">
+                  <span className="tabular-nums">{t('catalog.page_of', { from: f.int.format((current - 1) * PER_PAGE + 1), to: f.int.format(Math.min(current * PER_PAGE, filtered.length)), total: f.int.format(filtered.length) })}</span>
+                  <div className="flex items-center gap-1">
+                    <Button size="icon" variant="ghost" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={current === 1} aria-label={t('catalog.prev')}><ChevronLeft /></Button>
+                    <Button size="icon" variant="ghost" onClick={() => setPage(p => Math.min(pages, p + 1))} disabled={current === pages} aria-label={t('catalog.next')}><ChevronRight /></Button>
+                  </div>
                 </div>
-              </div>
-            )}
-          </div>
+              )}
+            </Card>
+          </FadeIn>
         </>
       )}
     </div>

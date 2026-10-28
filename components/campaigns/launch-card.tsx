@@ -12,7 +12,7 @@ import { Callout } from '@/components/app/feedback'
 import { InfoTip } from '@/components/app/info-tip'
 import { AccountChoices, choicesDone as choicesMade, type Overlap } from '@/components/campaigns/account-choices'
 import type { AuditData } from '@/components/campaigns/types'
-import type { Formats } from '@/components/campaigns/formats'
+import type { Formats } from '@/components/app/formats'
 import type { Plan } from '@/lib/campaigns/plan'
 import type { AuditCheck } from '@/lib/google/audit'
 

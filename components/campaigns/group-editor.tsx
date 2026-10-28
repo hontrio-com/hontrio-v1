@@ -9,7 +9,7 @@ import {
 import { cn } from '@/lib/utils'
 import { Sheet, SheetHeader } from '@/components/app/sheet'
 import { Badge } from '@/components/app/badge'
-import { Button } from '@/components/app/button'
+import { Button, linkStyles } from '@/components/app/button'
 import { Callout } from '@/components/app/feedback'
 import { ChoiceCard, Input } from '@/components/app/input'
 import { Segmented } from '@/components/app/tabs'
@@ -21,7 +21,7 @@ import {
 } from '@/lib/campaigns/groups'
 import type { AuditData } from '@/components/campaigns/types'
 import type { LiveCampaign } from '@/components/campaigns/live-campaigns'
-import { day, type Formats } from '@/components/campaigns/formats'
+import { day, type Formats } from '@/components/app/formats'
 import { AccountChoices, choicesDone, type Overlap } from '@/components/campaigns/account-choices'
 
 // =============================================
@@ -376,7 +376,7 @@ function EditorBody({ group, initialStep = 1, plan, groups, campaigns, audit, to
                     onChange={e => setBudgetText(e.target.value)} />
                   {budget === 'invalid' && <span className="text-[12px] text-red-600">{t('campaigns.budget_invalid')}</span>}
                   {budgetText && preview.budget.suggested !== null && budget !== preview.budget.suggested && (
-                    <button onClick={() => setBudgetText('')} className="text-[12px] font-medium text-brand-700 hover:text-brand-800">
+                    <button onClick={() => setBudgetText('')} className={cn(linkStyles, 'text-[12px]')}>
                       {t('campaigns.budget_use_suggested', { budget: f.money.format(preview.budget.suggested) })}
                     </button>
                   )}

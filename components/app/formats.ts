@@ -4,7 +4,7 @@ import { useMemo } from 'react'
 import { useT } from '@/lib/i18n/context'
 
 // =============================================
-// Cum se scriu cifrele în paginile campaniilor, în limba omului: banii
+// Cum se scriu cifrele în paginile platformei, în limba omului: banii
 // (fără bani mărunți, sau cu, la costul pe click), ROAS-ul, numerele
 // întregi, procentele și datele.
 // =============================================

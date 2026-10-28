@@ -4,19 +4,19 @@ import { cn } from '@/lib/utils'
 // =============================================
 // Etichetele de stare: aceeași culoare înseamnă același lucru peste tot
 // (verde = rulează / bine, chihlimbar = atenție, roșu = oprit / problemă,
-// indigo = Hontrio / acțiune, gri = neutru).
+// negru = Hontrio / ce iese în față, contur = ciornă / în așteptare, gri = neutru).
 // =============================================
 
-export type Tone = 'neutral' | 'brand' | 'green' | 'amber' | 'red' | 'sky'
+export type Tone = 'neutral' | 'brand' | 'green' | 'amber' | 'red' | 'outline'
 
 // i18n-ignore-start: clase de stil, nu text
 const TONES: Record<Tone, { badge: string; dot: string }> = {
   neutral: { badge: 'bg-neutral-100 text-neutral-600 ring-neutral-200/70', dot: 'bg-neutral-400 text-neutral-400' },
-  brand: { badge: 'bg-brand-50 text-brand-700 ring-brand-200', dot: 'bg-brand-600 text-brand-600' },
+  brand: { badge: 'bg-neutral-900 text-white ring-neutral-900', dot: 'bg-white text-white' },
   green: { badge: 'bg-emerald-50 text-emerald-700 ring-emerald-200/70', dot: 'bg-emerald-500 text-emerald-500' },
   amber: { badge: 'bg-amber-50 text-amber-800 ring-amber-200/70', dot: 'bg-amber-500 text-amber-500' },
   red: { badge: 'bg-red-50 text-red-700 ring-red-200/70', dot: 'bg-red-500 text-red-500' },
-  sky: { badge: 'bg-sky-50 text-sky-700 ring-sky-200/70', dot: 'bg-sky-500 text-sky-500' },
+  outline: { badge: 'bg-white text-neutral-700 ring-neutral-300', dot: 'bg-neutral-500 text-neutral-500' },
 }
 // i18n-ignore-end
 

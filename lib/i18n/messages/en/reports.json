@@ -61,5 +61,7 @@
   "source_google_ads": "Google Ads",
   "sales_empty": "No store sales in the chosen period.",
   "sales_tooltip": "{{day}}: {{revenue}}, of which Google Ads {{google}}",
-  "footer": "Google Ads figures arrive daily, up to and including yesterday; the sales value is the one reported by the conversion (including VAT). Profit is estimated: the value divided by break-even, minus spend."
+  "footer": "Google Ads figures arrive daily, up to and including yesterday; the sales value is the one reported by the conversion (including VAT). Profit is estimated: the value divided by break-even, minus spend.",
+  "kpi_conversions_count_one": "{{value}} conversion",
+  "kpi_conversions_count_other": "{{value}} conversions"
 }
