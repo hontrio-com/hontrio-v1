@@ -73,11 +73,21 @@ export function profitByCampaign(
   if (storeBreakEven === null) return null
   const out = new Map<string, number>()
   for (const r of rows) {
-    const split = splits.get(r.google_campaign_id)
-    const be = (split && r.date < split ? null : breakEvens.get(r.google_campaign_id)) ?? storeBreakEven
-    out.set(r.google_campaign_id, (out.get(r.google_campaign_id) ?? 0) + r.value / be - r.cost)
+    out.set(r.google_campaign_id, (out.get(r.google_campaign_id) ?? 0) + profitOfRow(r, breakEvens, storeBreakEven, splits))
   }
   return out
+}
+
+/** Profitul unei zile a unei campanii: valoarea împărțită la pragul ei din ziua aceea, minus cheltuiala. */
+export function profitOfRow(
+  r: { google_campaign_id: string; date: string; cost: number; value: number },
+  breakEvens: Map<string, number | null>,
+  storeBreakEven: number,
+  splits: Map<string, string>,
+): number {
+  const split = splits.get(r.google_campaign_id)
+  const be = (split && r.date < split ? null : breakEvens.get(r.google_campaign_id)) ?? storeBreakEven
+  return r.value / be - r.cost
 }
 
 /**

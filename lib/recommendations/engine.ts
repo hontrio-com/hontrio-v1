@@ -108,7 +108,7 @@ export function buildRecommendations(input: EngineInput): Recommendation[] {
   // și acolo se repară datele produsului
   const merchantPage = { href: setup.merchant.href, external: true, label_key: openInStore }
   const productsPage = { href: setup.productsHref, external: true, label_key: openInStore }
-  const planPage = { href: '/campaigns', external: false, label_key: 'recs.action_view_plan' }
+  const planPage = { href: '/campaigns?tab=plan', external: false, label_key: 'recs.action_view_plan' }
 
   // ── Ce blochează campaniile ──────────────────────────────────────────────
   if (input.store.connection_status === 'revoked') {

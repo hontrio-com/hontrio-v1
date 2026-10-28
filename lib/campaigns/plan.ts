@@ -396,19 +396,19 @@ export function buildPlan(input: PlanInput): Plan {
   }
   // Auditul contului: fără el nu știm dacă Merchant Center e legat și dacă există conversia
   if (input.google.account) {
-    if (!audit) blockers.push({ id: 'audit', href: '/campaigns#audit', external: false })
+    if (!audit) blockers.push({ id: 'audit', href: '/campaigns?tab=plan#audit', external: false })
     else {
       for (const c of audit.checks) {
         // Moneda o spune deja pasul contului; valoarea conversiei contează doar la licitarea pe valoare
         if (c.level !== 'blocker' || c.id === 'currency_mismatch') continue
-        blockers.push({ id: c.id as BlockerId, href: '/campaigns#audit', external: false, params: c.params })
+        blockers.push({ id: c.id as BlockerId, href: '/campaigns?tab=plan#audit', external: false, params: c.params })
       }
       if (stageId === 'growth' && audit.checks.some(c => c.id === 'purchase_no_value')) {
-        blockers.push({ id: 'purchase_no_value', href: '/campaigns#audit', external: false })
+        blockers.push({ id: 'purchase_no_value', href: '/campaigns?tab=plan#audit', external: false })
       }
     }
   }
-  if (exclusionMode === 'too_many') blockers.push({ id: 'too_many_exclusions', href: '/campaigns', external: false, params: { count: itemIds.length } })
+  if (exclusionMode === 'too_many') blockers.push({ id: 'too_many_exclusions', href: '/campaigns?tab=plan', external: false, params: { count: itemIds.length } })
 
   const merchantId = input.merchant.id ?? audit?.merchant_id ?? null
 

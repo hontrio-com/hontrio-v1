@@ -1,27 +1,36 @@
 'use client'
 
-import { useMemo, useRef, useState, type ReactNode } from 'react'
-import { Dialog as DialogPrimitive } from 'radix-ui'
+import { Fragment, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useT } from '@/lib/i18n/context'
 import {
-  AlertCircle, AlertTriangle, ArrowLeft, ArrowRight, BadgePercent, CalendarRange, Check, CheckCircle2, Coins, FolderTree,
-  ImageIcon, Info, ListChecks, Loader2, Rocket, Search, ShieldCheck, Sparkles, Tag, X, type LucideIcon,
+  ArrowLeft, ArrowRight, BadgePercent, CalendarRange, Check, ChevronLeft, ChevronRight, Coins, FolderTree, ImageIcon, Info,
+  ListChecks, Rocket, Search, ShieldCheck, Sparkles, Tag, type LucideIcon,
 } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { Sheet, SheetHeader } from '@/components/app/sheet'
+import { Badge } from '@/components/app/badge'
+import { Button } from '@/components/app/button'
+import { Callout } from '@/components/app/feedback'
+import { ChoiceCard, Input } from '@/components/app/input'
+import { Segmented } from '@/components/app/tabs'
+import { NumberTicker } from '@/components/app/motion'
 import { GOAL_KEEP, GOALS, type Goal, type Plan, type PlanOffer } from '@/lib/campaigns/plan'
 import {
-  accountBlockers, assignedAsDraft, assignGroups, buildGroupPlan, canRun, EMPTY_RULES, isEmptyRules, otherBudgetsFor,
+  accountBlockers, assignedAsDraft, assignGroups, buildGroupPlan, canRun, EMPTY_RULES, GROUP_TYPES, isEmptyRules, otherBudgetsFor,
   type GroupPlan, type GroupRules, type GroupType, type ProductGroup,
 } from '@/lib/campaigns/groups'
-import type { AuditData } from '@/components/campaigns/launch-panel'
+import type { AuditData } from '@/components/campaigns/types'
 import type { LiveCampaign } from '@/components/campaigns/live-campaigns'
+import { day, type Formats } from '@/components/campaigns/formats'
 import { AccountChoices, choicesDone, type Overlap } from '@/components/campaigns/account-choices'
 
 // =============================================
 // Editorul unei campanii pe grupă de produse, în trei pași: ce produse vinde
 // (categorie, brand, preț, reduceri, alese de mână, și orice combinație),
 // cum rulează (obiectiv, buget, tip, perioadă), apoi rezumatul cu estimarea
-// și lansarea. Planul grupei se socotește pe loc, cu aceleași funcții ca pe
-// server (lib/campaigns/groups.ts), deci cifrele sunt cele de la lansare.
+// și lansarea. Alături, rezumatul se schimbă pe loc la fiecare alegere:
+// planul grupei se socotește cu aceleași funcții ca pe server
+// (lib/campaigns/groups.ts), deci cifrele sunt cele de la lansare.
 // =============================================
 
 type Filter = 'categories' | 'brands' | 'price' | 'sale' | 'manual'
@@ -34,13 +43,14 @@ const FILTERS: { id: Filter; icon: LucideIcon }[] = [
 ]
 const NEW_ID = 'new'
 const PER_PAGE = 40
-const TYPES: GroupType[] = ['auto', 'shopping', 'performance_max']
 
 export type Step = 1 | 2 | 3
 
 type Props = {
   open: boolean
   onOpenChange: (open: boolean) => void
+  /** Crește la fiecare deschidere: editorul pornește curat, cu grupa lui. */
+  session: number
   /** Grupa de schimbat; null = una nouă. */
   group: ProductGroup | null
   initialStep?: Step
@@ -51,10 +61,7 @@ type Props = {
   audit: AuditData | null
   today: string
   currency: string
-  fmt: Intl.NumberFormat
-  fmt2: Intl.NumberFormat
-  fmtNum: Intl.NumberFormat
-  fmtInt: Intl.NumberFormat
+  f: Formats
   /** După o salvare: pagina își reîncarcă datele. */
   onSaved: () => Promise<unknown>
   /** După lansare: mesajul de arătat în pagină. */
@@ -95,26 +102,16 @@ function facetOf(offers: PlanOffer[], key: 'category' | 'brand'): [string, numbe
 }
 const short = (xs: string[]) => (xs.length <= 2 ? xs.join(', ') : `${xs.slice(0, 2).join(', ')} +${xs.length - 2}`)
 
-export function GroupEditor(props: Props) {
-  const { open, onOpenChange } = props
+export function GroupEditor({ session, ...props }: Props) {
   return (
-    <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
-      <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-neutral-950/40 backdrop-blur-[2px] data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0" />
-        <DialogPrimitive.Content
-          aria-describedby={undefined}
-          className="fixed inset-y-0 right-0 z-50 flex w-full flex-col bg-white shadow-2xl outline-none sm:max-w-[680px] sm:rounded-l-2xl data-[state=open]:animate-in data-[state=open]:slide-in-from-right data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right duration-300">
-          {/* Cheia repornește editorul la fiecare deschidere, cu grupa lui */}
-          {open && <EditorBody key={`${props.group?.id ?? NEW_ID}:${props.initialStep ?? 1}`} {...props} />}
-        </DialogPrimitive.Content>
-      </DialogPrimitive.Portal>
-    </DialogPrimitive.Root>
+    <Sheet open={props.open} onOpenChange={props.onOpenChange} width={1080}>
+      {/* Cheia repornește editorul la fiecare deschidere; conținutul rămâne cât panoul se închide */}
+      <EditorBody key={session} {...props} />
+    </Sheet>
   )
 }
 
-function EditorBody({
-  group, initialStep = 1, plan, groups, campaigns, audit, today, currency, fmt, fmt2, fmtNum, fmtInt, onOpenChange, onSaved, onLaunched,
-}: Props) {
+function EditorBody({ group, initialStep = 1, plan, groups, campaigns, audit, today, currency, f, onOpenChange, onSaved, onLaunched }: Omit<Props, 'session'>) {
   const { t } = useT()
   const live = group?.status === 'live'
   const [step, setStepState] = useState<Step>(initialStep)
@@ -141,7 +138,7 @@ function EditorBody({
   const nextPosition = Math.max(0, ...groups.map(g => g.group.position)) + 1
 
   const priceText = (r: GroupRules) => {
-    const money = (n: number) => fmt.format(n)
+    const money = (n: number) => f.money.format(n)
     if (r.price_min !== null && r.price_max !== null) return t('campaigns.g_price_between', { min: money(r.price_min), max: money(r.price_max) })
     if (r.price_min !== null) return t('campaigns.g_price_from', { min: money(r.price_min) })
     return t('campaigns.g_price_to', { max: money(r.price_max ?? 0) })
@@ -198,17 +195,17 @@ function EditorBody({
   const waiting = ready || !step1Ok || !step2Ok ? null
     : account.length || preview.blockers.length || !auditResult ? 'campaigns.g_fix_first' : 'campaigns.g_choose_first'
 
-  function toggleFilter(f: Filter) {
+  function toggleFilter(fl: Filter) {
     const next = new Set(active)
-    if (next.has(f)) {
-      next.delete(f)
+    if (next.has(fl)) {
+      next.delete(fl)
       setRules(r => ({
         ...r,
-        ...(f === 'categories' ? { categories: [] } : f === 'brands' ? { brands: [] } : f === 'price' ? { price_min: null, price_max: null } : f === 'sale' ? { on_sale: false } : { include: [] }),
+        ...(fl === 'categories' ? { categories: [] } : fl === 'brands' ? { brands: [] } : fl === 'price' ? { price_min: null, price_max: null } : fl === 'sale' ? { on_sale: false } : { include: [] }),
       }))
     } else {
-      next.add(f)
-      if (f === 'sale') setRules(r => ({ ...r, on_sale: true }))
+      next.add(fl)
+      if (fl === 'sale') setRules(r => ({ ...r, on_sale: true }))
     }
     setActive(next)
   }
@@ -295,8 +292,8 @@ function EditorBody({
         await onSaved()
         return
       }
-      onLaunched([t('campaigns.g_launched', { name: shownName }), ...(res.warnings ?? [])].join(' '))
       await onSaved()
+      onLaunched([t('campaigns.g_launched', { name: shownName }), ...(res.warnings ?? [])].join(' '))
       onOpenChange(false)
     } catch {
       setError({ text: t('campaigns.launch_failed') })
@@ -315,203 +312,163 @@ function EditorBody({
 
   return (
     <>
-      {/* Antetul */}
-      <div className="flex items-start justify-between gap-4 border-b border-neutral-100 px-5 pt-5 pb-4 sm:px-6">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-neutral-900 text-white"><Sparkles className="h-4 w-4" /></span>
-            <DialogPrimitive.Title className="text-[16px] font-semibold text-neutral-900 tracking-tight truncate">{title}</DialogPrimitive.Title>
-          </div>
-          <p className="mt-1.5 text-[12px] text-neutral-500 leading-relaxed">{t('campaigns.g_subtitle')}</p>
-        </div>
-        <DialogPrimitive.Close className="rounded-lg p-1.5 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700" aria-label={t('campaigns.dismiss')}>
-          <X className="h-4 w-4" />
-        </DialogPrimitive.Close>
-      </div>
+      <SheetHeader icon={<Sparkles />} title={title} description={t('campaigns.g_subtitle')} onClose={() => onOpenChange(false)}>
+        {/* Pașii */}
+        <nav className="mt-5 flex items-center gap-2" aria-label={t('campaigns.g_steps')}>
+          {steps.map((s, i) => {
+            const done = s.id < step
+            const current = s.id === step
+            return (
+              <Fragment key={s.id}>
+                {i > 0 && <span className={cn('h-px w-6 sm:w-12', done || current ? 'bg-brand-300' : 'bg-neutral-200')} />}
+                <button onClick={() => canGo(s.id) && setStep(s.id)} disabled={!canGo(s.id)} aria-current={current ? 'step' : undefined}
+                  className="group flex items-center gap-2 rounded-lg py-1 pr-1 text-[13px] font-medium disabled:cursor-not-allowed">
+                  <span className={cn('flex size-6 items-center justify-center rounded-full text-[12px] font-semibold transition-all',
+                    current ? 'bg-brand-600 text-white ring-4 ring-brand-100' : done ? 'bg-brand-50 text-brand-700 ring-1 ring-brand-200' : 'bg-white text-neutral-400 ring-1 ring-neutral-200')}>
+                    {done ? <Check className="size-3.5" strokeWidth={3} /> : s.id}
+                  </span>
+                  <span className={current ? 'text-neutral-900' : done ? 'text-neutral-600 group-hover:text-neutral-900' : 'text-neutral-400'}>{s.label}</span>
+                </button>
+              </Fragment>
+            )
+          })}
+        </nav>
+      </SheetHeader>
 
-      {/* Pașii */}
-      <nav className="flex items-center gap-1.5 border-b border-neutral-100 px-5 py-3 sm:px-6" aria-label={t('campaigns.g_steps')}>
-        {steps.map((s, i) => {
-          const done = s.id < step
-          const current = s.id === step
-          return (
-            <div key={s.id} className="flex items-center gap-1.5">
-              {i > 0 && <span className="h-px w-4 bg-neutral-200 sm:w-8" />}
-              <button onClick={() => canGo(s.id) && setStep(s.id)} disabled={!canGo(s.id)} aria-current={current ? 'step' : undefined}
-                className={`inline-flex items-center gap-1.5 h-7 pl-1 pr-2.5 rounded-full text-[12px] font-medium transition-all disabled:cursor-not-allowed ${current ? 'bg-neutral-900 text-white' : done ? 'bg-neutral-100 text-neutral-800 hover:bg-neutral-200' : 'text-neutral-400'}`}>
-                <span className={`flex h-5 w-5 items-center justify-center rounded-full text-[11px] ${current ? 'bg-white/20' : done ? 'bg-emerald-500 text-white' : 'border border-neutral-200'}`}>
-                  {done ? <Check className="h-3 w-3" /> : s.id}
-                </span>
-                {s.label}
-              </button>
-            </div>
-          )
-        })}
-      </nav>
+      <div className="flex min-h-0 flex-1">
+        {/* Conținutul pasului */}
+        <div ref={body} className="min-w-0 flex-1 overflow-y-auto px-6 py-6">
+          {step === 1 && (
+            <ProductsStep plan={plan} rules={rules} setRules={setRules} active={active} toggleFilter={toggleFilter}
+              assigned={assigned} groupId={draft.id} ownerName={ownerName} preview={preview} toggleOffer={toggleOffer} f={f} currency={currency} />
+          )}
+          {step === 2 && (
+            <div className="space-y-8">
+              <Block title={t('campaigns.g_name')} hint={nameTouched ? undefined : t('campaigns.g_name_hint')}>
+                <Input value={shownName} maxLength={80} aria-label={t('campaigns.g_name')} className="h-10 max-w-lg text-[14px]"
+                  onChange={e => { setName(e.target.value); setNameTouched(true) }} />
+              </Block>
 
-      {/* Conținutul pasului */}
-      <div ref={body} className="flex-1 overflow-y-auto px-5 py-5 sm:px-6">
-        {step === 1 && (
-          <ProductsStep plan={plan} rules={rules} setRules={setRules} active={active} toggleFilter={toggleFilter}
-            assigned={assigned} groupId={draft.id} ownerName={ownerName} preview={preview} toggleOffer={toggleOffer}
-            fmt={fmt} fmtNum={fmtNum} fmtInt={fmtInt} currency={currency} />
-        )}
-        {step === 2 && (
-          <div className="space-y-6">
-            <Field label={t('campaigns.g_name')} hint={nameTouched ? undefined : t('campaigns.g_name_hint')}>
-              <input value={shownName} maxLength={80} onChange={e => { setName(e.target.value); setNameTouched(true) }}
-                className="w-full h-10 px-3 rounded-xl border border-neutral-200 bg-white text-[13px] text-neutral-900 focus:outline-none focus:border-neutral-400" />
-            </Field>
+              <Block title={t('campaigns.goal_title')} hint={t('campaigns.g_goal_hint')}>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  {GOALS.map(g => {
+                    const target = preview.economics.targets[g]
+                    return (
+                      <ChoiceCard key={g} active={goal === g} onClick={() => setGoal(g)} title={t(`campaigns.goal_${g}`)}
+                        aside={g === 'balanced' ? <Badge tone="brand">{t('campaigns.recommended')}</Badge> : undefined}
+                        description={t(`campaigns.goal_${g}_desc`, { keep: String(Math.round(GOAL_KEEP[g] * 100)) })}
+                        footer={
+                          <span className="flex items-baseline justify-between gap-2 border-t border-neutral-100 pt-3">
+                            <span className="text-[12px] text-neutral-500">{t('campaigns.econ_target')}</span>
+                            <span className="text-[15px] font-semibold tabular-nums text-neutral-900">{target !== null ? f.num.format(target) : '—'}</span>
+                          </span>
+                        } />
+                    )
+                  })}
+                </div>
+              </Block>
 
-            <Field label={t('campaigns.goal_title')} hint={t('campaigns.g_goal_hint')}>
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                {GOALS.map(g => {
-                  const on = goal === g
-                  return (
-                    <button key={g} onClick={() => setGoal(g)} aria-pressed={on}
-                      className={`text-left p-3 rounded-xl border transition-all ${on ? 'border-neutral-900 ring-1 ring-neutral-900' : 'border-neutral-200 hover:border-neutral-300'}`}>
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="text-[13px] font-semibold text-neutral-900">{t(`campaigns.goal_${g}`)}</p>
-                        {on && <CheckCircle2 className="h-4 w-4 text-neutral-900" />}
-                      </div>
-                      <p className="mt-1 text-[11px] text-neutral-500 leading-snug">{t(`campaigns.goal_${g}_desc`, { keep: String(Math.round(GOAL_KEEP[g] * 100)) })}</p>
-                      <p className="mt-2 text-[12px] font-medium text-neutral-800 tabular-nums">
-                        {preview.economics.targets[g] !== null ? t('campaigns.goal_roas', { roas: fmtNum.format(preview.economics.targets[g]!) }) : t('campaigns.goal_roas_unknown')}
-                      </p>
-                    </button>
-                  )
-                })}
-              </div>
-            </Field>
-
-            <Field label={t('campaigns.row_budget')}>
-              <div className="flex items-center gap-3">
-                <div className="relative w-40">
-                  <input value={budgetText} inputMode="decimal" aria-label={t('campaigns.row_budget')}
+              <Block title={t('campaigns.row_budget')}>
+                <div className="flex flex-wrap items-center gap-3">
+                  <Input value={budgetText} inputMode="decimal" aria-label={t('campaigns.row_budget')} aria-invalid={budget === 'invalid'} suffix={currency}
+                    wrapperClassName="w-44" className="h-10 text-[14px] font-medium tabular-nums"
                     placeholder={preview.budget.suggested === null ? '' : String(preview.budget.suggested)}
-                    onChange={e => setBudgetText(e.target.value)}
-                    className={`w-full h-10 pl-3 pr-12 rounded-xl border bg-white text-[13px] font-medium tabular-nums placeholder:text-neutral-300 focus:outline-none ${budget === 'invalid' ? 'border-red-300' : 'border-neutral-200 focus:border-neutral-400'}`} />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] text-neutral-400 pointer-events-none">{currency}</span>
-                </div>
-                {budget === 'invalid' && <span className="text-[11px] text-red-500">{t('campaigns.budget_invalid')}</span>}
-                {budgetText && preview.budget.suggested !== null && budget !== preview.budget.suggested && (
-                  <button onClick={() => setBudgetText('')} className="text-[11px] font-medium text-neutral-600 underline underline-offset-2 hover:text-neutral-900">
-                    {t('campaigns.budget_use_suggested', { budget: fmt.format(preview.budget.suggested) })}
-                  </button>
-                )}
-              </div>
-              <p className="mt-1.5 text-[11px] text-neutral-500 leading-relaxed">
-                {preview.budget.suggested !== null && preview.economics.aov !== null && preview.economics.target !== null
-                  ? t('campaigns.g_budget_hint', {
-                    conversions: fmtInt.format(Math.min(30, Math.max(10, Math.round(preview.conversions30 * 1.25)))),
-                    aov: fmt.format(preview.economics.aov), roas: fmtNum.format(preview.economics.target), budget: fmt.format(preview.budget.suggested),
-                  })
-                  : t('campaigns.budget_hint_no_target')}
-              </p>
-            </Field>
-
-            <Field label={t('campaigns.g_type')} hint={live ? t('campaigns.g_type_locked') : undefined}>
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                {TYPES.map(k => {
-                  const on = type === k
-                  return (
-                    <button key={k} onClick={() => setType(k)} disabled={live} aria-pressed={on}
-                      className={`text-left p-3 rounded-xl border transition-all disabled:cursor-not-allowed disabled:opacity-60 ${on ? 'border-neutral-900 ring-1 ring-neutral-900' : 'border-neutral-200 hover:border-neutral-300'}`}>
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="text-[13px] font-semibold text-neutral-900">{t(`campaigns.g_type_${k}`)}</p>
-                        {k === 'auto' ? <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-neutral-100 text-neutral-500">{t('campaigns.recommended')}</span>
-                          : on && <CheckCircle2 className="h-4 w-4 text-neutral-900" />}
-                      </div>
-                      <p className="mt-1 text-[11px] text-neutral-500 leading-snug">
-                        {k === 'auto'
-                          ? t(preview.auto_type === 'shopping' ? 'campaigns.g_type_auto_shopping' : 'campaigns.g_type_auto_pmax', { conversions: fmtNum.format(preview.conversions30) })
-                          : t(`campaigns.g_type_${k}_desc`)}
-                      </p>
+                    onChange={e => setBudgetText(e.target.value)} />
+                  {budget === 'invalid' && <span className="text-[12px] text-red-600">{t('campaigns.budget_invalid')}</span>}
+                  {budgetText && preview.budget.suggested !== null && budget !== preview.budget.suggested && (
+                    <button onClick={() => setBudgetText('')} className="text-[12px] font-medium text-brand-700 hover:text-brand-800">
+                      {t('campaigns.budget_use_suggested', { budget: f.money.format(preview.budget.suggested) })}
                     </button>
-                  )
-                })}
-              </div>
-            </Field>
-
-            <Field label={t('campaigns.g_period')} hint={t('campaigns.g_period_hint')}>
-              <div className="flex flex-wrap gap-2">
-                {(['always', 'period'] as const).map(p => (
-                  <button key={p} onClick={() => setPeriod(p)} aria-pressed={period === p} disabled={live && p === 'always' && !!group?.starts_on}
-                    className={`h-9 px-3.5 rounded-xl border text-[12px] font-medium transition-all ${period === p ? 'border-neutral-900 bg-neutral-900 text-white' : 'border-neutral-200 text-neutral-700 hover:border-neutral-300'}`}>
-                    {t(`campaigns.g_period_${p}`)}
-                  </button>
-                ))}
-              </div>
-              {period === 'period' && (
-                <div className="mt-3 grid grid-cols-2 gap-3 sm:max-w-sm">
-                  <label className="text-[11px] text-neutral-500">
-                    {t('campaigns.g_starts_on')}
-                    <input type="date" value={startsOn} min={today} disabled={live} onChange={e => setStartsOn(e.target.value)}
-                      className="mt-1 w-full h-10 px-3 rounded-xl border border-neutral-200 bg-white text-[13px] text-neutral-900 focus:outline-none focus:border-neutral-400 disabled:opacity-60" />
-                  </label>
-                  <label className="text-[11px] text-neutral-500">
-                    {t('campaigns.g_ends_on')}
-                    <input type="date" value={endsOn} min={startsOn || today} onChange={e => setEndsOn(e.target.value)}
-                      className="mt-1 w-full h-10 px-3 rounded-xl border border-neutral-200 bg-white text-[13px] text-neutral-900 focus:outline-none focus:border-neutral-400" />
-                  </label>
+                  )}
                 </div>
-              )}
-              {!periodOk && <p className="mt-1.5 text-[11px] text-red-500">{t(endsOn ? 'campaigns.group_period_invalid' : 'campaigns.g_period_need_end')}</p>}
-            </Field>
-          </div>
-        )}
-        {step === 3 && (
-          <ReviewStep plan={plan} preview={preview} name={shownName} account={account} audit={audit} live={live}
-            overlap={overlap} setOverlap={setOverlap} declareEu={declareEu} setDeclareEu={setDeclareEu}
-            fmt={fmt} fmt2={fmt2} fmtNum={fmtNum} fmtInt={fmtInt} priceText={priceText} />
-        )}
+                <p className="mt-2 max-w-2xl text-[12px] leading-relaxed text-neutral-500">
+                  {preview.budget.suggested !== null && preview.economics.aov !== null && preview.economics.target !== null
+                    ? t('campaigns.g_budget_hint', {
+                      conversions: f.int.format(Math.min(30, Math.max(10, Math.round(preview.conversions30 * 1.25)))),
+                      aov: f.money.format(preview.economics.aov), roas: f.num.format(preview.economics.target), budget: f.money.format(preview.budget.suggested),
+                    })
+                    : t('campaigns.budget_hint_no_target')}
+                </p>
+              </Block>
+
+              <Block title={t('campaigns.g_type')} hint={live ? t('campaigns.g_type_locked') : undefined}>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  {GROUP_TYPES.map(k => (
+                    <ChoiceCard key={k} active={type === k} disabled={live} onClick={() => setType(k)} title={t(`campaigns.g_type_${k}`)}
+                      aside={k === 'auto' ? <Badge tone="brand">{t('campaigns.recommended')}</Badge> : undefined}
+                      description={k === 'auto'
+                        ? t(preview.auto_type === 'shopping' ? 'campaigns.g_type_auto_shopping' : 'campaigns.g_type_auto_pmax', { conversions: f.num.format(preview.conversions30) })
+                        : t(`campaigns.g_type_${k}_desc`)} />
+                  ))}
+                </div>
+              </Block>
+
+              <Block title={t('campaigns.g_period')} hint={t('campaigns.g_period_hint')}>
+                {/* O campanie lansată cu dată de început nu mai poate renunța la perioadă */}
+                {live && !!group?.starts_on ? (
+                  <Badge><CalendarRange className="size-3" />{t('campaigns.g_period_period')}</Badge>
+                ) : (
+                  <Segmented id="group-period" value={period} onChange={setPeriod}
+                    items={(['always', 'period'] as const).map(p => ({ value: p, label: t(`campaigns.g_period_${p}`) }))} />
+                )}
+                {period === 'period' && (
+                  <div className="mt-4 grid max-w-md grid-cols-2 gap-3">
+                    <label className="text-[12px] font-medium text-neutral-600">
+                      {t('campaigns.g_starts_on')}
+                      <Input type="date" value={startsOn} min={today} disabled={live} onChange={e => setStartsOn(e.target.value)} className="mt-1.5 h-10" />
+                    </label>
+                    <label className="text-[12px] font-medium text-neutral-600">
+                      {t('campaigns.g_ends_on')}
+                      <Input type="date" value={endsOn} min={startsOn || today} aria-invalid={!periodOk} onChange={e => setEndsOn(e.target.value)} className="mt-1.5 h-10" />
+                    </label>
+                  </div>
+                )}
+                {!periodOk && <p className="mt-2 text-[12px] text-red-600">{t(endsOn ? 'campaigns.group_period_invalid' : 'campaigns.g_period_need_end')}</p>}
+              </Block>
+            </div>
+          )}
+          {step === 3 && (
+            <ReviewStep plan={plan} preview={preview} name={shownName} account={account} audit={audit} live={live}
+              overlap={overlap} setOverlap={setOverlap} declareEu={declareEu} setDeclareEu={setDeclareEu} f={f} priceText={priceText} />
+          )}
+        </div>
+
+        {/* Rezumatul, pe loc */}
+        <Summary preview={preview} name={shownName} f={f} showNotes={!isEmptyRules(rules)}
+          className="hidden w-[300px] shrink-0 overflow-y-auto border-l border-neutral-100 bg-neutral-50/60 lg:block" />
       </div>
 
       {/* Mesajul și butoanele */}
-      <div className="border-t border-neutral-100 bg-neutral-50/60 px-5 py-4 sm:px-6">
+      <div className="border-t border-neutral-100 bg-white px-6 py-4">
         {error && (
-          <div className="mb-3 flex items-start gap-2 rounded-lg border border-red-100 bg-red-50 px-3 py-2.5 text-[12px] text-red-700">
-            <AlertCircle className="h-4 w-4 shrink-0 mt-px" />
-            <div>
-              <p>{error.text}</p>
-              {error.details?.map(d => <p key={d} className="mt-1 font-mono text-[11px] opacity-80 break-all">{d}</p>)}
-            </div>
-          </div>
+          <Callout tone="danger" className="mb-3" onClose={() => setError(null)}>
+            <p>{error.text}</p>
+            {error.details?.map(d => <p key={d} className="mt-1 break-all font-mono text-[11px] opacity-80">{d}</p>)}
+          </Callout>
         )}
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            {step > 1 && (
-              <button onClick={() => setStep((step - 1) as Step)} className="inline-flex items-center gap-1.5 h-10 px-3 rounded-xl text-[13px] font-medium text-neutral-600 hover:bg-neutral-100">
-                <ArrowLeft className="h-4 w-4" />{t('campaigns.g_back')}
-              </button>
-            )}
+            {step > 1 && <Button variant="ghost" onClick={() => setStep((step - 1) as Step)}><ArrowLeft />{t('campaigns.g_back')}</Button>}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-2">
             {step < 3 ? (
               <>
-                {step === 1 && !step1Ok && <span className="hidden text-[11px] text-neutral-400 sm:inline">{t(isEmptyRules(rules) ? 'campaigns.g_pick_products' : 'campaigns.g_no_products')}</span>}
-                <button onClick={() => setStep((step + 1) as Step)} disabled={!(step === 1 ? step1Ok : step2Ok)}
-                  className="inline-flex items-center gap-1.5 h-10 px-4 rounded-xl bg-neutral-900 text-white text-[13px] font-medium hover:bg-neutral-800 disabled:opacity-40 disabled:cursor-not-allowed">
-                  {t('campaigns.g_next')}<ArrowRight className="h-4 w-4" />
-                </button>
+                {step === 1 && !step1Ok && <span className="hidden text-[12px] text-neutral-400 sm:inline">{t(isEmptyRules(rules) ? 'campaigns.g_pick_products' : 'campaigns.g_no_products')}</span>}
+                <Button variant="primary" size="lg" onClick={() => setStep((step + 1) as Step)} disabled={!(step === 1 ? step1Ok : step2Ok)}>
+                  {t('campaigns.g_next')}<ArrowRight />
+                </Button>
               </>
             ) : live ? (
-              <button onClick={onSave} disabled={!!busy || !step2Ok}
-                className="inline-flex items-center gap-1.5 h-10 px-4 rounded-xl bg-neutral-900 text-white text-[13px] font-medium hover:bg-neutral-800 disabled:opacity-40">
-                {busy === 'save' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}{t('campaigns.g_save_live')}
-              </button>
+              <Button variant="primary" size="lg" loading={busy === 'save'} disabled={!!busy || !step2Ok} onClick={onSave}>
+                {busy !== 'save' && <Check />}{t('campaigns.g_save_live')}
+              </Button>
             ) : (
               <>
-                {waiting && <span className="hidden max-w-[180px] text-right text-[11px] leading-tight text-neutral-400 md:inline">{t(waiting)}</span>}
-                <button onClick={onSave} disabled={!!busy || !step1Ok || !step2Ok}
-                  className="inline-flex items-center gap-1.5 h-10 px-3.5 rounded-xl border border-neutral-200 bg-white text-[13px] font-medium text-neutral-700 hover:border-neutral-300 disabled:opacity-40">
-                  {busy === 'save' && <Loader2 className="h-4 w-4 animate-spin" />}{t('campaigns.g_save_draft')}
-                </button>
-                <button onClick={onLaunch} disabled={!!busy || !ready}
-                  className="inline-flex items-center gap-1.5 h-10 px-4 rounded-xl bg-neutral-900 text-white text-[13px] font-medium hover:bg-neutral-800 disabled:opacity-40 disabled:cursor-not-allowed">
-                  {busy === 'launch' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Rocket className="h-4 w-4" />}
-                  {t(group?.status === 'ended' ? 'campaigns.g_relaunch' : 'campaigns.g_launch')}
-                </button>
+                {waiting && <span className="hidden max-w-[200px] text-right text-[12px] leading-tight text-neutral-400 md:inline">{t(waiting)}</span>}
+                <Button size="lg" loading={busy === 'save'} disabled={!!busy || !step1Ok || !step2Ok} onClick={onSave}>{t('campaigns.g_save_draft')}</Button>
+                <Button variant="primary" size="lg" loading={busy === 'launch'} disabled={!!busy || !ready} onClick={onLaunch}>
+                  {busy !== 'launch' && <Rocket />}{t(group?.status === 'ended' ? 'campaigns.g_relaunch' : 'campaigns.g_launch')}
+                </Button>
               </>
             )}
           </div>
@@ -521,13 +478,72 @@ function EditorBody({
   )
 }
 
-function Field({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
+function Block({ title, hint, children }: { title: string; hint?: string; children: ReactNode }) {
   return (
-    <div>
-      <p className="text-[13px] font-semibold text-neutral-900">{label}</p>
-      {hint && <p className="mt-0.5 text-[11px] text-neutral-500 leading-relaxed">{hint}</p>}
-      <div className="mt-2.5">{children}</div>
-    </div>
+    <section>
+      <h3 className="text-[14px] font-semibold text-neutral-900">{title}</h3>
+      {hint && <p className="mt-0.5 max-w-2xl text-[13px] leading-relaxed text-neutral-500">{hint}</p>}
+      <div className="mt-3">{children}</div>
+    </section>
+  )
+}
+
+// ─── Rezumatul de alături ────────────────────────────────────────────────────
+
+function Summary({ preview: p, name, f, showNotes, className }: { preview: GroupPlan; name: string; f: Formats; showNotes: boolean; className?: string }) {
+  const { t } = useT()
+  const blockers = p.blockers.filter(b => b.id !== 'empty').length
+  const rows = [
+    { label: t('campaigns.g_stat_conversions'), value: f.num.format(p.conversions30) },
+    { label: t('campaigns.econ_break_even'), value: p.economics.break_even !== null ? f.num.format(p.economics.break_even) : '—' },
+    p.type === 'shopping'
+      ? { label: t('campaigns.g_stat_cpc'), value: p.cpc_ceiling !== null ? f.money2.format(p.cpc_ceiling) : '—' }
+      : { label: t('campaigns.econ_target'), value: p.start_target !== null ? f.num.format(p.start_target) : t('campaigns.g_no_target_short') },
+    { label: t('campaigns.g_stat_budget'), value: p.budget.daily !== null ? f.money.format(p.budget.daily) : '—' },
+  ]
+  return (
+    <aside className={className} aria-label={t('campaigns.g_summary')}>
+      <div className="p-5">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-neutral-400">{t('campaigns.g_summary')}</p>
+        <p className="mt-2 line-clamp-2 text-[15px] font-semibold leading-snug text-neutral-900">{name}</p>
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          <Badge tone="brand">{t(p.type === 'shopping' ? 'campaigns.g_type_shopping' : 'campaigns.g_type_performance_max')}</Badge>
+          <Badge>{t(`campaigns.goal_${p.group.goal}`)}</Badge>
+        </div>
+
+        <div className="mt-5 rounded-xl bg-white p-4 shadow-card ring-1 ring-neutral-200/70">
+          <p className="text-[12px] text-neutral-500">{t('campaigns.g_stat_products')}</p>
+          <p className="mt-1 text-[30px] font-semibold leading-none tabular-nums tracking-[-0.025em] text-neutral-950">
+            <NumberTicker value={p.counts.included} format={n => f.int.format(Math.round(n))} />
+          </p>
+          <p className="mt-1.5 text-[12px] text-neutral-400">{t(`campaigns.g_basis_${p.basis}`)}</p>
+        </div>
+
+        <dl className="mt-4 divide-y divide-neutral-200/60 text-[13px]">
+          {rows.map(r => (
+            <div key={r.label} className="flex items-center justify-between gap-3 py-2">
+              <dt className="text-neutral-500">{r.label}</dt>
+              <dd className="font-medium tabular-nums text-neutral-900">{r.value}</dd>
+            </div>
+          ))}
+        </dl>
+
+        {p.forecast && (
+          <div className="mt-4 rounded-xl bg-gradient-to-br from-emerald-50 to-white p-4 ring-1 ring-emerald-100">
+            <p className="text-[12px] text-neutral-500">{t('campaigns.setup_forecast')}</p>
+            <p className="mt-1 text-[20px] font-semibold tabular-nums tracking-[-0.02em] text-emerald-600">{f.money.format(p.forecast.profit)}</p>
+            <p className="mt-0.5 text-[12px] leading-relaxed text-neutral-500">{t('campaigns.setup_forecast_hint', { revenue: f.money.format(p.forecast.revenue), spend: f.money.format(p.forecast.spend) })}</p>
+          </div>
+        )}
+
+        {showNotes && (blockers > 0 || p.warnings.length > 0) && (
+          <div className="mt-4 space-y-1.5 text-[12px]">
+            {blockers > 0 && <p className="flex items-center gap-2 text-red-600"><span className="size-1.5 rounded-full bg-red-500" />{t('campaigns.g_summary_blockers', { count: blockers })}</p>}
+            {p.warnings.length > 0 && <p className="flex items-center gap-2 text-amber-700"><span className="size-1.5 rounded-full bg-amber-500" />{t('campaigns.g_summary_warnings', { count: p.warnings.length })}</p>}
+          </div>
+        )}
+      </div>
+    </aside>
   )
 }
 
@@ -544,13 +560,11 @@ type ProductsProps = {
   ownerName: Map<string, string>
   preview: GroupPlan
   toggleOffer: (o: PlanOffer, inGroup: boolean) => void
-  fmt: Intl.NumberFormat
-  fmtNum: Intl.NumberFormat
-  fmtInt: Intl.NumberFormat
+  f: Formats
   currency: string
 }
 
-function ProductsStep({ plan, rules, setRules, active, toggleFilter, assigned, groupId, ownerName, preview, toggleOffer, fmt, fmtNum, fmtInt, currency }: ProductsProps) {
+function ProductsStep({ plan, rules, setRules, active, toggleFilter, assigned, groupId, ownerName, preview, toggleOffer, f, currency }: ProductsProps) {
   const { t } = useT()
   const [scope, setScope] = useState<'group' | 'all'>('group')
   const [search, setSearch] = useState('')
@@ -562,7 +576,8 @@ function ProductsStep({ plan, rules, setRules, active, toggleFilter, assigned, g
   const onSale = plan.offers.filter(o => o.on_sale).length
 
   // Fără filtre (doar produse alese de mână) lista arată tot catalogul
-  const shownScope = active.size === 0 || (active.size === 1 && active.has('manual') && !rules.include.length) ? 'all' : scope
+  const forcedAll = active.size === 0 || (active.size === 1 && active.has('manual') && !rules.include.length)
+  const shownScope = forcedAll ? 'all' : scope
   const list = useMemo(() => {
     const q = search.trim().toLowerCase()
     return plan.offers.filter(o => (shownScope === 'all' || assigned.get(o.offer_id) === groupId)
@@ -584,128 +599,131 @@ function ProductsStep({ plan, rules, setRules, active, toggleFilter, assigned, g
   }
 
   return (
-    <div className="space-y-5">
-      <div>
-        <p className="text-[13px] font-semibold text-neutral-900">{t('campaigns.g_start_from')}</p>
-        <p className="mt-0.5 text-[11px] text-neutral-500 leading-relaxed">{t('campaigns.g_start_hint')}</p>
-        <div className="mt-2.5 grid grid-cols-2 gap-2 sm:grid-cols-5">
+    <div className="space-y-6">
+      <Block title={t('campaigns.g_start_from')} hint={t('campaigns.g_start_hint')}>
+        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 xl:grid-cols-5">
           {FILTERS.map(({ id, icon: Icon }) => {
             const on = active.has(id)
             const disabled = (id === 'categories' && !categories.length) || (id === 'brands' && !brands.length) || (id === 'sale' && !onSale)
             return (
               <button key={id} onClick={() => toggleFilter(id)} disabled={disabled} aria-pressed={on}
-                className={`group relative flex flex-col items-start gap-2 rounded-xl border p-3 text-left transition-all disabled:cursor-not-allowed disabled:opacity-40 ${on ? 'border-neutral-900 bg-neutral-900 text-white shadow-sm' : 'border-neutral-200 bg-white hover:border-neutral-300 hover:shadow-sm'}`}>
-                <Icon className={`h-4 w-4 ${on ? 'text-white' : 'text-neutral-500'}`} />
-                <span className="text-[12px] font-semibold leading-tight">{t(`campaigns.g_filter_${id}`)}</span>
-                {on && <Check className="absolute right-2.5 top-2.5 h-3.5 w-3.5" />}
+                className={cn('relative flex flex-col items-start gap-3 rounded-xl border p-3.5 text-left transition-all duration-150 disabled:cursor-not-allowed disabled:opacity-40',
+                  on ? 'border-brand-600 bg-brand-50/40 ring-1 ring-brand-600' : 'border-neutral-200 bg-white hover:border-neutral-300 hover:shadow-card')}>
+                <span className={cn('flex size-8 items-center justify-center rounded-lg transition-colors', on ? 'bg-brand-600 text-white' : 'bg-neutral-100 text-neutral-500')}>
+                  <Icon className="size-4" />
+                </span>
+                <span className="text-[13px] font-semibold leading-tight text-neutral-900">{t(`campaigns.g_filter_${id}`)}</span>
+                {on && (
+                  <span className="absolute right-2.5 top-2.5 flex size-4 items-center justify-center rounded-full bg-brand-600 text-white">
+                    <Check className="size-2.5" strokeWidth={3} />
+                  </span>
+                )}
               </button>
             )
           })}
         </div>
-      </div>
+      </Block>
 
       {/* Filtrele alese */}
       {active.has('categories') && (
-        <FilterBox title={t('campaigns.g_filter_categories')} hint={t('campaigns.g_categories_hint')}>
-          <Chips items={categories} picked={rules.categories} onPick={v => pick('categories', v)} fmtInt={fmtInt} />
+        <FilterBox icon={FolderTree} title={t('campaigns.g_filter_categories')} hint={t('campaigns.g_categories_hint')}>
+          <Chips items={categories} picked={rules.categories} onPick={v => pick('categories', v)} f={f} />
         </FilterBox>
       )}
       {active.has('brands') && (
-        <FilterBox title={t('campaigns.g_filter_brands')} hint={t('campaigns.g_brands_hint')}>
-          <Chips items={brands} picked={rules.brands} onPick={v => pick('brands', v)} fmtInt={fmtInt} />
+        <FilterBox icon={Tag} title={t('campaigns.g_filter_brands')} hint={t('campaigns.g_brands_hint')}>
+          <Chips items={brands} picked={rules.brands} onPick={v => pick('brands', v)} f={f} />
         </FilterBox>
       )}
       {active.has('price') && (
-        <FilterBox title={t('campaigns.g_filter_price')}
-          hint={prices.length ? t('campaigns.g_price_hint', { min: fmt.format(Math.min(...prices)), max: fmt.format(Math.max(...prices)) }) : undefined}>
+        <FilterBox icon={Coins} title={t('campaigns.g_filter_price')}
+          hint={prices.length ? t('campaigns.g_price_hint', { min: f.money.format(Math.min(...prices)), max: f.money.format(Math.max(...prices)) }) : undefined}>
           <div className="flex items-center gap-2">
             {(['price_min', 'price_max'] as const).map((k, i) => (
               <div key={k} className="flex items-center gap-2">
                 {i === 1 && <span className="text-neutral-300">—</span>}
-                <div className="relative w-32">
-                  <input defaultValue={rules[k] === null ? '' : String(rules[k]).replace('.', ',')} inputMode="decimal"
-                    placeholder={t(k === 'price_min' ? 'campaigns.g_price_min' : 'campaigns.g_price_max')} aria-label={t(k === 'price_min' ? 'campaigns.g_price_min' : 'campaigns.g_price_max')}
-                    onChange={e => setPrice(k, e.target.value)}
-                    className="w-full h-9 pl-3 pr-11 rounded-xl border border-neutral-200 bg-white text-[13px] tabular-nums placeholder:text-neutral-300 focus:outline-none focus:border-neutral-400" />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] text-neutral-400 pointer-events-none">{currency}</span>
-                </div>
+                <Input defaultValue={rules[k] === null ? '' : String(rules[k]).replace('.', ',')} inputMode="decimal" suffix={currency} wrapperClassName="w-36"
+                  placeholder={t(k === 'price_min' ? 'campaigns.g_price_min' : 'campaigns.g_price_max')} aria-label={t(k === 'price_min' ? 'campaigns.g_price_min' : 'campaigns.g_price_max')}
+                  className="tabular-nums" onChange={e => setPrice(k, e.target.value)} />
               </div>
             ))}
           </div>
         </FilterBox>
       )}
-      {active.has('sale') && (
-        <FilterBox title={t('campaigns.g_filter_sale')} hint={t('campaigns.g_sale_hint', { count: onSale })}>{null}</FilterBox>
-      )}
-      {active.has('manual') && (
-        <FilterBox title={t('campaigns.g_filter_manual')} hint={t('campaigns.g_manual_hint', { count: rules.include.length })}>{null}</FilterBox>
-      )}
+      {active.has('sale') && <FilterBox icon={BadgePercent} title={t('campaigns.g_filter_sale')} hint={t('campaigns.g_sale_hint', { count: onSale })} />}
+      {active.has('manual') && <FilterBox icon={ListChecks} title={t('campaigns.g_filter_manual')} hint={t('campaigns.g_manual_hint', { count: rules.include.length })} />}
 
-      {/* Ce prinde grupa acum */}
-      <div className="rounded-2xl border border-neutral-200 overflow-hidden">
-        <div className="flex flex-col gap-3 border-b border-neutral-100 bg-gradient-to-b from-neutral-50 to-white p-4">
-          <div className="grid grid-cols-3 gap-2">
-            <Stat label={t('campaigns.g_stat_products')} value={fmtInt.format(preview.counts.included)} />
-            <Stat label={t('campaigns.g_stat_conversions')} value={fmtNum.format(preview.conversions30)} sub={t(`campaigns.g_basis_${preview.basis}`)} />
-            <Stat label={t('campaigns.econ_break_even')} value={preview.economics.break_even !== null ? fmtNum.format(preview.economics.break_even) : '—'} />
-          </div>
-          {preview.counts.elsewhere > 0 && (
-            <p className="flex items-start gap-1.5 text-[11px] text-amber-700"><Info className="h-3.5 w-3.5 shrink-0 mt-px" />{t('campaigns.g_warn_in_other_group', { count: preview.counts.elsewhere })}</p>
+      {/* Ce prinde campania acum */}
+      <section className="overflow-hidden rounded-xl border border-neutral-200/80 bg-white">
+        <div className="flex flex-col gap-3 border-b border-neutral-100 bg-neutral-50/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          {forcedAll ? (
+            <p className="text-[13px] font-medium text-neutral-700">{t('campaigns.g_scope_all', { count: f.int.format(plan.offers.length) })}</p>
+          ) : (
+            <Segmented id="group-scope" size="sm" value={shownScope} onChange={k => { setScope(k); setPage(1) }} items={(['group', 'all'] as const).map(k => ({
+              value: k, label: t(`campaigns.g_scope_${k}`, { count: f.int.format(k === 'group' ? preview.counts.members : plan.offers.length) }),
+            }))} />
           )}
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center gap-1 rounded-xl bg-neutral-100 p-1 self-start">
-              {(['group', 'all'] as const).map(k => (
-                <button key={k} onClick={() => { setScope(k); setPage(1) }} disabled={shownScope === 'all' && k === 'group'}
-                  className={`h-7 px-2.5 rounded-lg text-[11px] font-medium transition-all disabled:opacity-40 ${shownScope === k ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-500 hover:text-neutral-800'}`}>
-                  {t(`campaigns.g_scope_${k}`, { count: fmtInt.format(k === 'group' ? preview.counts.members : plan.offers.length) })}
-                </button>
-              ))}
-            </div>
-            <div className="relative sm:w-60">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-neutral-300 pointer-events-none" />
-              <input value={search} onChange={e => { setSearch(e.target.value); setPage(1) }} placeholder={t('campaigns.search_placeholder')}
-                className="w-full h-8 pl-8 pr-3 rounded-lg bg-white border border-neutral-200 text-[12px] text-neutral-700 placeholder:text-neutral-300 focus:outline-none focus:border-neutral-300" />
-            </div>
-          </div>
+          <Input icon={<Search />} wrapperClassName="sm:w-64" className="h-8" value={search} placeholder={t('campaigns.search_placeholder')}
+            onChange={e => { setSearch(e.target.value); setPage(1) }} />
         </div>
 
+        {/* Pe ecrane mici rezumatul de alături nu încape: cifrele lui, aici */}
+        <div className="grid grid-cols-3 gap-px border-b border-neutral-100 bg-neutral-100 lg:hidden">
+          {[
+            { label: t('campaigns.g_stat_products'), value: f.int.format(preview.counts.included) },
+            { label: t('campaigns.g_stat_conversions'), value: f.num.format(preview.conversions30) },
+            { label: t('campaigns.econ_break_even'), value: preview.economics.break_even !== null ? f.num.format(preview.economics.break_even) : '—' },
+          ].map(k => (
+            <div key={k.label} className="bg-white px-4 py-2.5">
+              <p className="text-[11px] text-neutral-500">{k.label}</p>
+              <p className="text-[15px] font-semibold tabular-nums text-neutral-900">{k.value}</p>
+            </div>
+          ))}
+        </div>
+        {preview.counts.elsewhere > 0 && (
+          <p className="flex items-start gap-2 border-b border-neutral-100 bg-amber-50/50 px-4 py-2.5 text-[12px] text-amber-800">
+            <Info className="mt-px size-3.5 shrink-0" />{t('campaigns.g_warn_in_other_group', { count: preview.counts.elsewhere })}
+          </p>
+        )}
+
         {visible.length === 0 ? (
-          <p className="py-10 text-center text-[12px] text-neutral-400">{search ? t('catalog.no_results') : t('campaigns.g_list_empty')}</p>
+          <p className="px-6 py-12 text-center text-[13px] text-neutral-400">{search ? t('catalog.no_results') : t('campaigns.g_list_empty')}</p>
         ) : (
-          <ul className="divide-y divide-neutral-50">
+          <ul className="divide-y divide-neutral-100">
             {visible.map(o => {
               const owner = assigned.get(o.offer_id)
               const inGroup = owner === groupId
               const elsewhere = !!owner && !inGroup
               const blocked = !canRun(o)
               return (
-                <li key={o.offer_id} className={`flex items-center gap-3 px-4 py-2.5 ${inGroup ? '' : 'bg-neutral-50/40'}`}>
+                <li key={o.offer_id} className={cn('flex items-center gap-3 px-4 py-2.5 transition-colors', inGroup ? 'bg-white' : 'bg-neutral-50/40', !elsewhere && 'hover:bg-brand-50/30')}>
                   <button onClick={() => toggleOffer(o, inGroup)} disabled={elsewhere} aria-pressed={inGroup}
                     title={elsewhere ? t('campaigns.g_in_other', { name: ownerName.get(owner!) ?? '' }) : undefined}
                     aria-label={t(inGroup ? 'campaigns.g_remove_product' : 'campaigns.g_add_product')}
-                    className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-all disabled:cursor-not-allowed disabled:opacity-40 ${inGroup ? 'border-neutral-900 bg-neutral-900 text-white' : 'border-neutral-300 bg-white hover:border-neutral-500'}`}>
-                    {inGroup && <Check className="h-3.5 w-3.5" />}
+                    className={cn('flex size-[18px] shrink-0 items-center justify-center rounded-[5px] border transition-all disabled:cursor-not-allowed disabled:opacity-40',
+                      inGroup ? 'border-brand-600 bg-brand-600 text-white' : 'border-neutral-300 bg-white hover:border-brand-500')}>
+                    {inGroup && <Check className="size-3" strokeWidth={3} />}
                   </button>
-                  <div className="h-9 w-9 shrink-0 overflow-hidden rounded-lg border border-neutral-100 bg-neutral-50 flex items-center justify-center">
+                  <div className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-neutral-50 ring-1 ring-inset ring-neutral-200/70">
                     {o.image_url
                       // eslint-disable-next-line @next/next/no-img-element
-                      ? <img src={o.image_url} alt="" loading="lazy" className="h-full w-full object-cover" />
-                      : <ImageIcon className="h-4 w-4 text-neutral-300" />}
+                      ? <img src={o.image_url} alt="" loading="lazy" className="size-full object-cover" />
+                      : <ImageIcon className="size-4 text-neutral-300" />}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className={`text-[12px] font-medium leading-snug line-clamp-1 ${inGroup ? 'text-neutral-900' : 'text-neutral-600'}`}>
+                    <p className={cn('line-clamp-1 text-[13px] font-medium leading-snug', inGroup ? 'text-neutral-900' : 'text-neutral-600')}>
                       {o.title}{o.variant_title ? <span className="text-neutral-400"> · {o.variant_title}</span> : null}
                     </p>
-                    <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[10px] text-neutral-400">
+                    <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px] text-neutral-400">
                       {[o.category, o.brand].filter(Boolean).join(' · ')}
-                      {o.on_sale && <span className="rounded bg-rose-50 px-1 py-px font-medium text-rose-600">{t('campaigns.g_on_sale')}</span>}
-                      {elsewhere && <span className="rounded bg-neutral-100 px-1 py-px font-medium text-neutral-600">{t('campaigns.g_in_other', { name: ownerName.get(owner!) ?? '' })}</span>}
-                      {blocked && o.reason && <span className="rounded bg-amber-50 px-1 py-px font-medium text-amber-700">{t.has(`campaigns.reason_${o.reason}`) ? t(`campaigns.reason_${o.reason}`) : t('campaigns.reason_generic')}</span>}
+                      {o.on_sale && <Badge tone="red" className="h-[18px] px-1 text-[10px]">{t('campaigns.g_on_sale')}</Badge>}
+                      {elsewhere && <Badge className="h-[18px] px-1 text-[10px]">{t('campaigns.g_in_other', { name: ownerName.get(owner!) ?? '' })}</Badge>}
+                      {blocked && o.reason && <Badge tone="amber" className="h-[18px] px-1 text-[10px]">{t.has(`campaigns.reason_${o.reason}`) ? t(`campaigns.reason_${o.reason}`) : t('campaigns.reason_generic')}</Badge>}
                     </div>
                   </div>
                   <div className="shrink-0 text-right">
-                    <p className="text-[12px] font-medium text-neutral-900 tabular-nums">{fmt.format(o.price)}</p>
-                    <p className="text-[10px] text-neutral-400 tabular-nums">
+                    <p className="text-[13px] font-medium tabular-nums text-neutral-900">{f.money.format(o.price)}</p>
+                    <p className="text-[11px] tabular-nums text-neutral-400">
                       {o.units > 0 ? t('catalog.units', { count: Number(o.units) }) : '—'}
                       {o.margin !== null ? ` · ${Math.round(o.margin * 100)}%` : ''}
                     </p>
@@ -716,30 +734,35 @@ function ProductsStep({ plan, rules, setRules, active, toggleFilter, assigned, g
           </ul>
         )}
         {pages > 1 && (
-          <div className="flex items-center justify-between gap-2 border-t border-neutral-100 px-4 py-2.5 text-[11px] text-neutral-500">
-            <span>{t('catalog.page_of', { from: fmtInt.format((current - 1) * PER_PAGE + 1), to: fmtInt.format(Math.min(current * PER_PAGE, list.length)), total: fmtInt.format(list.length) })}</span>
+          <div className="flex items-center justify-between gap-2 border-t border-neutral-100 px-4 py-2.5 text-[12px] text-neutral-500">
+            <span className="tabular-nums">{t('catalog.page_of', { from: f.int.format((current - 1) * PER_PAGE + 1), to: f.int.format(Math.min(current * PER_PAGE, list.length)), total: f.int.format(list.length) })}</span>
             <div className="flex items-center gap-1">
-              <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={current === 1} className="h-7 w-7 flex items-center justify-center rounded-md border border-neutral-200 hover:bg-neutral-50 disabled:opacity-40" aria-label={t('catalog.prev')}><ArrowLeft className="h-3.5 w-3.5" /></button>
-              <button onClick={() => setPage(p => Math.min(pages, p + 1))} disabled={current === pages} className="h-7 w-7 flex items-center justify-center rounded-md border border-neutral-200 hover:bg-neutral-50 disabled:opacity-40" aria-label={t('catalog.next')}><ArrowRight className="h-3.5 w-3.5" /></button>
+              <Button size="icon" variant="ghost" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={current === 1} aria-label={t('catalog.prev')}><ChevronLeft /></Button>
+              <Button size="icon" variant="ghost" onClick={() => setPage(p => Math.min(pages, p + 1))} disabled={current === pages} aria-label={t('catalog.next')}><ChevronRight /></Button>
             </div>
           </div>
         )}
-      </div>
+      </section>
     </div>
   )
 }
 
-function FilterBox({ title, hint, children }: { title: string; hint?: string; children: ReactNode }) {
+function FilterBox({ icon: Icon, title, hint, children }: { icon: LucideIcon; title: string; hint?: string; children?: ReactNode }) {
   return (
-    <div className="rounded-xl border border-neutral-200 bg-white p-3.5">
-      <p className="text-[12px] font-semibold text-neutral-900">{title}</p>
-      {hint && <p className="mt-0.5 text-[11px] text-neutral-500 leading-relaxed">{hint}</p>}
-      {children && <div className="mt-2.5">{children}</div>}
+    <div className="rounded-xl border border-neutral-200/80 bg-white p-4 shadow-card">
+      <div className="flex items-start gap-2.5">
+        <Icon className="mt-0.5 size-4 shrink-0 text-brand-600" />
+        <div className="min-w-0">
+          <p className="text-[13px] font-semibold text-neutral-900">{title}</p>
+          {hint && <p className="mt-0.5 text-[12px] leading-relaxed text-neutral-500">{hint}</p>}
+        </div>
+      </div>
+      {children && <div className="mt-3">{children}</div>}
     </div>
   )
 }
 
-function Chips({ items, picked, onPick, fmtInt }: { items: [string, number][]; picked: string[]; onPick: (v: string) => void; fmtInt: Intl.NumberFormat }) {
+function Chips({ items, picked, onPick, f }: { items: [string, number][]; picked: string[]; onPick: (v: string) => void; f: Formats }) {
   const { t } = useT()
   const [q, setQ] = useState('')
   const set = new Set(picked.map(p => p.toLocaleLowerCase('ro')))
@@ -747,30 +770,20 @@ function Chips({ items, picked, onPick, fmtInt }: { items: [string, number][]; p
   return (
     <div>
       {items.length > 12 && (
-        <input value={q} onChange={e => setQ(e.target.value)} placeholder={t('campaigns.g_filter_search')}
-          className="mb-2 w-full h-8 px-3 rounded-lg border border-neutral-200 bg-white text-[12px] placeholder:text-neutral-300 focus:outline-none focus:border-neutral-300" />
+        <Input icon={<Search />} value={q} onChange={e => setQ(e.target.value)} placeholder={t('campaigns.g_filter_search')} wrapperClassName="mb-2.5 max-w-xs" className="h-8" />
       )}
-      <div className="flex max-h-44 flex-wrap gap-1.5 overflow-y-auto">
+      <div className="flex max-h-48 flex-wrap gap-1.5 overflow-y-auto">
         {shown.map(([v, n]) => {
           const on = set.has(v.toLocaleLowerCase('ro'))
           return (
             <button key={v} onClick={() => onPick(v)} aria-pressed={on}
-              className={`inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full border text-[11px] font-medium transition-all ${on ? 'border-neutral-900 bg-neutral-900 text-white' : 'border-neutral-200 bg-white text-neutral-700 hover:border-neutral-300'}`}>
-              {on && <Check className="h-3 w-3" />}{v}<span className={on ? 'text-white/60' : 'text-neutral-400'}>{fmtInt.format(n)}</span>
+              className={cn('inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-[12px] font-medium ring-1 ring-inset transition-all',
+                on ? 'bg-brand-600 text-white ring-brand-600 shadow-[0_1px_2px_rgb(16_24_40/0.14)]' : 'bg-white text-neutral-700 ring-neutral-200 hover:bg-neutral-50 hover:ring-neutral-300')}>
+              {on && <Check className="size-3" strokeWidth={3} />}{v}<span className={cn('tabular-nums', on ? 'text-white/70' : 'text-neutral-400')}>{f.int.format(n)}</span>
             </button>
           )
         })}
       </div>
-    </div>
-  )
-}
-
-function Stat({ label, value, sub }: { label: string; value: string; sub?: string }) {
-  return (
-    <div className="rounded-lg bg-white px-3 py-2 ring-1 ring-neutral-100">
-      <p className="text-[10px] text-neutral-400">{label}</p>
-      <p className="text-[16px] font-bold text-neutral-900 tabular-nums leading-tight">{value}</p>
-      {sub && <p className="text-[10px] text-neutral-400 leading-tight">{sub}</p>}
     </div>
   )
 }
@@ -788,18 +801,13 @@ type ReviewProps = {
   setOverlap: (v: 'pause' | 'keep') => void
   declareEu: boolean
   setDeclareEu: (v: boolean) => void
-  fmt: Intl.NumberFormat
-  fmt2: Intl.NumberFormat
-  fmtNum: Intl.NumberFormat
-  fmtInt: Intl.NumberFormat
+  f: Formats
   priceText: (r: GroupRules) => string
 }
 
-function ReviewStep({ plan, preview: p, name, account, audit, live, overlap, setOverlap, declareEu, setDeclareEu, fmt, fmt2, fmtNum, fmtInt, priceText }: ReviewProps) {
-  const { t, intlLocale } = useT()
+function ReviewStep({ plan, preview: p, name, account, audit, live, overlap, setOverlap, declareEu, setDeclareEu, f, priceText }: ReviewProps) {
+  const { t } = useT()
   const g = p.group
-  const dateFmt = new Intl.DateTimeFormat(intlLocale, { dateStyle: 'medium' })
-  const day = (d: string) => dateFmt.format(new Date(`${d}T12:00:00`))
   const rules = [
     g.rules.categories.length ? t('campaigns.rule_categories', { list: short(g.rules.categories) }) : null,
     g.rules.brands.length ? t('campaigns.rule_brands', { list: short(g.rules.brands) }) : null,
@@ -814,128 +822,115 @@ function ReviewStep({ plan, preview: p, name, account, audit, live, overlap, set
     {
       label: t('campaigns.row_type'),
       value: t(p.type === 'shopping' ? 'campaigns.type_shopping' : 'campaigns.type_pmax'),
-      hint: g.campaign_type === 'auto' ? t(p.type === 'shopping' ? 'campaigns.g_type_auto_shopping' : 'campaigns.g_type_auto_pmax', { conversions: fmtNum.format(p.conversions30) }) : undefined,
+      hint: g.campaign_type === 'auto' ? t(p.type === 'shopping' ? 'campaigns.g_type_auto_shopping' : 'campaigns.g_type_auto_pmax', { conversions: f.num.format(p.conversions30) }) : undefined,
     },
     p.type === 'shopping' ? {
       label: t('campaigns.row_bidding'),
-      value: p.cpc_ceiling !== null ? t('campaigns.bidding_cpc', { cpc: fmt2.format(p.cpc_ceiling) }) : t('campaigns.bidding_cpc_unknown'),
+      value: p.cpc_ceiling !== null ? t('campaigns.bidding_cpc', { cpc: f.money2.format(p.cpc_ceiling) }) : t('campaigns.bidding_cpc_unknown'),
       hint: p.cpc_ceiling !== null && p.economics.aov !== null && p.economics.break_even !== null
-        ? `${t('campaigns.bidding_cpc_hint', { aov: fmt.format(p.economics.aov), roas: fmtNum.format(p.economics.break_even) })}${p.cpc_ceiling_low ? ` ${t('campaigns.bidding_cpc_low')}` : ''}`
+        ? `${t('campaigns.bidding_cpc_hint', { aov: f.money.format(p.economics.aov), roas: f.num.format(p.economics.break_even) })}${p.cpc_ceiling_low ? ` ${t('campaigns.bidding_cpc_low')}` : ''}`
         : undefined,
     } : {
       label: t('campaigns.row_bidding'),
-      value: p.start_target !== null ? t('campaigns.bidding_target', { roas: fmtNum.format(p.start_target) }) : t('campaigns.g_bidding_no_target'),
+      value: p.start_target !== null ? t('campaigns.bidding_target', { roas: f.num.format(p.start_target) }) : t('campaigns.g_bidding_no_target'),
       hint: p.start_target !== null && p.economics.target !== null && p.economics.break_even !== null
-        ? t('campaigns.bidding_start_hint', { goal: fmtNum.format(p.economics.target), break_even: fmtNum.format(p.economics.break_even) })
+        ? t('campaigns.bidding_start_hint', { goal: f.num.format(p.economics.target), break_even: f.num.format(p.economics.break_even) })
         : t('campaigns.g_bidding_no_target_hint'),
     },
-    { label: t('campaigns.row_budget'), value: p.budget.daily !== null ? t('campaigns.g_budget_value', { budget: fmt.format(p.budget.daily) }) : '—' },
+    { label: t('campaigns.row_budget'), value: p.budget.daily !== null ? t('campaigns.g_budget_value', { budget: f.money.format(p.budget.daily) }) : '—' },
     {
       label: t('campaigns.g_period'),
-      value: g.ends_on ? t(g.starts_on ? 'campaigns.g_period_between' : 'campaigns.g_period_until', { start: g.starts_on ? day(g.starts_on) : '', end: day(g.ends_on) }) : t('campaigns.g_period_always'),
+      value: g.ends_on ? t(g.starts_on ? 'campaigns.g_period_between' : 'campaigns.g_period_until', { start: g.starts_on ? f.date.format(day(g.starts_on)) : '', end: f.date.format(day(g.ends_on)) }) : t('campaigns.g_period_always'),
     },
     { label: t('campaigns.goal_title'), value: t(`campaigns.goal_${g.goal}`) },
     {
       label: t('campaigns.row_safety'),
-      value: p.loss_limit ? t('campaigns.safety_value', { none: fmt.format(p.loss_limit.no_conversions), low: fmt.format(p.loss_limit.low_roas) }) : t('campaigns.safety_unknown'),
+      value: p.loss_limit ? t('campaigns.safety_value', { none: f.money.format(p.loss_limit.no_conversions), low: f.money.format(p.loss_limit.low_roas) }) : t('campaigns.safety_unknown'),
     },
   ]
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       {/* Cartea de vizită a campaniei */}
-      <div className="relative overflow-hidden rounded-2xl bg-neutral-900 p-5 text-white">
-        <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/5" />
-        <div className="pointer-events-none absolute -right-2 bottom-0 h-24 w-24 rounded-full bg-white/5" />
-        <p className="text-[11px] font-medium uppercase tracking-wider text-white/50">{t(live ? 'campaigns.g_review_live' : 'campaigns.g_review_ready')}</p>
-        <p className="mt-1 text-[18px] font-semibold tracking-tight">{name}</p>
-        <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-brand-600 via-brand-600 to-brand-800 p-6 text-white shadow-raised">
+        <div className="pointer-events-none absolute -right-16 -top-20 size-56 rounded-full bg-white/10 blur-2xl" />
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(rgb(255_255_255/0.08)_1px,transparent_1px)] [background-size:16px_16px] [mask-image:linear-gradient(to_left,black,transparent_70%)]" />
+        <p className="relative text-[11px] font-semibold uppercase tracking-[0.1em] text-white/60">{t(live ? 'campaigns.g_review_live' : 'campaigns.g_review_ready')}</p>
+        <p className="relative mt-1.5 text-[20px] font-semibold tracking-[-0.02em]">{name}</p>
+        <dl className="relative mt-5 grid grid-cols-2 gap-4 sm:grid-cols-4">
           {[
-            { label: t('campaigns.econ_break_even'), value: p.economics.break_even !== null ? fmtNum.format(p.economics.break_even) : '—' },
-            { label: t('campaigns.econ_target'), value: p.economics.target !== null ? fmtNum.format(p.economics.target) : '—' },
-            { label: t('campaigns.econ_aov'), value: p.economics.aov !== null ? fmt.format(p.economics.aov) : '—' },
-            { label: t('campaigns.g_stat_conversions'), value: fmtNum.format(p.conversions30) },
+            { label: t('campaigns.econ_break_even'), value: p.economics.break_even !== null ? f.num.format(p.economics.break_even) : '—' },
+            { label: t('campaigns.econ_target'), value: p.economics.target !== null ? f.num.format(p.economics.target) : '—' },
+            { label: t('campaigns.econ_aov'), value: p.economics.aov !== null ? f.money.format(p.economics.aov) : '—' },
+            { label: t('campaigns.g_stat_conversions'), value: f.num.format(p.conversions30) },
           ].map(k => (
             <div key={k.label}>
-              <p className="text-[10px] text-white/50">{k.label}</p>
-              <p className="text-[17px] font-bold tabular-nums">{k.value}</p>
+              <dt className="text-[11px] text-white/60">{k.label}</dt>
+              <dd className="mt-0.5 text-[18px] font-semibold tabular-nums">{k.value}</dd>
             </div>
           ))}
-        </div>
+        </dl>
       </div>
 
-      <dl className="divide-y divide-neutral-100 rounded-2xl border border-neutral-200 px-4">
+      <dl className="divide-y divide-neutral-100 rounded-xl border border-neutral-200/80 px-5">
         {rows.map(r => (
-          <div key={r.label} className="grid grid-cols-1 gap-1 py-3 sm:grid-cols-3 sm:gap-4">
-            <dt className="text-[12px] text-neutral-400">{r.label}</dt>
-            <dd className="sm:col-span-2">
-              <div className="text-[13px] text-neutral-900">{r.value}</div>
-              {r.hint && <p className="mt-0.5 text-[11px] text-neutral-400 leading-relaxed">{r.hint}</p>}
+          <div key={r.label} className="grid grid-cols-1 gap-1 py-3 sm:grid-cols-[160px_1fr] sm:gap-6">
+            <dt className="text-[13px] text-neutral-500">{r.label}</dt>
+            <dd className="min-w-0">
+              <div className="text-[13px] font-medium text-neutral-900">{r.value}</div>
+              {r.hint && <p className="mt-0.5 text-[12px] leading-relaxed text-neutral-500">{r.hint}</p>}
             </dd>
           </div>
         ))}
       </dl>
 
       {p.forecast && (
-        <div className="rounded-2xl border border-neutral-200 p-4">
-          <p className="text-[12px] font-semibold text-neutral-900">{t('campaigns.forecast_title')}</p>
-          <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="rounded-xl border border-neutral-200/80 p-5">
+          <p className="text-[13px] font-semibold text-neutral-900">{t('campaigns.forecast_title')}</p>
+          <dl className="mt-3 grid grid-cols-2 gap-4 sm:grid-cols-4">
             {[
-              { label: t('campaigns.forecast_spend'), value: fmt.format(p.forecast.spend) },
-              { label: t('campaigns.forecast_revenue'), value: fmt.format(p.forecast.revenue) },
-              { label: t('campaigns.forecast_orders'), value: p.forecast.orders !== null ? `~${fmtInt.format(p.forecast.orders)}` : '—' },
-              { label: t('campaigns.forecast_profit'), value: fmt.format(p.forecast.profit), strong: true },
+              { label: t('campaigns.forecast_spend'), value: f.money.format(p.forecast.spend) },
+              { label: t('campaigns.forecast_revenue'), value: f.money.format(p.forecast.revenue) },
+              { label: t('campaigns.forecast_orders'), value: p.forecast.orders !== null ? `~${f.int.format(p.forecast.orders)}` : '—' },
+              { label: t('campaigns.forecast_profit'), value: f.money.format(p.forecast.profit), strong: true },
             ].map(k => (
               <div key={k.label}>
-                <p className="text-[10px] text-neutral-400">{k.label}</p>
-                <p className={`text-[15px] font-semibold tabular-nums ${k.strong ? 'text-emerald-600' : 'text-neutral-900'}`}>{k.value}</p>
+                <dt className="text-[12px] text-neutral-500">{k.label}</dt>
+                <dd className={cn('mt-0.5 text-[16px] font-semibold tabular-nums', k.strong ? 'text-emerald-600' : 'text-neutral-900')}>{k.value}</dd>
               </div>
             ))}
-          </div>
-          <p className="mt-2 text-[11px] text-neutral-400 leading-relaxed">{t('campaigns.forecast_note')}</p>
+          </dl>
+          <p className="mt-3 text-[12px] leading-relaxed text-neutral-400">{t('campaigns.forecast_note')}</p>
         </div>
       )}
 
       {/* Ce oprește lansarea și ce trebuie știut */}
       {(account.length > 0 || p.blockers.length > 0 || p.warnings.length > 0) && (
-        <div className="space-y-1.5">
+        <div className="space-y-2">
           {account.map(b => {
             const params = Object.fromEntries(Object.entries(b.params ?? {}).map(([k, v]) => [k, String(v)]))
             const step = `${b.id}${b.variant ? `_${b.variant}` : ''}`
             const label = t.has(`campaigns.blocker_${step}`) ? t(`campaigns.blocker_${step}`, params) : t.has(`campaigns.blocker_${b.id}`) ? t(`campaigns.blocker_${b.id}`, params) : t('campaigns.blocker_generic')
-            return <Note key={b.id} level="blocker">{label}</Note>
+            return <Callout key={b.id} tone="danger">{label}</Callout>
           })}
-          {p.blockers.map(b => <Note key={b.id} level="blocker">{t(`campaigns.g_block_${b.id}`, noteParams(b.params, fmt))}</Note>)}
-          {p.warnings.map(w => <Note key={w.id} level="warning">{t(`campaigns.g_warn_${w.id}`, noteParams(w.params, fmt))}</Note>)}
+          {p.blockers.map(b => <Callout key={b.id} tone="danger">{t(`campaigns.g_block_${b.id}`, noteParams(b.params, f.money))}</Callout>)}
+          {p.warnings.map(w => <Callout key={w.id} tone="warning">{t(`campaigns.g_warn_${w.id}`, noteParams(w.params, f.money))}</Callout>)}
         </div>
       )}
 
       {/* Alegerile din audit (prima lansare în cont, sau dacă omul și-a păstrat campaniile) */}
       {!live && audit?.result && (audit.result.overlap.length > 0 || audit.result.eu_undeclared.length > 0) && (
-        <div className="space-y-3 rounded-2xl border border-neutral-200 p-4">
-          <p className="flex items-center gap-2 text-[12px] font-semibold text-neutral-900"><ShieldCheck className="h-4 w-4 text-neutral-500" />{t('campaigns.audit_title')}</p>
+        <div className="rounded-xl border border-neutral-200/80 p-5">
+          <p className="mb-3 flex items-center gap-2 text-[13px] font-semibold text-neutral-900"><ShieldCheck className="size-4 text-neutral-500" />{t('campaigns.audit_title')}</p>
           <AccountChoices result={audit.result} overlap={overlap} onOverlap={setOverlap} declareEu={declareEu} onDeclareEu={setDeclareEu} />
         </div>
       )}
-      {!live && !audit?.result && <Note level="blocker">{t('campaigns.blocker_audit')}</Note>}
+      {!live && !audit?.result && <Callout tone="danger">{t('campaigns.blocker_audit')}</Callout>}
 
-      {live && <p className="flex items-start gap-1.5 text-[11px] text-neutral-500 leading-relaxed"><CalendarRange className="h-3.5 w-3.5 shrink-0 mt-px" />{t('campaigns.g_live_note')}</p>}
-      {!live && (
-        <p className="flex items-start gap-1.5 text-[11px] text-neutral-500 leading-relaxed">
-          <Info className="h-3.5 w-3.5 shrink-0 mt-px" />
-          {t(plan.counts.included > 0 ? 'campaigns.g_launch_note' : 'campaigns.g_launch_note_alone', { products: fmtInt.format(p.counts.included) })}
-        </p>
-      )}
+      <p className="flex items-start gap-2 text-[12px] leading-relaxed text-neutral-500">
+        {live ? <CalendarRange className="mt-0.5 size-3.5 shrink-0" /> : <Info className="mt-0.5 size-3.5 shrink-0" />}
+        {live ? t('campaigns.g_live_note') : t(plan.counts.included > 0 ? 'campaigns.g_launch_note' : 'campaigns.g_launch_note_alone', { products: f.int.format(p.counts.included) })}
+      </p>
     </div>
-  )
-}
-
-function Note({ level, children }: { level: 'blocker' | 'warning'; children: ReactNode }) {
-  const Icon = level === 'blocker' ? AlertCircle : AlertTriangle
-  return (
-    <p className={`flex items-start gap-2 rounded-lg px-3 py-2 text-[12px] leading-relaxed ${level === 'blocker' ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-800'}`}>
-      <Icon className="h-4 w-4 shrink-0 mt-px" />
-      <span>{children}</span>
-    </p>
   )
 }

@@ -432,6 +432,6 @@ export const ACCOUNT_BLOCKERS = new Set([
  */
 export function accountBlockers(plan: Plan, type: 'shopping' | 'performance_max', noValue: boolean): Plan['blockers'] {
   const out = plan.blockers.filter(b => ACCOUNT_BLOCKERS.has(b.id))
-  if (type === 'performance_max' && noValue) out.push({ id: 'purchase_no_value', href: '/campaigns#audit', external: false })
+  if (type === 'performance_max' && noValue) out.push({ id: 'purchase_no_value', href: '/campaigns?tab=plan#audit', external: false })
   return out
 }

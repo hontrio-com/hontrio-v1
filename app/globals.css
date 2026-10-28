@@ -89,6 +89,57 @@
   --animate-aurora: aurora 60s linear infinite;
 }
 
+/* ═══════════════════════════════════════════════════════════════════════
+   Platforma (după autentificare): sistemul de design, în spiritul Stripe /
+   Linear. Un singur accent (indigo, scara Radix „iris"), suprafețe albe pe
+   un fundal gri foarte fin, umbre în straturi, mișcări scurte și discrete.
+   Componentele lui sunt în components/app.
+   ═══════════════════════════════════════════════════════════════════════ */
+@theme {
+  --color-brand-50: #f8f8ff;
+  --color-brand-100: #f0f1fe;
+  --color-brand-200: #e6e7ff;
+  --color-brand-300: #cbcdff;
+  --color-brand-400: #9b9ef0;
+  --color-brand-500: #7472e0;
+  --color-brand-600: #5b5bd6;
+  --color-brand-700: #4f4bc4;
+  --color-brand-800: #3e3a9c;
+  --color-brand-900: #272962;
+
+  /* Fundalul aplicației, sub meniu și sub panouri */
+  --color-canvas: #f7f7f8;
+
+  --shadow-card: 0 1px 2px 0 rgb(16 24 40 / 0.04), 0 1px 3px 0 rgb(16 24 40 / 0.03);
+  --shadow-raised: 0 12px 32px -8px rgb(16 24 40 / 0.14), 0 4px 8px -4px rgb(16 24 40 / 0.06);
+  --shadow-pop: 0 16px 48px -12px rgb(16 24 40 / 0.22), 0 0 0 1px rgb(16 24 40 / 0.06);
+
+  --animate-shimmer: shimmer 1.8s ease-in-out infinite;
+  --animate-live: live-dot 2.4s ease-out infinite;
+}
+
+@keyframes shimmer {
+  from { background-position: 200% 0; }
+  to   { background-position: -200% 0; }
+}
+@keyframes live-dot {
+  0%   { box-shadow: 0 0 0 0 color-mix(in srgb, currentColor 45%, transparent); }
+  70%  { box-shadow: 0 0 0 6px transparent; }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+
+/* Rădăcina platformei: Inter cu „a"-ul simplu și cifrele deschise */
+.app {
+  /* direct pe variabila fontului: cele din @theme apar doar când le folosește o clasă */
+  font-family: var(--font-inter), ui-sans-serif, system-ui, -apple-system, sans-serif;
+  font-feature-settings: "cv11", "ss01";
+  letter-spacing: -0.006em;
+}
+.app .tabular-nums, .app .num {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "cv11", "ss01", "tnum";
+}
+
 /* Hero animations */
 @keyframes wordSlideIn {
   from { opacity: 0; transform: translateY(60%); }
