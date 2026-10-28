@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useT } from '@/lib/i18n/context'
 import LanguageSwitcher from '@/components/language-switcher'
+import { Callout } from '@/components/app/feedback'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -67,11 +68,7 @@ function InputField({ label, value, onChange, placeholder, type = 'text', mono =
 }
 
 function ErrorBox({ text }: { text: string }) {
-  return (
-    <div className="flex items-start gap-2 p-3 border border-red-200 rounded-xl bg-red-50/50">
-      <AlertCircle className="h-4 w-4 text-red-400 shrink-0 mt-px" /><span className="text-[13px] text-red-500">{text}</span>
-    </div>
-  )
+  return <Callout tone="danger">{text}</Callout>
 }
 
 export default function OnboardingPage() {
@@ -206,7 +203,7 @@ export default function OnboardingPage() {
   )
 
   return (
-    <div className="min-h-[100dvh] bg-white flex flex-col relative">
+    <div className="app min-h-[100dvh] bg-white flex flex-col relative">
       <LiquidBg />
 
       {/* ── Bara de sus ─────────────────────────────────────────────────────── */}
@@ -290,14 +287,14 @@ export default function OnboardingPage() {
                   <div className="space-y-4">
                     <div className="grid grid-cols-3 gap-2.5">
                       {([
-                        { id: 'edinio', name: 'Edinio', sub: t('onboarding.edinio_subtitle'), color: '#111827' },
-                        { id: 'woocommerce', name: 'WooCommerce', sub: t('onboarding.woo_subtitle'), color: '#7F54B3' },
-                        { id: 'shopify', name: 'Shopify', sub: t('onboarding.shopify_subtitle'), color: '#5E8E3E' },
-                      ] as { id: Platform; name: string; sub: string; color: string }[]).map(p => (
-                        <button key={p.id} onClick={() => { setPlatform(p.id); setError(null) }}
-                          className={`p-3.5 rounded-xl border-2 text-left transition-all ${platform === p.id ? 'border-neutral-900 bg-neutral-50' : 'border-neutral-200 hover:border-neutral-300'}`}>
-                          <div className="h-7 w-7 rounded-lg flex items-center justify-center mb-2" style={{ background: `${p.color}14` }}>
-                            <Store className="h-3.5 w-3.5" style={{ color: p.color }} />
+                        { id: 'edinio', name: 'Edinio', sub: t('onboarding.edinio_subtitle'), icon: Sparkles },
+                        { id: 'woocommerce', name: 'WooCommerce', sub: t('onboarding.woo_subtitle'), icon: Store },
+                        { id: 'shopify', name: 'Shopify', sub: t('onboarding.shopify_subtitle'), icon: Zap },
+                      ] as { id: Platform; name: string; sub: string; icon: typeof Store }[]).map(p => (
+                        <button key={p.id} onClick={() => { setPlatform(p.id); setError(null) }} aria-pressed={platform === p.id}
+                          className={`p-3.5 rounded-xl border text-left transition-all ${platform === p.id ? 'border-neutral-900 ring-1 ring-neutral-900 bg-neutral-50/60' : 'border-neutral-200 hover:border-neutral-300 hover:shadow-card'}`}>
+                          <div className={`h-8 w-8 rounded-lg flex items-center justify-center mb-2.5 transition-colors ${platform === p.id ? 'bg-neutral-900 text-white' : 'bg-neutral-100 text-neutral-600'}`}>
+                            <p.icon className="h-4 w-4" />
                           </div>
                           <p className="text-[13px] font-semibold text-neutral-900">{p.name}</p>
                           <p className="text-[11px] text-neutral-400 mt-0.5 leading-snug">{p.sub}</p>
