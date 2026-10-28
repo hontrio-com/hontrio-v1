@@ -4,18 +4,22 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react
 import Link from 'next/link'
 import { useT } from '@/lib/i18n/context'
 import {
-  AlertCircle, ArrowRight, CheckCircle2, ChevronLeft, ChevronRight, ImageIcon, Info, Loader2, Search, Store, X,
+  AlertCircle, ArrowRight, CheckCircle2, ChevronLeft, ChevronRight, ImageIcon, Info, Layers, Loader2, Search, Store, X,
 } from 'lucide-react'
 import { CONVERSIONS_PER_MONTH, GOAL_KEEP, GOALS, type Goal, type Mode, type Plan, type PlanOffer } from '@/lib/campaigns/plan'
+import type { GroupPlan, ProductGroup } from '@/lib/campaigns/groups'
 import { LaunchPanel, type AuditData } from '@/components/campaigns/launch-panel'
-import { LiveCampaigns, type LiveCampaign } from '@/components/campaigns/live-campaigns'
+import { isRunning, type LiveCampaign } from '@/components/campaigns/live-campaigns'
 import { AutopilotPanel, type ActionItem } from '@/components/campaigns/autopilot-panel'
+import { CampaignBoard } from '@/components/campaigns/campaign-board'
+import { GroupEditor, type Step } from '@/components/campaigns/group-editor'
 import type { AdsMode } from '@/lib/commerce/ads-data'
 
 // =============================================
-// Campanii — planul campaniei Google Ads (lib/campaigns/plan.ts): treapta,
-// ce produse intră, ROAS-ul țintă, bugetul; auditul contului și lansarea;
-// după lansare, campaniile, propunerile pilotului și jurnalul.
+// Campanii — campaniile tale (cea principală și cele pe grupe de produse),
+// apoi planul campaniei principale (lib/campaigns/plan.ts): treapta, ce
+// produse intră, ROAS-ul țintă, bugetul; auditul contului și lansarea; după
+// lansare, propunerile pilotului și jurnalul.
 // =============================================
 
 type Data = {
@@ -25,8 +29,10 @@ type Data = {
   campaigns?: LiveCampaign[]
   proposals?: ActionItem[]
   journal?: ActionItem[]
+  groups?: GroupPlan[]
+  today?: string
 }
-type Tab = 'included' | 'excluded'
+type Tab = 'included' | 'groups' | 'excluded'
 
 // Motivele care nu se pot întoarce din Hontrio: se repară în magazin
 const FIXED = new Set(['out_of_stock', 'google_rejected', 'price_unconfirmed', 'not_in_merchant'])
@@ -89,6 +95,8 @@ export default function CampaignsPage() {
   const [loading, setLoading] = useState(true)
   const [failed, setFailed] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
+  const [editor, setEditor] = useState<{ open: boolean; group: ProductGroup | null; step: Step }>({ open: false, group: null, step: 1 })
   const [goalSaving, setGoalSaving] = useState<Goal | null>(null)
   const [busy, setBusy] = useState<Set<string>>(new Set())
   const [tab, setTab] = useState<Tab>('included')
@@ -134,11 +142,12 @@ export default function CampaignsPage() {
   }, [numberLocale])
 
   const plan = data?.plan ?? null
+  const groupName = useMemo(() => new Map((data?.groups ?? []).map(g => [g.group.id, g.group.name])), [data?.groups])
   const list = useMemo(() => {
     if (!plan) return []
     const q = search.trim().toLowerCase()
-    return plan.offers.filter(o => (tab === 'included' ? o.reason === null : o.reason !== null)
-      && (!q || o.title.toLowerCase().includes(q) || (o.variant_title ?? '').toLowerCase().includes(q)))
+    const inTab = (o: PlanOffer) => tab === 'included' ? o.reason === null : tab === 'groups' ? o.reason === 'in_group' : o.reason !== null && o.reason !== 'in_group'
+    return plan.offers.filter(o => inTab(o) && (!q || o.title.toLowerCase().includes(q) || (o.variant_title ?? '').toLowerCase().includes(q)))
   }, [plan, tab, search])
   const pages = Math.max(1, Math.ceil(list.length / PER_PAGE))
   const current = Math.min(page, pages)
@@ -229,9 +238,14 @@ export default function CampaignsPage() {
 
   const { economics: econ, campaign, budget, forecast, structure } = plan
   const live = data.campaigns ?? []
-  // O campanie Hontrio rulează (sau stă pe pauză): pagina arată campaniile și pilotul, nu lansarea
-  const running = live.some(c => c.status === 'active' || c.status === 'paused')
+  const groups = data.groups ?? []
+  // Campania principală rulează (sau stă pe pauză): planul ei arată campania, nu lansarea
+  const running = live.some(c => !c.group_id && isRunning(c))
+  // Pilotul lucrează cât timp rulează orice campanie Hontrio, și a unei grupe
+  const piloting = live.some(isRunning)
   const starter = plan.stage.id === 'starter'
+  const openEditor = (group: ProductGroup | null, step: Step = 1) => { setNotice(null); setEditor({ open: true, group, step }) }
+  const showPlan = () => document.getElementById('main-plan')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   // De ce „de verificat": pluginul (WooCommerce) sau canalele pe care Shopify nu le spune
   const launchCheck = plan.platform.id === 'shopify' ? 'campaigns.verified_at_launch_shopify' : 'campaigns.verified_at_launch'
   const place = [nameOf('region', campaign.country), nameOf('language', campaign.language)].filter(Boolean).join(' · ')
@@ -325,16 +339,35 @@ export default function CampaignsPage() {
           <button onClick={() => setNotice(null)} className="opacity-50 hover:opacity-100" aria-label={t('campaigns.dismiss')}><X className="h-3.5 w-3.5" /></button>
         </div>
       )}
-
-      {/* După lansare: campaniile și pilotul */}
-      {live.length > 0 && (
-        <LiveCampaigns campaigns={live} breakEven={econ.break_even} fmt={fmt} fmt2={fmtMoney2} fmtNum={fmtNum} onChanged={load} onError={setNotice} />
+      {success && (
+        <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl text-[12px] leading-relaxed bg-emerald-50 border border-emerald-100 text-emerald-800">
+          <CheckCircle2 className="h-4 w-4 shrink-0 mt-px" />
+          <span className="flex-1">{success}</span>
+          <button onClick={() => setSuccess(null)} className="opacity-50 hover:opacity-100" aria-label={t('campaigns.dismiss')}><X className="h-3.5 w-3.5" /></button>
+        </div>
       )}
-      {running && (
+
+      {/* Campaniile tale: cea principală și cele pe grupe de produse */}
+      <CampaignBoard plan={plan} groups={groups} campaigns={live} fmt={fmt} fmt2={fmtMoney2} fmtNum={fmtNum} fmtInt={fmtInt}
+        onNew={() => openEditor(null)} onEdit={(g, step) => openEditor(g.group, step)} onShowPlan={showPlan}
+        onChanged={load} onError={setNotice} />
+      <GroupEditor open={editor.open} onOpenChange={open => setEditor(e => ({ ...e, open }))} group={editor.group} initialStep={editor.step}
+        plan={plan} groups={groups} campaigns={live} audit={data.audit ?? null} today={data.today ?? new Date().toISOString().slice(0, 10)}
+        currency={currency} fmt={fmt} fmt2={fmtMoney2} fmtNum={fmtNum} fmtInt={fmtInt}
+        onSaved={load} onLaunched={text => { setNotice(null); setSuccess(text) }} />
+
+      {piloting && (
         <AutopilotPanel mode={plan.settings.mode} maxDailyBudget={plan.settings.max_daily_budget} currency={currency}
-          proposals={data.proposals ?? []} journal={data.journal ?? []} campaigns={live} fmt={fmt} fmtNum={fmtNum}
+          proposals={data.proposals ?? []} journal={data.journal ?? []} campaigns={live} groupNames={groupName} fmt={fmt} fmtNum={fmtNum}
           onSaveSettings={saveSettings} onChanged={load} onError={setNotice} />
       )}
+
+      {/* Planul campaniei principale (cu grupe, „restul" produselor) */}
+      <div id="main-plan" className="scroll-mt-6 flex items-center gap-2 pt-2">
+        <Layers className="h-4 w-4 text-neutral-400" />
+        <h2 className="text-[15px] font-semibold text-neutral-900">{t('campaigns.main_plan_title')}</h2>
+        <span className="text-[12px] text-neutral-400">{t(groups.length ? 'campaigns.board_main_rest' : 'campaigns.board_main_all')}</span>
+      </div>
 
       {/* Înainte de lansare: ce mai lipsește, auditul contului și lansarea */}
       {!running && (
@@ -475,10 +508,10 @@ export default function CampaignsPage() {
       <div className="bg-white border border-neutral-200 rounded-xl overflow-hidden">
         <div className="flex flex-col gap-3 p-4 border-b border-neutral-100 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-1 rounded-xl bg-neutral-100 p-1 self-start">
-            {(['included', 'excluded'] as Tab[]).map(k => (
+            {(['included', 'groups', 'excluded'] as Tab[]).filter(k => k !== 'groups' || plan.counts.in_groups > 0).map(k => (
               <button key={k} onClick={() => { setTab(k); setPage(1) }}
                 className={`h-8 px-3 rounded-lg text-[12px] font-medium transition-all ${tab === k ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-500 hover:text-neutral-800'}`}>
-                {t(`campaigns.tab_${k}`, { count: fmtInt.format(k === 'included' ? plan.counts.included : plan.counts.excluded) })}
+                {t(`campaigns.tab_${k}`, { count: fmtInt.format(k === 'included' ? plan.counts.included : k === 'groups' ? plan.counts.in_groups : plan.counts.excluded) })}
               </button>
             ))}
           </div>
@@ -505,7 +538,7 @@ export default function CampaignsPage() {
                   <th className="px-3 py-2.5 text-right">{t('campaigns.col_sales')}</th>
                   <th className="px-3 py-2.5 text-right">{t('catalog.col_margin')}</th>
                   <th className="px-3 py-2.5 text-right" title={t('campaigns.col_break_even_hint')}>{t('campaigns.col_break_even')}</th>
-                  {tab === 'excluded' && <th className="px-3 py-2.5">{t('campaigns.col_reason')}</th>}
+                  {tab !== 'included' && <th className="px-3 py-2.5">{t(tab === 'groups' ? 'campaigns.col_group' : 'campaigns.col_reason')}</th>}
                   <th className="px-4 py-2.5 text-right" />
                 </tr>
               </thead>
@@ -565,8 +598,19 @@ export default function CampaignsPage() {
                           </span>
                         </td>
                       )}
+                      {tab === 'groups' && (
+                        <td className="px-3 py-3">
+                          <span className="inline-flex text-[11px] font-medium px-1.5 py-0.5 rounded-md bg-sky-50 text-sky-700">{groupName.get(o.group_id ?? '') ?? '—'}</span>
+                        </td>
+                      )}
                       <td className="px-4 py-3 text-right whitespace-nowrap">
                         {saving ? <Loader2 className="ml-auto h-3.5 w-3.5 animate-spin text-neutral-400" />
+                          : o.reason === 'in_group' ? (
+                            <RowAction label={t('campaigns.action_see_group')} onClick={() => {
+                              const g = groups.find(x => x.group.id === o.group_id)
+                              if (g) openEditor(g.group, 1)
+                            }} />
+                          )
                           : o.reason === null ? (
                             o.mode === 'include'
                               ? <RowAction label={t('campaigns.action_auto')} onClick={() => setMode(o, 'auto')} />

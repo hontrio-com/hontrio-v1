@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 import type { Plan } from '@/lib/campaigns/plan'
 import type { AuditCheck, AuditResult } from '@/lib/google/audit'
+import { AccountChoices, choicesDone as choicesMade, type Overlap } from '@/components/campaigns/account-choices'
 
 // =============================================
 // Lansarea: ce mai lipsește, auditul contului Google Ads (verificat de
@@ -36,15 +37,13 @@ export function LaunchPanel({ plan, audit, hasAccount, onChanged }: Props) {
   const { t, intlLocale } = useT()
   const [auditing, setAuditing] = useState(false)
   const [launching, setLaunching] = useState(false)
-  const [overlap, setOverlap] = useState<'pause' | 'keep' | null>(null)
+  const [overlap, setOverlap] = useState<Overlap>(null)
   const [declareEu, setDeclareEu] = useState(false)
   const [message, setMessage] = useState<{ kind: 'error' | 'ok'; text: string; details?: string[] } | null>(null)
 
   const result = audit?.result ?? null
-  const needsOverlap = !!result?.overlap.length
-  const needsEu = !!result?.eu_undeclared.length
   const ready = plan.blockers.length === 0 && !!result && !audit?.error
-  const choicesDone = (!needsOverlap || overlap !== null) && (!needsEu || declareEu)
+  const choicesDone = choicesMade(result, overlap, declareEu)
 
   async function runAudit() {
     setAuditing(true)
@@ -169,25 +168,10 @@ export function LaunchPanel({ plan, audit, hasAccount, onChanged }: Props) {
           )}
 
           {/* Alegerile omului, înainte de lansare */}
-          {result && needsOverlap && (
-            <fieldset className="mt-4 space-y-2">
-              <legend className="text-[12px] font-medium text-neutral-800">{t('campaigns.overlap_question', { count: String(result.overlap.length) })}</legend>
-              <p className="text-[11px] text-neutral-500 leading-relaxed">
-                {result.campaigns.filter(c => result.overlap.includes(c.id)).map(c => c.name).join(', ')}
-              </p>
-              {(['pause', 'keep'] as const).map(v => (
-                <label key={v} className="flex items-start gap-2 text-[12px] text-neutral-700 cursor-pointer">
-                  <input type="radio" name="overlap" checked={overlap === v} onChange={() => setOverlap(v)} className="mt-0.5" />
-                  <span><span className="font-medium">{t(`campaigns.overlap_${v}`)}</span> — {t(`campaigns.overlap_${v}_hint`)}</span>
-                </label>
-              ))}
-            </fieldset>
-          )}
-          {result && needsEu && (
-            <label className="mt-4 flex items-start gap-2 text-[12px] text-neutral-700 cursor-pointer">
-              <input type="checkbox" checked={declareEu} onChange={e => setDeclareEu(e.target.checked)} className="mt-0.5" />
-              <span>{t('campaigns.eu_confirm', { count: String(result.eu_undeclared.length) })}</span>
-            </label>
+          {result && (result.overlap.length > 0 || result.eu_undeclared.length > 0) && (
+            <div className="mt-4 space-y-4">
+              <AccountChoices result={result} overlap={overlap} onOverlap={setOverlap} declareEu={declareEu} onDeclareEu={setDeclareEu} />
+            </div>
           )}
         </div>
       )}

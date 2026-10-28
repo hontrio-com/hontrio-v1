@@ -42,6 +42,9 @@ type Common = {
   finalUrlSuffix: string
   listing: ListingSpec
   negatives: NegativeKeyword[]
+  /** Perioada campaniei, în fusul orar al contului ('yyyy-MM-dd HH:mm:ss'); lipsă = de acum, fără sfârșit. */
+  startDateTime?: string | null
+  endDateTime?: string | null
 }
 
 export type StarterSpec = Common & {
@@ -197,6 +200,9 @@ export function buildLaunchOperations(spec: LaunchSpec): MutateOperation[] {
     geoTargetTypeSetting: { positiveGeoTargetType: 'PRESENCE' },
     containsEuPoliticalAdvertising: 'DOES_NOT_CONTAIN_EU_POLITICAL_ADVERTISING',
     finalUrlSuffix: spec.finalUrlSuffix,
+    // Campaniile de promoție: Google le pornește și le oprește singur, la secundă
+    ...(spec.startDateTime ? { startDateTime: spec.startDateTime } : {}),
+    ...(spec.endDateTime ? { endDateTime: spec.endDateTime } : {}),
   }
   const shoppingSetting = { merchantId: spec.merchantId, ...(spec.feedLabel ? { feedLabel: spec.feedLabel } : {}) }
 
@@ -304,6 +310,20 @@ export function budgetOp(cid: string, budgetId: string, amount: number, billable
     campaignBudgetOperation: {
       update: { resourceName: budgetPath(cid, budgetId), amountMicros: toMicros(amount, billableUnitMicros) },
       updateMask: 'amountMicros',
+    },
+  }
+}
+
+/** Ziua de început / de sfârșit ca dată-oră Google: de la 00:00:00, până la 23:59:59 (granularitate de zi). */
+export const startOfDay = (day: string) => `${day} 00:00:00`
+export const endOfDay = (day: string) => `${day} 23:59:59`
+
+/** Sfârșitul campaniei; null = rulează fără sfârșit (câmpul se golește). */
+export function endDateOp(cid: string, campaignId: string, endDateTime: string | null): MutateOperation {
+  return {
+    campaignOperation: {
+      update: { resourceName: campaignPath(cid, campaignId), ...(endDateTime ? { endDateTime } : {}) },
+      updateMask: 'endDateTime',
     },
   }
 }

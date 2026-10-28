@@ -16,5 +16,7 @@
   "proposals_body_other": "{{count}} changes are waiting for your approval, in Campaigns.",
   "applied_title": "The autopilot changed your campaigns",
   "applied_body_one": "One change applied today; the details are in the log in Campaigns.",
-  "applied_body_other": "{{count}} changes applied today; the details are in the log in Campaigns."
+  "applied_body_other": "{{count}} changes applied today; the details are in the log in Campaigns.",
+  "campaign_launched_group_one": "“{{name}}” is in your Google Ads account, with one product. The autopilot tracks it daily.",
+  "campaign_launched_group_other": "“{{name}}” is in your Google Ads account, with {{count}} products. The autopilot tracks it daily."
 }

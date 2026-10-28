@@ -19,5 +19,8 @@
   "applied_title": "Pilotul a schimbat campaniile",
   "applied_body_one": "O schimbare aplicată azi; detaliile sunt în jurnalul din Campanii.",
   "applied_body_few": "{{count}} schimbări aplicate azi; detaliile sunt în jurnalul din Campanii.",
-  "applied_body_other": "{{count}} de schimbări aplicate azi; detaliile sunt în jurnalul din Campanii."
+  "applied_body_other": "{{count}} de schimbări aplicate azi; detaliile sunt în jurnalul din Campanii.",
+  "campaign_launched_group_one": "„{{name}}” e în contul tău Google Ads, cu un produs. Pilotul o urmărește zilnic.",
+  "campaign_launched_group_few": "„{{name}}” e în contul tău Google Ads, cu {{count}} produse. Pilotul o urmărește zilnic.",
+  "campaign_launched_group_other": "„{{name}}” e în contul tău Google Ads, cu {{count}} de produse. Pilotul o urmărește zilnic."
 }

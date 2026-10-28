@@ -74,3 +74,16 @@ test('profitul pe zi: „restul" are pragul magazinului înainte de împărțire
   assert.equal(Math.round(profits.get('g-brand')!), 50)
   assert.equal(profitByCampaign([], be, null, splits), null)
 })
+
+test('grupele omului: pragul produselor lor, ținta obiectivului lor; campania principală le lasă afară', () => {
+  const p = plan()
+  const g = campaign('g', { segment: 'group', product_group_id: 'grupa', goal: 'profit', included_item_ids: ['c'] })
+  const main = campaign('main')
+  // Grupa: doar C (prag 3,4), cu obiectivul ei („profit" păstrează 40%)
+  assert.deepEqual(campaignEconomics(g, p, [main, g]), { break_even: 3.4, goal_target: 5.7 })
+  // Campania principală care rulează: fără C → A, B, D
+  const be = campaignEconomics(main, p, [main, g]).break_even
+  assert.equal(be, Math.round(((2.0 * 1000 + 2.2 * 1000 + 3.8 * 1000) / 3000) * 10) / 10)
+  // Una încheiată vindea tot catalogul: pragul magazinului
+  assert.equal(campaignEconomics({ ...main, status: 'ended' }, p, [main, g]).break_even, 2.8)
+})

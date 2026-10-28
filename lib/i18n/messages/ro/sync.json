@@ -107,5 +107,9 @@
   "launch_save_failed": "Campania a fost creată în Google Ads (ID {{campaign}}), dar n-a putut fi salvată în Hontrio. Scrie-ne la suport.",
   "merchant_google_missing": "Contul Google nu e conectat: Hontrio nu poate citi Merchant Center.",
   "merchant_denied": "Contul Google conectat nu are acces la Merchant Center {{merchant}}. Folosește contul Google care administrează Merchant Center. ({{detail}})",
-  "merchant_failed": "Merchant Center n-a răspuns cum trebuie ({{merchant}}): {{detail}}"
+  "merchant_failed": "Merchant Center n-a răspuns cum trebuie ({{merchant}}): {{detail}}",
+  "group_missing": "Nu am găsit campania de lansat.",
+  "launch_group_live": "Campania rulează deja.",
+  "launch_group_blocked": "Campania mai are pași de făcut înainte de lansare (vezi rezumatul).",
+  "launch_too_many_exclusions": "Campania principală Performance Max ar trebui să lase afară {{count}} de produse, peste limita Google de 990. Pune mai puține produse în campaniile pe grupe."
 }

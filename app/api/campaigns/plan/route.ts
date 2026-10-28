@@ -103,7 +103,7 @@ export async function GET() {
       result: audit.result,
     } : null,
     campaigns: campaigns.map(c => ({
-      id: c.id, name: c.name, type: c.type, status: c.status, stage: c.stage, segment: c.segment,
+      id: c.id, name: c.name, type: c.type, status: c.status, stage: c.stage, segment: c.segment, group_id: c.product_group_id,
       google_campaign_id: c.google_campaign_id, daily_budget: c.daily_budget, target_roas: c.target_roas,
       cpc_ceiling: c.cpc_ceiling, launched_at: c.launched_at, excluded: c.excluded_item_ids.length,
       included: c.included_item_ids?.length ?? null,
@@ -117,6 +117,9 @@ export async function GET() {
     })),
     proposals: actions.filter(a => a.status === 'proposed'),
     journal: actions.filter(a => a.status !== 'proposed').slice(0, JOURNAL),
+    // Grupele omului, cu planul fiecăreia; ziua de azi a magazinului, pentru perioadele lor
+    groups: context.groupPlans,
+    today: context.today,
   })
 }
 

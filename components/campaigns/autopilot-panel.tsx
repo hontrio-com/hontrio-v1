@@ -33,6 +33,8 @@ type Props = {
   journal: ActionItem[]
   /** Campaniile Hontrio: cu mai multe, fiecare propunere spune la care se referă. */
   campaigns: LiveCampaign[]
+  /** Numele grupelor omului: propunerile pe campania unei grupe poartă numele ei. */
+  groupNames?: Map<string, string>
   fmt: Intl.NumberFormat
   fmtNum: Intl.NumberFormat
   onSaveSettings: (body: { mode?: Mode; max_daily_budget?: number | null }) => Promise<boolean>
@@ -48,7 +50,7 @@ const STATUS_STYLE: Record<ActionItem['status'], string> = {
   expired: 'bg-neutral-100 text-neutral-400',
 }
 
-export function AutopilotPanel({ mode, maxDailyBudget, currency, proposals, journal, campaigns, fmt, fmtNum, onSaveSettings, onChanged, onError }: Props) {
+export function AutopilotPanel({ mode, maxDailyBudget, currency, proposals, journal, campaigns, groupNames, fmt, fmtNum, onSaveSettings, onChanged, onError }: Props) {
   const { t, intlLocale } = useT()
   const [deciding, setDeciding] = useState<string | null>(null)
   const [savingMode, setSavingMode] = useState<Mode | null>(null)
@@ -89,7 +91,9 @@ export function AutopilotPanel({ mode, maxDailyBudget, currency, proposals, jour
   function campaignLabel(a: ActionItem): string | null {
     if (campaigns.length < 2 || !a.ad_campaign_id || a.kind === 'declare_eu' || a.kind === 'pause_existing') return null
     const c = campaigns.find(x => x.id === a.ad_campaign_id)
-    return c ? t(campaignKindKey(c)) : null
+    if (!c) return null
+    // Campania unei grupe: numele grupei spune mai mult decât felul ei
+    return (c.group_id && groupNames?.get(c.group_id)) || t(campaignKindKey(c))
   }
 
   /** Ce schimbă propunerea, pe scurt, din parametrii ei. */
@@ -97,11 +101,16 @@ export function AutopilotPanel({ mode, maxDailyBudget, currency, proposals, jour
     const p = a.params
     const n = (k: string) => Number(p[k])
     switch (a.kind) {
-      case 'set_target': return t('campaigns.detail_target', { from: fmtNum.format(n('from')), to: fmtNum.format(n('to')) })
+      case 'set_target': return p.from === null || p.from === undefined
+        ? t('campaigns.detail_target_first', { to: fmtNum.format(n('to')) })
+        : t('campaigns.detail_target', { from: fmtNum.format(n('from')), to: fmtNum.format(n('to')) })
       case 'set_budget': return t('campaigns.detail_budget', { from: fmt.format(n('from')), to: fmt.format(n('to')) })
       case 'graduate': return t('campaigns.detail_graduate', { roas: fmtNum.format(n('target_roas')), budget: fmt.format(n('daily_budget')) })
       case 'segment': return t('campaigns.detail_segment', { high: fmtNum.format(n('high_target')), rest: fmtNum.format(n('rest_target')) })
       case 'pause_loss_limit': return t('campaigns.detail_loss', { spend: fmt.format(n('spend')) })
+      case 'set_end_date': return typeof p.ends_on === 'string'
+        ? t('campaigns.detail_end_date', { date: new Intl.DateTimeFormat(intlLocale, { dateStyle: 'medium' }).format(new Date(`${p.ends_on}T12:00:00`)) })
+        : t('campaigns.detail_no_end_date')
       default: return null
     }
   }

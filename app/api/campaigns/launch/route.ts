@@ -7,16 +7,19 @@ import { getActiveStore } from '@/lib/stores/active'
 import { isCommercePlatform } from '@/lib/commerce/sync'
 import { loadPlanContext, STORE_PLAN_COLUMNS, type PlanStore } from '@/lib/campaigns/context'
 import { runAudit } from '@/lib/ads/audit-run'
-import { launchFromPlan } from '@/lib/google/launch'
+import { loadApplyEnv, reconcileProducts } from '@/lib/ads/autopilot'
+import { launchFromPlan, launchGroup } from '@/lib/google/launch'
 import { AUDIT_FRESH_MS } from '@/lib/google/audit'
 import { translateStored } from '@/lib/i18n/stored'
 import { getT } from '@/lib/i18n/server'
 
 // =============================================
 // POST /api/campaigns/launch
-// Lansează campania din plan în contul Google Ads al magazinului activ.
-// Planul se socotește din nou aici (nu se ia de la client), cu un audit
-// proaspăt. Body: { overlap: 'pause' | 'keep' | null, declare_eu: boolean }
+// Lansează campania din plan (sau a unei grupe, cu group_id) în contul Google
+// Ads al magazinului activ. Planul se socotește din nou aici (nu se ia de la
+// client), cu un audit proaspăt. După o grupă, campania principală care
+// rulează îi lasă produsele afară.
+// Body: { overlap: 'pause' | 'keep' | null, declare_eu: boolean, group_id?: string }
 // =============================================
 
 const ROUTE = '/api/campaigns/launch'
@@ -29,7 +32,7 @@ export async function POST(request: Request) {
   if (!session?.user) return NextResponse.json({ error: t('api.unauthorized') }, { status: 401 })
   const userId = session.user.id
 
-  let body: { overlap?: unknown; declare_eu?: unknown }
+  let body: { overlap?: unknown; declare_eu?: unknown; group_id?: unknown }
   try {
     body = await request.json()
   } catch {
@@ -37,6 +40,7 @@ export async function POST(request: Request) {
   }
   const overlap = body.overlap === 'pause' || body.overlap === 'keep' ? body.overlap : null
   const declareEu = body.declare_eu === true
+  const groupId = typeof body.group_id === 'string' && body.group_id ? body.group_id : null
 
   const supabase = createAdminClient()
   const { data: store, error } = await getActiveStore<PlanStore>(supabase, userId, STORE_PLAN_COLUMNS)
@@ -56,17 +60,30 @@ export async function POST(request: Request) {
   for (const e of errors) logApiError(ROUTE, 500, 'Eroare la citirea datelor magazinului', { userId, error: e })
   if (!context) return NextResponse.json({ error: t('sync.products_read_failed') }, { status: 500 })
 
-  const result = await launchFromPlan(supabase, userId, store, context, { overlap, declareEu })
+  const result = groupId
+    ? await launchGroup(supabase, userId, store, context, groupId, { overlap, declareEu })
+    : await launchFromPlan(supabase, userId, store, context, { overlap, declareEu })
   if (!result.ok) {
     if (result.reason === 'google_error' || result.reason === 'save_failed') {
       logApiError(ROUTE, 502, 'Lansarea a eșuat', { userId, reason: result.reason, error: result.error, details: result.details })
     }
+    const conflict = ['blocked', 'group_blocked', 'group_missing', 'audit_missing', 'eu_confirm', 'overlap_choice', 'no_merchant', 'already_active', 'too_many_exclusions']
     return NextResponse.json({
       error: translateStored(t, result.error),
       reason: result.reason,
       // Câmpul vinovat, din răspunsul Google (ajută la depanare; nu conține date ale omului)
       details: result.details?.slice(0, 5) ?? [],
-    }, { status: ['blocked', 'audit_missing', 'eu_confirm', 'overlap_choice', 'no_merchant', 'already_active'].includes(result.reason) ? 409 : 502 })
+    }, { status: conflict.includes(result.reason) ? 409 : 502 })
+  }
+
+  // Grupa are acum campania ei: campania principală care rulează îi lasă produsele afară
+  if (groupId) {
+    try {
+      const env = await loadApplyEnv(supabase, store.id)
+      if (!('error' in env)) await reconcileProducts(env)
+    } catch (err) {
+      logApiError(ROUTE, 500, 'Produsele campaniei principale n-au putut fi puse la zi', { userId, error: err instanceof Error ? err.message : String(err) })
+    }
   }
 
   // Contul tocmai s-a schimbat (campania nouă, declarația UE, campaniile puse pe pauză): auditul se reface,

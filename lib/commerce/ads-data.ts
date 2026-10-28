@@ -18,7 +18,11 @@ export type Offer = {
   product_name: string | null
   variant_title: string | null
   image_url: string | null
+  /** Categoria din magazin (la WooCommerce, prima; la Shopify, tipul produsului). */
+  category: string | null
   price: number
+  /** Prețul de dinainte de reducere, când produsul e la reducere. */
+  compare_at_price: number | null
   cost_price: number | null
   available: boolean
   stock: number | null
@@ -35,7 +39,10 @@ export type Offer = {
   ads_auto_reason: 'no_sales' | 'unprofitable' | null
 }
 
-export type Sales = Map<string, { units: number; revenue: number }>
+export type Sales = Map<string, { units: number; revenue: number; orders?: number }>
+
+/** Cifrele Google pe produs (ID-ul din Merchant Center, cu litere mici), din toate campaniile Shopping și PMax. */
+export type ProductTotals = Map<string, { cost: number; clicks: number; conversions: number; value: number }>
 
 export type AdsData = {
   offers: Offer[]
@@ -45,11 +52,15 @@ export type AdsData = {
   googleAds90: { orders: number; total: number }
   /** La fel, pe ultimele 30 de zile: treapta campaniei când auditul Google lipsește. */
   googleAds30: { orders: number; total: number }
+  /** Vânzările aduse de Google Ads în 30 de zile, pe ofertă: conversiile unei grupe înainte să ruleze. */
+  googleSales30: Sales
+  /** Ce a raportat Google pe produs în 30 de zile; gol până la prima trecere a pilotului. */
+  products30: ProductTotals
 }
 
 export const SALES_DAYS = 90
 const PAGE = 1000
-const OFFER_COLUMNS = 'offer_id, title, product_name, variant_title, image_url, price, cost_price, available, stock, gtin, mpn, brand, google_status, ads_mode, merchant_offer_id, merchant_issues, ads_auto_reason'
+const OFFER_COLUMNS = 'offer_id, title, product_name, variant_title, image_url, category, price, compare_at_price, cost_price, available, stock, gtin, mpn, brand, google_status, ads_mode, merchant_offer_id, merchant_issues, ads_auto_reason'
 
 /**
  * Citește tot. Fără oferte nu se poate socoti nimic, deci `data` e null; fără
@@ -74,6 +85,7 @@ export async function loadAdsData(supabase: Supabase, storeId: string): Promise<
         all.push({
           ...(o as Offer),
           price: Number(o.price),
+          compare_at_price: o.compare_at_price === null ? null : Number(o.compare_at_price),
           cost_price: o.cost_price === null ? null : Number(o.cost_price),
         })
       }
@@ -83,20 +95,28 @@ export async function loadAdsData(supabase: Supabase, storeId: string): Promise<
 
   const since = new Date(Date.now() - SALES_DAYS * 24 * 60 * 60 * 1000).toISOString()
   const since30 = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
-  const [offers, salesRes, econRes, econ30Res] = await Promise.all([
+  const [offers, salesRes, econRes, econ30Res, google30Res, productsRes] = await Promise.all([
     readOffers(),
     supabase.rpc('commerce_offer_sales', { p_store_id: storeId, p_since: since }),
     supabase.rpc('commerce_order_economics', { p_store_id: storeId, p_since: since }),
     supabase.rpc('commerce_order_economics', { p_store_id: storeId, p_since: since30 }),
+    supabase.rpc('commerce_offer_google_sales', { p_store_id: storeId, p_since: since30 }),
+    supabase.rpc('ad_product_totals', { p_store_id: storeId, p_since: since30.slice(0, 10) }),
   ])
   if (salesRes.error) errors.push(`commerce_offer_sales: ${salesRes.error.message}`)
   if (econRes.error) errors.push(`commerce_order_economics: ${econRes.error.message}`)
   if (econ30Res.error) errors.push(`commerce_order_economics (30): ${econ30Res.error.message}`)
+  if (google30Res.error) errors.push(`commerce_offer_google_sales: ${google30Res.error.message}`)
+  if (productsRes.error) errors.push(`ad_product_totals: ${productsRes.error.message}`)
   if (!offers) return { data: null, errors }
 
-  const sales90: Sales = new Map(
-    ((salesRes.data ?? []) as { offer_id: string; units: number; revenue: number }[])
-      .map(s => [s.offer_id, { units: Number(s.units) || 0, revenue: Number(s.revenue) || 0 }]),
+  type SalesRow = { offer_id: string; units: number; revenue: number; orders: number }
+  const salesOf = (rows: unknown): Sales => new Map(((rows ?? []) as SalesRow[])
+    .map(s => [s.offer_id, { units: Number(s.units) || 0, revenue: Number(s.revenue) || 0, orders: Number(s.orders) || 0 }]))
+  const sales90 = salesOf(salesRes.data)
+  const products30: ProductTotals = new Map(
+    ((productsRes.data ?? []) as { item_id: string; cost: number; clicks: number; conversions: number; conversions_value: number }[])
+      .map(r => [r.item_id.toLowerCase(), { cost: Number(r.cost) || 0, clicks: Number(r.clicks) || 0, conversions: Number(r.conversions) || 0, value: Number(r.conversions_value) || 0 }]),
   )
   const e = (econRes.data ?? {}) as Record<string, number | undefined>
   const n = (k: string) => Number(e[k]) || 0
@@ -109,6 +129,8 @@ export async function loadAdsData(supabase: Supabase, storeId: string): Promise<
       orders90: { orders: n('orders'), total: n('total'), items: n('items'), discount: n('discount'), tax: n('tax') },
       googleAds90: { orders: n('google_ads_orders'), total: n('google_ads_total') },
       googleAds30: { orders: Number(e30.google_ads_orders) || 0, total: Number(e30.google_ads_total) || 0 },
+      googleSales30: salesOf(google30Res.data),
+      products30,
     },
     errors,
   }

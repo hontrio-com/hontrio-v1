@@ -1,29 +1,48 @@
 import { round1 } from '@/lib/ads/economics'
 import { normalizeItemId } from '@/lib/google/operations'
-import { GOAL_KEEP, type Plan } from '@/lib/campaigns/plan'
+import { GOAL_KEEP, GOALS, type Goal, type Plan } from '@/lib/campaigns/plan'
+import { canRun, weightedBreakEven } from '@/lib/campaigns/groups'
 import type { CampaignRow } from '@/lib/ads/apply'
 
 // =============================================
-// Pragul de profit și ținta pe campanie. Campaniile pe marje (segmentul de
-// marjă mare și „restul") au pragul produselor lor; celelalte, pe al
-// magazinului. Le folosesc și pilotul (ce propune), și paginile (profitul
+// Pragul de profit și ținta pe campanie. Campaniile cu lista lor de produse
+// (segmentul de marjă mare, grupele omului) au pragul produselor lor; „restul"
+// și campania principală, pe al produselor care le rămân; o grupă, ținta
+// obiectivului ei. Le folosesc și pilotul (ce propune), și paginile (profitul
 // arătat), ca să nu se contrazică.
 // =============================================
 
-/** Pragul și ținta pentru produsele unei campanii (segmentul de marjă mare are pragul lui). */
+const live = (c: CampaignRow) => c.status === 'active' || c.status === 'paused'
+const idsOf = (list: CampaignRow[]) => new Set(list.flatMap(x => (x.included_item_ids ?? []).map(normalizeItemId)))
+
+/** Pragul și ținta pentru produsele unei campanii. */
 export function campaignEconomics(c: CampaignRow, plan: Plan, all: CampaignRow[]): { break_even: number | null; goal_target: number | null } {
   const be = plan.economics.break_even
-  if (be === null) return { break_even: null, goal_target: plan.target_roas }
-  const highIds = new Set(all.filter(x => x.included_item_ids).flatMap(x => x.included_item_ids!.map(normalizeItemId)))
-  const inCampaign = c.included_item_ids
-    ? (o: Plan['offers'][number]) => !!o.item_id && highIds.has(normalizeItemId(o.item_id))
-    : c.segment === 'rest' ? (o: Plan['offers'][number]) => !o.item_id || !highIds.has(normalizeItemId(o.item_id)) : null
-  if (!inCampaign) return { break_even: be, goal_target: plan.target_roas }
-  const list = plan.offers.filter(o => o.reason === null && o.break_even !== null && inCampaign(o))
-  const weight = list.reduce((s, o) => s + (o.revenue || o.price), 0)
-  if (!list.length || weight <= 0) return { break_even: be, goal_target: plan.target_roas }
-  const segBe = list.reduce((s, o) => s + o.break_even! * (o.revenue || o.price), 0) / weight
-  return { break_even: round1(segBe), goal_target: round1(segBe / (1 - GOAL_KEEP[plan.goal])) }
+  // O grupă are obiectivul ei; celelalte campanii, pe al magazinului
+  const goal: Goal = c.product_group_id && GOALS.includes(c.goal as Goal) ? (c.goal as Goal) : plan.goal
+  const storeTarget = be === null ? plan.target_roas : round1(be / (1 - GOAL_KEEP[goal]))
+  if (be === null) return { break_even: null, goal_target: storeTarget }
+
+  type Offer = Plan['offers'][number]
+  let inCampaign: ((o: Offer) => boolean) | null = null
+  if (c.included_item_ids) {
+    // Segmentul de marjă mare, fără produsele grupelor lansate (au campaniile lor)
+    const grouped = c.product_group_id ? new Set<string>() : idsOf(all.filter(x => x.id !== c.id && x.product_group_id && x.included_item_ids && live(x)))
+    const own = new Set(c.included_item_ids.map(normalizeItemId).filter(id => !grouped.has(id)))
+    inCampaign = o => !!o.item_id && own.has(normalizeItemId(o.item_id))
+  } else if (c.segment === 'rest') {
+    // „Restul": fără produsele campaniilor cu lista lor (marjă mare, grupe)
+    const taken = idsOf(all.filter(x => x.id !== c.id && x.included_item_ids))
+    inCampaign = o => !o.item_id || !taken.has(normalizeItemId(o.item_id))
+  } else if (live(c)) {
+    // Campania principală care rulează: fără produsele grupelor lansate (cea încheiată vindea tot catalogul)
+    const taken = idsOf(all.filter(x => x.id !== c.id && x.product_group_id && x.included_item_ids && live(x)))
+    if (taken.size) inCampaign = o => !o.item_id || !taken.has(normalizeItemId(o.item_id))
+  }
+  if (!inCampaign) return { break_even: be, goal_target: storeTarget }
+  const segBe = weightedBreakEven(plan.offers.filter(o => canRun(o) && inCampaign!(o)))
+  if (segBe === null) return { break_even: be, goal_target: storeTarget }
+  return { break_even: round1(segBe), goal_target: round1(segBe / (1 - GOAL_KEEP[goal])) }
 }
 
 /** Ziua împărțirii pe marje, pe campania care a devenit „restul" (din jurnal), după ID-ul din Google. */
@@ -66,9 +85,9 @@ export function profitByCampaign(
  * campaniile care rulează sau sunt pe pauză, ca în pilot; una încheiată, față de ea însăși.
  */
 export function campaignBreakEvens(campaigns: CampaignRow[], plan: Plan): Map<string, number | null> {
-  const live = campaigns.filter(c => c.status === 'active' || c.status === 'paused')
+  const running = campaigns.filter(live)
   return new Map(campaigns.filter(c => c.google_campaign_id).map(c => [
     c.google_campaign_id!,
-    campaignEconomics(c, plan, live.some(x => x.id === c.id) ? live : [...live, c]).break_even,
+    campaignEconomics(c, plan, running.some(x => x.id === c.id) ? running : [...running, c]).break_even,
   ]))
 }

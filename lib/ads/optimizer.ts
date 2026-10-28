@@ -41,9 +41,11 @@ export type OptCampaign = {
   days_live: number
   target_roas: number | null
   daily_budget: number
-  /** Pragul de profit și ținta obiectivului pentru produsele campaniei (diferite pe segmente). */
+  /** Pragul de profit și ținta obiectivului pentru produsele campaniei (diferite pe segmente și grupe). */
   break_even: number | null
   goal_target: number | null
+  /** Campania unei grupe a omului: trece la PMax după conversiile ei, nu ale contului, și nu se împarte pe marje. */
+  group?: boolean
   days_since_target_change: number | null
   days_since_budget_change: number | null
   google: { reasons: string[]; recommended_budget: number | null } | null
@@ -63,6 +65,8 @@ export type OptProduct = {
   /** Omul l-a inclus explicit: pilotul nu-l mai scoate. */
   included_by_user: boolean
   excluded: boolean
+  /** În campania unei grupe a omului: nu intră în împărțirea pe marje a campaniei principale. */
+  in_group?: boolean
   window: Window
   days: number
 }
@@ -134,14 +138,15 @@ export function optimize(input: OptimizerInput): Proposal[] {
       }
     }
 
-    // 2. Pornirea trece la Performance Max
+    // 2. Pornirea trece la Performance Max: cea principală după conversiile contului, a unei grupe după ale ei
     if (c.stage === 'starter') {
-      if (c.days_live >= STARTER_MIN_DAYS && input.account.conversions30 >= GROWTH_MIN_CONVERSIONS && be !== null && !input.rejected.kinds.has('graduate')) {
+      const conversions = c.group ? c.eval30.conversions : input.account.conversions30
+      if (c.days_live >= STARTER_MIN_DAYS && conversions >= GROWTH_MIN_CONVERSIONS && be !== null && !input.rejected.kinds.has('graduate')) {
         const target = startingTarget(actual, be, c.goal_target)
         out.push({
           kind: 'graduate', campaign_id: c.id, protective: false,
           params: { target_roas: target, daily_budget: c.daily_budget },
-          reason: { key: 'campaigns.reason_graduate', params: { conversions: Math.round(input.account.conversions30), target } },
+          reason: { key: c.group ? 'campaigns.reason_graduate_group' : 'campaigns.reason_graduate', params: { conversions: Math.round(conversions), target } },
         })
       }
     }
@@ -171,14 +176,28 @@ export function optimize(input: OptimizerInput): Proposal[] {
       }
     }
 
-    // 4. Bugetul: campania e limitată de buget și aduce cel puțin ținta
+    // 3b. Un Performance Max pornit fără țintă (prea puține conversii la lansare) primește prima țintă
+    //     când strânge destule: din ROAS-ul pe care îl face, dar nu sub prag
+    if (c.type === 'performance_max' && c.target_roas === null && be !== null && actual !== null
+      && c.days_live >= STARTER_MIN_DAYS && c.eval30.conversions >= GROWTH_MIN_CONVERSIONS && !input.rejected.kinds.has('set_target')) {
+      const to = startingTarget(actual, be, c.goal_target)
+      out.push({
+        kind: 'set_target', campaign_id: c.id, protective: false,
+        params: { from: null, to },
+        reason: { key: 'campaigns.reason_target_first', params: { conversions: Math.round(c.eval30.conversions), to } },
+      })
+    }
+
+    // 4. Bugetul: campania e limitată de buget și aduce cel puțin ținta.
+    //    Bugetul maxim al omului e pentru toate campaniile Hontrio care rulează, împreună.
     const limited = !!c.google && (c.google.reasons.includes('BUDGET_CONSTRAINED') || (c.google.recommended_budget ?? 0) > c.daily_budget * 1.05)
     const minAge = c.type === 'performance_max' ? LEARNING_DAYS : STARTER_MIN_DAYS
     const bar = Math.max(c.target_roas ?? c.goal_target ?? 0, be ?? Infinity)
     if (limited && be !== null && actual !== null && actual >= bar
       && c.days_live >= minAge
       && (c.days_since_budget_change === null || c.days_since_budget_change >= BUDGET_MIN_GAP_DAYS)) {
-      const ceiling = input.max_daily_budget
+      const others = active.filter(x => x.id !== c.id).reduce((s, x) => s + x.daily_budget, 0)
+      const ceiling = input.max_daily_budget === null ? null : Math.round((input.max_daily_budget - others) * 100) / 100
       const raised = Math.round(c.daily_budget * (1 + BUDGET_STEP) * 100) / 100
       const next = ceiling !== null ? Math.min(raised, ceiling) : raised
       if (next > c.daily_budget + 0.01) {
@@ -242,11 +261,11 @@ export function optimize(input: OptimizerInput): Proposal[] {
     }
   }
 
-  // 7. Segmentarea pe marje: o singură dată, pe campania PMax care rulează tot catalogul
-  const main = active.find(c => c.type === 'performance_max' && c.segment === 'all')
+  // 7. Segmentarea pe marje: o singură dată, pe campania PMax principală, doar pe produsele ei (fără grupele omului)
+  const main = active.find(c => c.type === 'performance_max' && c.segment === 'all' && !c.group)
   if (main && !input.segmentation_done && !input.rejected.kinds.has('segment')
     && main.days_live >= LEARNING_DAYS && main.eval30.conversions >= SEGMENT_MIN_CONVERSIONS) {
-    const priced = input.products.filter(p => !p.excluded && p.break_even !== null)
+    const priced = input.products.filter(p => !p.excluded && !p.in_group && p.break_even !== null)
     const sorted = [...priced].sort((a, b) => a.break_even! - b.break_even!)
     if (sorted.length >= 4) {
       const median = sorted[Math.floor(sorted.length / 2)].break_even!

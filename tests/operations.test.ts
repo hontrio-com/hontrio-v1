@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { toMicros, idFromResourceName } from '@/lib/google/ads'
 import {
-  buildLaunchOperations, budgetOp, euDeclarationOps, pmaxListingOps, removeNodesOps, shoppingListingOps, targetRoasOp,
+  buildLaunchOperations, budgetOp, endDateOp, endOfDay, euDeclarationOps, pmaxListingOps, removeNodesOps, shoppingListingOps, startOfDay, targetRoasOp,
   FINAL_URL_SUFFIX, type GrowthSpec, type StarterSpec,
 } from '@/lib/google/operations'
 
@@ -179,4 +179,19 @@ test('arborele vechi se scoate de la frunze spre rădăcină', () => {
   assert.equal(order[0], 's1')
   assert.equal(order.at(-1), 'r')
   assert.ok(order.indexOf('s1') < order.indexOf('s'))
+})
+
+test('perioada campaniei: începutul și sfârșitul ca dată-oră Google, schimbarea sfârșitului', () => {
+  const ops = buildLaunchOperations({ ...starter, startDateTime: startOfDay('2026-11-20'), endDateTime: endOfDay('2026-11-30') })
+  const created = body(ops.find(o => key(o) === 'campaignOperation')!).create
+  assert.equal(created.startDateTime, '2026-11-20 00:00:00')
+  assert.equal(created.endDateTime, '2026-11-30 23:59:59')
+  // Fără perioadă: câmpurile lipsesc (Google: de acum, fără sfârșit)
+  const plain = body(buildLaunchOperations(starter).find(o => key(o) === 'campaignOperation')!).create
+  assert.equal('startDateTime' in plain, false)
+  assert.deepEqual(endDateOp('1', '22', endOfDay('2026-12-24')), {
+    campaignOperation: { update: { resourceName: 'customers/1/campaigns/22', endDateTime: '2026-12-24 23:59:59' }, updateMask: 'endDateTime' },
+  })
+  // Golit = fără sfârșit
+  assert.deepEqual(endDateOp('1', '22', null), { campaignOperation: { update: { resourceName: 'customers/1/campaigns/22' }, updateMask: 'endDateTime' } })
 })

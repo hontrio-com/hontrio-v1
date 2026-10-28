@@ -9,7 +9,7 @@ import { fetchCampaignDays, fetchCampaignStates, fetchProductDays, fetchSearchTe
 import { EXCLUDE_LABEL, type Account } from '@/lib/google/launch'
 import { runAudit } from '@/lib/ads/audit-run'
 import { logAction, notify, type ActionKind } from '@/lib/ads/journal'
-import { applyAction, ApplyError, CAMPAIGN_COLUMNS, parseCampaign, syncCampaignProducts, type CampaignRow } from '@/lib/ads/apply'
+import { applyAction, ApplyError, CAMPAIGN_COLUMNS, closeGroupIfDone, groupItems, parseCampaign, syncCampaignProducts, type CampaignRow } from '@/lib/ads/apply'
 import { optimize, sumWindows, windowOf, EMPTY, type OptCampaign, type OptProduct, type Proposal, type Window } from '@/lib/ads/optimizer'
 import { campaignEconomics } from '@/lib/ads/campaign-economics'
 import { loadPlanContext, STORE_PLAN_COLUMNS, type PlanContext, type PlanStore } from '@/lib/campaigns/context'
@@ -59,19 +59,30 @@ async function propose(supabase: Supabase, store: PlanStore, p: Proposal) {
 
 export type ApplyEnv = { supabase: Supabase; store: PlanStore; ctx: PlanContext; token: string; acc: Account; campaigns: CampaignRow[] }
 
-/** Pune arborii de produse ai campaniilor la zi cu planul (alegerile omului, stocul, marjele, pilotul). */
+/**
+ * Pune arborii de produse ai campaniilor la zi cu planul (alegerile omului, stocul, marjele, pilotul)
+ * și cu grupele omului: întâi campaniile grupelor (regulile lor pot prinde produse noi), apoi
+ * celelalte, care le lasă produsele afară.
+ */
 export async function reconcileProducts(env: ApplyEnv): Promise<number> {
   let changed = 0
-  for (const c of env.campaigns.filter(x => x.status === 'active' || x.status === 'paused')) {
+  const running = env.campaigns.filter(x => x.status === 'active' || x.status === 'paused')
+  const ordered = [...running.filter(c => c.product_group_id), ...running.filter(c => !c.product_group_id)]
+  for (const c of ordered) {
+    const members = c.product_group_id ? groupItems(env.ctx.plan, env.ctx.assigned, c.product_group_id) : null
     try {
-      if (await syncCampaignProducts(env.supabase, env.token, env.acc, c, env.ctx.plan, env.campaigns, env.store.merchant_label_index)) {
-        changed++
-        await logAction(env.supabase, {
-          user_id: env.store.user_id, store_id: env.store.id, ad_campaign_id: c.id, kind: 'sync_products', status: 'applied', source: 'autopilot',
-          params: { excluded: env.ctx.plan.exclusions.item_ids.length },
-          reason: storedMessage('campaigns.reason_sync_products', { count: env.ctx.plan.exclusions.item_ids.length }),
-        })
-      }
+      const r = await syncCampaignProducts(env.supabase, env.token, env.acc, c, env.ctx.plan, env.campaigns, env.store.merchant_label_index, members)
+      if (!r) continue
+      changed++
+      // Campaniile de după văd lista nouă
+      env.campaigns = env.campaigns.map(x => (x.id === c.id ? { ...x, included_item_ids: r.included ?? x.included_item_ids, excluded_item_ids: r.excluded } : x))
+      await logAction(env.supabase, {
+        user_id: env.store.user_id, store_id: env.store.id, ad_campaign_id: c.id, kind: 'sync_products', status: 'applied', source: 'autopilot',
+        params: r.included ? { included: r.included.length } : { excluded: r.excluded.length },
+        reason: r.included
+          ? storedMessage('campaigns.reason_sync_group', { count: r.included.length })
+          : storedMessage('campaigns.reason_sync_products', { count: r.excluded.length }),
+      })
     } catch (err) {
       if (!(err instanceof ApplyError)) throw err
       await logAction(env.supabase, { user_id: env.store.user_id, store_id: env.store.id, ad_campaign_id: c.id, kind: 'sync_products', status: 'failed', source: 'autopilot', error: err.stored })
@@ -83,7 +94,10 @@ export async function reconcileProducts(env: ApplyEnv): Promise<number> {
 /** Aplică o acțiune și o trece în jurnal (aplicată sau eșuată). */
 export async function applyAndLog(env: ApplyEnv, kind: ActionKind, campaignId: string | null, params: Record<string, unknown>, opts: { source: 'autopilot' | 'user'; reason?: string | null; actionId?: string }): Promise<{ ok: boolean; error?: string }> {
   try {
-    const result = await applyAction({ supabase: env.supabase, token: env.token, acc: env.acc, store: env.store, plan: env.ctx.plan, audit: env.ctx.audit?.result ?? null, campaigns: env.campaigns }, kind, campaignId, params)
+    const result = await applyAction({
+      supabase: env.supabase, token: env.token, acc: env.acc, store: env.store, plan: env.ctx.plan, audit: env.ctx.audit?.result ?? null,
+      campaigns: env.campaigns, groups: env.ctx.groups, assigned: env.ctx.assigned,
+    }, kind, campaignId, params)
     const now = new Date().toISOString()
     if (opts.actionId) await env.supabase.from('ad_actions').update({ status: 'applied', params: result, decided_at: now, applied_at: now }).eq('id', opts.actionId)
     else await logAction(env.supabase, { user_id: env.store.user_id, store_id: env.store.id, ad_campaign_id: campaignId, kind, params: result, reason: opts.reason ?? null, status: 'applied', source: opts.source })
@@ -186,17 +200,27 @@ export async function runAutopilot(storeId: string, opts: { deadline?: number } 
     let campaigns = await loadCampaigns(supabase, storeId)
     if (campaigns.length) {
       const states = await fetchCampaignStates(token, acc, campaigns.map(c => c.google_campaign_id!))
+      const ended: CampaignRow[] = []
       for (const s of states) {
         const c = campaigns.find(x => x.google_campaign_id === s.id)
         if (!c) continue
         const patch: Record<string, unknown> = {}
         if (s.status === 'REMOVED') patch.status = 'removed'
+        // Perioada aleasă de om s-a încheiat: Google a oprit-o singur
+        else if (s.primary_status === 'ENDED') { patch.status = 'ended'; patch.paused_reason = 'scheduled'; ended.push(c) }
         else if (s.status === 'PAUSED' && c.status === 'active') { patch.status = 'paused'; patch.paused_reason = 'google' }
         else if (s.status === 'ENABLED' && c.status === 'paused') { patch.status = 'active'; patch.paused_reason = null; patch.loss_check_from = syncedAt }
         if (s.target_roas !== null && c.target_roas !== null && Math.abs(s.target_roas - c.target_roas) >= 0.05) { patch.target_roas = s.target_roas; patch.target_changed_at = syncedAt }
         if (s.budget !== null && c.daily_budget !== null && Math.abs(s.budget - c.daily_budget) >= 0.01) { patch.daily_budget = s.budget; patch.budget_changed_at = syncedAt }
         patch.last_synced_at = syncedAt
         await supabase.from('ad_campaigns').update(patch).eq('id', c.id)
+      }
+      for (const c of ended) {
+        if (c.product_group_id) await closeGroupIfDone(supabase, c.product_group_id, syncedAt)
+        await logAction(supabase, {
+          user_id: store.user_id, store_id: storeId, ad_campaign_id: c.id, kind: 'end', status: 'applied', source: 'autopilot',
+          params: { scheduled: true }, reason: storedMessage('campaigns.reason_end_scheduled'),
+        })
       }
       campaigns = await loadCampaigns(supabase, storeId)
     }
@@ -229,6 +253,21 @@ export async function runAutopilot(storeId: string, opts: { deadline?: number } 
     if (opts.deadline && Date.now() > opts.deadline) return finish('deadline')
 
     const env: ApplyEnv = { supabase, store, ctx: context, token, acc, campaigns }
+
+    // Perioada unei grupe s-a încheiat, dar campania încă rulează (data schimbată după lansare): o încheiem noi
+    const today = context.today
+    const expired = new Set(context.groups.filter(g => g.status === 'live' && g.ends_on && g.ends_on < today).map(g => g.id))
+    const overdue = campaigns.filter(c => c.product_group_id && expired.has(c.product_group_id))
+    for (const c of overdue) {
+      await applyAndLog(env, 'end', c.id, { scheduled: true }, { source: 'autopilot', reason: storedMessage('campaigns.reason_end_scheduled') })
+    }
+    if (overdue.length) {
+      ;({ context } = await loadPlanContext(supabase, store.user_id, store))
+      if (!context) return finish('no_plan')
+      env.ctx = context
+      campaigns = await loadCampaigns(supabase, storeId)
+      env.campaigns = campaigns
+    }
 
     // 5. Bucla de optimizare
     await supabase.from('ad_actions').update({ status: 'expired', decided_at: syncedAt })
@@ -323,6 +362,7 @@ async function optimizerInput(supabase: Supabase, store: PlanStore, ctx: PlanCon
       daily_budget: c.daily_budget ?? 0,
       break_even: econ.break_even,
       goal_target: econ.goal_target,
+      group: !!c.product_group_id,
       days_since_target_change: daysSince(c.target_changed_at, nowMs),
       days_since_budget_change: daysSince(c.budget_changed_at, nowMs),
       google: google.get(c.google_campaign_id!) ?? null,
@@ -348,7 +388,9 @@ async function optimizerInput(supabase: Supabase, store: PlanStore, ctx: PlanCon
     price: o.price,
     break_even: o.break_even,
     included_by_user: o.mode === 'include',
-    excluded: o.reason !== null,
+    // Produsele grupelor rulează, în campaniile lor: pilotul le judecă la fel
+    excluded: o.reason !== null && o.reason !== 'in_group',
+    in_group: o.reason === 'in_group',
     window: byItem.get(normalizeItemId(o.item_id!))!,
     days: longest,
   }))

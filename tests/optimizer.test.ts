@@ -154,3 +154,40 @@ test('fereastra pe zile include capetele', () => {
   ]
   assert.deepEqual(windowOf(days, '2026-10-02', '2026-10-03'), { cost: 50, conversions: 2, value: 90, clicks: 17 })
 })
+
+test('grupele: trec la PMax după conversiile lor, nu intră în împărțirea pe marje', () => {
+  const starter = campaign({ id: 'g1', type: 'shopping', stage: 'starter', target_roas: null, days_live: 20, group: true, eval30: w(500, 16, 2600) })
+  const p = optimize(input({ campaigns: [starter], account: { conversions30: 5 } })).find(x => x.kind === 'graduate')!
+  assert.equal(p.reason.key, 'campaigns.reason_graduate_group')
+  // Contul are multe conversii, dar grupa puține: rămâne la Shopping
+  assert.ok(!kinds(input({ campaigns: [{ ...starter, eval30: w(500, 9, 1500) }], account: { conversions30: 40 } })).includes('graduate'))
+  // Produsele grupelor nu se împart pe marje; nici campania unei grupe nu se împarte
+  const prod = (id: string, be: number, conversions: number, inGroup = false): OptProduct => ({
+    item_id: id, offer_id: id, title: id, price: 100, break_even: be, included_by_user: false, excluded: false, in_group: inGroup, window: w(100, conversions, conversions * 100), days: 60,
+  })
+  const products = [prod('a', 2, 10), prod('b', 2.2, 8), prod('c', 4, 9), prod('d', 4.5, 8)]
+  assert.ok(kinds(input({ products })).includes('segment'))
+  assert.ok(!kinds(input({ products: products.map(x => (x.item_id === 'a' || x.item_id === 'b' ? { ...x, in_group: true } : x)) })).includes('segment'))
+  assert.ok(!kinds(input({ products, campaigns: [campaign({ group: true })] })).includes('segment'))
+})
+
+test('bugetul maxim e pentru toate campaniile Hontrio, la un loc', () => {
+  const limited = campaign({ daily_budget: 50, google: { reasons: ['BUDGET_CONSTRAINED'], recommended_budget: null } })
+  const other = (budget: number) => campaign({ id: 'c2', google_campaign_id: '12', daily_budget: budget, google: { reasons: [], recommended_budget: null } })
+  // Plafon 150, cealaltă cheltuie 60: loc de 90 → +20% (60) încape
+  assert.deepEqual(optimize(input({ campaigns: [limited, other(60)] })).find(x => x.kind === 'set_budget' && x.campaign_id === 'c1')!.params, { from: 50, to: 60 })
+  // Cealaltă cheltuie 95: loc de 55
+  assert.deepEqual(optimize(input({ campaigns: [limited, other(95)] })).find(x => x.kind === 'set_budget' && x.campaign_id === 'c1')!.params, { from: 50, to: 55 })
+  // Nu mai e loc: nimic
+  assert.ok(!optimize(input({ campaigns: [limited, other(100)] })).some(x => x.kind === 'set_budget' && x.campaign_id === 'c1'))
+})
+
+test('un Performance Max pornit fără țintă o primește când strânge 15 conversii', () => {
+  const open = campaign({ target_roas: null, days_live: 20, eval30: w(1000, 18, 4300) })
+  const p = optimize(input({ campaigns: [open] })).find(x => x.kind === 'set_target')!
+  assert.equal(p.params.from, null)
+  assert.equal(p.reason.key, 'campaigns.reason_target_first')
+  // 4.300 ÷ 1.000 = 4,3, între prag (3) și 1,5 × obiectiv
+  assert.equal(p.params.to, 4.3)
+  assert.ok(!kinds(input({ campaigns: [{ ...open, eval30: w(1000, 9, 4300) }] })).includes('set_target'))
+})

@@ -1,5 +1,5 @@
 import { breakEvenRoas, economicsOf, marginOf, round1, THIN_MARGIN, type OrderTotals } from '@/lib/ads/economics'
-import type { AdsMode, Offer, Sales } from '@/lib/commerce/ads-data'
+import type { AdsMode, Offer, ProductTotals, Sales } from '@/lib/commerce/ads-data'
 import type { SetupStatus, StoreSetup } from '@/lib/commerce/setup'
 import type { AuditResult } from '@/lib/google/audit'
 import { MAX_LISTING_ITEMS } from '@/lib/google/operations'
@@ -13,7 +13,9 @@ import { MAX_LISTING_ITEMS } from '@/lib/google/operations'
 //
 // O singură campanie pe tot catalogul eligibil: cu puține conversii, o
 // campanie învață mai repede decât mai multe mici. Segmentarea pe marje vine
-// mai târziu, din bucla de optimizare.
+// mai târziu, din bucla de optimizare. Grupele făcute de om (lib/campaigns/
+// groups.ts) au campaniile lor: produsele unei grupe lansate ies din cea
+// principală, dar pragul magazinului rămâne socotit pe tot catalogul.
 // =============================================
 
 export type Goal = 'growth' | 'balanced' | 'profit'
@@ -35,10 +37,10 @@ export const ASSUMED_CONVERSION_RATE = 0.01
 export const LOSS_NO_CONVERSIONS = 3
 export const LOSS_LOW_ROAS = 6
 /** Sub plafonul ăsta (în moneda contului) campania de pornire va avea foarte puțin trafic. */
-const LOW_CPC = 0.05
-const DAYS_PER_MONTH = 30.4
+export const LOW_CPC = 0.05
+export const DAYS_PER_MONTH = 30.4
 /** Sub partea asta din vânzări acoperită de costuri, marja medie nu e de încredere. */
-const MIN_COST_COVERAGE = 0.5
+export const MIN_COST_COVERAGE = 0.5
 
 export type Reason =
   // Nu pot rula: se repară în magazin
@@ -49,6 +51,8 @@ export type Reason =
   | 'negative_margin' | 'thin_margin'
   // Scoasă de pilot după cifrele din Google Ads (omul o poate include la loc)
   | 'ads_no_sales' | 'ads_unprofitable'
+  // Poate rula, dar în campania unei grupe lansate, nu în cea principală
+  | 'in_group'
 
 /** Motivele pentru care o ofertă care ar putea rula e scoasă din campanie (în arborele de produse). */
 export const CAMPAIGN_EXCLUSIONS: Reason[] = ['manual', 'negative_margin', 'thin_margin', 'ads_no_sales', 'ads_unprofitable']
@@ -60,19 +64,31 @@ export type PlanOffer = {
   title: string
   variant_title: string | null
   image_url: string | null
+  category: string | null
+  brand: string | null
   price: number
+  /** Prețul are o reducere față de cel vechi. */
+  on_sale: boolean
   cost_price: number | null
   /** Vânzările de pe site din ultimele 90 de zile. */
   units: number
   revenue: number
+  /** Comenzile cu produsul, în aceleași 90 de zile. */
+  orders: number
+  /** Comenzile aduse de Google Ads (gclid sau UTM) cu produsul, în ultimele 30 de zile. */
+  google30: number
+  /** Ce a raportat Google pentru produs în ultimele 30 de zile, din toate campaniile Shopping și PMax. */
+  ads30: { cost: number; conversions: number; value: number } | null
   margin: number | null
   /** ROAS-ul de la care vânzarea produsului își plătește reclama. */
   break_even: number | null
   mode: AdsMode
-  /** De ce nu intră în campanie; null = intră. */
+  /** De ce nu intră în campania principală; null = intră. */
   reason: Reason | null
   /** Ce l-ar ține pe dinafară după Hontrio, chiar dacă omul l-a inclus. */
   margin_issue: 'negative_margin' | 'thin_margin' | null
+  /** Grupa omului din care face parte (lansată sau ciornă). */
+  group_id: string | null
 }
 
 export type BlockerId =
@@ -104,6 +120,15 @@ export type PlanInput = {
   orders90: OrderTotals
   googleAds90: { orders: number; total: number }
   googleAds30: { orders: number; total: number }
+  /** Vânzările aduse de Google Ads în 30 de zile, pe ofertă. */
+  googleSales30?: Sales
+  /** Cifrele Google pe produs în 30 de zile (ID-ul din Merchant Center, cu litere mici). */
+  products30?: ProductTotals
+  /**
+   * Grupele omului: `assigned` = grupa fiecărei oferte (lansată sau ciornă), `live` = grupele
+   * lansate, ale căror produse ies din campania principală.
+   */
+  groups?: { assigned: Map<string, string>; live: Set<string> }
   settings: { goal: Goal; daily_budget: number | null; mode: Mode; max_daily_budget: number | null }
 }
 
@@ -151,6 +176,8 @@ export type Plan = {
     vat_assumed: boolean
     discount_pct: number
     aov: number | null
+    /** Totalul comenzii față de valoarea produselor (TVA, transport): din valoarea produselor, valoarea raportată. */
+    value_ratio: number
     break_even: number | null
   }
   goal: Goal
@@ -160,17 +187,25 @@ export type Plan = {
   settings: { mode: Mode; max_daily_budget: number | null }
   /** Pe lună, dacă campania atinge ROAS-ul țintă. */
   forecast: { spend: number; revenue: number; orders: number | null; profit: number } | null
-  history: { google_ads_orders: number; google_ads_total: number }
+  history: {
+    google_ads_orders: number
+    google_ads_total: number
+    /** ROAS-ul pe care contul îl face acum (Shopping/PMax, altfel tot contul), din audit; null = prea puține date. */
+    roas30: number | null
+    /** Google a raportat deja cifre pe produs (pilotul a citit contul): conversiile grupelor vin de acolo. */
+    product_data: boolean
+  }
   /** Ce se exclude în campanie, după ID-ul din Merchant Center. */
   exclusions: { item_ids: string[]; unmatched: number; mode: 'items' | 'label' | 'too_many' }
   offers: PlanOffer[]
-  counts: { included: number; excluded: number }
+  /** `in_groups` = produsele care pot rula, dar sunt în campaniile grupelor lansate. */
+  counts: { included: number; excluded: number; in_groups: number }
 }
 
 const REJECTED = ['disapproved', 'error', 'expirat']
 
 /** Un buget ușor de citit: din 10 în 10 peste 100, din 5 în 5 peste 20. */
-function niceBudget(n: number): number {
+export function niceBudget(n: number): number {
   if (n >= 100) return Math.round(n / 10) * 10
   if (n >= 20) return Math.round(n / 5) * 5
   return Math.max(1, Math.round(n))
@@ -227,30 +262,44 @@ export function buildPlan(input: PlanInput): Plan {
   const statusKnown = input.merchant.statuses_known
 
   const offers: PlanOffer[] = input.offers.map(o => {
-    const s = input.sales90.get(o.offer_id) ?? { units: 0, revenue: 0 }
+    const s = input.sales90.get(o.offer_id) ?? { units: 0, revenue: 0, orders: 0 }
     const margin = o.cost_price === null ? null : marginOf(o.price, o.cost_price)
     const issue = marginIssue(margin)
+    const itemId = o.merchant_offer_id ?? (setup.platform === 'edinio' ? o.offer_id : null)
+    const ads = itemId ? input.products30?.get(itemId.trim().toLowerCase()) : undefined
+    const groupId = input.groups?.assigned.get(o.offer_id) ?? null
+    // Motivul de excludere vine întâi (un produs epuizat nu rulează nicăieri); grupa, doar pentru cele eligibile
+    const reason = reasonOf(o, issue, statusKnown)
     return {
       offer_id: o.offer_id,
-      item_id: o.merchant_offer_id ?? (setup.platform === 'edinio' ? o.offer_id : null),
+      item_id: itemId,
       title: o.product_name || o.title,
       variant_title: o.variant_title,
       image_url: o.image_url,
+      category: o.category?.trim() || null,
+      brand: o.brand?.trim() || null,
       price: o.price,
+      on_sale: o.compare_at_price !== null && o.compare_at_price > o.price,
       cost_price: o.cost_price,
       units: s.units,
       revenue: s.revenue,
+      orders: s.orders ?? 0,
+      google30: input.googleSales30?.get(o.offer_id)?.orders ?? 0,
+      ads30: ads ? { cost: ads.cost, conversions: ads.conversions, value: ads.value } : null,
       margin,
       break_even: margin === null ? null : breakEvenRoas(margin, econ),
       mode: o.ads_mode,
-      reason: reasonOf(o, issue, statusKnown),
+      reason: reason === null && groupId && input.groups?.live.has(groupId) ? 'in_group' : reason,
       margin_issue: issue,
+      group_id: groupId,
     }
   }).sort((a, b) => b.revenue - a.revenue || b.price - a.price)
 
-  // ── Marja produselor care intră în campanie ──────────────────────────────
+  // ── Marja produselor care pot rula: pragul e al magazinului, cu grupe cu tot ──
+  const eligible = offers.filter(o => o.reason === null || o.reason === 'in_group')
+  // Campania principală: fără produsele grupelor lansate
   const included = offers.filter(o => o.reason === null)
-  const soldIncluded = included.filter(o => o.revenue > 0)
+  const soldIncluded = eligible.filter(o => o.revenue > 0)
   const soldRevenue = soldIncluded.reduce((s, o) => s + o.revenue, 0)
   let margin: number | null = null
   let basis: Plan['economics']['margin_basis'] = null
@@ -263,10 +312,10 @@ export function buildPlan(input: PlanInput): Plan {
       margin = withCost.reduce((s, o) => s + o.revenue - o.units * o.cost_price!, 0) / costRevenue
       basis = 'sales'
     }
-  } else if (included.length) {
+  } else if (eligible.length) {
     // Fără vânzări, media marjelor din catalog
-    const withCost = included.filter(o => o.margin !== null)
-    coverage = withCost.length / included.length
+    const withCost = eligible.filter(o => o.margin !== null)
+    coverage = withCost.length / eligible.length
     if (coverage >= MIN_COST_COVERAGE) {
       margin = withCost.reduce((s, o) => s + o.margin!, 0) / withCost.length
       basis = 'catalog'
@@ -279,7 +328,7 @@ export function buildPlan(input: PlanInput): Plan {
   const target = targets[input.settings.goal]
 
   // ── Bugetul: cât ajunge pentru ~30 de vânzări pe lună la ROAS-ul țintă ──
-  const aov = econ.aov ?? (included.length ? included.reduce((s, o) => s + o.price, 0) / included.length : null)
+  const aov = econ.aov ?? (eligible.length ? eligible.reduce((s, o) => s + o.price, 0) / eligible.length : null)
   const suggested = target !== null && aov !== null ? niceBudget((CONVERSIONS_PER_MONTH * aov) / target / DAYS_PER_MONTH) : null
   const chosen = input.settings.daily_budget
   const daily = chosen ?? suggested
@@ -337,7 +386,8 @@ export function buildPlan(input: PlanInput): Plan {
   // „De verificat" nu oprește planul: pluginul se verifică la lansare, prin audit
   if (setup.merchant.status === 'missing') blockers.push({ id: 'merchant', href: setup.merchant.href, external: true, variant: setup.platform })
   if (setup.conversion.status === 'missing') blockers.push({ id: 'conversion', href: setup.conversion.href, external: true, variant: setup.platform })
-  if (!included.length) blockers.push({ id: 'no_offers', href: '/products', external: false })
+  // Toate produsele care pot rula sunt în grupe: campania principală n-are ce vinde
+  if (!included.length) blockers.push({ id: 'no_offers', href: '/products', external: false, ...(eligible.length ? { variant: 'groups' } : {}) })
   else if (margin === null) {
     blockers.push({
       id: 'costs', href: '/products?view=no_cost', external: false,
@@ -388,11 +438,12 @@ export function buildPlan(input: PlanInput): Plan {
       margin,
       margin_basis: basis,
       cost_coverage: coverage,
-      cost_basis: soldRevenue > 0 ? 'sales' : included.length ? 'catalog' : null,
+      cost_basis: soldRevenue > 0 ? 'sales' : eligible.length ? 'catalog' : null,
       vat_pct: Math.round((econ.vatFactor - 1) * 100),
       vat_assumed: econ.vatAssumed,
       discount_pct: Math.round(econ.discountRate * 100),
       aov,
+      value_ratio: econ.valueRatio,
       break_even: breakEven === null ? null : round1(breakEven),
     },
     goal: input.settings.goal,
@@ -401,9 +452,14 @@ export function buildPlan(input: PlanInput): Plan {
     budget: { suggested, chosen, daily },
     settings: { mode: input.settings.mode, max_daily_budget: input.settings.max_daily_budget },
     forecast,
-    history: { google_ads_orders: input.googleAds90.orders, google_ads_total: input.googleAds90.total },
+    history: {
+      google_ads_orders: input.googleAds90.orders,
+      google_ads_total: input.googleAds90.total,
+      roas30: historical === null ? null : Math.round(historical * 100) / 100,
+      product_data: (input.products30?.size ?? 0) > 0,
+    },
     exclusions: { item_ids: itemIds, unmatched, mode: exclusionMode },
     offers,
-    counts: { included: included.length, excluded: offers.length - included.length },
+    counts: { included: included.length, excluded: offers.length - eligible.length, in_groups: eligible.length - included.length },
   }
 }

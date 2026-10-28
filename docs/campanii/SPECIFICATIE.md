@@ -181,15 +181,19 @@ Ferestre: 30 de zile fără ultimele 2, ca evaluare; 14 zile, ca semnal recent.
   - ținta: o schimbare la cel puțin 14 zile, cu maximum ±12%;
   - bugetul: o schimbare la cel puțin 7 zile, cu maximum ±20%.
 - **Limitele de sus și de jos.** Ținta nu coboară sub prag. Bugetul nu urcă peste
-  bugetul maxim ales de om; fără buget maxim, creșterile rămân doar propuneri.
+  bugetul maxim ales de om, care e pentru toate campaniile Hontrio care rulează, la un loc
+  (campania principală, segmentele și grupele); fără buget maxim, creșterile rămân doar propuneri.
 
 **Reguli (în ordine):**
 1. **Limita de pierdere**: oprește campania (§5).
 2. **Trecerea la creștere**: campania de pornire are ≥ 14 zile și contul ≥ 15 conversii în 30 de zile → PMax.
+   Campania unei grupe trece după conversiile ei (§13), nu ale contului.
 3. **Ținta** (PMax, după învățare, ≥ 10 conversii în 14 zile):
    - ROAS-ul real e sub prag → ridică ținta (+12%, cel puțin până la prag);
    - ținta e sub cea a obiectivului și campania o atinge → +12%, spre obiectiv;
    - ținta e peste cea a obiectivului și campania cheltuie sub 70% din buget → −12%, spre obiectiv, nu sub prag.
+   - un PMax pornit fără țintă (o grupă cu puține conversii, §13) primește prima țintă când are ≥ 15 conversii
+     în 30 de zile și ≥ 14 zile: ROAS-ul real, între prag și 1,5 × ținta obiectivului.
 4. **Bugetul**: campania e limitată de buget (`BUDGET_CONSTRAINED` sau buget recomandat
    peste cel actual) și ROAS-ul real ≥ ținta → +20%, până la bugetul maxim.
 5. **Produsele** (≥ 21 de zile de date):
@@ -197,6 +201,7 @@ Ferestre: 30 de zile fără ultimele 2, ca evaluare; 14 zile, ca semnal recent.
    - produsul are ROAS sub pragul lui, cu cheltuială ≥ 1 × CPA → exclude.
 6. **Termenii de căutare**: termenii cu cost ≥ 2 × CPA la prag și nicio conversie în 30 de zile devin cuvânt negativ exact.
 7. **Segmentarea** (§2): propusă o singură dată. Grupele se fac după mediana pragului pe produs, fiecare grupă cu ≥ 15 conversii în 30 de zile.
+   Doar pe campania principală și doar pe produsele ei: produsele grupelor omului (§13) nu intră.
 
 **Modurile:**
 - **Cu aprobare** (implicit): acțiunile apar în Campanii ca propuneri, iar omul le aprobă
@@ -287,7 +292,8 @@ Toate au RLS pornit și le citește doar serverul, ca `commerce_*`.
 - `GET /api/campaigns/plan`: planul, auditul salvat, campaniile lansate, propunerile, ultimele metrici.
 - `PATCH /api/campaigns/plan`: obiectivul, bugetul, modul, bugetul maxim.
 - `POST /api/campaigns/audit`: rulează auditul acum.
-- `POST /api/campaigns/launch`: lansează treapta din plan, cu alegerea pentru campaniile existente și confirmarea declarației UE.
+- `POST /api/campaigns/launch`: lansează treapta din plan (sau campania unei grupe, cu `group_id`), cu alegerea pentru campaniile existente și confirmarea declarației UE.
+- `POST /api/campaigns/groups`, `PATCH/DELETE /api/campaigns/groups/{id}`: grupele de produse ale omului (§13).
 - `POST /api/campaigns/actions`: aprobă sau respinge o propunere.
 - `PATCH /api/campaigns/{id}`: pauză sau repornire, cerute de om.
 - `GET /api/reports`: Rapoartele.
@@ -306,7 +312,94 @@ Totul e construit după documentație și verificat pe un API simulat. La primul
 - legarea sursei suplimentare la o sursă principală gestionată de altă aplicație (Edinio,
   Google for WooCommerce, Google & YouTube);
 - eligibilitatea rapoartelor de piață pentru conturile din România;
+- campaniile pe grupe (§13): arborele cu lista de produse incluse la Shopping standard și
+  `start_date_time` / `end_date_time` cu granularitate de zi, pe ambele tipuri;
 - că profitul brut apare în Google Ads după ce Edinio trimite coșul.
+
+## 13. Campaniile pe grupe de produse (făcute de om)
+
+Pe lângă campania principală, omul își poate face campanii pe o parte din catalog: o
+categorie, un brand, un interval de preț, produsele cu reducere sau produse alese de el,
+și orice combinație. Fiecare grupă are campania ei în Google Ads, cu pragul de profit,
+ținta, bugetul și treapta ei, iar pilotul o conduce cu aceleași reguli (§6). Cod:
+`lib/campaigns/groups.ts` (funcții pure, folosite și de editorul din pagină, ca cifrele
+din previzualizare să fie cele de la lansare).
+
+**Ce produse intră** (`rules`):
+- filtrele: `categories` și `brands` (oricare din listă, fără litere mari/mici),
+  `price_min`/`price_max`, `on_sale` (preț vechi peste cel de acum); un produs trebuie să
+  treacă de toate filtrele alese;
+- `include`: produse adăugate de mână; `exclude`: produse scoase de mână din ce prind filtrele;
+- categoriile și brandurile prind și produsele noi, la fiecare trecere a pilotului.
+
+**Un produs, o singură campanie.** Două campanii pe aceleași produse se licitează între ele
+(§1). Ordinea în care grupele își iau produsele: întâi cele lansate (cea lansată mai
+devreme are întâietate), apoi ciornele, în ordinea lor. Ce nu e în nicio grupă lansată
+rămâne în campania principală. O grupă încheiată nu mai ține nimic; planul ei arată ce ar
+prinde dacă o relansezi. Motivele de excludere ale planului (§4) se aplică și grupelor.
+
+**Economia grupei** (aceleași formule ca la magazin, §5):
+- pragul = pragul fiecărui produs, ponderat cu vânzările (fără vânzări, cu prețul); costurile
+  trebuie să acopere măcar jumătate din vânzările (sau ofertele) grupei;
+- ținta = prag ÷ (1 − cât păstrezi), cu obiectivul grupei (implicit al magazinului);
+- valoarea medie a comenzii = vânzările grupei pe comandă × (totalul comenzii ÷ produse) al magazinului;
+- conversiile din 30 de zile: ce a raportat Google pe produsele grupei
+  (`shopping_performance_view`, toate campaniile Shopping/PMax ale contului) sau, până la
+  prima trecere a pilotului, comenzile aduse de Google (gclid/UTM) cu produsele grupei.
+
+**Treapta**, aleasă de Hontrio din conversii (`campaign_type = auto`, recomandat) sau de om:
+- sub 15 conversii în 30 de zile: Shopping standard cu CPC plafonat (nu are nevoie de istoric),
+  limită de pierdere; trece singură la PMax când strânge 15 conversii ale ei;
+- de la 15: Performance Max cu ROAS țintă pornit din ROAS-ul real al produselor ei (§5);
+- PMax ales de om cu puține conversii pornește fără țintă (o țintă fără istoric taie traficul),
+  cu avertisment; pilotul îi pune ținta când apar conversiile (§6, regula 3).
+
+**Bugetul propus** = vânzările de care are nevoie ca să învețe × valoarea medie ÷ țintă ÷ 30,4,
+unde vânzările = conversiile ei din 30 de zile × 1,25, dar cel puțin 10 și cel mult 30.
+
+**Perioada** (opțională, pentru promoții): `starts_on`/`ends_on`, trimise ca
+`campaign.start_date_time` / `end_date_time` (`yyyy-MM-dd 00:00:00` / `23:59:59`, în fusul
+contului; câmpurile din v26). Google pornește și oprește campania singur. La final, pilotul o
+vede `primary_status = ENDED`, o trece „încheiată", iar produsele se întorc în campania
+principală. Dacă data e deja trecută și campania tot rulează, pilotul o oprește el.
+
+**Ce oprește lansarea unei grupe:** pașii contului (aceiași ca la campania principală, §1),
+grupa fără produse sau fără produse găsite în Merchant Center, fără prag, peste 990 de
+produse la PMax (lista de ID-uri), perioada greșită, și campania principală PMax care ar
+avea de lăsat afară peste 990 de produse.
+
+**Avertismente:** puține produse, produse care nu pot rula acum, produse negăsite în
+Merchant Center, produse prinse deja de altă grupă, PMax cu puține conversii, campania
+principală rămasă sub 15 conversii pe lună, bugetele tuturor campaniilor peste bugetul maxim,
+buget sub jumătate din cel propus, perioadă sub 14 zile la PMax.
+
+**Lansarea** (`POST /api/campaigns/launch` cu `group_id`): lista de ID-uri a grupei
+(`include_items`), aceleași setări ca la campania principală (§3), numele
+`Hontrio · {tip} · {grupa} · {magazin} · {data}`. Apoi arborii celorlalte campanii se refac:
+campania principală („restul") lasă afară produsele grupei, iar segmentul de marjă mare
+(lista lui e fixă) le pierde și el.
+
+**Arborii, la fiecare trecere** (`reconcileProducts`): întâi campaniile grupelor (lista lor e
+cum o prind regulile acum, fără excluderile planului), apoi celelalte.
+
+**Schimbările pe o grupă lansată ajung pe loc în Google:** produsele (arborii), bugetul
+(`set_budget`), sfârșitul perioadei (`end_date_time`). Obiectivul nou mută ținta treptat,
+prin pilot. Tipul campaniei și începutul nu se mai schimbă. **Încheierea** oprește campania
+(`PAUSED`, „încheiată" în Hontrio) și produsele se întorc în campania principală. Se pot
+șterge doar ciornele și grupele încheiate; cifrele campaniilor lor rămân în Rapoarte.
+
+**Limite:** cel mult 5 grupe care rulează sau sunt ciorne în același timp, ca bugetul să nu se
+fărâmițeze. Fiecare campanie are nevoie de date; grupele mici vând adesea mai bine rămânând în
+campania principală, iar Hontrio o spune înainte de lansare.
+
+**Datele (migrarea 019):** `ad_product_groups` (numele, regulile, obiectivul, bugetul, tipul,
+perioada, ordinea, starea `draft`/`live`/`ended`, `launched_at`), `ad_campaigns.product_group_id`
+(`segment = 'group'`), RPC `commerce_offer_google_sales` (vânzările aduse de Google pe ofertă) și
+`ad_product_totals` (cifrele Google pe produs, adunate).
+
+**API:** `POST /api/campaigns/groups` (o ciornă nouă), `PATCH /api/campaigns/groups/{id}`
+(schimbări; `{ status: 'ended' }` o încheie), `DELETE /api/campaigns/groups/{id}`; grupele, cu
+planul fiecăreia, vin în `GET /api/campaigns/plan`.
 
 ## Surse
 

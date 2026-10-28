@@ -11,7 +11,9 @@ type Supabase = ReturnType<typeof createAdminClient>
 
 export type ActionKind =
   // Ale omului
-  | 'launch' | 'pause' | 'enable' | 'declare_eu' | 'pause_existing'
+  | 'launch' | 'pause' | 'enable' | 'declare_eu' | 'pause_existing' | 'set_end_date'
+  // Încheierea unei campanii: de om sau la sfârșitul perioadei ei
+  | 'end'
   // Ale pilotului
   | 'pause_loss_limit' | 'graduate' | 'set_target' | 'set_budget'
   | 'exclude_products' | 'sync_products' | 'add_negatives' | 'segment'
