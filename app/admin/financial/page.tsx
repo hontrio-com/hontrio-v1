@@ -1,206 +1,74 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
-import { motion } from 'framer-motion'
-import {
-  TrendingUp, TrendingDown, Download, RefreshCw, ArrowUpRight,
-  ArrowDownRight, Minus, BarChart2, DollarSign, Users,
-  Zap, Target, Activity, Calendar, ChevronRight,
-} from 'lucide-react'
+import { useState } from 'react'
+import { DollarSign, Download, Target, TrendingDown, TrendingUp } from 'lucide-react'
 import { useT } from '@/lib/i18n/context'
+import { cn } from '@/lib/utils'
+import { PageHeader } from '@/components/app/page-header'
+import { Card, CardFooter, CardHeader } from '@/components/app/surface'
+import { DataRow, KpiCard, StatCard } from '@/components/app/kpi'
+import { Button } from '@/components/app/button'
+import { BarTrend, ChartLegend, DualTrend } from '@/components/app/charts'
+import { Table, Td, Th, Tr } from '@/components/app/table'
+import { FadeIn } from '@/components/app/motion'
+import { useFormats } from '@/components/app/formats'
+import { useNow } from '@/components/app/time'
+import { useAdminData } from '@/components/admin/use-admin-data'
+import { LoadError, PageSkeleton, PlanDistribution, RefreshButton } from '@/components/admin/parts'
+
+// =============================================
+// Raportul financiar: luna curentă față de cea trecută, ultimele 12 luni,
+// indicatorii abonamentelor și detalierea pe luni, cu export CSV. Sumele sunt
+// în dolari, ca prețurile planurilor.
+// =============================================
 
 type MonthData = {
-  label: string
-  revenue: number
-  subRevenue: number
-  packRevenue: number
-  apiCost: number
-  profit: number
-  margin: number
-  images: number
-  texts: number
-  newUsers: number
+  label: string; revenue: number; subRevenue: number; packRevenue: number; apiCost: number
+  profit: number; margin: number; images: number; texts: number; newUsers: number
 }
-
 type FinancialData = {
-  monthly: MonthData[]
-  current: MonthData
-  prev: MonthData
-  mrr: number
-  arpu: number
-  ltv: number
-  churnRate: number
-  forecastRevenue: number
-  forecastProfit: number
-  forecastMargin: number
-  planDist: Record<string, number>
-  totalPaid: number
-  totalUsers: number
-  allTimeRevenue: number
-  allTimeProfit: number
-  allTimeApiCost: number
+  monthly: MonthData[]; current: MonthData; prev: MonthData
+  mrr: number; arpu: number; ltv: number; churnRate: number
+  forecastRevenue: number; forecastProfit: number; forecastMargin: number
+  planDist: Record<string, number>; totalPaid: number; totalUsers: number
+  allTimeRevenue: number; allTimeProfit: number; allTimeApiCost: number
 }
 
-const fmt = (n: number, locale: string) => n.toLocaleString(locale)
-
-function MiniSparkline({ data, color = '#000' }: { data: number[]; color?: string }) {
-  if (data.length < 2) return null
-  const max = Math.max(...data, 1)
-  const min = Math.min(...data)
-  const range = max - min || 1
-  const w = 120, h = 32, pad = 2
-  const pts = data.map((v, i) => {
-    const x = pad + (i / (data.length - 1)) * (w - pad * 2)
-    const y = h - pad - ((v - min) / range) * (h - pad * 2)
-    return `${x},${y}`
-  })
-  return (
-    <svg width={w} height={h} className="opacity-60">
-      <polyline points={pts.join(' ')} fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  )
-}
-
-function BarChart({ data }: { data: MonthData[] }) {
-  const { intlLocale } = useT()
-  const maxRev = Math.max(...data.map(d => d.revenue), 1)
-  return (
-    <div className="flex items-end gap-1 h-40 w-full">
-      {data.map((d, i) => {
-        const revH = (d.revenue / maxRev) * 100
-        const costH = (d.apiCost / maxRev) * 100
-        const isLast = i === data.length - 1
-        return (
-          <div key={i} className="flex-1 flex flex-col items-center gap-0.5 group relative">
-            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-[10px] rounded px-2 py-1 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-10 pointer-events-none">
-              {d.label}: {fmt(d.revenue, intlLocale)} RON
-            </div>
-            <div className="w-full flex flex-col justify-end" style={{ height: '128px' }}>
-              <div
-                className={`w-full rounded-t transition-all ${isLast ? 'bg-gray-900' : 'bg-gray-200 group-hover:bg-gray-400'}`}
-                style={{ height: `${revH}%`, minHeight: revH > 0 ? '2px' : '0' }}
-              />
-            </div>
-            <span className="text-[9px] text-gray-400 mt-1">{d.label}</span>
-          </div>
-        )
-      })}
-    </div>
-  )
-}
-
-function ProfitChart({ data }: { data: MonthData[] }) {
-  const { t } = useT()
-  const max = Math.max(...data.map(d => Math.max(d.revenue, d.apiCost)), 1)
-  return (
-    <div className="relative h-40">
-      <div className="flex items-end gap-1 h-32 w-full">
-        {data.map((d, i) => {
-          const isLast = i === data.length - 1
-          return (
-            <div key={i} className="flex-1 flex gap-px items-end group relative">
-              <div className="absolute bottom-8 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-[10px] rounded px-2 py-1 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-10 pointer-events-none">
-                {d.label} · {t('admin.financial_margin_tooltip', { margin: d.margin })}
-              </div>
-              <div className="flex-1 rounded-t bg-gray-100 group-hover:bg-gray-900 transition-all" style={{ height: `${(d.revenue / max) * 100}%`, minHeight: d.revenue > 0 ? '2px' : '0' }} />
-              <div className="flex-1 rounded-t bg-gray-300 group-hover:bg-red-400 transition-all" style={{ height: `${(d.apiCost / max) * 100}%`, minHeight: d.apiCost > 0 ? '2px' : '0' }} />
-            </div>
-          )
-        })}
-      </div>
-      <div className="flex gap-4 mt-2">
-        <div className="flex items-center gap-1.5"><div className="h-2 w-2 rounded-sm bg-gray-900" /><span className="text-[10px] text-gray-500">{t('admin.financial_revenue')}</span></div>
-        <div className="flex items-center gap-1.5"><div className="h-2 w-2 rounded-sm bg-gray-300" /><span className="text-[10px] text-gray-500">{t('admin.financial_api_cost')}</span></div>
-      </div>
-    </div>
-  )
-}
-
-function DonutChart({ planDist }: { planDist: Record<string, number> }) {
-  const total = Object.values(planDist).reduce((s, v) => s + v, 0) || 1
-  const colors = ['#f3f4f6', '#d1d5db', '#6b7280', '#111827']
-  const plans = ['free', 'starter', 'professional', 'enterprise']
-  let cumAngle = -90
-
-  return (
-    <div className="flex items-center gap-6">
-      <svg viewBox="0 0 80 80" className="w-20 h-20 shrink-0">
-        {plans.map((plan, i) => {
-          const pct = (planDist[plan] || 0) / total
-          const angle = pct * 360
-          if (angle < 1) { return null }
-          const startRad = (cumAngle * Math.PI) / 180
-          const endRad = ((cumAngle + angle) * Math.PI) / 180
-          cumAngle += angle
-          const x1 = 40 + 32 * Math.cos(startRad)
-          const y1 = 40 + 32 * Math.sin(startRad)
-          const x2 = 40 + 32 * Math.cos(endRad)
-          const y2 = 40 + 32 * Math.sin(endRad)
-          const large = angle > 180 ? 1 : 0
-          return (
-            <path
-              key={plan}
-              d={`M 40 40 L ${x1} ${y1} A 32 32 0 ${large} 1 ${x2} ${y2} Z`}
-              fill={colors[i]}
-              stroke="white"
-              strokeWidth="1"
-            />
-          )
-        })}
-        <circle cx="40" cy="40" r="18" fill="white" />
-        <text x="40" y="44" textAnchor="middle" fontSize="10" fontWeight="600" fill="#111">{total}</text>
-      </svg>
-      <div className="space-y-1.5 flex-1">
-        {plans.map((plan, i) => (
-          <div key={plan} className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="h-2 w-2 rounded-sm" style={{ background: colors[i] }} />
-              <span className="text-xs capitalize text-gray-600">{plan}</span>
-            </div>
-            <span className="text-xs font-medium text-gray-900">{planDist[plan] || 0}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
+const change = (curr: number, prev: number) => (prev ? (curr - prev) / prev : null)
 
 export default function FinancialPage() {
   const { t, intlLocale } = useT()
-  const [data, setData] = useState<FinancialData | null>(null)
-  const [loading, setLoading] = useState(true)
+  const f = useFormats('USD')
+  const now = useNow()
+  const { data, loading, refresh } = useAdminData<FinancialData>('/api/admin/financial')
   const [exporting, setExporting] = useState(false)
 
-  useEffect(() => { fetchData() }, [])
+  if (loading && !data) return <PageSkeleton />
+  if (!data?.monthly) return <LoadError />
 
-  const fetchData = async () => {
-    setLoading(true)
-    try {
-      const res = await fetch('/api/admin/financial')
-      const d = await res.json()
-      setData(d)
-    } catch { } finally { setLoading(false) }
-  }
+  const usd = (n: number) => f.money.format(n)
+  const usd2 = (n: number) => f.money2.format(n)
+  const series = (pick: (m: MonthData) => number) => data.monthly.map(m => ({ label: m.label, value: pick(m) }))
+  const month = now ? new Date(now).toLocaleDateString(intlLocale, { month: 'long', year: 'numeric' }) : ''
 
   const exportCSV = () => {
-    if (!data) return
     setExporting(true)
     const rows = [
-      [t('admin.financial_month'), `${t('admin.financial_revenue')} (RON)`, `${t('admin.financial_subscriptions')} (RON)`, `${t('admin.financial_credit_packs')} (RON)`, `${t('admin.financial_api_cost')} (RON)`, `${t('admin.financial_profit')} (RON)`, `${t('admin.financial_margin')} (%)`, t('admin.financial_images'), t('admin.financial_texts'), t('admin.financial_new_users')],
+      [t('admin.financial_month'), `${t('admin.financial_revenue')} (USD)`, `${t('admin.financial_subscriptions')} (USD)`, `${t('admin.financial_credit_packs')} (USD)`, `${t('admin.financial_api_cost')} (USD)`, `${t('admin.financial_profit')} (USD)`, `${t('admin.financial_margin')} (%)`, t('admin.financial_images'), t('admin.financial_texts'), t('admin.financial_new_users')],
       ...data.monthly.map(m => [m.label, m.revenue, m.subRevenue, m.packRevenue, m.apiCost, m.profit, m.margin, m.images, m.texts, m.newUsers]),
       [],
       [t('admin.financial_csv_summary'), '', '', '', '', '', '', '', '', ''],
-      [`${t('admin.financial_total_revenue')} (RON)`, data.allTimeRevenue],
-      [`${t('admin.financial_total_profit')} (RON)`, data.allTimeProfit],
-      [`${t('admin.financial_total_api_cost')} (RON)`, data.allTimeApiCost],
-      [`${t('admin.mrr')} (RON)`, data.mrr],
-      [`${t('admin.arpu')} (RON)`, data.arpu],
-      [`${t('admin.financial_ltv_estimated')} (RON)`, data.ltv],
+      [`${t('admin.financial_total_revenue')} (USD)`, data.allTimeRevenue],
+      [`${t('admin.financial_total_profit')} (USD)`, data.allTimeProfit],
+      [`${t('admin.financial_total_api_cost')} (USD)`, data.allTimeApiCost],
+      [`${t('admin.mrr')} (USD)`, data.mrr],
+      [`${t('admin.arpu')} (USD)`, data.arpu],
+      [`${t('admin.financial_ltv_estimated')} (USD)`, data.ltv],
       [`${t('admin.financial_churn_rate')} (%)`, data.churnRate],
-      [`${t('admin.financial_forecast_next_month')} (RON)`, data.forecastRevenue],
+      [`${t('admin.financial_forecast_next_month')} (USD)`, data.forecastRevenue],
     ]
     const csv = rows.map(r => r.join(',')).join('\n')
-    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' })
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
@@ -210,218 +78,109 @@ export default function FinancialPage() {
     setExporting(false)
   }
 
-  const delta = (curr: number, prev: number) => {
-    if (!prev) return null
-    const pct = ((curr - prev) / prev) * 100
-    return { pct: Math.abs(pct).toFixed(1), up: pct >= 0 }
-  }
-
-  if (loading) {
-    return (
-      <div className="space-y-6">
-        {[1, 2, 3].map(i => <div key={i} className="h-32 bg-gray-100 rounded-2xl animate-pulse" />)}
-      </div>
-    )
-  }
-
-  if (!data) return <p className="text-red-500 text-sm">{t('admin.load_error')}</p>
-
-  const revDelta = delta(data.current.revenue, data.prev.revenue)
-  const profDelta = delta(data.current.profit, data.prev.profit)
-
   return (
-    <div className="space-y-6 font-mono">
+    <FadeIn className="space-y-6">
+      <PageHeader title={t('admin.financial_title')} description={`${month} · ${t('admin.financial_realtime')}`}
+        actions={(
+          <>
+            <RefreshButton loading={loading} onClick={refresh} />
+            <Button variant="primary" loading={exporting} onClick={exportCSV}>
+              {!exporting && <Download />}{exporting ? t('admin.financial_exporting') : t('admin.financial_export_csv')}
+            </Button>
+          </>
+        )} />
 
-      {/* Header */}
-      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex items-start justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">{t('admin.financial_title')}</h1>
-          <p className="text-xs text-gray-400 mt-0.5 font-sans">
-            {new Date().toLocaleDateString(intlLocale, { month: 'long', year: 'numeric' })} · {t('admin.financial_realtime')}
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <button onClick={fetchData} className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-gray-200 text-xs text-gray-600 hover:bg-gray-50 transition-colors">
-            <RefreshCw className="h-3.5 w-3.5" />{t('common.refresh')}
-          </button>
-          <button onClick={exportCSV} disabled={exporting} className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-gray-900 text-white text-xs hover:bg-gray-800 transition-colors disabled:opacity-60">
-            <Download className="h-3.5 w-3.5" />{exporting ? t('admin.financial_exporting') : t('admin.financial_export_csv')}
-          </button>
-        </div>
-      </motion.div>
-
-      {/* KPI Row */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {[
-          {
-            label: t('admin.mrr'), value: `${fmt(data.mrr, intlLocale)} RON`,
-            sub: t('admin.financial_active_subscribers', { count: data.totalPaid }),
-            sparkData: data.monthly.map(m => m.subRevenue),
-            delta: revDelta,
-          },
-          {
-            label: t('admin.financial_revenue_this_month'), value: `${fmt(data.current.revenue, intlLocale)} RON`,
-            sub: t('admin.financial_last_month_value', { value: fmt(data.prev.revenue, intlLocale) }),
-            sparkData: data.monthly.map(m => m.revenue),
-            delta: revDelta,
-          },
-          {
-            label: t('admin.financial_profit_this_month'), value: `${fmt(data.current.profit, intlLocale)} RON`,
-            sub: t('admin.financial_margin_value', { margin: data.current.margin }),
-            sparkData: data.monthly.map(m => m.profit),
-            delta: profDelta,
-          },
-          {
-            label: t('admin.financial_api_cost_this_month'), value: `${fmt(data.current.apiCost, intlLocale)} RON`,
-            sub: t('admin.financial_images_texts', { images: data.current.images, texts: data.current.texts }),
-            sparkData: data.monthly.map(m => m.apiCost),
-            delta: null,
-          },
-        ].map((kpi, i) => (
-          <motion.div key={kpi.label} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}>
-            <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm">
-              <div className="flex items-start justify-between mb-2">
-                <p className="text-[10px] text-gray-400 uppercase tracking-widest">{kpi.label}</p>
-                {kpi.delta && (
-                  <span className={`flex items-center text-[10px] font-medium ${kpi.delta.up ? 'text-gray-900' : 'text-gray-400'}`}>
-                    {kpi.delta.up ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
-                    {kpi.delta.pct}%
-                  </span>
-                )}
-              </div>
-              <p className="text-xl font-bold text-gray-900">{kpi.value}</p>
-              <p className="text-[10px] text-gray-400 mt-0.5 font-sans">{kpi.sub}</p>
-              <div className="mt-2">
-                <MiniSparkline data={kpi.sparkData} />
-              </div>
-            </div>
-          </motion.div>
-        ))}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <KpiCard label={t('admin.mrr')} value={data.mrr} format={usd} delta={change(data.current.subRevenue, data.prev.subRevenue)}
+          series={series(m => m.subRevenue)} footnote={t('admin.financial_active_subscribers', { count: data.totalPaid })} />
+        <KpiCard label={t('admin.financial_revenue_this_month')} value={data.current.revenue} format={usd} delta={change(data.current.revenue, data.prev.revenue)}
+          series={series(m => m.revenue)} footnote={t('admin.financial_last_month_value', { value: usd(data.prev.revenue) })} />
+        <KpiCard label={t('admin.financial_profit_this_month')} value={data.current.profit} format={usd} delta={change(data.current.profit, data.prev.profit)}
+          series={series(m => m.profit)} footnote={t('admin.financial_margin_value', { margin: data.current.margin })} />
+        <KpiCard label={t('admin.financial_api_cost_this_month')} value={data.current.apiCost} format={usd2} delta={change(data.current.apiCost, data.prev.apiCost)} good="down"
+          series={series(m => m.apiCost)} footnote={t('admin.financial_images_texts', { images: data.current.images, texts: data.current.texts })} />
       </div>
 
-      {/* Charts Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
-          <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <p className="text-[10px] text-gray-400 uppercase tracking-widest">{t('admin.financial_revenue_12_months')}</p>
-                <p className="text-sm font-semibold text-gray-900 mt-0.5">{t('admin.financial_monthly_trend')}</p>
-              </div>
-              <BarChart2 className="h-4 w-4 text-gray-300" />
-            </div>
-            <BarChart data={data.monthly} />
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <Card>
+          <CardHeader title={t('admin.financial_revenue_12_months')} description={t('admin.financial_monthly_trend')} />
+          <div className="px-3 pb-4 pt-4">
+            <BarTrend data={data.monthly.map(m => ({ label: m.label, value: m.revenue, extra: t('admin.financial_margin_tooltip', { margin: m.margin }) }))}
+              format={usd} axisFormat={v => f.compact.format(v)} height={220} />
           </div>
-        </motion.div>
-
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18 }}>
-          <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <p className="text-[10px] text-gray-400 uppercase tracking-widest">{t('admin.financial_revenue_vs_cost')}</p>
-                <p className="text-sm font-semibold text-gray-900 mt-0.5">{t('admin.financial_monthly_profitability')}</p>
-              </div>
-              <Activity className="h-4 w-4 text-gray-300" />
-            </div>
-            <ProfitChart data={data.monthly} />
+        </Card>
+        <Card>
+          <CardHeader title={t('admin.financial_revenue_vs_cost')} description={t('admin.financial_monthly_profitability')}
+            action={<ChartLegend items={[{ label: t('admin.financial_revenue'), className: 'bg-neutral-900' }, { label: t('admin.financial_api_cost'), className: 'bg-neutral-400' }]} />} />
+          <div className="px-3 pb-4 pt-4">
+            <DualTrend data={data.monthly.map(m => ({ label: m.label, a: m.revenue, b: m.apiCost }))} names={{ a: t('admin.financial_revenue'), b: t('admin.financial_api_cost') }}
+              format={usd} axisFormat={v => f.compact.format(v)} height={220} />
           </div>
-        </motion.div>
+        </Card>
       </div>
 
-      {/* Metrics Row: Churn, LTV, ARPU, Forecast */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {[
-          { label: t('admin.arpu'), value: `${fmt(data.arpu, intlLocale)} RON`, sub: t('admin.financial_arpu_sub'), icon: DollarSign, note: t('admin.financial_arpu_note') },
-          { label: t('admin.financial_ltv_estimated'), value: `${fmt(data.ltv, intlLocale)} RON`, sub: t('admin.financial_ltv_sub'), icon: TrendingUp, note: t('admin.financial_ltv_note') },
-          { label: t('admin.financial_churn_rate'), value: `${data.churnRate}%`, sub: t('admin.financial_churn_sub'), icon: TrendingDown, note: t('admin.financial_churn_note') },
-          { label: t('admin.financial_forecast'), value: `${fmt(data.forecastRevenue, intlLocale)} RON`, sub: t('admin.financial_forecast_sub'), icon: Target, note: t('admin.financial_forecast_note', { margin: data.forecastMargin }) },
-        ].map((m, i) => (
-          <motion.div key={m.label} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 + i * 0.03 }}>
-            <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm">
-              <div className="flex items-center justify-between mb-3">
-                <p className="text-[10px] text-gray-400 uppercase tracking-widest">{m.label}</p>
-                <div className="h-7 w-7 rounded-lg bg-gray-100 flex items-center justify-center">
-                  <m.icon className="h-3.5 w-3.5 text-gray-500" />
-                </div>
-              </div>
-              <p className="text-xl font-bold text-gray-900">{m.value}</p>
-              <p className="text-[10px] text-gray-500 mt-0.5 font-sans">{m.sub}</p>
-              <p className="text-[9px] text-gray-300 mt-1 font-sans">{m.note}</p>
-            </div>
-          </motion.div>
-        ))}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <StatCard label={t('admin.arpu')} value={usd2(data.arpu)} icon={<DollarSign />} footnote={`${t('admin.financial_arpu_sub')} · ${t('admin.financial_arpu_note')}`} />
+        <StatCard label={t('admin.financial_ltv_estimated')} value={usd(data.ltv)} icon={<TrendingUp />} footnote={`${t('admin.financial_ltv_sub')} · ${t('admin.financial_ltv_note')}`} />
+        <StatCard label={t('admin.financial_churn_rate')} value={`${f.num.format(data.churnRate)}%`} icon={<TrendingDown />} footnote={`${t('admin.financial_churn_sub')} · ${t('admin.financial_churn_note')}`} />
+        <StatCard label={t('admin.financial_forecast')} value={usd(data.forecastRevenue)} icon={<Target />} footnote={`${t('admin.financial_forecast_sub')} · ${t('admin.financial_forecast_note', { margin: data.forecastMargin })}`} />
       </div>
 
-      {/* Bottom Row: Plan dist + Monthly table */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Plan Distribution */}
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.28 }}>
-          <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm h-full">
-            <p className="text-[10px] text-gray-400 uppercase tracking-widest mb-4">{t('admin.plan_distribution')}</p>
-            <DonutChart planDist={data.planDist} />
-            <div className="mt-4 pt-4 border-t border-gray-50 space-y-2">
-              {[
-                { label: t('admin.financial_paying_users'), value: data.totalPaid },
-                { label: t('admin.financial_total_users'), value: data.totalUsers },
-                { label: t('admin.financial_conversion'), value: `${data.totalUsers > 0 ? Math.round((data.totalPaid / data.totalUsers) * 100) : 0}%` },
-              ].map(r => (
-                <div key={r.label} className="flex items-center justify-between">
-                  <span className="text-xs text-gray-500 font-sans">{r.label}</span>
-                  <span className="text-xs font-semibold text-gray-900">{r.value}</span>
-                </div>
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <Card>
+          <CardHeader title={t('admin.plan_distribution')} />
+          <div className="px-5 pb-3 pt-4">
+            <PlanDistribution plans={data.planDist} total={data.totalUsers} />
+            <dl className="mt-4 divide-y divide-neutral-100 border-t border-neutral-100">
+              <DataRow label={t('admin.financial_paying_users')} value={data.totalPaid} strong />
+              <DataRow label={t('admin.financial_total_users')} value={data.totalUsers} />
+              <DataRow label={t('admin.financial_conversion')} value={`${data.totalUsers > 0 ? Math.round((data.totalPaid / data.totalUsers) * 100) : 0}%`} />
+            </dl>
+          </div>
+        </Card>
+
+        <Card className="flex flex-col overflow-hidden lg:col-span-2">
+          <CardHeader title={t('admin.financial_monthly_breakdown')} className="pb-3" />
+          <Table>
+            <thead>
+              <tr>
+                <Th>{t('admin.financial_month')}</Th>
+                <Th align="right">{t('admin.financial_revenue')}</Th>
+                <Th align="right">{t('admin.financial_api_cost')}</Th>
+                <Th align="right">{t('admin.financial_profit')}</Th>
+                <Th align="right">{t('admin.financial_margin')}</Th>
+                <Th align="right">{t('admin.financial_img_short')}</Th>
+                <Th align="right">{t('admin.financial_new_users')}</Th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.monthly.slice().reverse().slice(0, 8).map((m, i) => (
+                <Tr key={m.label} className={cn(i === 0 && 'font-semibold')}>
+                  <Td className="text-neutral-700">{m.label}</Td>
+                  <Td align="right" className="text-neutral-900">{usd(m.revenue)}</Td>
+                  <Td align="right" className="text-neutral-500">{usd2(m.apiCost)}</Td>
+                  <Td align="right" className={cn(m.profit < 0 ? 'text-red-600' : 'text-neutral-900')}>{usd(m.profit)}</Td>
+                  <Td align="right" className="text-neutral-700">{m.margin}%</Td>
+                  <Td align="right" className="text-neutral-500">{m.images}</Td>
+                  <Td align="right" className="text-neutral-500">{m.newUsers > 0 ? `+${m.newUsers}` : '—'}</Td>
+                </Tr>
               ))}
-            </div>
-          </div>
-        </motion.div>
-
-        {/* Monthly table */}
-        <motion.div className="lg:col-span-2" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-            <div className="px-5 py-4 border-b border-gray-50">
-              <p className="text-[10px] text-gray-400 uppercase tracking-widest">{t('admin.financial_monthly_breakdown')}</p>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="border-b border-gray-50">
-                    {[t('admin.financial_month'), t('admin.financial_revenue'), t('admin.financial_api_cost'), t('admin.financial_profit'), t('admin.financial_margin'), t('admin.financial_img_short'), t('admin.financial_new_users')].map(h => (
-                      <th key={h} className="px-4 py-2.5 text-left font-medium text-gray-400 whitespace-nowrap">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.monthly.slice().reverse().slice(0, 8).map((m, i) => (
-                    <tr key={m.label} className={`border-b border-gray-50 hover:bg-gray-50/50 transition-colors ${i === 0 ? 'font-semibold' : ''}`}>
-                      <td className="px-4 py-2.5 text-gray-600">{m.label}</td>
-                      <td className="px-4 py-2.5 text-gray-900">{fmt(m.revenue, intlLocale)}</td>
-                      <td className="px-4 py-2.5 text-gray-400">{m.apiCost.toFixed(0)}</td>
-                      <td className="px-4 py-2.5 text-gray-900">{fmt(m.profit, intlLocale)}</td>
-                      <td className="px-4 py-2.5">
-                        <span className={`${m.margin >= 80 ? 'text-gray-900' : m.margin >= 60 ? 'text-gray-500' : 'text-gray-300'}`}>{m.margin}%</span>
-                      </td>
-                      <td className="px-4 py-2.5 text-gray-400">{m.images}</td>
-                      <td className="px-4 py-2.5 text-gray-400">{m.newUsers > 0 ? `+${m.newUsers}` : '—'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            {/* All-time footer */}
-            <div className="px-5 py-3 bg-gray-50 grid grid-cols-3 gap-4 border-t border-gray-100">
-              {[
-                { label: t('admin.financial_total_revenue'), value: `${fmt(data.allTimeRevenue, intlLocale)} RON` },
-                { label: t('admin.financial_total_profit'), value: `${fmt(data.allTimeProfit, intlLocale)} RON` },
-                { label: t('admin.financial_total_api_cost'), value: `${fmt(data.allTimeApiCost, intlLocale)} RON` },
-              ].map(r => (
-                <div key={r.label}>
-                  <p className="text-[9px] text-gray-400 uppercase tracking-widest">{r.label}</p>
-                  <p className="text-sm font-bold text-gray-900 mt-0.5">{r.value}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </motion.div>
+            </tbody>
+          </Table>
+          <CardFooter className="mt-auto grid grid-cols-3 gap-4">
+            {[
+              { label: t('admin.financial_total_revenue'), value: usd(data.allTimeRevenue) },
+              { label: t('admin.financial_total_profit'), value: usd(data.allTimeProfit) },
+              { label: t('admin.financial_total_api_cost'), value: usd2(data.allTimeApiCost) },
+            ].map(r => (
+              <div key={r.label}>
+                <p className="text-[12px] text-neutral-500">{r.label}</p>
+                <p className="mt-0.5 text-[14px] font-semibold tabular-nums text-neutral-950">{r.value}</p>
+              </div>
+            ))}
+          </CardFooter>
+        </Card>
       </div>
-    </div>
+    </FadeIn>
   )
 }

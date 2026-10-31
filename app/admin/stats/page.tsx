@@ -1,25 +1,30 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { motion } from 'framer-motion'
-import {
-  Users, Package, ImageIcon, CreditCard, Store, DollarSign,
-  TrendingUp, BarChart3, Wallet, Calculator, PieChart,
-  Activity, FileText, ArrowUpRight, ArrowDownRight,
-  RefreshCw, Euro, Percent,
-} from 'lucide-react'
+import { CreditCard, FileText, ImageIcon, Package, Store, Users } from 'lucide-react'
 import { useT } from '@/lib/i18n/context'
+import { PageHeader } from '@/components/app/page-header'
+import { Card, CardHeader, Section } from '@/components/app/surface'
+import { DataRow, Metric, StatCard } from '@/components/app/kpi'
+import { Badge, type Tone } from '@/components/app/badge'
+import { FadeIn } from '@/components/app/motion'
+import { useFormats } from '@/components/app/formats'
+import { useNow } from '@/components/app/time'
+import { useAdminData } from '@/components/admin/use-admin-data'
+import { LoadError, PageSkeleton, PlanBadge, PlanDistribution, RefreshButton, UserAvatar } from '@/components/admin/parts'
+
+// =============================================
+// Statisticile platformei: câți oameni și ce fac ei, cum stă luna curentă cu
+// banii (în dolari, moneda abonamentelor) și ce s-a întâmplat ultima oară.
+// =============================================
 
 type Financial = {
   mrr: number; monthlySubscriptionRevenue: number; monthlyCreditPackRevenue: number
-  totalMonthlyRevenue: number; monthlyImageGenerations: number; monthlyTextGenerations: number
-  monthlyImageCost: number; monthlyTextCost: number; totalMonthlyApiCost: number
+  totalMonthlyRevenue: number; totalMonthlyApiCost: number
   monthlyProfit: number; profitMargin: number
   totalRevenue: number; totalApiCost: number; totalProfit: number
   totalImageCost: number; totalTextCost: number; totalTextGenerations: number
   arpu: number; costPerCredit: number; revenuePerCredit: number; totalPaidUsers: number
-  planDistribution: Record<string, number>; costPerImageGeneration: number
-  costPerTextGeneration: number
+  planDistribution: Record<string, number>
 }
 type Stats = {
   totalUsers: number; totalStores: number; totalProducts: number; totalImages: number
@@ -29,285 +34,144 @@ type Stats = {
   financial: Financial
 }
 
-const PLAN_COLORS: Record<string, string> = {
-  free: 'bg-gray-200', starter: 'bg-gray-400', professional: 'bg-gray-600', enterprise: 'bg-gray-900'
+const PLAN_PRICES: Record<string, number> = { free: 0, starter: 19, professional: 49, enterprise: 99 }
+// i18n-ignore-start: coduri scurte, la fel în orice limbă
+const JOB_STATUS: Record<string, { tone: Tone; label: string }> = {
+  completed: { tone: 'green', label: 'OK' },
+  failed: { tone: 'red', label: 'ERR' },
+  processing: { tone: 'amber', label: '…' },
 }
-const PLAN_PRICES: Record<string, string> = {
-  free: '0', starter: '19', professional: '49', enterprise: '99'
-}
-
-function StatCard({ label, value, sub, icon: Icon, trend }: {
-  label: string; value: string | number; sub?: string; icon: any; trend?: 'up' | 'down' | null
-}) {
-  return (
-    <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm">
-      <div className="flex items-start justify-between mb-3">
-        <div className="h-9 w-9 rounded-xl bg-gray-100 flex items-center justify-center">
-          <Icon className="h-4 w-4 text-gray-600" />
-        </div>
-        {trend && (
-          trend === 'up'
-            ? <ArrowUpRight className="h-4 w-4 text-gray-400" />
-            : <ArrowDownRight className="h-4 w-4 text-gray-300" />
-        )}
-      </div>
-      <p className="text-2xl font-bold text-gray-900 font-mono">{value}</p>
-      <p className="text-xs text-gray-400 mt-0.5">{label}</p>
-      {sub && <p className="text-[10px] text-gray-300 mt-0.5 font-mono">{sub}</p>}
-    </div>
-  )
-}
+// i18n-ignore-end
 
 export default function AdminStatsPage() {
   const { t, intlLocale } = useT()
-  const jobTypeLabel = (type: string) => t.has(`admin.job_type_${type}`) ? t(`admin.job_type_${type}`) : type
-  const [stats, setStats] = useState<Stats | null>(null)
-  const [loading, setLoading] = useState(true)
+  const f = useFormats('USD')
+  const now = useNow()
+  const { data: stats, loading, refresh } = useAdminData<Stats>('/api/admin/stats')
 
-  useEffect(() => { fetchStats() }, [])
+  if (loading && !stats) return <PageSkeleton tiles={5} />
+  if (!stats?.financial) return <LoadError />
 
-  const fetchStats = async () => {
-    setLoading(true)
-    try {
-      const res = await fetch('/api/admin/stats')
-      const data = await res.json()
-      setStats(data)
-    } catch { } finally { setLoading(false) }
-  }
-
-  if (loading) return (
-    <div className="space-y-6">
-      <div className="h-8 w-48 bg-gray-100 rounded-lg animate-pulse" />
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-        {[1,2,3,4,5].map(i => <div key={i} className="h-28 bg-white rounded-2xl animate-pulse border border-gray-100" />)}
-      </div>
-    </div>
-  )
-  if (!stats) return <p className="text-red-500 text-sm">{t('admin.load_error')}</p>
-
-  const f = stats.financial
+  const fin = stats.financial
+  const usd = (n: number) => f.money.format(n)
+  const usd2 = (n: number) => f.money2.format(n)
+  const month = now ? new Date(now).toLocaleDateString(intlLocale, { month: 'long', year: 'numeric' }) : ''
+  const jobType = (type: string) => t.has(`admin.job_type_${type}`) ? t(`admin.job_type_${type}`) : type
+  const counters = [
+    { label: t('admin.nav_users'), value: stats.totalUsers, icon: <Users /> },
+    { label: t('admin.stats_stores'), value: stats.totalStores, icon: <Store /> },
+    { label: t('common.products'), value: stats.totalProducts, icon: <Package /> },
+    { label: t('sidebar.ai_images'), value: stats.totalImages, icon: <ImageIcon /> },
+    { label: t('admin.stats_credits_used'), value: stats.totalCreditsUsed, icon: <CreditCard /> },
+  ]
 
   return (
-    <div className="space-y-6 font-mono">
-      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex items-start justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">{t('admin.stats_title')}</h1>
-          <p className="text-xs text-gray-400 mt-0.5 font-sans">{t('admin.stats_subtitle', { date: new Date().toLocaleDateString(intlLocale, { month: 'long', year: 'numeric' }) })}</p>
-        </div>
-        <button onClick={fetchStats} className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-gray-200 text-xs text-gray-600 hover:bg-gray-50 transition-colors">
-          <RefreshCw className="h-3.5 w-3.5" />{t('common.refresh')}
-        </button>
-      </motion.div>
+    <FadeIn className="space-y-6">
+      <PageHeader title={t('admin.stats_title')} description={t('admin.stats_subtitle', { date: month })}
+        actions={<RefreshButton loading={loading} onClick={refresh} />} />
 
-      {/* Platform stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-        {[
-          { label: t('admin.nav_users'), value: stats.totalUsers, icon: Users },
-          { label: t('admin.stats_stores'), value: stats.totalStores, icon: Store },
-          { label: t('common.products'), value: stats.totalProducts, icon: Package },
-          { label: t('sidebar.ai_images'), value: stats.totalImages, icon: ImageIcon },
-          { label: t('admin.stats_credits_used'), value: stats.totalCreditsUsed, icon: CreditCard },
-        ].map((s, i) => (
-          <motion.div key={s.label} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}>
-            <StatCard {...s} value={s.value.toLocaleString(intlLocale)} />
-          </motion.div>
-        ))}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+        {counters.map(c => <StatCard key={c.label} label={c.label} value={f.int.format(c.value)} icon={c.icon} />)}
       </div>
 
-      {/* Financial Overview - NO colored banners */}
-      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18 }}>
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-50 flex items-center justify-between">
-            <div>
-              <p className="text-[10px] text-gray-400 uppercase tracking-widest">{t('admin.stats_financial_dashboard')}</p>
-              <p className="text-sm font-semibold text-gray-900 mt-0.5">{t('admin.stats_current_month')} · {new Date().toLocaleDateString(intlLocale, { month: 'long', year: 'numeric' })}</p>
-            </div>
-            <div className="text-right">
-              <p className="text-2xl font-bold text-gray-900">${f.totalMonthlyRevenue}</p>
-              <p className="text-[10px] text-gray-400">{t('admin.stats_total_monthly_revenue')}</p>
-            </div>
+      <Section title={t('admin.stats_financial_dashboard')} description={`${t('admin.stats_current_month')} · ${month}`}
+        action={(
+          <div className="text-right">
+            <p className="text-[20px] font-semibold leading-none tracking-[-0.02em] text-neutral-950 tabular-nums">{usd(fin.totalMonthlyRevenue)}</p>
+            <p className="mt-1 text-[12px] text-neutral-500">{t('admin.stats_total_monthly_revenue')}</p>
           </div>
-          <div className="grid grid-cols-2 lg:grid-cols-5 divide-x divide-y lg:divide-y-0 divide-gray-50">
-            {[
-              { label: t('admin.mrr'), value: `$${f.mrr}`, sub: t('admin.stats_subscribers', { count: f.totalPaidUsers }) },
-              { label: t('admin.financial_subscriptions'), value: `$${f.monthlySubscriptionRevenue}`, sub: t('admin.stats_current_month') },
-              { label: t('admin.financial_credit_packs'), value: `$${f.monthlyCreditPackRevenue}`, sub: t('admin.stats_current_month') },
-              { label: t('admin.financial_api_cost'), value: `$${f.totalMonthlyApiCost.toFixed(2)}`, sub: 'OpenAI + KIE' }, // i18n-ignore
-              { label: t('admin.stats_profit_margin'), value: `${f.profitMargin.toFixed(1)}%`, sub: `${t('admin.financial_profit')}: $${f.monthlyProfit.toFixed(0)}` },
-            ].map(item => (
-              <div key={item.label} className="px-5 py-4">
-                <p className="text-[10px] text-gray-400 uppercase tracking-widest">{item.label}</p>
-                <p className="text-lg font-bold text-gray-900 mt-1">{item.value}</p>
-                <p className="text-[10px] text-gray-300 mt-0.5 font-sans">{item.sub}</p>
-              </div>
+        )}>
+        <Card className="overflow-hidden">
+          <div className="grid grid-cols-2 gap-px bg-neutral-100 lg:grid-cols-4">
+            <Metric label={t('admin.mrr')} value={usd(fin.mrr)} note={t('admin.stats_subscribers', { count: fin.totalPaidUsers })} />
+            <Metric label={t('admin.financial_subscriptions')} value={usd(fin.monthlySubscriptionRevenue)} note={t('admin.stats_current_month')} />
+            <Metric label={t('admin.financial_credit_packs')} value={usd(fin.monthlyCreditPackRevenue)} note={t('admin.stats_individual_packs')} />
+            <Metric label={t('admin.financial_api_cost')} value={usd2(fin.totalMonthlyApiCost)} note="OpenAI + KIE" /* i18n-ignore */ />
+            <Metric label={t('admin.financial_profit')} value={usd(fin.monthlyProfit)} note={t('admin.stats_current_month')} />
+            <Metric label={t('admin.stats_profit_margin')} value={`${f.num.format(fin.profitMargin)}%`} />
+            <Metric label={t('admin.arpu')} value={usd2(fin.arpu)} note={t('admin.stats_arpu_sub')} />
+            <Metric label={t('admin.stats_cost_per_credit')} value={`$${fin.costPerCredit.toFixed(4)}`} note={t('admin.stats_revenue_per_credit', { value: fin.revenuePerCredit.toFixed(3) })} />
+          </div>
+        </Card>
+      </Section>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <Card>
+          <CardHeader title={t('admin.stats_all_time')} />
+          <dl className="divide-y divide-neutral-100 px-5 pb-3 pt-2">
+            <DataRow label={t('admin.financial_total_revenue')} value={usd(fin.totalRevenue)} strong />
+            <DataRow label={t('admin.financial_total_api_cost')} value={usd2(fin.totalApiCost)} />
+            <DataRow label={t('admin.financial_total_profit')} value={usd(fin.totalProfit)} strong />
+            <DataRow label={t('admin.stats_image_cost')} value={usd2(fin.totalImageCost)} />
+            <DataRow label={t('admin.stats_text_cost')} value={`$${fin.totalTextCost.toFixed(4)}`} />
+            <DataRow label={t('admin.stats_texts_generated')} value={f.int.format(fin.totalTextGenerations)} />
+          </dl>
+        </Card>
+        <Card>
+          <CardHeader title={t('admin.plan_distribution')} />
+          <div className="px-5 pb-5 pt-4">
+            <PlanDistribution plans={fin.planDistribution} total={stats.totalUsers} note={p => t('admin.stats_price_per_month', { price: PLAN_PRICES[p] ?? 0 })} />
+          </div>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <Card>
+          <CardHeader title={t('admin.stats_recent_users')} description={t('admin.stats_total_count', { count: stats.totalUsers })} />
+          <ul className="mt-3 divide-y divide-neutral-100 border-t border-neutral-100">
+            {stats.recentUsers.slice(0, 6).map(user => (
+              <li key={user.id} className="flex items-center gap-3 px-5 py-2.5">
+                <UserAvatar name={user.name} email={user.email} />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[13px] font-medium text-neutral-900">{user.name || user.email}</p>
+                  <p className="truncate text-[12px] text-neutral-500">{user.email}</p>
+                </div>
+                <div className="shrink-0 text-right">
+                  <PlanBadge plan={user.plan} />
+                  <p className="mt-0.5 text-[12px] tabular-nums text-neutral-400">{user.credits} {t('common.credits_short')}</p>
+                </div>
+              </li>
             ))}
-          </div>
-        </div>
-      </motion.div>
-
-      {/* Second row */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {[
-          { label: t('admin.stats_subscription_revenue'), value: `$${f.monthlySubscriptionRevenue}`, sub: t('admin.financial_active_subscribers', { count: f.totalPaidUsers }), icon: Wallet },
-          { label: t('admin.financial_credit_packs'), value: `$${f.monthlyCreditPackRevenue}`, sub: t('admin.stats_individual_packs'), icon: CreditCard },
-          { label: t('admin.arpu'), value: `$${f.arpu.toFixed(2)}`, sub: t('admin.stats_arpu_sub'), icon: Calculator },
-          { label: t('admin.stats_cost_per_credit'), value: `$${f.costPerCredit.toFixed(4)}`, sub: t('admin.stats_revenue_per_credit', { value: f.revenuePerCredit.toFixed(3) }), icon: BarChart3 },
-        ].map((c, i) => (
-          <motion.div key={c.label} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.22 + i * 0.03 }}>
-            <StatCard {...c} />
-          </motion.div>
-        ))}
-      </div>
-
-      {/* All-time + Plan distribution */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.28 }}>
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm">
-            <div className="px-5 py-4 border-b border-gray-50">
-              <p className="text-[10px] text-gray-400 uppercase tracking-widest">{t('admin.stats_all_time')}</p>
-            </div>
-            <div className="p-4 space-y-2">
-              {[
-                { label: t('admin.financial_total_revenue'), value: `$${f.totalRevenue}`, bold: true },
-                { label: t('admin.financial_total_api_cost'), value: `$${f.totalApiCost.toFixed(2)}`, bold: false },
-                { label: t('admin.financial_total_profit'), value: `$${f.totalProfit.toFixed(0)}`, bold: true },
-                { label: t('admin.stats_image_cost'), value: `$${f.totalImageCost.toFixed(2)}`, bold: false },
-                { label: t('admin.stats_text_cost'), value: `$${f.totalTextCost.toFixed(4)}`, bold: false },
-                { label: t('admin.stats_texts_generated'), value: f.totalTextGenerations.toLocaleString(intlLocale), bold: false },
-              ].map(row => (
-                <div key={row.label} className="flex items-center justify-between px-3 py-2 rounded-xl hover:bg-gray-50 transition-colors">
-                  <span className="text-xs text-gray-500 font-sans">{row.label}</span>
-                  <span className={`text-xs ${row.bold ? 'font-bold text-gray-900' : 'text-gray-500'}`}>{row.value}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </motion.div>
-
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm">
-            <div className="px-5 py-4 border-b border-gray-50">
-              <p className="text-[10px] text-gray-400 uppercase tracking-widest">{t('admin.plan_distribution')}</p>
-            </div>
-            <div className="p-4 space-y-3">
-              {Object.entries(f.planDistribution).map(([plan, count]) => {
-                const total = stats.totalUsers || 1
-                const pct = ((count / total) * 100).toFixed(1)
-                return (
-                  <div key={plan}>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-medium text-gray-900 capitalize">{plan}</span>
-                        <span className="text-[10px] text-gray-400 font-sans">{t('admin.stats_price_per_month', { price: PLAN_PRICES[plan] || '0' })}</span>
-                      </div>
-                      <span className="text-xs text-gray-600 font-semibold">{count} <span className="text-gray-300">({pct}%)</span></span>
-                    </div>
-                    <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                      <motion.div
-                        initial={{ width: 0 }}
-                        animate={{ width: `${pct}%` }}
-                        transition={{ duration: 0.8, delay: 0.3 }}
-                        className={`h-full rounded-full ${PLAN_COLORS[plan] || 'bg-gray-300'}`}
-                      />
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        </motion.div>
-      </div>
-
-      {/* Recent users + jobs */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.34 }}>
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm">
-            <div className="px-5 py-4 border-b border-gray-50 flex items-center justify-between">
-              <p className="text-[10px] text-gray-400 uppercase tracking-widest">{t('admin.stats_recent_users')}</p>
-              <span className="text-xs text-gray-400 font-sans">{t('admin.stats_total_count', { count: stats.totalUsers })}</span>
-            </div>
-            <div className="divide-y divide-gray-50">
-              {stats.recentUsers.slice(0, 6).map(user => (
-                <div key={user.id} className="flex items-center gap-3 px-5 py-3 hover:bg-gray-50/50 transition-colors">
-                  <div className="h-8 w-8 rounded-xl bg-gray-900 flex items-center justify-center shrink-0">
-                    <span className="text-xs font-bold text-white">{user.name?.[0]?.toUpperCase() || 'U'}</span>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium text-gray-900 truncate">{user.name || user.email}</p>
-                    <p className="text-[10px] text-gray-400 truncate font-sans">{user.email}</p>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <span className="text-[10px] bg-gray-100 text-gray-600 px-2 py-0.5 rounded-lg capitalize">{user.plan}</span>
-                    <p className="text-[10px] text-gray-300 mt-0.5">{user.credits} {t('common.credits_short')}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </motion.div>
-
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.37 }}>
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm">
-            <div className="px-5 py-4 border-b border-gray-50 flex items-center justify-between">
-              <p className="text-[10px] text-gray-400 uppercase tracking-widest">{t('admin.stats_recent_generations')}</p>
-              <span className="text-xs text-gray-300 font-sans animate-pulse">{t('admin.stats_live')}</span>
-            </div>
-            <div className="divide-y divide-gray-50">
-              {stats.recentJobs.slice(0, 8).map(job => (
-                <div key={job.id} className="flex items-center gap-3 px-5 py-3 hover:bg-gray-50/50 transition-colors">
-                  <div className={`h-8 w-8 rounded-xl flex items-center justify-center shrink-0 ${job.type === 'image' ? 'bg-gray-100' : 'bg-gray-50'}`}>
-                    {job.type === 'image'
-                      ? <ImageIcon className="h-3.5 w-3.5 text-gray-500" />
-                      : <FileText className="h-3.5 w-3.5 text-gray-400" />
-                    }
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium text-gray-900 capitalize">
-                      {jobTypeLabel(job.type)}
-                    </p>
-                    <p className="text-[10px] text-gray-400 truncate font-sans">
+          </ul>
+        </Card>
+        <Card>
+          <CardHeader title={t('admin.stats_recent_generations')} action={<Badge tone="green" live>{t('admin.stats_live')}</Badge>} />
+          <ul className="mt-3 divide-y divide-neutral-100 border-t border-neutral-100">
+            {stats.recentJobs.slice(0, 8).map(job => {
+              const status = JOB_STATUS[job.status] ?? { tone: 'neutral' as Tone, label: 'Q' }
+              return (
+                <li key={job.id} className="flex items-center gap-3 px-5 py-2.5">
+                  <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-neutral-100 text-neutral-500 [&_svg]:size-3.5">
+                    {job.type === 'image' ? <ImageIcon /> : <FileText />}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[13px] font-medium text-neutral-900">{jobType(job.type)}</p>
+                    <p className="truncate text-[12px] text-neutral-500">
                       {job.user_name || job.user_email} · {new Date(job.created_at).toLocaleString(intlLocale, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
                     </p>
                   </div>
-                  <span className={`text-[10px] px-2 py-0.5 rounded-lg shrink-0 ${
-                    job.status === 'completed' ? 'bg-gray-100 text-gray-600' :
-                    job.status === 'failed' ? 'bg-gray-900 text-white' :
-                    job.status === 'processing' ? 'bg-gray-200 text-gray-700' :
-                    'bg-gray-50 text-gray-400'
-                  }`}>
-                    {job.status === 'completed' ? 'OK' : job.status === 'failed' ? 'ERR' : job.status === 'processing' ? '...' : 'Q'}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </motion.div>
+                  <Badge tone={status.tone}>{status.label}</Badge>
+                </li>
+              )
+            })}
+          </ul>
+        </Card>
       </div>
 
-      {/* API cost reference - no colored boxes */}
-      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm">
-          <div className="px-5 py-4 border-b border-gray-50">
-            <p className="text-[10px] text-gray-400 uppercase tracking-widest">{t('admin.api_price_reference')}</p>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-gray-50">
-            {[
-              { name: 'OpenAI GPT-4o-mini', icon: FileText, lines: [t('admin.stats_gpt_price'), t('admin.stats_gpt_per_generation'), t('admin.stats_gpt_tokens')] }, // i18n-ignore
-              { name: 'KIE Nano Banana Pro', icon: ImageIcon, lines: [t('admin.stats_kie_price'), t('admin.stats_kie_avg'), t('admin.stats_kie_via')] }, // i18n-ignore
-            ].map(api => (
-              <div key={api.name} className="px-5 py-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <api.icon className="h-4 w-4 text-gray-400" />
-                  <span className="text-xs font-semibold text-gray-900">{api.name}</span>
-                </div>
-                {api.lines.map((line, i) => (
-                  <p key={i} className={`text-[11px] font-sans ${i === 0 ? 'text-gray-600' : i === 1 ? 'text-gray-500' : 'text-gray-300'}`}>{line}</p>
-                ))}
-              </div>
-            ))}
-          </div>
+      <Card>
+        <CardHeader title={t('admin.api_price_reference')} />
+        <div className="mt-3 grid grid-cols-1 gap-px border-t border-neutral-100 bg-neutral-100 sm:grid-cols-2">
+          {[
+            { name: 'OpenAI GPT-4o-mini', icon: <FileText />, lines: [t('admin.stats_gpt_price'), t('admin.stats_gpt_per_generation'), t('admin.stats_gpt_tokens')] }, // i18n-ignore
+            { name: 'KIE Nano Banana Pro', icon: <ImageIcon />, lines: [t('admin.stats_kie_price'), t('admin.stats_kie_avg'), t('admin.stats_kie_via')] }, // i18n-ignore
+          ].map(api => (
+            <div key={api.name} className="bg-white px-5 py-4">
+              <p className="mb-2 flex items-center gap-2 text-[13px] font-semibold text-neutral-900 [&_svg]:size-4 [&_svg]:text-neutral-400">{api.icon}{api.name}</p>
+              {api.lines.map(line => <p key={line} className="text-[12px] leading-relaxed text-neutral-500">{line}</p>)}
+            </div>
+          ))}
         </div>
-      </motion.div>
-    </div>
+      </Card>
+    </FadeIn>
   )
 }

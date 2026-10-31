@@ -1,45 +1,43 @@
 'use client'
 
 import { useState } from 'react'
-import { motion } from 'framer-motion'
-import { Send, Users, CheckCircle2, AlertCircle } from 'lucide-react'
+import { toast } from 'sonner'
+import { Send } from 'lucide-react'
 import { useT } from '@/lib/i18n/context'
-import type { TFunction } from '@/lib/i18n/translate'
+import { PageHeader } from '@/components/app/page-header'
+import { Card, CardFooter, CardHeader } from '@/components/app/surface'
+import { Button } from '@/components/app/button'
+import { ChoiceCard, Input, Select, Textarea } from '@/components/app/input'
+import { Segmented } from '@/components/app/tabs'
+import { ConfirmDialog } from '@/components/app/dialog'
+import { FadeIn } from '@/components/app/motion'
+import { usePlanLabel } from '@/components/admin/parts'
 
-const getTypes = (t: TFunction) => [
-  { value: 'info', label: t('admin.notif_type_info'), desc: t('admin.broadcast_type_info_desc') },
-  { value: 'success', label: t('admin.notif_type_success'), desc: t('admin.broadcast_type_success_desc') },
-  { value: 'warning', label: t('admin.notif_type_warning'), desc: t('admin.broadcast_type_warning_desc') },
-  { value: 'error', label: t('admin.notif_type_error'), desc: t('admin.broadcast_type_error_desc') },
-]
+// =============================================
+// Anunțuri: o notificare în aplicație către toți oamenii sau către un grup.
+// În dreapta se vede cum arată; trimiterea cere o confirmare, fiindcă nu se
+// mai poate lua înapoi.
+// =============================================
 
-const getTargets = (t: TFunction) => [
-  { value: 'all', label: t('admin.broadcast_target_all') },
-  { value: 'paid', label: t('admin.broadcast_target_paid') },
-  { value: 'free', label: t('admin.broadcast_target_free') },
-  { value: 'plan', label: t('admin.broadcast_target_plan') },
-]
-
+const TYPES = ['info', 'success', 'warning', 'error']
+const TARGETS = ['all', 'paid', 'free', 'plan'] as const
 const PLANS = ['starter', 'professional', 'enterprise']
+type Target = (typeof TARGETS)[number]
 
 export default function BroadcastPage() {
   const { t } = useT()
-  const TYPES = getTypes(t)
-  const TARGETS = getTargets(t)
+  const planLabel = usePlanLabel()
   const [title, setTitle] = useState('')
   const [message, setMessage] = useState('')
   const [type, setType] = useState('info')
-  const [target, setTarget] = useState('all')
+  const [target, setTarget] = useState<Target>('all')
   const [plan, setPlan] = useState('starter')
+  const [confirming, setConfirming] = useState(false)
   const [sending, setSending] = useState(false)
-  const [result, setResult] = useState<{ ok: boolean; msg: string } | null>(null)
+  const ready = !!title.trim() && !!message.trim()
 
   const send = async () => {
-    if (!title.trim() || !message.trim()) return
-    const confirmed = window.confirm(t('admin.broadcast_confirm'))
-    if (!confirmed) return
     setSending(true)
-    setResult(null)
     try {
       const res = await fetch('/api/admin/broadcast', {
         method: 'POST',
@@ -48,127 +46,77 @@ export default function BroadcastPage() {
       })
       const data = await res.json()
       if (data.sent) {
-        setResult({ ok: true, msg: t('admin.broadcast_sent', { count: Number(data.sent) }) })
+        toast.success(t('admin.broadcast_sent', { count: Number(data.sent) }))
         setTitle('')
         setMessage('')
       } else {
-        setResult({ ok: false, msg: data.error || t('admin.notification_send_error') })
+        toast.error(data.error || t('admin.notification_send_error'))
       }
     } catch {
-      setResult({ ok: false, msg: t('common.error_connection') })
+      toast.error(t('common.error_connection'))
     } finally {
       setSending(false)
+      setConfirming(false)
     }
   }
 
   return (
-    <div className="space-y-6 font-mono max-w-2xl">
-      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-        <h1 className="text-2xl font-bold text-gray-900 tracking-tight">{t('admin.broadcast_title')}</h1>
-        <p className="text-xs text-gray-400 mt-0.5 font-sans">{t('admin.broadcast_subtitle')}</p>
-      </motion.div>
+    <FadeIn className="space-y-6">
+      <PageHeader title={t('admin.broadcast_title')} description={t('admin.broadcast_subtitle')} />
 
-      {result && (
-        <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
-          className={`flex items-center gap-3 p-4 rounded-xl ${result.ok ? 'bg-gray-50 border border-gray-200' : 'bg-gray-900 text-white'}`}
-        >
-          {result.ok ? <CheckCircle2 className="h-4 w-4 text-gray-700 shrink-0" /> : <AlertCircle className="h-4 w-4 text-white shrink-0" />}
-          <span className="text-sm font-sans">{result.msg}</span>
-        </motion.div>
-      )}
-
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-5">
-        {/* Type */}
-        <div>
-          <p className="text-[10px] text-gray-400 uppercase tracking-widest mb-2">{t('admin.broadcast_message_type')}</p>
-          <div className="grid grid-cols-2 gap-2">
-            {TYPES.map(t => (
-              <button
-                key={t.value}
-                onClick={() => setType(t.value)}
-                className={`p-3 rounded-xl border-2 text-left transition-all ${type === t.value ? 'border-gray-900 bg-gray-50' : 'border-gray-100 hover:border-gray-300'}`}
-              >
-                <p className="text-xs font-semibold text-gray-900">{t.label}</p>
-                <p className="text-[10px] text-gray-400 font-sans mt-0.5">{t.desc}</p>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Target */}
-        <div>
-          <p className="text-[10px] text-gray-400 uppercase tracking-widest mb-2">{t('admin.broadcast_recipients')}</p>
-          <div className="flex flex-wrap gap-2">
-            {TARGETS.map(t => (
-              <button
-                key={t.value}
-                onClick={() => setTarget(t.value)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs transition-colors ${target === t.value ? 'bg-gray-900 text-white' : 'border border-gray-200 text-gray-600 hover:bg-gray-50'}`}
-              >
-                <Users className="h-3 w-3" />{t.label}
-              </button>
-            ))}
-          </div>
-          {target === 'plan' && (
-            <div className="flex gap-2 mt-2">
-              {PLANS.map(p => (
-                <button
-                  key={p}
-                  onClick={() => setPlan(p)}
-                  className={`px-3 py-1.5 rounded-xl text-xs capitalize transition-colors ${plan === p ? 'bg-gray-900 text-white' : 'border border-gray-200 text-gray-500 hover:bg-gray-50'}`}
-                >{p}</button>
-              ))}
+      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
+        <Card>
+          <div className="space-y-5 p-5">
+            <div>
+              <p className="mb-2 text-[13px] font-medium text-neutral-700">{t('admin.broadcast_message_type')}</p>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                {TYPES.map(v => (
+                  <ChoiceCard key={v} active={type === v} onClick={() => setType(v)} title={t(`admin.notif_type_${v}`)} description={t(`admin.broadcast_type_${v}_desc`)} />
+                ))}
+              </div>
             </div>
-          )}
-        </div>
 
-        {/* Title */}
-        <div>
-          <p className="text-[10px] text-gray-400 uppercase tracking-widest mb-2">{t('admin.field_title')}</p>
-          <input
-            value={title}
-            onChange={e => setTitle(e.target.value)}
-            placeholder={t('admin.broadcast_title_placeholder')}
-            maxLength={80}
-            className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm text-gray-900 focus:outline-none focus:border-gray-400 font-sans"
-          />
-        </div>
+            <div>
+              <p className="mb-2 text-[13px] font-medium text-neutral-700">{t('admin.broadcast_recipients')}</p>
+              <div className="flex flex-wrap items-center gap-2">
+                <Select value={target} onChange={e => setTarget(e.target.value as Target)} wrapperClassName="min-w-[220px] flex-1 sm:flex-none">
+                  {TARGETS.map(v => <option key={v} value={v}>{t(`admin.broadcast_target_${v}`)}</option>)}
+                </Select>
+                {target === 'plan' && (
+                  <Segmented id="broadcast-plan" value={plan} onChange={setPlan} items={PLANS.map(p => ({ value: p, label: planLabel(p) }))} />
+                )}
+              </div>
+            </div>
 
-        {/* Message */}
-        <div>
-          <p className="text-[10px] text-gray-400 uppercase tracking-widest mb-2">{t('admin.field_message')}</p>
-          <textarea
-            value={message}
-            onChange={e => setMessage(e.target.value)}
-            placeholder={t('admin.broadcast_message_placeholder')}
-            rows={4}
-            maxLength={500}
-            className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm text-gray-900 focus:outline-none focus:border-gray-400 resize-none font-sans"
-          />
-          <p className="text-[10px] text-gray-300 mt-1 text-right">{message.length}/500</p>
-        </div>
+            <div>
+              <label htmlFor="broadcast-title" className="mb-1.5 block text-[13px] font-medium text-neutral-700">{t('admin.field_title')}</label>
+              <Input id="broadcast-title" value={title} onChange={e => setTitle(e.target.value)} placeholder={t('admin.broadcast_title_placeholder')} maxLength={80} />
+            </div>
 
-        {/* Preview */}
-        {(title || message) && (
-          <div className="p-4 rounded-xl bg-gray-50 border border-gray-100">
-            <p className="text-[10px] text-gray-400 uppercase tracking-widest mb-2">{t('admin.broadcast_preview')}</p>
-            <p className="text-sm font-semibold text-gray-900 font-sans">{title || '—'}</p>
-            <p className="text-xs text-gray-500 font-sans mt-1">{message || '—'}</p>
+            <div>
+              <label htmlFor="broadcast-message" className="mb-1.5 block text-[13px] font-medium text-neutral-700">{t('admin.field_message')}</label>
+              <Textarea id="broadcast-message" value={message} onChange={e => setMessage(e.target.value)} placeholder={t('admin.broadcast_message_placeholder')} rows={4} maxLength={500} />
+              <p className="mt-1 text-right text-[12px] tabular-nums text-neutral-400">{message.length}/500</p>
+            </div>
           </div>
-        )}
+          <CardFooter className="justify-end">
+            <Button variant="primary" disabled={!ready} onClick={() => setConfirming(true)}><Send />{t('admin.send_notification')}</Button>
+          </CardFooter>
+        </Card>
 
-        <button
-          onClick={send}
-          disabled={sending || !title.trim() || !message.trim()}
-          className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-gray-900 text-white text-sm font-medium hover:bg-gray-800 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-        >
-          {sending ? (
-            <><div className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />{t('common.sending')}</>
-          ) : (
-            <><Send className="h-4 w-4" />{t('admin.send_notification')}</>
-          )}
-        </button>
+        <Card className="lg:sticky lg:top-20">
+          <CardHeader title={t('admin.broadcast_preview')} />
+          <div className="p-5 pt-3">
+            <div className="rounded-xl bg-neutral-50 p-4 ring-1 ring-neutral-200/70">
+              <p className="break-words text-[13px] font-semibold text-neutral-900">{title || '—'}</p>
+              <p className="mt-1 whitespace-pre-wrap break-words text-[13px] leading-relaxed text-neutral-500">{message || '—'}</p>
+            </div>
+          </div>
+        </Card>
       </div>
-    </div>
+
+      <ConfirmDialog open={confirming} onOpenChange={setConfirming} tone="primary" title={t('admin.send_notification')} description={t('admin.broadcast_confirm')}
+        confirmLabel={sending ? t('common.sending') : t('admin.send_notification')} loading={sending} onConfirm={send} />
+    </FadeIn>
   )
 }

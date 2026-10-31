@@ -1,6 +1,6 @@
 'use client'
 
-import { useSyncExternalStore } from 'react'
+import { useEffect, useState, useSyncExternalStore } from 'react'
 import { useT } from '@/lib/i18n/context'
 
 // =============================================
@@ -30,6 +30,16 @@ function snapshot() {
 
 export function useNow(): number {
   return useSyncExternalStore(subscribe, snapshot, () => 0)
+}
+
+/** Valoarea, dar doar după ce s-a oprit din schimbat (o căutare, după ce omul nu mai scrie). */
+export function useDebounced<T>(value: T, ms = 300): T {
+  const [settled, setSettled] = useState(value)
+  useEffect(() => {
+    const timer = setTimeout(() => setSettled(value), ms)
+    return () => clearTimeout(timer)
+  }, [value, ms])
+  return settled
 }
 
 /** Cât timp a trecut de la o dată ISO, în limba omului: „acum 5 minute", „acum 3 ore", „ieri". */

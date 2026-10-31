@@ -1,186 +1,79 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { motion } from 'framer-motion'
-import {
-  Activity,
-  ImageIcon,
-  FileText,
-  UserPlus,
-  Store,
-  Send,
-  CreditCard,
-  Clock,
-  RefreshCw,
-  Loader2,
-} from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
+import { Activity, CreditCard, FileText, ImageIcon, RefreshCw, Send, Store, UserPlus, type LucideIcon } from 'lucide-react'
 import { useT } from '@/lib/i18n/context'
+import { PageHeader } from '@/components/app/page-header'
+import { Card, Section } from '@/components/app/surface'
+import { Badge } from '@/components/app/badge'
+import { EmptyState, Skeleton } from '@/components/app/feedback'
+import { FadeIn } from '@/components/app/motion'
+import { useAdminData } from '@/components/admin/use-admin-data'
+import { RefreshButton } from '@/components/admin/parts'
+
+// =============================================
+// Activitatea: tot ce s-a întâmplat pe platformă, pe zile.
+// =============================================
 
 type ActivityItem = {
-  id: string
-  type: string
-  description: string
-  user_email: string
-  user_name: string | null
-  created_at: string
-  metadata: any
+  id: string; type: string; description: string
+  user_email: string; user_name: string | null; created_at: string
 }
 
-const fadeInUp = {
-  initial: { opacity: 0, y: 15 },
-  animate: { opacity: 1, y: 0 },
-}
-
-const getActivityIcon = (type: string) => {
-  switch (type) {
-    case 'user_registered': return { icon: UserPlus, bg: 'bg-green-100', color: 'text-green-600' }
-    case 'store_connected': return { icon: Store, bg: 'bg-blue-100', color: 'text-blue-600' }
-    case 'products_synced': return { icon: RefreshCw, bg: 'bg-indigo-100', color: 'text-indigo-600' }
-    case 'text_generated': return { icon: FileText, bg: 'bg-blue-100', color: 'text-blue-600' }
-    case 'image_generated': return { icon: ImageIcon, bg: 'bg-purple-100', color: 'text-purple-600' }
-    case 'product_published': return { icon: Send, bg: 'bg-green-100', color: 'text-green-600' }
-    case 'credits_added': return { icon: CreditCard, bg: 'bg-yellow-100', color: 'text-yellow-600' }
-    default: return { icon: Activity, bg: 'bg-gray-100', color: 'text-gray-600' }
-  }
+const ICONS: Record<string, LucideIcon> = {
+  user_registered: UserPlus,
+  store_connected: Store,
+  products_synced: RefreshCw,
+  text_generated: FileText,
+  image_generated: ImageIcon,
+  product_published: Send,
+  credits_added: CreditCard,
 }
 
 export default function AdminActivityPage() {
   const { t, intlLocale } = useT()
-  const activityTypeLabel = (type: string) => t.has(`admin.activity_type_${type}`) ? t(`admin.activity_type_${type}`) : type.replace(/_/g, ' ')
-  const [activities, setActivities] = useState<ActivityItem[]>([])
-  const [loading, setLoading] = useState(true)
-  const [refreshing, setRefreshing] = useState(false)
+  const { data, loading, refresh } = useAdminData<{ activities: ActivityItem[] }>('/api/admin/activity')
+  const activities = data?.activities ?? []
+  const typeLabel = (type: string) => t.has(`admin.activity_type_${type}`) ? t(`admin.activity_type_${type}`) : type.replace(/_/g, ' ')
 
-  useEffect(() => {
-    fetchActivity()
-  }, [])
-
-  const fetchActivity = async (isRefresh = false) => {
-    if (isRefresh) setRefreshing(true)
-    try {
-      const res = await fetch('/api/admin/activity')
-      const data = await res.json()
-      setActivities(data.activities || [])
-    } catch {
-      console.error('Error loading activity')
-    } finally {
-      setLoading(false)
-      setRefreshing(false)
-    }
+  const groups = new Map<string, ActivityItem[]>()
+  for (const a of activities) {
+    const date = new Date(a.created_at).toLocaleDateString(intlLocale, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+    groups.set(date, [...(groups.get(date) ?? []), a])
   }
-
-  if (loading) {
-    return (
-      <div className="space-y-6">
-        <div className="h-8 w-48 bg-gray-200 rounded-lg animate-pulse" />
-        <div className="space-y-3">
-          {[1,2,3,4,5,6].map(i => (
-            <div key={i} className="h-16 bg-white rounded-2xl animate-pulse" />
-          ))}
-        </div>
-      </div>
-    )
-  }
-
-  // Group activities by date
-  const groupedActivities: Record<string, ActivityItem[]> = {}
-  activities.forEach(a => {
-    const date = new Date(a.created_at).toLocaleDateString(intlLocale, {
-      weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
-    })
-    if (!groupedActivities[date]) groupedActivities[date] = []
-    groupedActivities[date].push(a)
-  })
 
   return (
-    <div className="space-y-6">
-      <motion.div {...fadeInUp} transition={{ duration: 0.3 }}>
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">{t('admin.nav_activity')}</h1>
-            <p className="text-gray-500 text-sm mt-0.5">{t('admin.activity_subtitle')}</p>
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => fetchActivity(true)}
-            disabled={refreshing}
-            className="rounded-xl border-gray-200"
-          >
-            <RefreshCw className={`h-4 w-4 mr-1.5 ${refreshing ? 'animate-spin' : ''}`} />
-            {t('common.refresh')}
-          </Button>
-        </div>
-      </motion.div>
+    <FadeIn className="space-y-6">
+      <PageHeader title={t('admin.nav_activity')} description={t('admin.activity_subtitle')} actions={<RefreshButton loading={loading} onClick={refresh} />} />
 
-      {activities.length === 0 ? (
-        <Card className="rounded-2xl border-0 shadow-sm">
-          <CardContent className="flex flex-col items-center justify-center py-16">
-            <Activity className="h-12 w-12 text-gray-300 mb-4" />
-            <p className="text-gray-500 font-medium">{t('admin.activity_empty')}</p>
-            <p className="text-sm text-gray-400 mt-1">{t('admin.activity_empty_desc')}</p>
-          </CardContent>
-        </Card>
+      {loading && !data ? (
+        <Card className="space-y-3 p-5">{[1, 2, 3, 4, 5].map(i => <Skeleton key={i} className="h-11" />)}</Card>
+      ) : activities.length === 0 ? (
+        <Card><EmptyState icon={<Activity />} title={t('admin.activity_empty')} description={t('admin.activity_empty_desc')} /></Card>
       ) : (
         <div className="space-y-6">
-          {Object.entries(groupedActivities).map(([date, items], groupIndex) => (
-            <motion.div
-              key={date}
-              {...fadeInUp}
-              transition={{ duration: 0.3, delay: groupIndex * 0.05 }}
-            >
-              <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-3 capitalize">{date}</p>
-
-              <Card className="rounded-2xl border-0 shadow-sm">
-                <CardContent className="p-0">
-                  {items.map((activity, i) => {
-                    const iconConfig = getActivityIcon(activity.type)
-                    const IconComponent = iconConfig.icon
-
-                    return (
-                      <div key={activity.id}>
-                        <div className="flex items-center gap-4 px-5 py-3.5 hover:bg-gray-50/50 transition-colors">
-                          {/* Timeline connector */}
-                          <div className="relative flex flex-col items-center">
-                            <div className={`h-9 w-9 rounded-xl ${iconConfig.bg} flex items-center justify-center shrink-0`}>
-                              <IconComponent className={`h-4 w-4 ${iconConfig.color}`} />
-                            </div>
-                          </div>
-
-                          {/* Content */}
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm text-gray-900">{activity.description}</p>
-                            <div className="flex items-center gap-2 mt-0.5">
-                              <span className="text-[11px] text-gray-400">
-                                {activity.user_name || activity.user_email}
-                              </span>
-                              <span className="text-gray-200">·</span>
-                              <span className="text-[11px] text-gray-400">
-                                {new Date(activity.created_at).toLocaleTimeString(intlLocale, {
-                                  hour: '2-digit', minute: '2-digit'
-                                })}
-                              </span>
-                            </div>
-                          </div>
-
-                          {/* Type badge */}
-                          <Badge variant="secondary" className="bg-gray-100 text-gray-500 border-0 text-[10px] shrink-0">
-                            {activityTypeLabel(activity.type)}
-                          </Badge>
-                        </div>
-                        {i < items.length - 1 && <div className="border-b border-gray-50 ml-[4.5rem]" />}
+          {[...groups].map(([date, items]) => (
+            <Section key={date} title={<span className="first-letter:uppercase">{date}</span>}>
+              <Card className="divide-y divide-neutral-100 overflow-hidden">
+                {items.map(a => {
+                  const Icon = ICONS[a.type] ?? Activity
+                  return (
+                    <div key={a.id} className="flex items-center gap-3 px-5 py-3">
+                      <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-neutral-100 text-neutral-500"><Icon className="size-3.5" /></span>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[13px] text-neutral-900">{a.description}</p>
+                        <p className="mt-0.5 truncate text-[12px] text-neutral-500">
+                          {a.user_name || a.user_email} · {new Date(a.created_at).toLocaleTimeString(intlLocale, { hour: '2-digit', minute: '2-digit' })}
+                        </p>
                       </div>
-                    )
-                  })}
-                </CardContent>
+                      <Badge className="hidden shrink-0 sm:inline-flex">{typeLabel(a.type)}</Badge>
+                    </div>
+                  )
+                })}
               </Card>
-            </motion.div>
+            </Section>
           ))}
         </div>
       )}
-    </div>
+    </FadeIn>
   )
 }

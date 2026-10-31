@@ -1,860 +1,423 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import {
-  Users,
-  Loader2,
-  SearchIcon,
-  SlidersHorizontal,
-  X,
-  Plus,
-  Minus,
-  CreditCard,
-  Shield,
-  Crown,
-  CheckCircle,
-  AlertCircle,
-  MoreHorizontal,
-  Mail,
-  Calendar,
-  Package,
-  ImageIcon,
-  ArrowUpRight,
-  ArrowDownRight,
-  UserCheck,
-  UserX,
-  Sparkles,
-  ChevronDown,
-  Eye,
-  Gift,
-  Trash2,
-  Bell,
-  Send,
-  MessageSquare,
-} from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
-import { Label } from '@/components/ui/label'
-import { Separator } from '@/components/ui/separator'
+import { useEffect, useMemo, useState } from 'react'
+import { toast } from 'sonner'
+import { Bell, CheckCircle2, Minus, Plus, Search, Send, Trash2, UserCheck, Users } from 'lucide-react'
 import { useT } from '@/lib/i18n/context'
 import { storedMessage } from '@/lib/i18n/stored'
+import { cn } from '@/lib/utils'
+import { PageHeader } from '@/components/app/page-header'
+import { Card } from '@/components/app/surface'
+import { DataRow } from '@/components/app/kpi'
+import { Badge } from '@/components/app/badge'
+import { Button } from '@/components/app/button'
+import { ChoiceCard, Input, Select, Textarea } from '@/components/app/input'
+import { Segmented } from '@/components/app/tabs'
+import { Table, Td, Th, Tr } from '@/components/app/table'
+import { Sheet, SheetHeader } from '@/components/app/sheet'
+import { ConfirmDialog, Modal } from '@/components/app/dialog'
+import { Callout, EmptyState, Skeleton } from '@/components/app/feedback'
+import { FadeIn } from '@/components/app/motion'
+import { useFormats } from '@/components/app/formats'
+import { PlanBadge, UserAvatar, usePlanLabel } from '@/components/admin/parts'
+
+// =============================================
+// Utilizatorii: lista lor, cu căutare și filtre. Un rând deschide panoul
+// omului: creditele, planul, rolul, notificările și ștergerea contului.
+// =============================================
 
 type User = {
-  id: string
-  email: string
-  name: string | null
-  role: string
-  credits: number
-  plan: string
-  onboarding_completed: boolean
-  created_at: string
+  id: string; email: string; name: string | null; role: string
+  credits: number; plan: string; onboarding_completed: boolean; created_at: string
 }
 
-const fadeInUp = {
-  initial: { opacity: 0, y: 15 },
-  animate: { opacity: 1, y: 0 },
+const PLANS = ['free', 'starter', 'professional', 'enterprise']
+const ROLES = ['user', 'admin']
+const CREDIT_STEPS = [10, 20, 50, 100, 500]
+/** Ce primește fiecare plan pe lună (ca în lib/stripe/client.ts). */
+const PLAN_QUOTA: Record<string, { credits: number; price: number }> = {
+  starter: { credits: 150, price: 19 },
+  professional: { credits: 400, price: 49 },
+  enterprise: { credits: 900, price: 99 },
+}
+
+const post = (url: string, body: unknown) =>
+  fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+
+function Heading({ children }: { children: React.ReactNode }) {
+  return <h4 className="mb-2.5 text-[13px] font-semibold text-neutral-900">{children}</h4>
+}
+
+/** Fereastra unei notificări (către un om sau către toți). Se deschide de fiecare dată goală. */
+function NotifyModal({ onClose, title, description, icon, titlePlaceholder, messagePlaceholder, submitLabel, onSend }: {
+  onClose: () => void
+  title: string
+  description: React.ReactNode
+  icon?: React.ReactNode
+  titlePlaceholder: string
+  messagePlaceholder: string
+  submitLabel: string
+  onSend: (n: { title: string; message: string; type: string }) => Promise<boolean>
+}) {
+  const { t } = useT()
+  const [subject, setSubject] = useState('')
+  const [message, setMessage] = useState('')
+  const [type, setType] = useState('info')
+  const [sending, setSending] = useState(false)
+
+  const send = async () => {
+    setSending(true)
+    const sent = await onSend({ title: subject, message, type })
+    setSending(false)
+    if (sent) onClose()
+  }
+
+  return (
+    <Modal open onOpenChange={o => { if (!o) onClose() }} title={title} description={description} icon={icon}
+      footer={(
+        <>
+          <Button onClick={onClose}>{t('common.cancel')}</Button>
+          <Button variant="primary" loading={sending} disabled={!subject || !message} onClick={send}>{!sending && <Send />}{submitLabel}</Button>
+        </>
+      )}>
+      <div className="space-y-4">
+        <div>
+          <label htmlFor="notify-title" className="mb-1.5 block text-[13px] font-medium text-neutral-700">{t('admin.field_title')}</label>
+          <Input id="notify-title" value={subject} onChange={e => setSubject(e.target.value)} placeholder={titlePlaceholder} />
+        </div>
+        <div>
+          <label htmlFor="notify-message" className="mb-1.5 block text-[13px] font-medium text-neutral-700">{t('admin.field_message')}</label>
+          <Textarea id="notify-message" value={message} onChange={e => setMessage(e.target.value)} placeholder={messagePlaceholder} rows={4} />
+        </div>
+        <div>
+          <p className="mb-1.5 text-[13px] font-medium text-neutral-700">{t('admin.field_type')}</p>
+          <Segmented id="notify-type" size="sm" value={type} onChange={setType} items={['info', 'success', 'warning', 'error'].map(v => ({ value: v, label: t(`admin.notif_type_${v}`) }))} />
+        </div>
+      </div>
+    </Modal>
+  )
 }
 
 export default function AdminUsersPage() {
   const { t, intlLocale } = useT()
+  const f = useFormats('USD')
+  const planLabel = usePlanLabel()
   const roleLabel = (role: string) => t.has(`admin.users_role_${role}`) ? t(`admin.users_role_${role}`) : role
+
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
-  const [searchQuery, setSearchQuery] = useState('')
+  const [search, setSearch] = useState('')
   const [planFilter, setPlanFilter] = useState('all')
   const [roleFilter, setRoleFilter] = useState('all')
-  const [showFilters, setShowFilters] = useState(false)
 
-  // Modal states
-  const [selectedUser, setSelectedUser] = useState<User | null>(null)
-  const [showUserModal, setShowUserModal] = useState(false)
-  const [actionLoading, setActionLoading] = useState('')
+  // Panoul unui om
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [sheetOpen, setSheetOpen] = useState(false)
+  const [busy, setBusy] = useState('')
   const [creditAmount, setCreditAmount] = useState('10')
   const [creditReason, setCreditReason] = useState('')
-  const [message, setMessage] = useState({ type: '', text: '' })
+  const selected = users.find(u => u.id === selectedId) ?? null
 
-  // Notification states
-  const [showNotifyModal, setShowNotifyModal] = useState(false)
+  // Ferestrele peste panou
   const [notifyUser, setNotifyUser] = useState<User | null>(null)
-  const [notifyTitle, setNotifyTitle] = useState('')
-  const [notifyMessage, setNotifyMessage] = useState('')
-  const [notifyType, setNotifyType] = useState('info')
-  const [sendingNotify, setSendingNotify] = useState(false)
-
-  // Global notification states
-  const [showGlobalNotifyModal, setShowGlobalNotifyModal] = useState(false)
-  const [globalTitle, setGlobalTitle] = useState('')
-  const [globalMessage, setGlobalMessage] = useState('')
-  const [globalType, setGlobalType] = useState('info')
-  const [sendingGlobal, setSendingGlobal] = useState(false)
-
-  // Delete states
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [globalOpen, setGlobalOpen] = useState(false)
   const [deleteUser, setDeleteUser] = useState<User | null>(null)
-  const [deleteConfirmText, setDeleteConfirmText] = useState('')
+  const [deleteConfirm, setDeleteConfirm] = useState('')
   const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
-    fetchUsers()
+    let alive = true
+    fetch('/api/admin/users')
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => { if (alive && d) setUsers(d.users ?? []) })
+      .catch(() => {})
+      .finally(() => { if (alive) setLoading(false) })
+    return () => { alive = false }
   }, [])
 
-  const fetchUsers = async () => {
+  const shown = useMemo(() => {
+    const q = search.toLowerCase()
+    return users.filter(u =>
+      (!q || u.email.toLowerCase().includes(q) || (u.name ?? '').toLowerCase().includes(q)) &&
+      (planFilter === 'all' || u.plan === planFilter) &&
+      (roleFilter === 'all' || u.role === roleFilter))
+  }, [users, search, planFilter, roleFilter])
+
+  const patchUser = (id: string, patch: Partial<User>) => setUsers(prev => prev.map(u => u.id === id ? { ...u, ...patch } : u))
+
+  const openUser = (user: User) => {
+    setSelectedId(user.id)
+    setSheetOpen(true)
+    setCreditAmount('10')
+    setCreditReason('')
+  }
+
+  const changeCredits = async (user: User, sign: 1 | -1) => {
+    const amount = parseInt(creditAmount)
+    if (!amount) return
+    const failed = t(sign > 0 ? 'admin.users_add_credits_error' : 'admin.users_remove_credits_error')
+    setBusy(sign > 0 ? 'addCredits' : 'removeCredits')
     try {
-      const res = await fetch('/api/admin/users')
+      const res = await post('/api/admin/users/credits', {
+        user_id: user.id,
+        amount: sign * amount,
+        reason: creditReason || storedMessage(sign > 0 ? 'admin.users_reason_added' : 'admin.users_reason_removed'),
+      })
       const data = await res.json()
-      setUsers(data.users || [])
+      if (!res.ok) { toast.error(data.error || failed); return }
+      toast.success(t(sign > 0 ? 'admin.users_credits_added' : 'admin.users_credits_removed', { count: amount }))
+      patchUser(user.id, { credits: Math.max(0, user.credits + sign * amount) })
+      if (sign > 0) { setCreditAmount('10'); setCreditReason('') }
+    } catch { toast.error(failed) } finally { setBusy('') }
+  }
+
+  const changePlan = async (user: User, plan: string) => {
+    setBusy(`plan-${plan}`)
+    try {
+      const res = await post('/api/admin/users/plan', { user_id: user.id, plan })
+      const data = await res.json()
+      if (!res.ok) { toast.error(data.error || t('admin.users_change_plan_error')); return }
+      toast.success(t('admin.users_plan_changed', { plan: planLabel(plan) }))
+      patchUser(user.id, { plan })
+    } catch { toast.error(t('admin.users_change_plan_error')) } finally { setBusy('') }
+  }
+
+  const changeRole = async (user: User, role: string) => {
+    setBusy(`role-${role}`)
+    try {
+      const res = await post('/api/admin/users/role', { user_id: user.id, role })
+      const data = await res.json()
+      if (!res.ok) { toast.error(data.error || t('admin.users_change_role_error')); return }
+      toast.success(t('admin.users_role_changed', { role: roleLabel(role) }))
+      patchUser(user.id, { role })
+    } catch { toast.error(t('admin.users_change_role_error')) } finally { setBusy('') }
+  }
+
+  const removeUser = async () => {
+    if (!deleteUser || deleteConfirm !== deleteUser.email) return
+    setDeleting(true)
+    try {
+      const res = await post('/api/admin/users/delete', { user_id: deleteUser.id })
+      const data = await res.json()
+      if (!res.ok) { toast.error(data.error || t('admin.users_delete_error')); return }
+      toast.success(data.message || t('admin.users_deleted'))
+      setUsers(prev => prev.filter(u => u.id !== deleteUser.id))
+      setDeleteUser(null)
+      setSheetOpen(false)
+    } catch { toast.error(t('admin.users_delete_error')) } finally { setDeleting(false) }
+  }
+
+  const sendNotification = async (body: Record<string, unknown>, okMessage: string) => {
+    try {
+      const res = await post('/api/notifications', body)
+      const data = await res.json()
+      if (!res.ok) { toast.error(data.error || t('admin.notification_send_error')); return false }
+      toast.success(okMessage)
+      return true
     } catch {
-      console.error('Error loading users')
-    } finally {
-      setLoading(false)
+      toast.error(t('admin.notification_send_error'))
+      return false
     }
   }
 
-  const filteredUsers = useMemo(() => {
-    return users.filter(u => {
-      const matchesSearch = searchQuery === '' ||
-        u.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (u.name || '').toLowerCase().includes(searchQuery.toLowerCase())
-      const matchesPlan = planFilter === 'all' || u.plan === planFilter
-      const matchesRole = roleFilter === 'all' || u.role === roleFilter
-      return matchesSearch && matchesPlan && matchesRole
-    })
-  }, [users, searchQuery, planFilter, roleFilter])
-
-  const activeFilters = (planFilter !== 'all' ? 1 : 0) + (roleFilter !== 'all' ? 1 : 0)
-
-  const showMsg = (type: string, text: string) => {
-    setMessage({ type, text })
-    setTimeout(() => setMessage({ type: '', text: '' }), 5000)
-  }
-
-  const openUserModal = (user: User) => {
-    setSelectedUser(user)
-    setShowUserModal(true)
-    setCreditAmount('10')
-    setCreditReason('')
-    setMessage({ type: '', text: '' })
-  }
-
-  // ===== CREDITS =====
-  const handleAddCredits = async () => {
-    if (!selectedUser || !creditAmount) return
-    setActionLoading('addCredits')
-    setMessage({ type: '', text: '' })
-    try {
-      const res = await fetch('/api/admin/users/credits', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          user_id: selectedUser.id,
-          amount: parseInt(creditAmount),
-          reason: creditReason || storedMessage('admin.users_reason_added'),
-        }),
-      })
-      const data = await res.json()
-      if (!res.ok) { showMsg('error', data.error || t('admin.users_add_credits_error')); return }
-      showMsg('success', t('admin.users_credits_added', { count: parseInt(creditAmount) }))
-      setSelectedUser({ ...selectedUser, credits: selectedUser.credits + parseInt(creditAmount) })
-      setUsers(prev => prev.map(u =>
-        u.id === selectedUser.id ? { ...u, credits: u.credits + parseInt(creditAmount) } : u
-      ))
-      setCreditAmount('10')
-      setCreditReason('')
-    } catch { showMsg('error', t('admin.users_add_credits_error')) }
-    finally { setActionLoading('') }
-  }
-
-  const handleRemoveCredits = async () => {
-    if (!selectedUser || !creditAmount) return
-    setActionLoading('removeCredits')
-    setMessage({ type: '', text: '' })
-    try {
-      const res = await fetch('/api/admin/users/credits', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          user_id: selectedUser.id,
-          amount: -parseInt(creditAmount),
-          reason: creditReason || storedMessage('admin.users_reason_removed'),
-        }),
-      })
-      const data = await res.json()
-      if (!res.ok) { showMsg('error', data.error || t('admin.users_remove_credits_error')); return }
-      showMsg('success', t('admin.users_credits_removed', { count: parseInt(creditAmount) }))
-      setSelectedUser({ ...selectedUser, credits: Math.max(0, selectedUser.credits - parseInt(creditAmount)) })
-      setUsers(prev => prev.map(u =>
-        u.id === selectedUser.id ? { ...u, credits: Math.max(0, u.credits - parseInt(creditAmount)) } : u
-      ))
-    } catch { showMsg('error', t('admin.users_remove_credits_error')) }
-    finally { setActionLoading('') }
-  }
-
-  // ===== PLAN =====
-  const handleChangePlan = async (newPlan: string) => {
-    if (!selectedUser) return
-    setActionLoading(`plan-${newPlan}`)
-    setMessage({ type: '', text: '' })
-    try {
-      const res = await fetch('/api/admin/users/plan', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id: selectedUser.id, plan: newPlan }),
-      })
-      const data = await res.json()
-      if (!res.ok) { showMsg('error', data.error || t('admin.users_change_plan_error')); return }
-      showMsg('success', t('admin.users_plan_changed', { plan: newPlan }))
-      setSelectedUser({ ...selectedUser, plan: newPlan })
-      setUsers(prev => prev.map(u => u.id === selectedUser.id ? { ...u, plan: newPlan } : u))
-    } catch { showMsg('error', t('admin.users_change_plan_error')) }
-    finally { setActionLoading('') }
-  }
-
-  // ===== ROLE =====
-  const handleChangeRole = async (newRole: string) => {
-    if (!selectedUser) return
-    setActionLoading(`role-${newRole}`)
-    setMessage({ type: '', text: '' })
-    try {
-      const res = await fetch('/api/admin/users/role', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id: selectedUser.id, role: newRole }),
-      })
-      const data = await res.json()
-      if (!res.ok) { showMsg('error', data.error || t('admin.users_change_role_error')); return }
-      showMsg('success', t('admin.users_role_changed', { role: roleLabel(newRole) }))
-      setSelectedUser({ ...selectedUser, role: newRole })
-      setUsers(prev => prev.map(u => u.id === selectedUser.id ? { ...u, role: newRole } : u))
-    } catch { showMsg('error', t('admin.users_change_role_error')) }
-    finally { setActionLoading('') }
-  }
-
-  // ===== DELETE USER =====
-  const openDeleteConfirm = (user: User) => {
-    setDeleteUser(user)
-    setDeleteConfirmText('')
-    setShowDeleteConfirm(true)
-  }
-
-  const handleDeleteUser = async () => {
-    if (!deleteUser || deleteConfirmText !== deleteUser.email) return
-    setDeleting(true)
-    try {
-      const res = await fetch('/api/admin/users/delete', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id: deleteUser.id }),
-      })
-      const data = await res.json()
-      if (!res.ok) { showMsg('error', data.error || t('admin.users_delete_error')); return }
-      showMsg('success', data.message || t('admin.users_deleted'))
-      setUsers(prev => prev.filter(u => u.id !== deleteUser.id))
-      setShowDeleteConfirm(false)
-      setShowUserModal(false)
-      setSelectedUser(null)
-      setDeleteUser(null)
-    } catch { showMsg('error', t('admin.users_delete_error')) }
-    finally { setDeleting(false) }
-  }
-
-  // ===== SEND NOTIFICATION TO USER =====
-  const openNotifyModal = (user: User) => {
-    setNotifyUser(user)
-    setNotifyTitle('')
-    setNotifyMessage('')
-    setNotifyType('info')
-    setShowNotifyModal(true)
-  }
-
-  const handleSendNotification = async () => {
-    if (!notifyUser || !notifyTitle || !notifyMessage) return
-    setSendingNotify(true)
-    try {
-      const res = await fetch('/api/notifications', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          user_id: notifyUser.id,
-          title: notifyTitle,
-          message: notifyMessage,
-          type: notifyType,
-          is_global: false,
-        }),
-      })
-      const data = await res.json()
-      if (!res.ok) { showMsg('error', data.error || t('admin.notification_send_error')); return }
-      showMsg('success', t('admin.users_notification_sent', { name: notifyUser.name || notifyUser.email }))
-      setShowNotifyModal(false)
-    } catch { showMsg('error', t('admin.notification_send_error')) }
-    finally { setSendingNotify(false) }
-  }
-
-  // ===== SEND GLOBAL NOTIFICATION =====
-  const handleSendGlobalNotification = async () => {
-    if (!globalTitle || !globalMessage) return
-    setSendingGlobal(true)
-    try {
-      const res = await fetch('/api/notifications', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: globalTitle,
-          message: globalMessage,
-          type: globalType,
-          is_global: true,
-        }),
-      })
-      const data = await res.json()
-      if (!res.ok) { showMsg('error', data.error || t('admin.notification_send_error')); return }
-      showMsg('success', t('admin.users_global_sent'))
-      setShowGlobalNotifyModal(false)
-      setGlobalTitle('')
-      setGlobalMessage('')
-    } catch { showMsg('error', t('admin.notification_send_error')) }
-    finally { setSendingGlobal(false) }
-  }
-
-  if (loading) {
-    return (
-      <div className="space-y-6">
-        <div className="h-8 w-48 bg-gray-200 rounded-lg animate-pulse" />
-        <div className="space-y-2">
-          {[1, 2, 3, 4, 5].map(i => <div key={i} className="h-16 bg-white rounded-2xl animate-pulse" />)}
-        </div>
-      </div>
-    )
+  const planNote = (plan: string) => {
+    const q = PLAN_QUOTA[plan]
+    return q ? t('admin.users_plan_quota', q) : t('admin.users_plan_free_quota', { count: 20 })
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <motion.div {...fadeInUp} transition={{ duration: 0.3 }}>
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 tracking-tight font-mono">{t('admin.nav_users')}</h1>
-            <p className="text-gray-500 text-sm mt-0.5">{t('admin.users_registered_count', { count: users.length })}</p>
-          </div>
-          <Button
-            onClick={() => setShowGlobalNotifyModal(true)}
-            className="bg-gray-900 hover:bg-gray-800 text-white rounded-xl h-10 px-4 text-sm"
-          >
-            <Bell className="h-4 w-4 mr-2" />
-            {t('admin.users_global_notification')}
-          </Button>
-        </div>
-      </motion.div>
+    <FadeIn className="space-y-6">
+      <PageHeader title={t('admin.nav_users')} description={t('admin.users_registered_count', { count: users.length })}
+        actions={<Button variant="primary" onClick={() => setGlobalOpen(true)}><Bell />{t('admin.users_global_notification')}</Button>} />
 
-      {/* Message */}
-      <AnimatePresence>
-        {message.text && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            className={`flex items-center gap-3 p-4 rounded-xl ${
-              message.type === 'success' ? 'bg-gray-50 border border-gray-200 text-gray-800' : 'bg-gray-900 text-white border border-gray-900'
-            }`}
-          >
-            {message.type === 'success' ? <CheckCircle className="h-5 w-5 shrink-0" /> : <AlertCircle className="h-5 w-5 shrink-0" />}
-            <span className="text-sm">{message.text}</span>
-            <button onClick={() => setMessage({ type: '', text: '' })} className="ml-auto text-current opacity-50 hover:opacity-100">✕</button>
-          </motion.div>
+      <div className="flex flex-col gap-2 sm:flex-row">
+        <Input icon={<Search />} wrapperClassName="flex-1" value={search} onChange={e => setSearch(e.target.value)} placeholder={t('admin.users_search_placeholder')} />
+        <Select value={planFilter} onChange={e => setPlanFilter(e.target.value)} wrapperClassName="sm:w-44" aria-label={t('common.plan')}>
+          <option value="all">{t('common.plan')}: {t('common.all')}</option>
+          {PLANS.map(p => <option key={p} value={p}>{planLabel(p)}</option>)}
+        </Select>
+        <Select value={roleFilter} onChange={e => setRoleFilter(e.target.value)} wrapperClassName="sm:w-40" aria-label={t('admin.users_role')}>
+          <option value="all">{t('admin.users_role')}: {t('common.all')}</option>
+          {ROLES.map(r => <option key={r} value={r}>{roleLabel(r)}</option>)}
+        </Select>
+      </div>
+
+      <Card className="overflow-hidden">
+        {loading ? (
+          <div className="space-y-3 p-5">{[1, 2, 3, 4, 5].map(i => <Skeleton key={i} className="h-10" />)}</div>
+        ) : shown.length === 0 ? (
+          <EmptyState icon={<Users />} title={t('admin.users_empty')} />
+        ) : (
+          <Table>
+            <thead>
+              <tr>
+                <Th>{t('admin.users_role_user')}</Th>
+                <Th>{t('common.plan')}</Th>
+                <Th align="right">{t('common.credits_label')}</Th>
+                <Th className="hidden md:table-cell">{t('admin.users_registered')}</Th>
+                <Th><span className="sr-only">{t('admin.actions')}</span></Th>
+              </tr>
+            </thead>
+            <tbody>
+              {shown.map(user => (
+                <Tr key={user.id} clickable onClick={() => openUser(user)}>
+                  <Td>
+                    <div className="flex items-center gap-3">
+                      <UserAvatar name={user.name} email={user.email} admin={user.role === 'admin'} />
+                      <div className="min-w-0">
+                        <p className="flex items-center gap-2 font-medium text-neutral-900">
+                          <span className="truncate">{user.name || t('admin.users_no_name')}</span>
+                          {user.role === 'admin' && <Badge tone="brand" className="h-[18px] px-1 text-[10px]">{t('admin.users_role_admin')}</Badge>}
+                        </p>
+                        <p className="truncate text-[12px] text-neutral-500">{user.email}</p>
+                      </div>
+                    </div>
+                  </Td>
+                  <Td><PlanBadge plan={user.plan} /></Td>
+                  <Td align="right" className="text-neutral-700">{user.credits}</Td>
+                  <Td className="hidden whitespace-nowrap text-neutral-500 md:table-cell">{f.date.format(new Date(user.created_at))}</Td>
+                  <Td align="right">
+                    <Button size="icon" variant="ghost" title={t('admin.send_notification')} aria-label={t('admin.send_notification')}
+                      onClick={e => { e.stopPropagation(); setNotifyUser(user) }}>
+                      <Bell />
+                    </Button>
+                  </Td>
+                </Tr>
+              ))}
+            </tbody>
+          </Table>
         )}
-      </AnimatePresence>
+      </Card>
 
-      {/* Search + Filters */}
-      <motion.div {...fadeInUp} transition={{ duration: 0.3, delay: 0.05 }}>
-        <div className="flex gap-3">
-          <div className="flex-1 relative">
-            <SearchIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <Input
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder={t('admin.users_search_placeholder')}
-              className="pl-10 h-10 rounded-xl border-gray-200"
-            />
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowFilters(!showFilters)}
-            className="rounded-xl h-10 px-4 border-gray-200 relative"
-          >
-            <SlidersHorizontal className="h-4 w-4 mr-1.5" />
-            {t('admin.users_filters')}
-            {activeFilters > 0 && (
-              <span className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-gray-900 text-white text-[10px] flex items-center justify-center">
-                {activeFilters}
-              </span>
-            )}
-          </Button>
-        </div>
-
-        <AnimatePresence>
-          {showFilters && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              className="mt-3 flex gap-3 flex-wrap"
-            >
-              <div className="flex gap-1.5">
-                <span className="text-xs text-gray-400 self-center mr-1">{t('common.plan')}:</span>
-                {['all', 'free', 'starter', 'professional', 'enterprise'].map(p => (
-                  <button
-                    key={p}
-                    onClick={() => setPlanFilter(p)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                      planFilter === p ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                    }`}
-                  >
-                    {p === 'all' ? t('common.all') : p}
-                  </button>
-                ))}
-              </div>
-              <div className="flex gap-1.5">
-                <span className="text-xs text-gray-400 self-center mr-1">{t('admin.users_role')}:</span>
-                {['all', 'user', 'admin'].map(r => (
-                  <button
-                    key={r}
-                    onClick={() => setRoleFilter(r)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                      roleFilter === r ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                    }`}
-                  >
-                    {r === 'all' ? t('common.all') : roleLabel(r)}
-                  </button>
-                ))}
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </motion.div>
-
-      {/* Users list */}
-      <motion.div {...fadeInUp} transition={{ duration: 0.3, delay: 0.1 }}>
-        <Card className="rounded-2xl border-0 shadow-sm">
-          <CardContent className="p-0">
-            {filteredUsers.length === 0 ? (
-              <div className="text-center py-12">
-                <Users className="h-10 w-10 text-gray-300 mx-auto mb-3" />
-                <p className="text-sm text-gray-400">{t('admin.users_empty')}</p>
-              </div>
-            ) : (
-              <div>
-                {filteredUsers.map((user, i) => (
-                  <div key={user.id}>
-                    <div
-                      onClick={() => openUserModal(user)}
-                      className="flex items-center justify-between px-5 py-3.5 hover:bg-gray-50/50 transition-colors cursor-pointer"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className={`h-10 w-10 rounded-xl flex items-center justify-center ${
-                          user.role === 'admin' ? 'bg-gray-900' : 'bg-gray-100'
-                        }`}>
-                          <span className={`text-sm font-bold ${user.role === 'admin' ? 'text-white' : 'text-gray-700'}`}>
-                            {user.name?.[0]?.toUpperCase() || user.email[0]?.toUpperCase()}
-                          </span>
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <p className="text-sm font-medium text-gray-900">{user.name || t('admin.users_no_name')}</p>
-                            {user.role === 'admin' && (
-                              <Badge className="bg-red-100 text-red-700 border-0 text-[9px]">{t('admin.users_role_admin')}</Badge>
-                            )}
-                          </div>
-                          <p className="text-[11px] text-gray-400">{user.email}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <Badge className={`border-0 text-[10px] capitalize ${
-                          user.plan === 'enterprise' ? 'bg-purple-100 text-purple-700' :
-                          user.plan === 'professional' ? 'bg-indigo-100 text-indigo-700' :
-                          user.plan === 'starter' ? 'bg-blue-100 text-blue-700' :
-                          'bg-gray-100 text-gray-500'
-                        }`}>
-                          {user.plan}
-                        </Badge>
-                        <span className="text-xs text-gray-400 w-14 text-right">{user.credits} {t('common.credits_short')}</span>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); openNotifyModal(user) }}
-                          className="p-1.5 rounded-lg hover:bg-blue-50 transition-colors"
-                          title={t('admin.send_notification')}
-                        >
-                          <Bell className="h-3.5 w-3.5 text-blue-400" />
-                        </button>
-                      </div>
-                    </div>
-                    {i < filteredUsers.length - 1 && <div className="border-b border-gray-50 ml-[4.5rem]" />}
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </motion.div>
-
-      {/* ===== USER MANAGEMENT MODAL ===== */}
-      <AnimatePresence>
-        {showUserModal && selectedUser && (
+      {/* Panoul omului */}
+      <Sheet open={sheetOpen && !!selected} onOpenChange={setSheetOpen} width={480}>
+        {selected && (
           <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40"
-              onClick={() => setShowUserModal(false)}
-            />
-            <motion.div
-              initial={{ opacity: 0, x: 40 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 40 }}
-              className="fixed right-0 top-0 h-full w-full max-w-md bg-white shadow-2xl z-50 overflow-y-auto"
-            >
-              <div className="p-5">
-                <div className="flex items-center justify-between mb-5">
-                  <h3 className="text-lg font-bold text-gray-900">{t('admin.users_manage')}</h3>
-                  <button onClick={() => setShowUserModal(false)} className="p-2 rounded-xl hover:bg-gray-100 text-gray-400">
-                    <X className="h-5 w-5" />
-                  </button>
+            <SheetHeader title={selected.name || t('admin.users_no_name')} description={selected.email} onClose={() => setSheetOpen(false)}
+              icon={<span className="text-[15px] font-semibold">{(selected.name?.[0] ?? selected.email[0]).toUpperCase()}</span>} />
+            <div className="flex-1 space-y-6 overflow-y-auto px-6 py-5">
+              <div className="grid grid-cols-3 gap-2">
+                <div className="rounded-xl bg-neutral-50 p-3 text-center ring-1 ring-neutral-200/60">
+                  <p className="text-[18px] font-semibold tabular-nums text-neutral-950">{selected.credits}</p>
+                  <p className="mt-0.5 text-[12px] text-neutral-500">{t('common.credits_label')}</p>
                 </div>
-
-                {/* Message inside modal */}
-                {message.text && (
-                  <div className={`flex items-center gap-2 p-3 rounded-xl mb-4 text-sm ${
-                    message.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
-                  }`}>
-                    {message.type === 'success' ? <CheckCircle className="h-4 w-4 shrink-0" /> : <AlertCircle className="h-4 w-4 shrink-0" />}
-                    {message.text}
-                  </div>
-                )}
-
-                <div className="space-y-5">
-                  {/* User info */}
-                  <div className="flex items-center gap-3">
-                    <div className={`h-12 w-12 rounded-xl flex items-center justify-center ${
-                      selectedUser.role === 'admin'
-                        ? 'bg-gradient-to-br from-red-500 to-rose-600'
-                        : 'bg-gradient-to-br from-blue-500 to-indigo-500'
-                    }`}>
-                      <span className="text-lg font-medium text-white">
-                        {selectedUser.name?.[0]?.toUpperCase() || 'U'}
-                      </span>
-                    </div>
-                    <div>
-                      <p className="font-semibold text-gray-900">{selectedUser.name || t('admin.users_no_name')}</p>
-                      <p className="text-sm text-gray-400">{selectedUser.email}</p>
-                    </div>
-                  </div>
-
-                  {/* Quick stats */}
-                  <div className="grid grid-cols-3 gap-2">
-                    <div className="bg-gray-50 rounded-xl p-3 text-center">
-                      <p className="text-lg font-bold text-gray-900">{selectedUser.credits}</p>
-                      <p className="text-[10px] text-gray-400 mt-0.5">{t('common.credits_label')}</p>
-                    </div>
-                    <div className="bg-gray-50 rounded-xl p-3 text-center">
-                      <Badge className={`border-0 text-[10px] capitalize ${
-                        selectedUser.plan === 'enterprise' ? 'bg-purple-100 text-purple-700' :
-                        selectedUser.plan === 'professional' ? 'bg-indigo-100 text-indigo-700' :
-                        selectedUser.plan === 'starter' ? 'bg-blue-100 text-blue-700' :
-                        'bg-gray-200 text-gray-600'
-                      }`}>
-                        {selectedUser.plan}
-                      </Badge>
-                      <p className="text-[10px] text-gray-400 mt-1">{t('common.plan')}</p>
-                    </div>
-                    <div className="bg-gray-50 rounded-xl p-3 text-center">
-                      <Badge className={`border-0 text-[10px] ${
-                        selectedUser.role === 'admin' ? 'bg-red-100 text-red-700' : 'bg-gray-200 text-gray-600'
-                      }`}>
-                        {roleLabel(selectedUser.role)}
-                      </Badge>
-                      <p className="text-[10px] text-gray-400 mt-1">{t('admin.users_role')}</p>
-                    </div>
-                  </div>
-
-                  <Separator />
-
-                  {/* Manage Credits */}
-                  <div>
-                    <h4 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                      <CreditCard className="h-4 w-4 text-blue-600" />
-                      {t('admin.users_manage_credits')}
-                    </h4>
-                    <div className="space-y-3">
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="space-y-1.5">
-                          <Label className="text-xs text-gray-500">{t('admin.users_amount')}</Label>
-                          <Input type="number" value={creditAmount} onChange={(e) => setCreditAmount(e.target.value)} min="1" className="h-10 rounded-xl border-gray-200" />
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label className="text-xs text-gray-500">{t('admin.users_reason_optional')}</Label>
-                          <Input value={creditReason} onChange={(e) => setCreditReason(e.target.value)} placeholder={t('admin.users_reason_placeholder')} className="h-10 rounded-xl border-gray-200" />
-                        </div>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button onClick={handleAddCredits} disabled={actionLoading === 'addCredits' || !creditAmount} className="flex-1 bg-green-600 hover:bg-green-700 rounded-xl h-10 text-sm">
-                          {actionLoading === 'addCredits' ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Plus className="h-4 w-4 mr-1.5" />{t('common.add')}</>}
-                        </Button>
-                        <Button onClick={handleRemoveCredits} disabled={actionLoading === 'removeCredits' || !creditAmount} variant="outline" className="flex-1 rounded-xl h-10 text-sm border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700">
-                          {actionLoading === 'removeCredits' ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Minus className="h-4 w-4 mr-1.5" />{t('admin.users_remove')}</>}
-                        </Button>
-                      </div>
-                      <div className="flex gap-1.5">
-                        {[10, 20, 50, 100, 500].map(amount => (
-                          <button key={amount} onClick={() => setCreditAmount(String(amount))} className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-all ${creditAmount === String(amount) ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
-                            {amount}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-
-                  <Separator />
-
-                  {/* Change Plan */}
-                  <div>
-                    <h4 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                      <Crown className="h-4 w-4 text-purple-600" />
-                      {t('admin.users_change_plan')}
-                    </h4>
-                    <div className="grid grid-cols-2 gap-2">
-                      {['free', 'starter', 'professional', 'enterprise'].map(plan => (
-                        <button key={plan} onClick={() => handleChangePlan(plan)} disabled={selectedUser.plan === plan || actionLoading === `plan-${plan}`}
-                          className={`p-3 rounded-xl border-2 text-left transition-all ${selectedUser.plan === plan ? 'border-blue-500 bg-blue-50' : 'border-gray-100 hover:border-gray-200'} ${selectedUser.plan === plan ? 'cursor-default' : 'cursor-pointer'}`}>
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm font-medium text-gray-900 capitalize">{plan}</span>
-                            {actionLoading === `plan-${plan}` && <Loader2 className="h-3 w-3 animate-spin text-blue-600" />}
-                            {selectedUser.plan === plan && <CheckCircle className="h-4 w-4 text-blue-600" />}
-                          </div>
-                          <p className="text-[10px] text-gray-400 mt-0.5">
-                            {plan === 'free' ? t('admin.users_plan_free_quota', { count: 20 }) : plan === 'starter' ? t('admin.users_plan_quota', { credits: 200, price: 49 }) : plan === 'professional' ? t('admin.users_plan_quota', { credits: 500, price: 99 }) : t('admin.users_plan_quota', { credits: 2000, price: 249 })}
-                          </p>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <Separator />
-
-                  {/* Change Role */}
-                  <div>
-                    <h4 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                      <Shield className="h-4 w-4 text-red-600" />
-                      {t('admin.users_change_role')}
-                    </h4>
-                    <div className="flex gap-2">
-                      {['user', 'admin'].map(role => (
-                        <button key={role} onClick={() => handleChangeRole(role)} disabled={selectedUser.role === role || actionLoading === `role-${role}`}
-                          className={`flex-1 p-3 rounded-xl border-2 text-center transition-all ${selectedUser.role === role ? (role === 'admin' ? 'border-red-500 bg-red-50' : 'border-blue-500 bg-blue-50') : 'border-gray-100 hover:border-gray-200'}`}>
-                          <div className="flex items-center justify-center gap-2">
-                            {role === 'admin' ? <Shield className="h-4 w-4 text-red-600" /> : <UserCheck className="h-4 w-4 text-blue-600" />}
-                            <span className="text-sm font-medium text-gray-900 capitalize">{roleLabel(role)}</span>
-                            {actionLoading === `role-${role}` && <Loader2 className="h-3 w-3 animate-spin" />}
-                            {selectedUser.role === role && <CheckCircle className="h-4 w-4 text-green-500" />}
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <Separator />
-
-                  {/* Send Notification */}
-                  <div>
-                    <h4 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                      <Bell className="h-4 w-4 text-blue-600" />
-                      {t('admin.users_quick_actions')}
-                    </h4>
-                    <div className="flex gap-2">
-                      <Button onClick={() => openNotifyModal(selectedUser)} variant="outline" className="flex-1 rounded-xl h-10 text-sm border-blue-200 text-blue-600 hover:bg-blue-50">
-                        <MessageSquare className="h-4 w-4 mr-1.5" />
-                        {t('admin.send_notification')}
-                      </Button>
-                      <Button onClick={() => openDeleteConfirm(selectedUser)} variant="outline" className="rounded-xl h-10 text-sm border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 px-4">
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-
-                  <Separator />
-
-                  {/* Details */}
-                  <div>
-                    <h4 className="text-sm font-semibold text-gray-900 mb-3">{t('admin.users_details')}</h4>
-                    <div className="space-y-2 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-gray-400">{t('admin.users_id')}</span>
-                        <span className="text-gray-700 font-mono text-xs">{selectedUser.id.slice(0, 16)}...</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-400">{t('admin.users_registered')}</span>
-                        <span className="text-gray-700">
-                          {new Date(selectedUser.created_at).toLocaleDateString(intlLocale, { day: 'numeric', month: 'long', year: 'numeric' })}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-400">{t('admin.users_onboarding')}</span>
-                        <Badge className={`border-0 text-[10px] ${selectedUser.onboarding_completed ? 'bg-green-50 text-green-600' : 'bg-yellow-50 text-yellow-600'}`}>
-                          {selectedUser.onboarding_completed ? t('admin.users_onboarding_complete') : t('admin.users_onboarding_incomplete')}
-                        </Badge>
-                      </div>
-                    </div>
-                  </div>
+                <div className="rounded-xl bg-neutral-50 p-3 text-center ring-1 ring-neutral-200/60">
+                  <PlanBadge plan={selected.plan} />
+                  <p className="mt-1 text-[12px] text-neutral-500">{t('common.plan')}</p>
+                </div>
+                <div className="rounded-xl bg-neutral-50 p-3 text-center ring-1 ring-neutral-200/60">
+                  <Badge tone={selected.role === 'admin' ? 'brand' : 'neutral'}>{roleLabel(selected.role)}</Badge>
+                  <p className="mt-1 text-[12px] text-neutral-500">{t('admin.users_role')}</p>
                 </div>
               </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
 
-      {/* ===== SEND NOTIFICATION MODAL ===== */}
-      <AnimatePresence>
-        {showNotifyModal && notifyUser && (
-          <>
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50" onClick={() => setShowNotifyModal(false)} />
-            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="fixed inset-0 z-50 flex items-center justify-center p-4">
-              <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-5" onClick={(e) => e.stopPropagation()}>
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-bold text-gray-900">{t('admin.send_notification')}</h3>
-                  <button onClick={() => setShowNotifyModal(false)} className="p-2 rounded-xl hover:bg-gray-100 text-gray-400"><X className="h-5 w-5" /></button>
+              <section>
+                <Heading>{t('admin.users_manage_credits')}</Heading>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label htmlFor="credit-amount" className="mb-1.5 block text-[12px] text-neutral-500">{t('admin.users_amount')}</label>
+                    <Input id="credit-amount" type="number" min="1" value={creditAmount} onChange={e => setCreditAmount(e.target.value)} />
+                  </div>
+                  <div>
+                    <label htmlFor="credit-reason" className="mb-1.5 block text-[12px] text-neutral-500">{t('admin.users_reason_optional')}</label>
+                    <Input id="credit-reason" value={creditReason} onChange={e => setCreditReason(e.target.value)} placeholder={t('admin.users_reason_placeholder')} />
+                  </div>
                 </div>
-                <p className="text-sm text-gray-500 mb-4">{t('admin.users_to')} <span className="font-medium text-gray-700">{notifyUser.name || notifyUser.email}</span></p>
-                <div className="space-y-4">
-                  <div className="space-y-1.5">
-                    <Label className="text-xs text-gray-500">{t('admin.field_title')}</Label>
-                    <Input value={notifyTitle} onChange={(e) => setNotifyTitle(e.target.value)} placeholder={t('admin.users_notification_title_placeholder')} className="h-10 rounded-xl border-gray-200" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs text-gray-500">{t('admin.field_message')}</Label>
-                    <textarea value={notifyMessage} onChange={(e) => setNotifyMessage(e.target.value)} placeholder={t('admin.users_notification_message_placeholder')} className="w-full h-24 px-3 py-2 text-sm rounded-xl border border-gray-200 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs text-gray-500">{t('admin.field_type')}</Label>
-                    <div className="flex gap-2">
-                      {[
-                        { value: 'info', label: t('admin.notif_type_info'), color: 'bg-blue-100 text-blue-700' },
-                        { value: 'success', label: t('admin.notif_type_success'), color: 'bg-green-100 text-green-700' },
-                        { value: 'warning', label: t('admin.notif_type_warning'), color: 'bg-yellow-100 text-yellow-700' },
-                        { value: 'error', label: t('admin.notif_type_error'), color: 'bg-red-100 text-red-700' },
-                      ].map(t => (
-                        <button key={t.value} onClick={() => setNotifyType(t.value)} className={`flex-1 py-2 rounded-xl text-xs font-medium transition-all ${notifyType === t.value ? t.color + ' ring-2 ring-offset-1 ring-gray-300' : 'bg-gray-100 text-gray-500'}`}>
-                          {t.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  <Button onClick={handleSendNotification} disabled={sendingNotify || !notifyTitle || !notifyMessage} className="w-full bg-blue-600 hover:bg-blue-700 rounded-xl h-10">
-                    {sendingNotify ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Send className="h-4 w-4 mr-2" />}
-                    {t('admin.send_notification')}
+                <div className="mt-2 flex gap-1">
+                  {CREDIT_STEPS.map(n => (
+                    <button key={n} onClick={() => setCreditAmount(String(n))}
+                      className={cn('h-7 flex-1 rounded-md text-[12px] font-medium tabular-nums transition-colors', creditAmount === String(n) ? 'bg-neutral-900 text-white' : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200')}>
+                      {n}
+                    </button>
+                  ))}
+                </div>
+                <div className="mt-3 flex gap-2">
+                  <Button variant="primary" className="flex-1" loading={busy === 'addCredits'} disabled={!creditAmount} onClick={() => changeCredits(selected, 1)}>
+                    {busy !== 'addCredits' && <Plus />}{t('common.add')}
+                  </Button>
+                  <Button variant="danger" className="flex-1" loading={busy === 'removeCredits'} disabled={!creditAmount} onClick={() => changeCredits(selected, -1)}>
+                    {busy !== 'removeCredits' && <Minus />}{t('admin.users_remove')}
                   </Button>
                 </div>
-              </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
+              </section>
 
-      {/* ===== GLOBAL NOTIFICATION MODAL ===== */}
-      <AnimatePresence>
-        {showGlobalNotifyModal && (
-          <>
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50" onClick={() => setShowGlobalNotifyModal(false)} />
-            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="fixed inset-0 z-50 flex items-center justify-center p-4">
-              <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-5" onClick={(e) => e.stopPropagation()}>
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                    <Bell className="h-5 w-5 text-blue-600" />
-                    {t('admin.users_global_notification')}
-                  </h3>
-                  <button onClick={() => setShowGlobalNotifyModal(false)} className="p-2 rounded-xl hover:bg-gray-100 text-gray-400"><X className="h-5 w-5" /></button>
+              <section>
+                <Heading>{t('admin.users_change_plan')}</Heading>
+                <div className="grid grid-cols-2 gap-2">
+                  {PLANS.map(plan => (
+                    <ChoiceCard key={plan} active={selected.plan === plan} disabled={busy === `plan-${plan}`} onClick={() => { if (selected.plan !== plan) changePlan(selected, plan) }}
+                      title={planLabel(plan)} description={planNote(plan)} />
+                  ))}
                 </div>
-                <p className="text-sm text-gray-500 mb-4">{t('admin.users_global_desc_before')} <span className="font-medium text-gray-700">{t('admin.users_global_desc_all')}</span> {t('admin.users_global_desc_after')}</p>
-                <div className="space-y-4">
-                  <div className="space-y-1.5">
-                    <Label className="text-xs text-gray-500">{t('admin.field_title')}</Label>
-                    <Input value={globalTitle} onChange={(e) => setGlobalTitle(e.target.value)} placeholder={t('admin.users_global_title_placeholder')} className="h-10 rounded-xl border-gray-200" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs text-gray-500">{t('admin.field_message')}</Label>
-                    <textarea value={globalMessage} onChange={(e) => setGlobalMessage(e.target.value)} placeholder={t('admin.users_global_message_placeholder')} className="w-full h-24 px-3 py-2 text-sm rounded-xl border border-gray-200 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs text-gray-500">{t('admin.field_type')}</Label>
-                    <div className="flex gap-2">
-                      {[
-                        { value: 'info', label: t('admin.notif_type_info'), color: 'bg-blue-100 text-blue-700' },
-                        { value: 'success', label: t('admin.notif_type_success'), color: 'bg-green-100 text-green-700' },
-                        { value: 'warning', label: t('admin.notif_type_warning'), color: 'bg-yellow-100 text-yellow-700' },
-                        { value: 'error', label: t('admin.notif_type_error'), color: 'bg-red-100 text-red-700' },
-                      ].map(t => (
-                        <button key={t.value} onClick={() => setGlobalType(t.value)} className={`flex-1 py-2 rounded-xl text-xs font-medium transition-all ${globalType === t.value ? t.color + ' ring-2 ring-offset-1 ring-gray-300' : 'bg-gray-100 text-gray-500'}`}>
-                          {t.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  <Button onClick={handleSendGlobalNotification} disabled={sendingGlobal || !globalTitle || !globalMessage} className="w-full bg-blue-600 hover:bg-blue-700 rounded-xl h-10">
-                    {sendingGlobal ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Bell className="h-4 w-4 mr-2" />}
-                    {t('admin.users_send_to_all')}
-                  </Button>
+              </section>
+
+              <section>
+                <Heading>{t('admin.users_change_role')}</Heading>
+                <div className="grid grid-cols-2 gap-2">
+                  {ROLES.map(role => (
+                    <ChoiceCard key={role} active={selected.role === role} disabled={busy === `role-${role}`} onClick={() => { if (selected.role !== role) changeRole(selected, role) }} title={roleLabel(role)} />
+                  ))}
                 </div>
-              </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
+              </section>
 
-      {/* ===== DELETE CONFIRMATION MODAL ===== */}
-      <AnimatePresence>
-        {showDeleteConfirm && deleteUser && (
-          <>
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50" onClick={() => setShowDeleteConfirm(false)} />
-            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="fixed inset-0 z-50 flex items-center justify-center p-4">
-              <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-5" onClick={(e) => e.stopPropagation()}>
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="h-12 w-12 rounded-xl bg-red-100 flex items-center justify-center">
-                    <Trash2 className="h-6 w-6 text-red-600" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-bold text-gray-900">{t('admin.users_delete_title')}</h3>
-                    <p className="text-sm text-red-500">{t('admin.users_delete_permanent')}</p>
-                  </div>
-                </div>
-
-                <div className="bg-red-50 border border-red-100 rounded-xl p-4 mb-4">
-                  <p className="text-sm text-red-700 mb-2">{t('admin.users_delete_list_title')}</p>
-                  <div className="text-xs text-red-600 space-y-1">
-                    <p>• {t('admin.users_delete_item_account')}</p>
-                    <p>• {t('admin.users_delete_item_products')}</p>
-                    <p>• {t('admin.users_delete_item_history')}</p>
-                    <p>• {t('admin.users_delete_item_stores')}</p>
-                    <p>• {t('admin.users_delete_item_notifications')}</p>
-                  </div>
-                </div>
-
-                <p className="text-sm text-gray-600 mb-3">
-                  {t('admin.users_delete_confirm_prompt')} <span className="font-mono font-medium text-gray-900">{deleteUser.email}</span>
-                </p>
-
-                <Input value={deleteConfirmText} onChange={(e) => setDeleteConfirmText(e.target.value)} placeholder={deleteUser.email} className="h-10 rounded-xl border-gray-200 mb-4 font-mono text-sm" />
-
+              <section>
+                <Heading>{t('admin.users_quick_actions')}</Heading>
                 <div className="flex gap-2">
-                  <Button variant="outline" onClick={() => setShowDeleteConfirm(false)} className="flex-1 rounded-xl h-10">{t('common.cancel')}</Button>
-                  <Button onClick={handleDeleteUser} disabled={deleting || deleteConfirmText !== deleteUser.email} className="flex-1 bg-red-600 hover:bg-red-700 rounded-xl h-10 text-white">
-                    {deleting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Trash2 className="h-4 w-4 mr-2" />}
-                    {t('admin.delete_permanently')}
-                  </Button>
+                  <Button className="flex-1" onClick={() => setNotifyUser(selected)}><Bell />{t('admin.send_notification')}</Button>
+                  <Button variant="danger" aria-label={t('admin.users_delete_title')} title={t('admin.users_delete_title')}
+                    onClick={() => { setDeleteUser(selected); setDeleteConfirm('') }}><Trash2 /></Button>
                 </div>
-              </div>
-            </motion.div>
+              </section>
+
+              <section>
+                <Heading>{t('admin.users_details')}</Heading>
+                <dl className="divide-y divide-neutral-100">
+                  <DataRow label={t('admin.users_id')} value={<code className="text-[12px]">{selected.id.slice(0, 16)}…</code>} />
+                  <DataRow label={t('admin.users_registered')} value={new Date(selected.created_at).toLocaleDateString(intlLocale, { day: 'numeric', month: 'long', year: 'numeric' })} />
+                  <DataRow label={t('admin.users_onboarding')} value={(
+                    selected.onboarding_completed
+                      ? <Badge tone="green"><CheckCircle2 className="size-3" />{t('admin.users_onboarding_complete')}</Badge>
+                      : <Badge tone="amber">{t('admin.users_onboarding_incomplete')}</Badge>
+                  )} />
+                </dl>
+              </section>
+            </div>
           </>
         )}
-      </AnimatePresence>
-    </div>
+      </Sheet>
+
+      {notifyUser && (
+        <NotifyModal onClose={() => setNotifyUser(null)} title={t('admin.send_notification')}
+          description={<>{t('admin.users_to')} <span className="font-medium text-neutral-700">{notifyUser.name || notifyUser.email}</span></>}
+          icon={<UserCheck />} titlePlaceholder={t('admin.users_notification_title_placeholder')} messagePlaceholder={t('admin.users_notification_message_placeholder')}
+          submitLabel={t('admin.send_notification')}
+          onSend={n => sendNotification({ ...n, user_id: notifyUser.id, is_global: false }, t('admin.users_notification_sent', { name: notifyUser.name || notifyUser.email }))} />
+      )}
+
+      {globalOpen && (
+        <NotifyModal onClose={() => setGlobalOpen(false)} title={t('admin.users_global_notification')}
+          description={<>{t('admin.users_global_desc_before')} <span className="font-medium text-neutral-700">{t('admin.users_global_desc_all')}</span> {t('admin.users_global_desc_after')}</>}
+          icon={<Bell />} titlePlaceholder={t('admin.users_global_title_placeholder')} messagePlaceholder={t('admin.users_global_message_placeholder')}
+          submitLabel={t('admin.users_send_to_all')}
+          onSend={n => sendNotification({ ...n, is_global: true }, t('admin.users_global_sent'))} />
+      )}
+
+      <ConfirmDialog open={!!deleteUser} onOpenChange={o => { if (!o) setDeleteUser(null) }} title={t('admin.users_delete_title')} description={t('admin.users_delete_permanent')}
+        confirmLabel={t('admin.delete_permanently')} loading={deleting} disabled={deleteConfirm !== deleteUser?.email} onConfirm={removeUser}>
+        <Callout tone="danger" title={t('admin.users_delete_list_title')}>
+          <ul className="list-inside list-disc">
+            <li>{t('admin.users_delete_item_account')}</li>
+            <li>{t('admin.users_delete_item_products')}</li>
+            <li>{t('admin.users_delete_item_history')}</li>
+            <li>{t('admin.users_delete_item_stores')}</li>
+            <li>{t('admin.users_delete_item_notifications')}</li>
+          </ul>
+        </Callout>
+        <label htmlFor="delete-confirm" className="mb-1.5 mt-4 block text-[13px] text-neutral-600">
+          {t('admin.users_delete_confirm_prompt')} <span className="font-medium text-neutral-900">{deleteUser?.email}</span>
+        </label>
+        <Input id="delete-confirm" value={deleteConfirm} onChange={e => setDeleteConfirm(e.target.value)} placeholder={deleteUser?.email} autoComplete="off" />
+      </ConfirmDialog>
+    </FadeIn>
   )
 }

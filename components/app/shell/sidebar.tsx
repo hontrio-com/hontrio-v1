@@ -234,7 +234,7 @@ function NavTip({ label, children }: { label: string; children: React.ReactNode 
   )
 }
 
-function NavLink({ item, active, collapsed, onNavigate, label }: { item: NavItem; active: boolean; collapsed: boolean; onNavigate: () => void; label: string }) {
+export function NavLink({ item, active, collapsed, onNavigate, label }: { item: NavItem; active: boolean; collapsed: boolean; onNavigate: () => void; label: string }) {
   const link = (
     <Link href={item.href} onClick={onNavigate} aria-current={active ? 'page' : undefined}
       className={cn('group relative flex h-8 items-center gap-2.5 rounded-lg text-[13px] font-medium transition-colors',

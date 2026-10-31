@@ -1,101 +1,75 @@
 'use client'
 
+import { useEffect, useState } from 'react'
+import { usePathname } from 'next/navigation'
 import { useSession } from 'next-auth/react'
-import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
-import { motion } from 'framer-motion'
-import {
-  ArrowLeft, Users, BarChart3, DollarSign, Shield, Activity,
-  MessageSquare, TrendingUp, Wifi, AlertTriangle, Send,
-} from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
+import { AnimatePresence, motion } from 'framer-motion'
 import { useT } from '@/lib/i18n/context'
-import type { TFunction } from '@/lib/i18n/translate'
+import { cn } from '@/lib/utils'
+import { TooltipProvider } from '@/components/ui/tooltip'
+import { AdminSidebar } from '@/components/app/shell/admin-sidebar'
+import { activeAdminItem } from '@/components/app/shell/admin-nav'
+import { Topbar } from '@/components/app/shell/topbar'
+import { CommandMenu } from '@/components/app/shell/command-menu'
+import { useStores } from '@/components/app/shell/stores'
+import { Toaster } from '@/components/app/toaster'
 
-const getAdminMenuItems = (t: TFunction) => [
-  { label: t('admin.nav_stats'), href: '/admin/stats', icon: BarChart3 },
-  { label: t('admin.nav_financial'), href: '/admin/financial', icon: TrendingUp },
-  { label: t('admin.nav_users'), href: '/admin/users', icon: Users },
-  { label: t('admin.nav_tickets'), href: '/admin/tickets', icon: MessageSquare },
-  { label: t('admin.nav_costs'), href: '/admin/costs', icon: DollarSign },
-  { label: t('admin.nav_activity'), href: '/admin/activity', icon: Activity },
-  { label: t('admin.nav_health'), href: '/admin/health', icon: Wifi },
-  { label: t('admin.nav_errors'), href: '/admin/errors', icon: AlertTriangle },
-  { label: t('admin.nav_broadcast'), href: '/admin/broadcast', icon: Send },
-]
+// =============================================
+// Rama panoului de administrare: meniul lui, bara de sus (Panou de
+// administrare › pagina) și conținutul. Aceeași construcție ca rama platformei,
+// doar cu paginile de administrare în meniu.
+// =============================================
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const { data: session } = useSession()
-  const pathname = usePathname()
-  const router = useRouter()
   const { t } = useT()
-  const adminMenuItems = getAdminMenuItems(t)
+  const pathname = usePathname()
+  // Meniul de pe telefon e deschis doar pe pagina pe care l-ai deschis: o navigare îl închide
+  const [menuAt, setMenuAt] = useState<string | null>(null)
+  const mobileOpen = menuAt === pathname
+  const setMobileOpen = (open: boolean) => setMenuAt(open ? pathname : null)
+  const [searchOpen, setSearchOpen] = useState(false)
+  const { stores, active, choose } = useStores()
+
+  // ⌘K / Ctrl+K, de oriunde
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); setSearchOpen(o => !o) }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+
+  const page = activeAdminItem(pathname)
+  const user = { name: session?.user?.name || t('settings.default_user'), email: session?.user?.email || '' }
 
   return (
-    <div className="min-h-screen bg-gray-50/50">
-      {/* Top bar */}
-      <header className="sticky top-0 z-30 h-14 bg-white/80 backdrop-blur-md border-b border-gray-100 flex items-center px-6">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => router.push('/dashboard')}
-          className="rounded-xl text-gray-500 hover:text-gray-900 -ml-2 mr-4"
-        >
-          <ArrowLeft className="h-4 w-4 mr-1.5" />
-          {t('sidebar.dashboard')}
-        </Button>
+    <TooltipProvider delayDuration={200}>
+      <div className="app min-h-screen bg-white text-neutral-900">
+        <AnimatePresence>
+          {mobileOpen && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="fixed inset-0 z-40 bg-neutral-950/30 backdrop-blur-[2px] lg:hidden" onClick={() => setMobileOpen(false)} />
+          )}
+        </AnimatePresence>
 
-        <div className="flex items-center gap-2">
-          <div className="h-7 w-7 rounded-lg bg-gray-900 flex items-center justify-center">
-            <Shield className="h-3.5 w-3.5 text-white" />
-          </div>
-          <span className="text-sm font-bold text-gray-900">{t('admin.layout_title')}</span>
-          <Badge className="bg-gray-900 text-white border-0 text-[10px]">{t('admin.layout_badge')}</Badge>
-        </div>
-
-        <div className="flex-1" />
-
-        <span className="text-xs text-gray-400">{session?.user?.email}</span>
-      </header>
-
-      <div className="flex">
-        {/* Sidebar */}
-        <aside className="w-56 bg-white border-r border-gray-100 min-h-[calc(100vh-3.5rem)] sticky top-14">
-          <nav className="p-3 space-y-1 mt-2">
-            {adminMenuItems.map((item) => {
-              const isActive = pathname === item.href
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
-                    isActive
-                      ? 'bg-red-50 text-red-600 shadow-sm shadow-red-100'
-                      : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50'
-                  }`}
-                >
-                  <item.icon className={`h-[18px] w-[18px] ${isActive ? 'text-red-600' : 'text-gray-400'}`} />
-                  {item.label}
-                  {isActive && <div className="ml-auto h-1.5 w-1.5 rounded-full bg-red-500" />}
-                </Link>
-              )
-            })}
-          </nav>
+        <aside className={cn(
+          'fixed inset-y-0 left-0 z-50 w-[272px] border-r border-black/[0.06] bg-canvas transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] lg:w-[248px] lg:translate-x-0',
+          mobileOpen ? 'translate-x-0' : '-translate-x-full',
+        )}>
+          <AdminSidebar pathname={pathname} user={user} onNavigate={() => setMobileOpen(false)} onSearch={() => { setMobileOpen(false); setSearchOpen(true) }} />
         </aside>
 
-        {/* Content */}
-        <main className="flex-1 p-6 max-w-7xl">
-          <motion.div
-            key={pathname}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3 }}
-          >
+        <div className="lg:pl-[248px]">
+          <Topbar store={t('admin.layout_title')} page={page ? t(page.label) : null} onMenu={() => setMobileOpen(true)} onSearch={() => setSearchOpen(true)} />
+          <main className="mx-auto w-full max-w-[1240px] px-4 pb-16 pt-6 sm:px-6 lg:px-10 lg:pt-8">
             {children}
-          </motion.div>
-        </main>
+          </main>
+        </div>
+
+        <CommandMenu open={searchOpen} onOpenChange={setSearchOpen} admin stores={stores} activeStoreId={active?.id ?? null} onChooseStore={choose} />
+        <Toaster />
       </div>
-    </div>
+    </TooltipProvider>
   )
 }
