@@ -12,6 +12,7 @@ import {
 import { useT, useLocale } from '@/lib/i18n/context'
 import { LOCALES, LOCALE_NAMES, type Locale } from '@/lib/i18n/config'
 import { translateStored } from '@/lib/i18n/stored'
+import { PACKS, PACK_IDS, PAID_PLANS, PLAN_IDS, perCreditUsd, type PackId } from '@/lib/billing/catalog'
 import { cn } from '@/lib/utils'
 import { PageHeader } from '@/components/app/page-header'
 import { PageTabs, Segmented } from '@/components/app/tabs'
@@ -52,19 +53,8 @@ type Tab = 'general' | 'brand' | 'integrations' | 'credits' | 'security' | 'pref
 const EDINIO_ERRORS = ['access_denied', 'state', 'expired', 'store_exists', 'store_read', 'save', 'rate_limited', 'not_configured']
 const TABS: Tab[] = ['general', 'brand', 'integrations', 'credits', 'security', 'preferences']
 
-const CREDIT_PACKS = [
-  { id: 'pack_50', credits: 50, price: 39, popular: false },
-  { id: 'pack_100', credits: 100, price: 69, popular: false },
-  { id: 'pack_300', credits: 300, price: 159, popular: true },
-  { id: 'pack_500', credits: 500, price: 249, popular: false },
-  { id: 'pack_1000', credits: 1000, price: 399, popular: false },
-]
-
-const PLANS = [
-  { id: 'starter', name: 'Starter', price: 99, credits: 250 },
-  { id: 'professional', name: 'Professional', price: 249, credits: 750 },
-  { id: 'enterprise', name: 'Enterprise', price: 499, credits: 2000 },
-]
+// Prețurile pachetelor și ale planurilor vin din lib/billing/catalog.ts (ca pe pagina Abonament)
+const POPULAR_PACK: PackId = 'pack_300'
 
 const TONES = [
   { value: 'professional', icon: Briefcase, label: 'settings.tone_professional_label', example: 'settings.tone_pro_example' },
@@ -657,15 +647,15 @@ function SettingsView() {
 
             <Section title={t('settings.buy_extra_credits')} description={t('settings.credits_no_expire')}>
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                {CREDIT_PACKS.map(pack => (
-                  <button key={pack.id} onClick={() => handleBuyPack(pack.id)} disabled={!!buyingPack}
+                {PACK_IDS.map(id => (
+                  <button key={id} onClick={() => handleBuyPack(id)} disabled={!!buyingPack}
                     className={cn('group relative rounded-xl border bg-white p-4 text-left shadow-card transition-all hover:border-neutral-400 hover:shadow-raised disabled:opacity-50',
-                      pack.popular ? 'border-neutral-900 ring-1 ring-neutral-900' : 'border-neutral-200/80')}>
-                    {pack.popular && <Badge tone="brand" className="absolute -top-2.5 left-3 h-5 text-[10px]">{t('settings.popular')}</Badge>}
-                    <p className="text-[18px] font-semibold tabular-nums tracking-[-0.02em] text-neutral-950">{fmtInt.format(pack.credits)} <span className="text-[13px] font-normal text-neutral-500">{t('common.credits_short')}</span></p>
-                    <p className="mt-1 text-[14px] font-medium tabular-nums text-neutral-800">{pack.price} RON</p>
-                    <p className="mt-1 text-[12px] text-neutral-400">{(pack.price / pack.credits * 100).toFixed(0)} {t('settings.bani_per_credit')}</p>
-                    {buyingPack === pack.id && <span className="absolute inset-0 flex items-center justify-center rounded-xl bg-white/70"><Loader2 className="size-5 animate-spin text-neutral-500" /></span>}
+                      id === POPULAR_PACK ? 'border-neutral-900 ring-1 ring-neutral-900' : 'border-neutral-200/80')}>
+                    {id === POPULAR_PACK && <Badge tone="brand" className="absolute -top-2.5 left-3 h-5 text-[10px]">{t('settings.popular')}</Badge>}
+                    <p className="text-[18px] font-semibold tabular-nums tracking-[-0.02em] text-neutral-950">{fmtInt.format(PACKS[id].credits)} <span className="text-[13px] font-normal text-neutral-500">{t('common.credits_short')}</span></p>
+                    <p className="mt-1 text-[14px] font-medium tabular-nums text-neutral-800">${PACKS[id].priceUsd}</p>
+                    <p className="mt-1 text-[12px] tabular-nums text-neutral-400">${perCreditUsd(id).toFixed(2)} / {t('credits.per_credit')}</p>
+                    {buyingPack === id && <span className="absolute inset-0 flex items-center justify-center rounded-xl bg-white/70"><Loader2 className="size-5 animate-spin text-neutral-500" /></span>}
                   </button>
                 ))}
               </div>
@@ -700,10 +690,10 @@ function SettingsView() {
             <Section title={t('settings.available_plans')} description={t('settings.ai_action_costs_desc', { cost: '2–4' })}>
               <Card>
                 <ul className="divide-y divide-neutral-100">
-                  {PLANS.map(plan => (
-                    <li key={plan.id} className="flex items-center justify-between gap-3 px-5 py-3 text-[13px]">
-                      <span className="flex items-center gap-2 font-medium text-neutral-900">{plan.name}{userPlan === plan.id && <Badge tone="brand">{t('settings.store_active')}</Badge>}</span>
-                      <span className="tabular-nums text-neutral-500">{fmtInt.format(plan.credits)} {t('common.credits_short')} / {plan.price} RON</span>
+                  {PLAN_IDS.map(id => (
+                    <li key={id} className="flex items-center justify-between gap-3 px-5 py-3 text-[13px]">
+                      <span className="flex items-center gap-2 font-medium text-neutral-900">{t(`credits.plan_${id}`)}{userPlan === id && <Badge tone="brand">{t('settings.store_active')}</Badge>}</span>
+                      <span className="tabular-nums text-neutral-500">{fmtInt.format(PAID_PLANS[id].credits)} {t('common.credits_short')} · ${PAID_PLANS[id].priceUsd}{t('credits.per_month_label')}</span>
                     </li>
                   ))}
                 </ul>

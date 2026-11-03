@@ -3,6 +3,8 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/auth.config'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getT } from '@/lib/i18n/server'
+import { planPriceUsd } from '@/lib/billing/catalog'
+import { revenueTotals } from '@/lib/billing/revenue'
 
 // ===== REAL API COSTS =====
 // GPT-4o-mini: $0.15/1M input tokens + $0.60/1M output tokens
@@ -15,13 +17,7 @@ const COST_PER_TEXT_GENERATION = 0.004
 // Using $0.10 as average (mix of 1K at $0.09 and occasional retries)
 const COST_PER_IMAGE_GENERATION = 0.10
 
-// ===== PLAN PRICES (USD/month) =====
-const PLAN_PRICES: Record<string, number> = {
-  free: 0,
-  starter: 19,
-  professional: 49,
-  enterprise: 99,
-}
+// Prețurile planurilor și ale pachetelor vin din lib/billing/catalog.ts
 
 export async function GET() {
   const t = await getT()
@@ -87,9 +83,7 @@ export async function GET() {
         planDistribution[plan]++
       }
       // Only count MRR for users with active subscriptions
-      if (u.stripe_subscription_id && PLAN_PRICES[plan]) {
-        mrr += PLAN_PRICES[plan]
-      }
+      if (u.stripe_subscription_id) mrr += planPriceUsd(plan)
     })
 
     // 2. Credit pack revenue this month
@@ -98,27 +92,15 @@ export async function GET() {
 
     const { data: monthlyPurchases } = await supabase
       .from('credit_transactions')
-      .select('amount, description, reference_type')
+      .select('type, amount, reference_type')
       .in('type', ['purchase', 'subscription'])
       .gte('created_at', firstOfMonth)
 
-    let monthlySubscriptionRevenue = 0
-    let monthlyCreditPackRevenue = 0
-    ;(monthlyPurchases || []).forEach(t => {
-      if (t.reference_type === 'subscription' || t.reference_type === 'subscription_renewal') {
-        if (t.amount === 250) monthlySubscriptionRevenue += 19
-        else if (t.amount === 750) monthlySubscriptionRevenue += 49
-        else if (t.amount === 2000) monthlySubscriptionRevenue += 99
-      } else if (t.reference_type === 'credit_purchase') {
-        if (t.amount === 50) monthlyCreditPackRevenue += 39
-        else if (t.amount === 100) monthlyCreditPackRevenue += 69
-        else if (t.amount === 300) monthlyCreditPackRevenue += 159
-        else if (t.amount === 500) monthlyCreditPackRevenue += 249
-        else if (t.amount === 1000) monthlyCreditPackRevenue += 399
-      }
-    })
-
-    const totalMonthlyRevenue = monthlySubscriptionRevenue + monthlyCreditPackRevenue
+    const {
+      subscriptions: monthlySubscriptionRevenue,
+      packs: monthlyCreditPackRevenue,
+      total: totalMonthlyRevenue,
+    } = revenueTotals(monthlyPurchases || [])
 
     // 3. API Costs this month
     const { data: monthlyUsage } = await supabase
@@ -161,23 +143,10 @@ export async function GET() {
     // 6. All-time revenue (excluding manual/bonus credit additions)
     const { data: allPurchases } = await supabase
       .from('credit_transactions')
-      .select('amount, reference_type')
+      .select('type, amount, reference_type')
       .in('type', ['purchase', 'subscription'])
 
-    let totalRevenue = 0
-    ;(allPurchases || []).forEach(t => {
-      if (t.reference_type === 'subscription' || t.reference_type === 'subscription_renewal') {
-        if (t.amount === 250) totalRevenue += 19
-        else if (t.amount === 750) totalRevenue += 49
-        else if (t.amount === 2000) totalRevenue += 99
-      } else if (t.reference_type === 'credit_purchase') {
-        if (t.amount === 50) totalRevenue += 39
-        else if (t.amount === 100) totalRevenue += 69
-        else if (t.amount === 300) totalRevenue += 159
-        else if (t.amount === 500) totalRevenue += 249
-        else if (t.amount === 1000) totalRevenue += 399
-      }
-    })
+    const totalRevenue = revenueTotals(allPurchases || []).total
 
     // 7. Average revenue per user (ARPU)
     const totalPaidUsers = (allUsers || []).filter(u => u.stripe_subscription_id).length

@@ -1,4 +1,5 @@
 import Stripe from 'stripe'
+import { PACKS, PAID_PLANS } from '@/lib/billing/catalog'
 
 if (!process.env.STRIPE_SECRET_KEY) {
   throw new Error('STRIPE_SECRET_KEY is not set')
@@ -9,42 +10,30 @@ export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
   typescript: true,
 })
 
-// Plan configuration - Update these with your actual Stripe Price IDs
+// Prețurile și creditele vin din lib/billing/catalog.ts. Aici se adaugă doar ce
+// îi trebuie lui Stripe: Price ID-ul fiecărui abonament (din env) și suma în cenți
+// a fiecărui pachet.
+function stripePlan(plan: keyof typeof PAID_PLANS, priceId: string | undefined) {
+  const { name, credits, priceUsd } = PAID_PLANS[plan]
+  return { name, credits, price: priceUsd, priceId: priceId || `price_${plan}_placeholder` }
+}
+
 export const STRIPE_PLANS: Record<string, {
   name: string
   priceId: string
   credits: number
   price: number
 }> = {
-  starter: {
-    name: 'Starter',
-    priceId: process.env.STRIPE_STARTER_PRICE_ID || 'price_starter_placeholder',
-    credits: 150,
-    price: 19,
-  },
-  professional: {
-    name: 'Professional',
-    priceId: process.env.STRIPE_PROFESSIONAL_PRICE_ID || 'price_professional_placeholder',
-    credits: 400,
-    price: 49,
-  },
-  enterprise: {
-    name: 'Enterprise',
-    priceId: process.env.STRIPE_ENTERPRISE_PRICE_ID || 'price_enterprise_placeholder',
-    credits: 900,
-    price: 99,
-  },
+  starter: stripePlan('starter', process.env.STRIPE_STARTER_PRICE_ID),
+  professional: stripePlan('professional', process.env.STRIPE_PROFESSIONAL_PRICE_ID),
+  enterprise: stripePlan('enterprise', process.env.STRIPE_ENTERPRISE_PRICE_ID),
 }
 
-// Credit pack configuration — prices in USD cents
+// Pachetele de credite, cu prețul în USD și în cenți (cât se încasează)
 export const CREDIT_PACKS: Record<string, {
   credits: number
   price: number
   priceInCents: number
-}> = {
-  pack_50:   { credits: 50,   price: 9,  priceInCents: 900  },
-  pack_100:  { credits: 100,  price: 15, priceInCents: 1500 },
-  pack_300:  { credits: 300,  price: 35, priceInCents: 3500 },
-  pack_500:  { credits: 500,  price: 55, priceInCents: 5500 },
-  pack_1000: { credits: 1000, price: 99, priceInCents: 9900 },
-}
+}> = Object.fromEntries(
+  Object.entries(PACKS).map(([id, p]) => [id, { credits: p.credits, price: p.priceUsd, priceInCents: Math.round(p.priceUsd * 100) }]),
+)

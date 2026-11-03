@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import { useT } from '@/lib/i18n/context'
 import { translateStored } from '@/lib/i18n/stored'
+import { PACKS, PACK_IDS, PAID_PLANS, perCreditUsd } from '@/lib/billing/catalog'
 import { cn } from '@/lib/utils'
 import { PageHeader } from '@/components/app/page-header'
 import { PageTabs } from '@/components/app/tabs'
@@ -44,35 +45,32 @@ const getPlans = (t: Translate) => [
     limitations: [t('credits.no_bulk_gen'), t('credits.no_priority_support')],
   },
   {
-    id: 'starter', name: t('credits.plan_starter'), price: 19, period: t('credits.per_month_label'),
+    id: 'starter', name: t('credits.plan_starter'), price: PAID_PLANS.starter.priceUsd, period: t('credits.per_month_label'),
     description: t('credits.test_platform'),
-    icon: Zap, credits: 150, popular: false,
-    features: [t('credits.feat_credits_month', { count: 150 }), t('credits.feat_unlimited_text'), t('credits.feat_all_styles'), t('credits.feat_1_store'), t('credits.feat_priority_support'), t('credits.feat_full_seo')],
+    icon: Zap, credits: PAID_PLANS.starter.credits, popular: false,
+    features: [t('credits.feat_credits_month', { count: PAID_PLANS.starter.credits }), t('credits.feat_unlimited_text'), t('credits.feat_all_styles'), t('credits.feat_1_store'), t('credits.feat_priority_support'), t('credits.feat_full_seo')],
     limitations: [],
   },
   {
-    id: 'professional', name: t('credits.plan_professional'), price: 49, period: t('credits.per_month_label'),
+    id: 'professional', name: t('credits.plan_professional'), price: PAID_PLANS.professional.priceUsd, period: t('credits.per_month_label'),
     description: t('credits.plan_for_growing'),
-    icon: Rocket, credits: 400, popular: true,
-    features: [t('credits.feat_credits_month', { count: 400 }), t('credits.feat_includes_starter'), t('credits.feat_batch_gen'), t('credits.feat_3_stores'), t('credits.feat_priority_247'), t('credits.feat_advanced_reports')],
+    icon: Rocket, credits: PAID_PLANS.professional.credits, popular: true,
+    features: [t('credits.feat_credits_month', { count: PAID_PLANS.professional.credits }), t('credits.feat_includes_starter'), t('credits.feat_batch_gen'), t('credits.feat_3_stores'), t('credits.feat_priority_247'), t('credits.feat_advanced_reports')],
     limitations: [],
   },
   {
-    id: 'enterprise', name: t('credits.plan_enterprise'), price: 99, period: t('credits.per_month_label'),
+    id: 'enterprise', name: t('credits.plan_enterprise'), price: PAID_PLANS.enterprise.priceUsd, period: t('credits.per_month_label'),
     description: t('credits.plan_for_scale'),
-    icon: Crown, credits: 900, popular: false,
-    features: [t('credits.feat_credits_month', { count: 900 }), t('credits.feat_includes_pro'), t('credits.feat_unlimited_stores'), t('credits.feat_dedicated_manager'), t('credits.feat_sla'), t('credits.feat_personal_training')],
+    icon: Crown, credits: PAID_PLANS.enterprise.credits, popular: false,
+    features: [t('credits.feat_credits_month', { count: PAID_PLANS.enterprise.credits }), t('credits.feat_includes_pro'), t('credits.feat_unlimited_stores'), t('credits.feat_dedicated_manager'), t('credits.feat_sla'), t('credits.feat_personal_training')],
     limitations: [],
   },
 ]
 
-const PACKS = [
-  { id: 'pack_50', credits: 50, price: 9, perCredit: 0.18, popular: false },
-  { id: 'pack_100', credits: 100, price: 15, perCredit: 0.15, popular: false },
-  { id: 'pack_300', credits: 300, price: 35, perCredit: 0.12, popular: true },
-  { id: 'pack_500', credits: 500, price: 55, perCredit: 0.11, popular: false },
-  { id: 'pack_1000', credits: 1000, price: 99, perCredit: 0.10, popular: false },
-]
+// Prețurile vin din lib/billing/catalog.ts, aceleași cu care se încasează
+const PACK_OPTIONS = PACK_IDS.map(id => ({
+  id, credits: PACKS[id].credits, price: PACKS[id].priceUsd, perCredit: perCreditUsd(id), popular: id === 'pack_300',
+}))
 
 const getCosts = (t: Translate) => [
   { label: t('credits.ai_text_gen'), cost: 3, icon: FileText },
@@ -285,7 +283,7 @@ function SubscriptionView() {
             <Card className="lg:col-span-2">
               <CardHeader title={t('credits.buy_credits')} description={t('credits.credits_no_expire')} />
               <ul className="space-y-2 p-5">
-                {PACKS.map(pack => (
+                {PACK_OPTIONS.map(pack => (
                   <li key={pack.id} className={cn('flex items-center justify-between gap-3 rounded-xl border px-4 py-3 transition-colors',
                     pack.popular ? 'border-neutral-900 ring-1 ring-neutral-900' : 'border-neutral-200/80 hover:border-neutral-300')}>
                     <div className="flex items-center gap-3">

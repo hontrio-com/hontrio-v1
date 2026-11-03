@@ -4,19 +4,11 @@ import { authOptions } from '@/lib/auth/auth.config'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getLocale, tFor } from '@/lib/i18n/server'
 import { INTL_LOCALE } from '@/lib/i18n/config'
+import { planPriceUsd } from '@/lib/billing/catalog'
+import { revenueTotals } from '@/lib/billing/revenue'
 
 const COST_PER_IMAGE = 0.09  // $0.09 KIE Nano Banana Pro 1K
 const COST_PER_TEXT  = 0.004 // GPT-4o-mini average
-
-const PLAN_PRICES_USD: Record<string, number> = {
-  free: 0, starter: 19, professional: 49, enterprise: 99,
-}
-const PLAN_CREDITS: Record<string, number> = {
-  free: 20, starter: 250, professional: 750, enterprise: 2000,
-}
-const PACK_PRICES_USD: Record<number, number> = {
-  50: 39, 100: 69, 300: 159, 500: 249, 1000: 399,
-}
 
 export async function GET() {
   const locale = await getLocale()
@@ -46,12 +38,8 @@ export async function GET() {
     const monthlyData = months.map(m => {
       const txInMonth = (allTx || []).filter(t => t.created_at >= m.start && t.created_at < m.end)
 
-      let subRevenue = 0, packRevenue = 0
-      txInMonth.filter(t => t.type === 'purchase' || t.type === 'subscription').forEach(t => {
-        const planMatch = Object.entries(PLAN_CREDITS).find(([, cr]) => cr === t.amount)
-        if (planMatch) subRevenue += PLAN_PRICES_USD[planMatch[0]] || 0
-        else packRevenue += PACK_PRICES_USD[t.amount] || 0
-      })
+      // Prețurile din catalog (baza păstrează doar creditele primite)
+      const { subscriptions: subRevenue, packs: packRevenue } = revenueTotals(txInMonth)
 
       const imgCount = txInMonth.filter(t => t.type === 'usage' && t.reference_type === 'image_generation').length
       const txtCount = txInMonth.filter(t => t.type === 'usage' && t.reference_type === 'text_generation').length
@@ -79,7 +67,7 @@ export async function GET() {
 
     const mrr = (allUsers || [])
       .filter(u => u.stripe_subscription_id)
-      .reduce((sum, u) => sum + (PLAN_PRICES_USD[u.plan] || 0), 0)
+      .reduce((sum, u) => sum + planPriceUsd(u.plan), 0)
 
     const planDist: Record<string, number> = { free: 0, starter: 0, professional: 0, enterprise: 0 }
     ;(allUsers || []).forEach(u => { const p = u.plan || 'free'; if (planDist[p] !== undefined) planDist[p]++ })

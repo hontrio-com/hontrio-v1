@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { Bell, CheckCircle2, Minus, Plus, Search, Send, Trash2, UserCheck, Users } from 'lucide-react'
 import { useT } from '@/lib/i18n/context'
 import { storedMessage } from '@/lib/i18n/stored'
+import { paidPlan } from '@/lib/billing/catalog'
 import { cn } from '@/lib/utils'
 import { PageHeader } from '@/components/app/page-header'
 import { Card } from '@/components/app/surface'
@@ -34,12 +35,6 @@ type User = {
 const PLANS = ['free', 'starter', 'professional', 'enterprise']
 const ROLES = ['user', 'admin']
 const CREDIT_STEPS = [10, 20, 50, 100, 500]
-/** Ce primește fiecare plan pe lună (ca în lib/stripe/client.ts). */
-const PLAN_QUOTA: Record<string, { credits: number; price: number }> = {
-  starter: { credits: 150, price: 19 },
-  professional: { credits: 400, price: 49 },
-  enterprise: { credits: 900, price: 99 },
-}
 
 const post = (url: string, body: unknown) =>
   fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
@@ -220,9 +215,10 @@ export default function AdminUsersPage() {
     }
   }
 
+  // Ce primește fiecare plan pe lună, din lib/billing/catalog.ts
   const planNote = (plan: string) => {
-    const q = PLAN_QUOTA[plan]
-    return q ? t('admin.users_plan_quota', q) : t('admin.users_plan_free_quota', { count: 20 })
+    const q = paidPlan(plan)
+    return q ? t('admin.users_plan_quota', { credits: q.credits, price: q.priceUsd }) : t('admin.users_plan_free_quota', { count: 20 })
   }
 
   return (
