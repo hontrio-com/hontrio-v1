@@ -24,6 +24,8 @@
   "action_language": "Switch the language to {{language}}",
   "store_active": "active",
   "store_none": "No store connected",
+  "store_none_short": "No store yet",
+  "connect": "Connect",
   "stores": "Your stores",
   "open_menu": "Open the menu",
   "language": "Language",

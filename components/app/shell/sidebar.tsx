@@ -123,10 +123,19 @@ function StoreCard(p: Props) {
 
   return (
     <div className="rounded-2xl border border-line bg-white p-3.5">
+      {!s ? (
+        // Fără magazin nu e nimic de schimbat: legătura duce direct la conectare
+        <Link href="/settings?tab=integrations" onClick={p.onNavigate} className="group flex w-full items-center justify-between gap-2 text-xs">
+          <span className="min-w-0 truncate font-semibold text-neutral-900">{t('sidebar.store_none_short')}</span>
+          <span className="flex shrink-0 items-center gap-1 font-medium text-black">
+            {t('sidebar.connect')}<Plus className="size-3" />
+          </span>
+        </Link>
+      ) : (
       <DropdownMenu.Root>
         <DropdownMenu.Trigger asChild>
           <button className="group flex w-full items-center justify-between gap-2 text-left text-xs outline-none" aria-label={t('sidebar.stores')}>
-            <span className="min-w-0 truncate font-semibold text-neutral-900">{s ? storeLabel(s) : t('sidebar.store_none')}</span>
+            <span className="min-w-0 truncate font-semibold text-neutral-900">{storeLabel(s)}</span>
             <span className="flex shrink-0 items-center gap-1 text-neutral-400 transition group-hover:text-black">
               {p.stores.length > 1 ? t('sidebar.switch_store') : t('sidebar.manage_store')}<ChevronsUpDown className="size-3" />
             </span>
@@ -152,6 +161,7 @@ function StoreCard(p: Props) {
           </DropdownMenu.Content>
         </DropdownMenu.Portal>
       </DropdownMenu.Root>
+      )}
       <Link href="/settings?tab=integrations" onClick={p.onNavigate} className="group mt-3 flex items-center gap-1.5" aria-label={t('sidebar.connections', { count: connected, total: links.length })}>
         {links.map(l => (
           <span key={l.key} title={`${l.label}${l.on ? ` · ${t('sidebar.connected')}` : ''}`}

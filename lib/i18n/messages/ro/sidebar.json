@@ -24,6 +24,8 @@
   "action_language": "Schimbă limba în {{language}}",
   "store_active": "activ",
   "store_none": "Niciun magazin conectat",
+  "store_none_short": "Niciun magazin",
+  "connect": "Conectează",
   "stores": "Magazinele tale",
   "open_menu": "Deschide meniul",
   "language": "Limba",
