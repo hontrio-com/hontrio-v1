@@ -6,9 +6,7 @@ import { getLocale, tFor } from '@/lib/i18n/server'
 import { INTL_LOCALE } from '@/lib/i18n/config'
 import { planPriceUsd } from '@/lib/billing/catalog'
 import { revenueTotals } from '@/lib/billing/revenue'
-
-const COST_PER_IMAGE = 0.09  // $0.09 KIE Nano Banana Pro 1K
-const COST_PER_TEXT  = 0.004 // GPT-4o-mini average
+import { COST_PER_IMAGE_GENERATION, COST_PER_TEXT_GENERATION } from '@/lib/billing/api-costs'
 
 export async function GET() {
   const locale = await getLocale()
@@ -43,7 +41,7 @@ export async function GET() {
 
       const imgCount = txInMonth.filter(t => t.type === 'usage' && t.reference_type === 'image_generation').length
       const txtCount = txInMonth.filter(t => t.type === 'usage' && t.reference_type === 'text_generation').length
-      const apiCostUsd = imgCount * COST_PER_IMAGE + txtCount * COST_PER_TEXT
+      const apiCostUsd = imgCount * COST_PER_IMAGE_GENERATION + txtCount * COST_PER_TEXT_GENERATION
       const newUsers = (allUsers || []).filter(u => u.created_at >= m.start && u.created_at < m.end).length
       const totalRevenue = subRevenue + packRevenue
       const profit = totalRevenue - apiCostUsd

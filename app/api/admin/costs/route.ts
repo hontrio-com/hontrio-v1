@@ -4,17 +4,7 @@ import { authOptions } from '@/lib/auth/auth.config'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getT } from '@/lib/i18n/server'
 import { translateStored } from '@/lib/i18n/stored'
-
-// ===== REAL API COSTS (verified February 2026) =====
-// GPT-4o-mini: $0.15/1M input + $0.60/1M output tokens
-// Average per text generation: ~800 input + ~1500 output tokens
-// Real cost: (800 * $0.00000015) + (1500 * $0.0000006) = $0.00012 + $0.0009 = $0.00102
-// With overhead (retries, longer prompts, system prompts): ~$0.004
-const COST_PER_TEXT_GENERATION = 0.004
-
-// KIE Nano Banana Pro (1K via kie.ai): $0.09/image (1K/2K), $0.12/image (4K)
-// We use 1K resolution → $0.09, add polling overhead → $0.10
-const COST_PER_IMAGE_GENERATION = 0.10
+import { COST_PER_IMAGE_GENERATION, COST_PER_TEXT_GENERATION } from '@/lib/billing/api-costs'
 
 const USD_TO_EUR = 0.92
 

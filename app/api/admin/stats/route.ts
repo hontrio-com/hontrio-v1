@@ -5,19 +5,9 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { getT } from '@/lib/i18n/server'
 import { planPriceUsd } from '@/lib/billing/catalog'
 import { revenueTotals } from '@/lib/billing/revenue'
+import { COST_PER_IMAGE_GENERATION, COST_PER_TEXT_GENERATION } from '@/lib/billing/api-costs'
 
-// ===== REAL API COSTS =====
-// GPT-4o-mini: $0.15/1M input tokens + $0.60/1M output tokens
-// Average text generation: ~800 input tokens + ~1500 output tokens
-// Cost per text gen: (800 * 0.00000015) + (1500 * 0.0000006) = $0.00012 + $0.0009 = ~$0.001
-// We round up to $0.004 to account for retries, longer prompts, variation
-const COST_PER_TEXT_GENERATION = 0.004
-
-// KIE Nano Banana Pro (1K resolution via kie.ai): ~$0.09-0.12 per image
-// Using $0.10 as average (mix of 1K at $0.09 and occasional retries)
-const COST_PER_IMAGE_GENERATION = 0.10
-
-// Prețurile planurilor și ale pachetelor vin din lib/billing/catalog.ts
+// Prețurile vin din lib/billing/catalog.ts, costurile AI din lib/billing/api-costs.ts
 
 export async function GET() {
   const t = await getT()
