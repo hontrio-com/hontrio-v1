@@ -1,22 +1,22 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 import Link from 'next/link'
 import { useSession } from 'next-auth/react'
-import { AlertCircle, Store } from 'lucide-react'
+import { motion } from 'framer-motion'
+import { AlertCircle, Banknote, Megaphone, Receipt, ShoppingBag, ShoppingCart, Store, Target, TrendingUp, Wallet } from 'lucide-react'
 import { useT } from '@/lib/i18n/context'
 import { translateStored } from '@/lib/i18n/stored'
-import { cn } from '@/lib/utils'
 import { Button } from '@/components/app/button'
 import { Segmented } from '@/components/app/tabs'
 import { Callout, EmptyState, Skeleton } from '@/components/app/feedback'
-import { FadeIn } from '@/components/app/motion'
+import { Surface } from '@/components/app/surface'
 import { useNow, useTimeAgo } from '@/components/app/time'
 import { useFormats } from '@/components/app/formats'
-import { BlurText } from '@/components/app/fx/text'
 import { ConfettiBurst } from '@/components/app/fx/feedback'
-import { CampaignHero, SetupHero } from '@/components/dashboard/hero'
+import { StatCards, type Stat } from '@/components/dashboard/stat-cards'
 import { LaunchWizard } from '@/components/dashboard/launch-wizard'
+import { CampaignSurface } from '@/components/dashboard/campaign-surface'
 import { StoreSection, type SeriesDay } from '@/components/dashboard/store-section'
 import { setupOf, type StepId } from '@/components/dashboard/setup'
 import { PERIODS, type OverviewData, type Period } from '@/components/dashboard/types'
@@ -25,12 +25,14 @@ import type { CampaignsData } from '@/components/campaigns/types'
 import type { Plan } from '@/lib/campaigns/plan'
 
 // =============================================
-// Dashboard-ul: sus, pe negru, unde e omul — înainte de prima campanie, harta
-// drumului până la lansare (cu panoul de pași dedesubt); după, ce aduc
-// reclamele. Dedesubt, „Magazinul tău": cifrele perioadei alese, graficul,
-// sursele, produsele de top și produsele care pot intra în campanie sau
-// pilotul automat.
+// Dashboard-ul, în designul Bezeno: salutul (cu data și o pastilă de stare),
+// patru cifre (primul card negru), suprafața mare cu ce ai de făcut (până la
+// prima campanie, asistentul de lansare; după, ce aduc reclamele) și, sub ea,
+// „Magazinul tău", pe perioada aleasă.
 // =============================================
+
+const subscribe = () => () => {}
+const EASE = [0.22, 1, 0.36, 1] as const
 
 /** Ziua de azi în fusul magazinului, ca `AAAA-LL-ZZ`. */
 function todayIn(tz: string, now: number): string {
@@ -60,6 +62,17 @@ function buildSeries(daily: SeriesDay[], days: number, today: string): SeriesDay
   return weeks
 }
 
+/** Schimbarea relativă (0,12 = +12%); fără perioadă de comparat, nimic. */
+function change(cur: number, prev: number): number | null {
+  return prev === 0 ? null : (cur - prev) / prev
+}
+
+/** Ultimele 7 zile față de cele 7 dinainte. */
+function weekChange(values: number[]): number | null {
+  const sum = (a: number[]) => a.reduce((s, v) => s + v, 0)
+  return change(sum(values.slice(-7)), sum(values.slice(-14, -7)))
+}
+
 export default function DashboardPage() {
   const { data: session } = useSession()
   const { t, intlLocale } = useT()
@@ -74,6 +87,9 @@ export default function DashboardPage() {
   const [planLoading, setPlanLoading] = useState(true)
   const [picked, setPicked] = useState<StepId | null>(null)
   const [launched, setLaunched] = useState<{ text: string; key: number } | null>(null)
+  // Salutul și data, în fusul omului (calculate în browser, ca la Bezeno)
+  const hour = useSyncExternalStore(subscribe, () => new Date().getHours(), () => 12)
+  const today = useSyncExternalStore(subscribe, () => new Date().toLocaleDateString(intlLocale, { weekday: 'long', day: 'numeric', month: 'long' }), () => '')
 
   const load = useCallback(async (period: Period) => {
     setFailed(false)
@@ -113,108 +129,139 @@ export default function DashboardPage() {
   )
 
   const plan = campaigns?.plan ?? null
-  const live = campaigns?.campaigns ?? []
-  const piloting = live.some(isRunning)
+  const piloting = (campaigns?.campaigns ?? []).some(isRunning)
   const setup = plan && !piloting ? setupOf(plan) : null
+  const proposals = campaigns?.proposals ?? []
   const period = t(`overview.period_${days}`)
-
-  const openStep = (id: StepId | null) => {
-    setPicked(id)
-    requestAnimationFrame(() => document.getElementById('setup-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
-  }
   const reloadAll = async () => {
     const [next] = await Promise.all([loadPlan(), load(days)])
     return next
   }
 
-  // ── Antetul paginii ────────────────────────────────────────────────────────
-  const userName = session?.user?.name?.split(' ')[0] || ''
-  const hour = now ? new Date(now).getHours() : 12
-  const greeting = `${t(hour < 12 ? 'dashboard.good_morning' : hour < 18 ? 'dashboard.good_afternoon' : 'dashboard.good_evening')}${userName ? `, ${userName}` : ''}`
-  const dateLine = now ? new Intl.DateTimeFormat(intlLocale, { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date(now)) : null
-  const ads = data?.ads ?? null
-  const summary = setup
-    ? (setup.left <= 1 ? t('home.summary_ready') : t('home.summary_setup', { count: setup.left }))
+  // ── Salutul ────────────────────────────────────────────────────────────────
+  const first = (session?.user?.name || '').split(' ')[0]
+  const part = t(hour >= 5 && hour < 12 ? 'dashboard.good_morning' : hour >= 12 && hour < 18 ? 'dashboard.good_afternoon' : 'dashboard.good_evening')
+  const status = setup
+    ? { text: setup.left <= 1 ? t('home.status_ready') : t('home.status_setup', { count: setup.left }), href: null as string | null }
     : piloting
-      ? (ads?.profit != null
-        ? t(ads.profit >= 0 ? 'home.summary_profit' : 'home.summary_loss', { amount: f.money.format(Math.abs(ads.profit)), period: period.toLowerCase() })
-        : t('home.summary_warming'))
-      : data?.store?.supported ? t('overview.subtitle_store', { store: data.store.store_name || '' }) : t('overview.subtitle')
+      ? (proposals.length > 0 ? { text: t('home.proposals_waiting', { count: proposals.length }), href: '/campaigns?tab=pilot' } : { text: t('home.status_pilot'), href: null })
+      : null
   const store = data?.store ?? null
-  const synced = store?.last_sync_at ? t('home.synced', { time: ago(store.last_sync_at) }) : store ? t('home.syncing') : null
-
-  const header = (
-    <header className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+  const greeting = (
+    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="mb-7 flex flex-wrap items-end justify-between gap-3">
       <div className="min-w-0">
-        <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[12.5px] font-medium text-neutral-500">
-          {dateLine && <span className="inline-block first-letter:uppercase">{dateLine}</span>}
-          {store && (
-            <>
-              <span className="text-neutral-300">·</span>
-              <span className="flex items-center gap-1.5">
-                <span className={cn('size-1.5 rounded-full', store.connection_status === 'active' ? 'bg-emerald-500' : 'bg-amber-500')} />
-                {store.store_name || store.store_url}
-              </span>
-              {synced && <><span className="text-neutral-300">·</span><span className="text-neutral-400">{synced}</span></>}
-            </>
-          )}
-        </p>
-        <h1 className="mt-1.5 text-[28px] font-semibold leading-tight tracking-[-0.035em] text-neutral-950 sm:text-[32px]">
-          <BlurText key={greeting} text={greeting} />
-        </h1>
-        <p className="mt-1.5 text-[14px] text-neutral-500">{summary}</p>
+        <div className="text-sm text-neutral-400">
+          <span className="inline-block first-letter:uppercase">{today}</span>
+          {store && <span> · {store.store_name || store.store_url}{store.last_sync_at ? ` · ${t('home.synced', { time: ago(store.last_sync_at) })}` : ''}</span>}
+        </div>
+        <h1 className="mt-1 text-3xl font-bold tracking-[-0.04em] text-neutral-950 sm:text-4xl">{part}{first ? `, ${first}` : ''}.</h1>
       </div>
-      {store?.supported && (
-        <Segmented id="overview-period" value={String(days)} onChange={v => setDays(Number(v) as Period)}
-          items={PERIODS.map(p => ({ value: String(p), label: t(`overview.period_short_${p}`) }))} />
-      )}
-    </header>
+      {status && (() => {
+        const pill = (
+          <span className="flex items-center gap-2 rounded-full border border-line bg-white px-3 py-1.5 text-sm text-neutral-800">
+            <span className="relative flex size-2">
+              <span className="absolute inline-flex size-full animate-ping rounded-full bg-black/50 motion-reduce:animate-none" />
+              <span className="relative inline-flex size-2 rounded-full bg-black" />
+            </span>
+            {status.text}
+          </span>
+        )
+        return status.href ? <Link href={status.href} className="transition hover:opacity-80">{pill}</Link> : pill
+      })()}
+    </motion.div>
   )
 
   if (loading) {
     return (
-      <div className="space-y-6">
-        <div className="space-y-2.5"><Skeleton className="h-4 w-56" /><Skeleton className="h-8 w-80 max-w-full" /><Skeleton className="h-4 w-96 max-w-full" /></div>
-        <div className="h-[340px] animate-pulse rounded-[22px] bg-neutral-900" />
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">{[0, 1, 2, 3].map(i => <Skeleton key={i} className="h-[150px] rounded-[20px]" />)}</div>
+      <div>
+        <div className="mb-7 space-y-2.5"><Skeleton className="h-4 w-56" /><Skeleton className="h-10 w-96 max-w-full" /></div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 lg:gap-4">
+          <div className="h-[236px] animate-pulse rounded-[1.6rem] bg-neutral-900" />
+          {[0, 1, 2].map(i => <Skeleton key={i} className="h-[236px] rounded-[1.6rem]" />)}
+        </div>
+        <Skeleton className="mt-6 h-[420px] rounded-[1.75rem]" />
       </div>
     )
   }
 
   if (failed && !data) {
     return (
-      <div className="space-y-6">
-        {header}
-        <div className="rounded-[20px] border border-neutral-200/80 bg-white shadow-card">
+      <div>
+        {greeting}
+        <Surface>
           <EmptyState icon={<AlertCircle />} title={t('overview.load_error')} description={t('campaigns.load_error_hint')}
             action={<Button variant="primary" onClick={() => load(days)}>{t('catalog.retry')}</Button>} />
-        </div>
+        </Surface>
       </div>
     )
   }
 
   if (!data?.store || !data.store.supported) {
     return (
-      <div className="space-y-6">
-        {header}
-        <div className="rounded-[20px] border border-neutral-200/80 bg-white shadow-card">
+      <div>
+        {greeting}
+        <Surface dotted>
           <EmptyState icon={<Store />}
             title={data?.store ? t('catalog.unsupported_title') : t('overview.no_store_title')}
             description={data?.store ? t('catalog.unsupported_desc') : t('overview.no_store_desc')}
-            action={!data?.store && <Button asChild variant="primary"><Link href="/settings?tab=integrations">{t('catalog.connect_store')}</Link></Button>} />
-        </div>
+            action={!data?.store && <Button asChild variant="primary" size="lg"><Link href="/settings?tab=integrations">{t('catalog.connect_store')}</Link></Button>} />
+        </Surface>
       </div>
     )
   }
 
-  const selected = picked ?? setup?.current ?? 'store'
+  // ── Cele patru cifre ───────────────────────────────────────────────────────
+  const axis: [string, string] = [t('home.axis_from'), t('home.axis_today')]
+  const trend = (d: number | null) => (d === null ? undefined : { text: `${d > 0 ? '+' : d < 0 ? '−' : ''}${Math.abs(Math.round(d * 100))}%`, up: d > 0.005 ? true : d < -0.005 ? false : null })
+  const ads = data.ads
+  const cur = data.overview?.current
+  const prev = data.overview?.previous
+  let stats: Stat[]
+  if (piloting) {
+    const s14 = (campaigns?.series ?? []).slice(-14)
+    const roasOf = (p: { value: number; cost: number }) => (p.cost > 0 ? p.value / p.cost : 0)
+    stats = [
+      { key: 'profit', icon: TrendingUp, label: t('home.stat_profit'), value: ads?.profit ?? 0, format: n => f.money.format(Math.round(n)), hint: period,
+        series: s14.map(p => Math.max(0, p.profit ?? 0)), axis, trend: trend(weekChange(s14.map(p => p.profit ?? 0))) },
+      { key: 'sales', icon: ShoppingBag, label: t('home.stat_sales'), value: ads?.value ?? 0, format: n => f.money.format(Math.round(n)), hint: period,
+        series: s14.map(p => p.value), axis, trend: trend(weekChange(s14.map(p => p.value))) },
+      { key: 'spend', icon: Wallet, label: t('overview.ads_spend'), value: ads?.cost ?? 0, format: n => f.money.format(Math.round(n)), hint: period,
+        series: s14.map(p => p.cost), axis, trend: trend(weekChange(s14.map(p => p.cost))) },
+      { key: 'roas', icon: Target, label: 'ROAS', value: ads?.roas ?? 0, format: n => f.num.format(n),
+        hint: ads?.break_even != null ? t('overview.ads_roas_be', { roas: f.num.format(ads.break_even) }) : period,
+        series: s14.map(roasOf), axis, trend: trend(weekChange(s14.map(roasOf))) },
+    ]
+  } else {
+    const last = series.slice(-14)
+    const aov = cur && cur.orders ? cur.revenue / cur.orders : 0
+    const prevAov = prev && prev.orders ? prev.revenue / prev.orders : 0
+    const share = cur && cur.revenue ? Math.round((cur.google_ads_revenue / cur.revenue) * 100) : 0
+    stats = [
+      { key: 'revenue', icon: Banknote, label: t('overview.kpi_revenue'), value: cur?.revenue ?? 0, format: n => f.money.format(Math.round(n)), hint: period,
+        series: last.map(s => s.revenue), axis, trend: trend(change(cur?.revenue ?? 0, prev?.revenue ?? 0)) },
+      { key: 'orders', icon: ShoppingCart, label: t('overview.kpi_orders'), value: cur?.orders ?? 0, format: n => f.int.format(Math.round(n)), hint: period,
+        series: last.map(s => s.orders), axis, trend: trend(change(cur?.orders ?? 0, prev?.orders ?? 0)) },
+      { key: 'aov', icon: Receipt, label: t('home.chart_aov_short'), value: aov, format: n => f.money.format(Math.round(n)), hint: period,
+        series: last.map(s => (s.orders ? s.revenue / s.orders : 0)), axis, trend: trend(change(aov, prevAov)) },
+      { key: 'google', icon: Megaphone, label: t('overview.kpi_google_ads'), value: cur?.google_ads_revenue ?? 0, format: n => f.money.format(Math.round(n)),
+        hint: t('common.orders_count', { count: cur?.google_ads_orders ?? 0 }), trend: trend(change(cur?.google_ads_revenue ?? 0, prev?.google_ads_revenue ?? 0)),
+        footer: (
+          <div>
+            <div className="mb-1.5 flex justify-between text-[11px] text-neutral-400"><span>{t('home.ads_share')}</span><span className="font-semibold text-neutral-900">{share}%</span></div>
+            <div className="h-2 overflow-hidden rounded-full bg-neutral-100">
+              <motion.div className="h-full rounded-full bg-black" initial={{ width: 0 }} animate={{ width: `${share}%` }} transition={{ duration: 0.9, ease: EASE }} />
+            </div>
+          </div>
+        ) },
+    ]
+  }
 
   return (
-    <div className="space-y-6">
-      {header}
+    <div>
+      {greeting}
 
       {(data.store.connection_status === 'revoked' || data.store.connection_status === 'error') && (
-        <Callout tone="warning"
+        <Callout tone="warning" className="mb-6"
           action={data.store.connection_status === 'revoked' && <Button asChild size="sm"><Link href="/settings?tab=integrations">{t('catalog.reconnect')}</Link></Button>}>
           {data.store.connection_status === 'revoked' ? t('catalog.revoked', { platform: data.store.platform_name }) : t('catalog.store_error', { platform: data.store.platform_name })}
           {data.store.connection_status === 'error' && data.store.last_error && <span className="block opacity-80">{translateStored(t, data.store.last_error)}</span>}
@@ -224,27 +271,17 @@ export default function DashboardPage() {
       {launched && (
         <>
           <ConfettiBurst key={launched.key} />
-          <Callout tone="success" onClose={() => setLaunched(null)}>{launched.text}</Callout>
+          <Callout tone="success" onClose={() => setLaunched(null)} className="mb-6">{launched.text}</Callout>
         </>
       )}
 
-      {/* Sus, pe negru: drumul până la lansare sau ce aduce campania */}
-      {planLoading ? (
-        <div className="h-[340px] animate-pulse rounded-[22px] bg-neutral-900" />
-      ) : setup && plan ? (
-        <FadeIn>
-          <SetupHero setup={setup} selected={selected} onSelect={id => openStep(id === setup.current ? null : id)} onContinue={() => openStep(null)} />
-        </FadeIn>
-      ) : piloting ? (
-        <FadeIn>
-          <CampaignHero ads={ads} series={campaigns?.series ?? []} days={days} period={period} mode={plan?.settings.mode ?? 'approve'}
-            proposals={campaigns?.proposals?.length ?? 0} f={f} />
-        </FadeIn>
-      ) : null}
+      <StatCards stats={stats} />
 
-      {/* Pașii, până la lansare */}
-      {setup && plan && (
-        <FadeIn delay={0.05}>
+      {/* Ce ai de făcut: lansarea sau ce aduc reclamele */}
+      <div className="mt-6">
+        {planLoading ? (
+          <Skeleton className="h-[420px] rounded-[1.75rem]" />
+        ) : setup && plan ? (
           <LaunchWizard plan={plan} audit={campaigns?.audit ?? null} f={f}
             store={{ name: data.store.store_name, offers: data.store.offers_count, orders: data.store.orders_count }}
             picked={picked} onPick={setPicked} onChanged={reloadAll}
@@ -254,17 +291,25 @@ export default function DashboardPage() {
               window.scrollTo({ top: 0, behavior: 'smooth' })
               reloadAll()
             }} />
-        </FadeIn>
-      )}
+        ) : piloting ? (
+          <CampaignSurface plan={plan} series={campaigns?.series ?? []} days={days} f={f} />
+        ) : null}
+      </div>
 
-      {/* Magazinul tău */}
-      <section className="space-y-3 pt-2">
-        <div>
-          <h2 className="text-[17px] font-semibold tracking-[-0.02em] text-neutral-950">{t('home.store_title')}</h2>
-          <p className="mt-0.5 text-[13px] text-neutral-500">{t('home.store_hint', { period: period.toLowerCase() })}</p>
+      {/* Magazinul tău (Bezeno · „Your projects") */}
+      <section className="mt-12">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-xl font-semibold tracking-tight text-neutral-950">{t('home.store_title')}</h2>
+            <p className="mt-0.5 text-sm text-neutral-500">{t('home.store_hint', { period: period.toLowerCase() })}</p>
+          </div>
+          <Segmented id="overview-period" value={String(days)} onChange={v => setDays(Number(v) as Period)}
+            items={PERIODS.map(p => ({ value: String(p), label: t(`overview.period_short_${p}`) }))} />
         </div>
-        <StoreSection data={data} series={series} weekly={data.days > 90} f={f} plan={plan}
-          proposals={piloting ? (campaigns?.proposals ?? []) : null} journal={campaigns?.journal ?? []} onChanged={reloadAll} />
+        <div className="mt-6">
+          <StoreSection data={data} series={series} weekly={data.days > 90} f={f} plan={plan}
+            proposals={piloting ? proposals : null} journal={campaigns?.journal ?? []} onChanged={reloadAll} />
+        </div>
       </section>
     </div>
   )

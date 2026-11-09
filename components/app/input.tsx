@@ -3,12 +3,13 @@ import { Check, ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 // =============================================
-// Câmpurile platformei: contur fin, inel în culoarea accentului la focus,
-// roșu când valoarea nu e bună (aria-invalid). Opțional o iconiță în stânga
-// (căutarea) și ce se scrie după valoare (moneda), în dreapta.
+// Câmpurile platformei, în designul Bezeno: colțuri rotunjite, contur fin
+// care se înnegrește la focus (cu un inel abia vizibil), roșu când valoarea
+// nu e bună (aria-invalid). Opțional o iconiță în stânga (căutarea) și ce se
+// scrie după valoare (moneda), în dreapta.
 // =============================================
 
-export const inputStyles = 'h-9 w-full rounded-lg border border-neutral-200 bg-white px-3 text-[13px] text-neutral-900 shadow-[0_1px_2px_rgb(16_24_40/0.04)] outline-none transition-[border-color,box-shadow] placeholder:text-neutral-400 focus:border-brand-500 focus:ring-[3px] focus:ring-brand-600/15 disabled:cursor-not-allowed disabled:bg-neutral-50 disabled:text-neutral-400 aria-[invalid=true]:border-red-300 aria-[invalid=true]:focus:ring-red-500/15'
+export const inputStyles = 'h-10 w-full rounded-xl border border-line bg-white px-3.5 text-[14px] text-neutral-950 outline-none transition-[border-color,box-shadow] placeholder:text-neutral-400 focus:border-black focus:shadow-[0_0_0_3px_rgba(10,10,10,0.06)] disabled:cursor-not-allowed disabled:bg-neutral-50 disabled:text-neutral-400 aria-[invalid=true]:border-red-300 aria-[invalid=true]:focus:border-red-500'
 
 export function Input({ className, icon, suffix, wrapperClassName, ...props }: React.ComponentProps<'input'> & {
   icon?: ReactNode
@@ -18,8 +19,8 @@ export function Input({ className, icon, suffix, wrapperClassName, ...props }: R
   if (!icon && !suffix) return <input className={cn(inputStyles, className)} {...props} />
   return (
     <div className={cn('relative', wrapperClassName)}>
-      {icon && <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 [&_svg]:size-3.5">{icon}</span>}
-      <input className={cn(inputStyles, icon && 'pl-8', suffix && 'pr-12', className)} {...props} />
+      {icon && <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400 [&_svg]:size-4">{icon}</span>}
+      <input className={cn(inputStyles, icon && 'pl-10', suffix && 'pr-12', className)} {...props} />
       {suffix && <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[12px] text-neutral-400">{suffix}</span>}
     </div>
   )
@@ -39,8 +40,8 @@ export function ChoiceCard({ active, onClick, disabled, title, description, asid
 }) {
   return (
     <button type="button" onClick={onClick} disabled={disabled} aria-pressed={active}
-      className={cn('group relative flex w-full flex-col rounded-xl border bg-white p-3.5 text-left transition-[border-color,box-shadow,background-color] duration-150 disabled:cursor-not-allowed disabled:opacity-55',
-        active ? 'border-brand-600 bg-brand-50/30 ring-1 ring-brand-600' : 'border-neutral-200 hover:border-neutral-300 hover:shadow-card', className)}>
+      className={cn('group relative flex w-full flex-col rounded-2xl border p-4 text-left transition-[border-color,box-shadow,background-color] duration-150 disabled:cursor-not-allowed disabled:opacity-55',
+        active ? 'border-black bg-white shadow-sm' : 'border-line bg-neutral-50 hover:border-neutral-300', className)}>
       <span className="flex items-start justify-between gap-3">
         <span className="text-[13px] font-semibold text-neutral-900">{title}</span>
         <span className="flex shrink-0 items-center gap-2">

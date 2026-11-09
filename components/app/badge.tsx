@@ -24,7 +24,7 @@ export function Badge({ tone = 'neutral', dot, live, children, className }: {
   tone?: Tone; dot?: boolean; live?: boolean; children: ReactNode; className?: string
 }) {
   return (
-    <span className={cn('inline-flex h-[22px] items-center gap-1.5 rounded-md px-1.5 text-[12px] font-medium ring-1 ring-inset whitespace-nowrap', TONES[tone].badge, className)}>
+    <span className={cn('inline-flex h-[22px] items-center gap-1.5 whitespace-nowrap rounded-full px-2 text-[11.5px] font-semibold ring-1 ring-inset', TONES[tone].badge, className)}>
       {(dot || live) && <StatusDot tone={tone} live={live} />}
       {children}
     </span>

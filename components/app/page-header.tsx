@@ -1,9 +1,13 @@
+'use client'
+
 import type { ReactNode } from 'react'
+import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
 
 // =============================================
-// Capul fiecărei pagini: ce e pagina (titlul), la ce folosește (o frază) și
-// acțiunea principală, în dreapta. Sub el, opțional, filele paginii.
+// Capul fiecărei pagini, în designul Bezeno: deasupra, un rând mic gri (sau
+// starea paginii), titlul mare și strâns, o frază despre la ce folosește și,
+// în dreapta, acțiunea principală. Sub el, opțional, filele paginii.
 // =============================================
 
 export function PageHeader({ title, description, actions, meta, children, className }: {
@@ -17,16 +21,17 @@ export function PageHeader({ title, description, actions, meta, children, classN
   className?: string
 }) {
   return (
-    <header className={cn('space-y-5', className)}>
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+    <motion.header initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+      className={cn('mb-2 space-y-6', className)}>
+      <div className="flex flex-wrap items-end justify-between gap-4">
         <div className="min-w-0">
-          {meta && <div className="mb-2 flex flex-wrap items-center gap-2">{meta}</div>}
-          <h1 className="text-[26px] font-semibold leading-tight tracking-[-0.025em] text-neutral-950">{title}</h1>
-          {description && <p className="mt-1.5 max-w-2xl text-[14px] leading-relaxed text-neutral-500">{description}</p>}
+          {meta && <div className="mb-2 flex flex-wrap items-center gap-2 text-sm text-neutral-400">{meta}</div>}
+          <h1 className="text-3xl font-bold tracking-[-0.04em] text-neutral-950 sm:text-4xl">{title}</h1>
+          {description && <p className="mt-2 max-w-2xl text-[15px] leading-relaxed text-neutral-500">{description}</p>}
         </div>
-        {actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}
+        {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
       </div>
       {children}
-    </header>
+    </motion.header>
   )
 }

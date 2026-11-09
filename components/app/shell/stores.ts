@@ -7,7 +7,14 @@ import { useCallback, useEffect, useState } from 'react'
 // Schimbarea magazinului reîncarcă pagina: toate datele sunt ale lui.
 // =============================================
 
-export type StoreItem = { id: string; platform: string; store_name: string | null; store_url: string }
+export type StoreItem = {
+  id: string; platform: string; store_name: string | null; store_url: string
+  /** Legăturile magazinului, pentru cardul din meniu: conexiunea, contul Google Ads, Merchant Center. */
+  connection_status?: string | null
+  google_ads_customer_id?: string | null
+  merchant_center_id?: string | null
+  platform_data?: { google_merchant?: { cont_id?: string | number | null } | null } | null
+}
 
 export const PLATFORM_NAME: Record<string, string> = { edinio: 'Edinio', woocommerce: 'WooCommerce', shopify: 'Shopify' }
 

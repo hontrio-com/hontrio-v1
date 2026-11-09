@@ -1,20 +1,20 @@
 'use client'
 
 import Link from 'next/link'
-import { ArrowLeft, Search, X } from 'lucide-react'
+import { ArrowLeft, Search } from 'lucide-react'
 import { useT } from '@/lib/i18n/context'
-import { Badge, Kbd } from '@/components/app/badge'
 import { NavLink } from '@/components/app/shell/sidebar'
 import { ADMIN_NAV, activeAdminItem } from '@/components/app/shell/admin-nav'
 
 // =============================================
-// Meniul panoului de administrare: același aspect ca meniul platformei, cu
-// drumul înapoi spre platformă, sus. Paginile stau pe grupe.
+// Meniul panoului de administrare: același aspect ca meniul platformei
+// (designul Bezeno), cu drumul înapoi spre platformă în locul butonului negru.
 // =============================================
 
-export function AdminSidebar({ pathname, user, onNavigate, onSearch }: {
+export function AdminSidebar({ pathname, user, layoutId, onNavigate, onSearch }: {
   pathname: string
   user: { name: string; email: string }
+  layoutId: string
   onNavigate: () => void
   onSearch: () => void
 }) {
@@ -22,55 +22,47 @@ export function AdminSidebar({ pathname, user, onNavigate, onSearch }: {
   const current = activeAdminItem(pathname)
 
   return (
-    <div className="flex h-full flex-col">
-      <div className="flex h-16 shrink-0 items-center justify-between pl-5 pr-3">
-        <div className="flex items-center gap-2">
-          <Link href="/admin/stats" onClick={onNavigate} className="flex items-center rounded-md outline-none focus-visible:ring-[3px] focus-visible:ring-neutral-900/20">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/logo-black.png" alt="Hontrio" className="h-[22px] w-auto" />
-          </Link>
-          <Badge tone="brand" className="h-[18px] px-1 text-[10px]">{t('admin.layout_badge')}</Badge>
-        </div>
-        <button onClick={onNavigate} aria-label={t('common.close')}
-          className="flex size-7 shrink-0 items-center justify-center rounded-md text-neutral-400 transition-colors hover:bg-black/[0.04] hover:text-neutral-700 lg:hidden">
-          <X className="size-4" />
-        </button>
-      </div>
-
-      <div className="space-y-2 px-3 pb-2">
-        <Link href="/dashboard" onClick={onNavigate}
-          className="group flex h-8 items-center gap-2 rounded-lg bg-white px-2.5 text-[13px] font-medium text-neutral-700 shadow-[0_1px_2px_rgb(16_24_40/0.04)] ring-1 ring-black/[0.07] transition-colors hover:text-neutral-950 hover:ring-black/[0.12]">
-          <ArrowLeft className="size-3.5 text-neutral-400 transition-transform group-hover:-translate-x-0.5" />
-          {t('admin.back_to_platform')}
+    <div className="flex h-full flex-col px-4 pb-4 pt-5">
+      <div className="flex items-center gap-2 px-2">
+        <Link href="/admin/stats" onClick={onNavigate} className="flex items-center rounded-lg outline-none focus-visible:ring-[3px] focus-visible:ring-black/15">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo-black.png" alt="Hontrio" className="h-[22px] w-auto select-none" draggable={false} />
         </Link>
-        <button onClick={onSearch}
-          className="flex h-8 w-full items-center gap-2 rounded-lg bg-white px-2.5 text-[13px] text-neutral-500 shadow-[0_1px_2px_rgb(16_24_40/0.04)] ring-1 ring-black/[0.06] transition-colors hover:text-neutral-700 hover:ring-black/10">
-          <Search className="size-3.5" />
-          <span className="flex-1 text-left">{t('sidebar.search')}</span>
-          <Kbd className="h-[18px] text-[10px]">⌘K</Kbd>
-        </button>
+        <span className="rounded-full bg-black px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-white">{t('admin.layout_badge')}</span>
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-3 pb-3">
-        {ADMIN_NAV.map((g, i) => (
-          <div key={g.label} className={i > 0 ? 'mt-5' : 'mt-2'}>
-            <p className="mb-1 px-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">{t(g.label)}</p>
-            <ul className="space-y-0.5">
+      <Link href="/dashboard" onClick={onNavigate}
+        className="group mt-6 flex items-center justify-center gap-2 rounded-xl border border-line bg-white px-4 py-2.5 text-sm font-semibold text-neutral-900 transition hover:border-black">
+        <ArrowLeft className="size-4 transition group-hover:-translate-x-0.5" />{t('admin.back_to_platform')}
+      </Link>
+
+      <button onClick={onSearch}
+        className="mt-3 flex h-10 items-center gap-2 rounded-full border border-line bg-white px-3.5 text-sm text-neutral-400 transition hover:border-neutral-300 hover:text-neutral-600">
+        <Search className="size-4" />
+        <span className="flex-1 text-left">{t('sidebar.search')}</span>
+        <span className="rounded-md border border-line px-1.5 py-px font-mono text-[10px] text-neutral-400">⌘K</span>
+      </button>
+
+      <nav className="mt-6 flex flex-1 flex-col gap-6 overflow-y-auto [scrollbar-width:none]">
+        {ADMIN_NAV.map(g => (
+          <div key={g.label}>
+            <div className="mb-2 px-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-neutral-400">{t(g.label)}</div>
+            <div className="flex flex-col gap-0.5">
               {g.items.map(item => (
-                <li key={item.href}>
-                  <NavLink item={item} active={current?.href === item.href} collapsed={false} onNavigate={onNavigate} label={t(item.label)} />
-                </li>
+                <NavLink key={item.href} item={item} label={t(item.label)} active={current?.href === item.href} layoutId={layoutId} onNavigate={onNavigate} />
               ))}
-            </ul>
+            </div>
           </div>
         ))}
       </nav>
 
-      <div className="flex items-center gap-2.5 border-t border-black/[0.06] px-5 py-3">
-        <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-neutral-200 text-[12px] font-semibold text-neutral-600">{user.name[0]?.toUpperCase()}</span>
+      <div className="mt-4 flex items-center gap-3 rounded-2xl p-2">
+        <span className="grid size-9 shrink-0 place-items-center rounded-full bg-gradient-to-br from-neutral-700 to-black text-sm font-bold text-white ring-2 ring-white">
+          {(user.name || user.email).slice(0, 1).toUpperCase()}
+        </span>
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-[13px] font-medium text-neutral-900">{user.name}</span>
-          <span className="block truncate text-[11px] text-neutral-500">{user.email}</span>
+          <span className="block truncate text-sm font-semibold text-neutral-900">{user.name}</span>
+          <span className="block truncate text-xs text-neutral-400">{user.email}</span>
         </span>
       </div>
     </div>

@@ -8,15 +8,10 @@ import { Area, AreaChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContaine
 import { useT } from '@/lib/i18n/context'
 import { translateStored } from '@/lib/i18n/stored'
 import { cn } from '@/lib/utils'
-import { MagicCard } from '@/components/app/fx/cards'
 import { AnimatedList } from '@/components/app/fx/feedback'
-import { NumberTicker } from '@/components/app/motion'
-import { Delta } from '@/components/app/kpi'
-import { Sparkline, CHART } from '@/components/app/charts'
 import { Segmented } from '@/components/app/tabs'
 import { Badge } from '@/components/app/badge'
 import { Button, textActionStyles } from '@/components/app/button'
-import { InfoTip } from '@/components/app/info-tip'
 import { useTimeAgo } from '@/components/app/time'
 import { day, type Formats } from '@/components/app/formats'
 import { KIND_ICON, actionDetail } from '@/components/campaigns/pilot-tab'
@@ -25,25 +20,21 @@ import type { Plan } from '@/lib/campaigns/plan'
 import type { OverviewData } from '@/components/dashboard/types'
 
 // =============================================
-// „Magazinul tău", sub antet, în casete (bento): cifrele perioadei (alegi una
-// și graficul o arată pe zile), de unde vin vânzările, ce se vinde cel mai bine
-// și, alături, ce produse pot intra în campanie (înainte de lansare) sau ce
-// face pilotul automat (după). Lumina urmărește cursorul pe cifre (Magic Card).
+// „Magazinul tău", sub suprafața mare a Dashboard-ului (ca „Your projects" la
+// Bezeno): graficul vânzărilor de pe site (venit, comenzi sau coș mediu), de
+// unde vin vânzările, ce se vinde cel mai bine și, alături, ce produse pot
+// intra în campanie (înainte de lansare) sau ce face pilotul automat (după).
 // =============================================
 
 export type Metric = 'revenue' | 'orders' | 'aov'
 export type SeriesDay = { day: string; revenue: number; orders: number }
 
-const EASE = [0.21, 0.47, 0.32, 0.98] as const
+const EASE = [0.22, 1, 0.36, 1] as const
 const SOURCE_ORDER = ['google_ads', 'google_organic', 'meta', 'email', 'other_campaigns', 'referral', 'direct']
 const SHADES = ['#0a0a0a', '#404040', '#6b6b6b', '#8f8f8f', '#b3b3b3', '#d1d1d1', '#e5e5e5']
 
-/** Schimbarea relativă (0,12 = +12%); fără perioadă de comparat, nimic. */
-function change(cur: number, prev: number): number | null {
-  return prev === 0 ? null : (cur - prev) / prev
-}
-
-const box = 'rounded-[20px] border border-neutral-200/80 bg-white shadow-card'
+/** Cardul Bezeno: alb, colțuri mari, contur fin; umbra se adâncește la hover. */
+const box = 'rounded-[1.4rem] border border-line bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-shadow hover:shadow-[0_24px_50px_-32px_rgba(0,0,0,0.35)]'
 
 export function StoreSection({ data, series, weekly, f, plan, proposals, journal, onChanged }: {
   data: OverviewData
@@ -58,79 +49,13 @@ export function StoreSection({ data, series, weekly, f, plan, proposals, journal
   journal: ActionItem[]
   onChanged: () => Promise<unknown>
 }) {
-  const { t } = useT()
-  const [metric, setMetric] = useState<Metric>('revenue')
-  const cur = data.overview?.current
-  const prev = data.overview?.previous
-  const aov = cur && cur.orders ? cur.revenue / cur.orders : 0
-  const prevAov = prev && prev.orders ? prev.revenue / prev.orders : 0
-  const hasSales = series.some(s => s.revenue > 0)
-  const label = (d: string) => f.shortDate.format(day(d))
-  const spark = (key: Metric) => (hasSales ? series.map(s => ({ label: label(s.day), value: key === 'aov' ? (s.orders ? s.revenue / s.orders : 0) : s[key] })) : [])
-  const adsShare = cur && cur.revenue ? Math.round((cur.google_ads_revenue / cur.revenue) * 100) : 0
-
-  const tiles: { id: Metric; label: string; help: string; value: number; format: (n: number) => string; delta: number | null }[] = [
-    { id: 'revenue', label: t('overview.kpi_revenue'), help: t('overview.kpi_revenue_help'), value: cur?.revenue ?? 0, format: n => f.money.format(n), delta: change(cur?.revenue ?? 0, prev?.revenue ?? 0) },
-    { id: 'orders', label: t('overview.kpi_orders'), help: t('overview.kpi_orders_help'), value: cur?.orders ?? 0, format: n => f.int.format(Math.round(n)), delta: change(cur?.orders ?? 0, prev?.orders ?? 0) },
-    { id: 'aov', label: t('overview.kpi_aov'), help: t('overview.kpi_aov_help'), value: aov, format: n => f.money.format(n), delta: change(aov, prevAov) },
-  ]
-
   return (
-    <div className="space-y-3">
-      {/* Cifrele perioadei: alegi una și graficul o arată */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        {tiles.map((k, i) => (
-          <motion.div key={k.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45, delay: 0.05 * i, ease: EASE }}>
-            <MagicCard className={cn(box, 'h-full transition-[border-color,box-shadow]', metric === k.id && 'border-neutral-950 shadow-[0_0_0_1px_#0a0a0a,0_12px_28px_-16px_rgb(0_0_0/0.35)]')}>
-              {/* Explicația stă în afara butonului: un buton nu poate conține alt buton */}
-              <span className="absolute right-3.5 top-3.5 z-10 flex items-center gap-2">
-                <InfoTip>{k.help}</InfoTip>
-                <span className={cn('size-1.5 rounded-full transition-colors', metric === k.id ? 'bg-neutral-950' : 'bg-transparent')} />
-              </span>
-              <button type="button" onClick={() => setMetric(k.id)} aria-pressed={metric === k.id}
-                className="flex h-full w-full flex-col rounded-[20px] p-4 pb-0 text-left focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-neutral-900/15">
-                <span className="pr-12 text-[12.5px] font-medium text-neutral-500">{k.label}</span>
-                <span className="mt-2 text-[26px] font-semibold leading-none tabular-nums tracking-[-0.035em] text-neutral-950">
-                  <NumberTicker value={k.value} format={k.format} />
-                </span>
-                <span className="mt-2 flex items-center gap-2 text-[11.5px] text-neutral-400"><Delta value={k.delta} />{t('home.vs_before')}</span>
-                <span className="-mx-4 mt-3 block"><Sparkline data={spark(k.id)} color={metric === k.id ? CHART.brand : CHART.neutral} height={42} /></span>
-              </button>
-            </MagicCard>
-          </motion.div>
-        ))}
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45, delay: 0.15, ease: EASE }}>
-          <MagicCard className={cn(box, 'h-full')}>
-            <span className="absolute right-10 top-3.5 z-10"><InfoTip>{t('overview.kpi_google_ads_help')}</InfoTip></span>
-            <Link href="/reports" className="group flex h-full flex-col rounded-[20px] p-4 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-neutral-900/15">
-              <span className="flex items-center justify-between gap-2">
-                <span className="pr-8 text-[12.5px] font-medium text-neutral-500">{t('overview.kpi_google_ads')}</span>
-                <ArrowUpRight className="size-4 text-neutral-300 transition-[color,transform] group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-neutral-700" />
-              </span>
-              <span className="mt-2 text-[26px] font-semibold leading-none tabular-nums tracking-[-0.035em] text-neutral-950">
-                <NumberTicker value={cur?.google_ads_revenue ?? 0} format={n => f.money.format(n)} />
-              </span>
-              <span className="mt-2 flex items-center gap-2 text-[11.5px] text-neutral-400">
-                <Delta value={change(cur?.google_ads_revenue ?? 0, prev?.google_ads_revenue ?? 0)} />
-                {t('common.orders_count', { count: cur?.google_ads_orders ?? 0 })}
-              </span>
-              <span className="mt-auto pt-4">
-                <span className="flex items-center justify-between text-[11.5px] text-neutral-500"><span>{t('home.ads_share')}</span><span className="font-semibold tabular-nums text-neutral-900">{adsShare}%</span></span>
-                <span className="mt-1.5 block h-1.5 overflow-hidden rounded-full bg-neutral-100">
-                  <motion.span className="block h-full rounded-full bg-neutral-950" initial={{ width: 0 }} animate={{ width: `${adsShare}%` }} transition={{ duration: 0.9, ease: EASE }} />
-                </span>
-              </span>
-            </Link>
-          </MagicCard>
-        </motion.div>
-      </div>
-
-      <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
-        <SalesChart className="lg:col-span-2" series={series} weekly={weekly} metric={metric} onMetric={setMetric} f={f} />
+    <div className="space-y-3 lg:space-y-4">
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-3 lg:gap-4">
+        <SalesChart className="lg:col-span-2" series={series} weekly={weekly} f={f} />
         <SourcesCard data={data} f={f} />
       </div>
-
-      <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-3 lg:gap-4">
         <TopProducts className="lg:col-span-2" data={data} f={f} />
         {proposals ? <PilotCard proposals={proposals} journal={journal} f={f} onChanged={onChanged} />
           : plan ? <CatalogCard plan={plan} /> : <div className={cn(box, 'min-h-[220px] animate-pulse bg-neutral-50')} />}
@@ -153,10 +78,9 @@ function CardTitle({ title, hint, action }: { title: ReactNode; hint?: ReactNode
 
 // ── Graficul ──────────────────────────────────────────────────────────────────
 
-function SalesChart({ series, weekly, metric, onMetric, f, className }: {
-  series: SeriesDay[]; weekly: boolean; metric: Metric; onMetric: (m: Metric) => void; f: Formats; className?: string
-}) {
+function SalesChart({ series, weekly, f, className }: { series: SeriesDay[]; weekly: boolean; f: Formats; className?: string }) {
   const { t } = useT()
+  const [metric, setMetric] = useState<Metric>('revenue')
   const id = useId().replace(/:/g, '')
   const data = series.map(s => ({ label: f.shortDate.format(day(s.day)), revenue: s.revenue, orders: s.orders, aov: s.orders ? s.revenue / s.orders : 0 }))
   const has = series.some(s => s.revenue > 0)
@@ -166,7 +90,7 @@ function SalesChart({ series, weekly, metric, onMetric, f, className }: {
     <div className={cn(box, 'flex flex-col p-5', className)}>
       <CardTitle title={t(weekly ? `home.chart_${metric}_weekly` : `home.chart_${metric}`)} hint={t('overview.chart_hint')}
         action={has && (
-          <Segmented id="home-metric" size="sm" value={metric} onChange={onMetric}
+          <Segmented id="home-metric" size="sm" value={metric} onChange={setMetric}
             items={[{ value: 'revenue', label: t('overview.chart_revenue') }, { value: 'orders', label: t('overview.chart_orders') }, { value: 'aov', label: t('home.chart_aov_short') }]} />
         )} />
       {has ? (

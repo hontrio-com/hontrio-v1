@@ -25,10 +25,14 @@
   "store_active": "active",
   "store_none": "No store connected",
   "stores": "Your stores",
-  "collapse": "Collapse the menu",
-  "expand": "Expand the menu",
   "open_menu": "Open the menu",
   "language": "Language",
-  "breadcrumb": "Where you are",
-  "help": "Help"
+  "new_campaign": "New campaign",
+  "switch_store": "Switch",
+  "manage_store": "Manage",
+  "connections": "{{count}}/{{total}} connected",
+  "connected": "connected",
+  "section_ads": "Advertising",
+  "section_store": "Store",
+  "close_menu": "Close menu"
 }

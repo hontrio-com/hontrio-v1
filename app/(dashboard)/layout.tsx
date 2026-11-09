@@ -1,42 +1,24 @@
 'use client'
 
-import { useCallback, useEffect, useState, useSyncExternalStore } from 'react'
+import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useSession, signOut } from 'next-auth/react'
 import { AnimatePresence, motion } from 'framer-motion'
+import { Menu, Plus, X } from 'lucide-react'
 import { useT } from '@/lib/i18n/context'
-import { cn } from '@/lib/utils'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { useCredits } from '@/hooks/use-credits'
 import { Sidebar } from '@/components/app/shell/sidebar'
-import { Topbar } from '@/components/app/shell/topbar'
 import { CommandMenu } from '@/components/app/shell/command-menu'
 import { Toaster } from '@/components/app/toaster'
-import { activeItem } from '@/components/app/shell/nav'
-import { storeLabel, useStores } from '@/components/app/shell/stores'
+import { useStores } from '@/components/app/shell/stores'
 
 // =============================================
-// Rama platformei: meniul din stânga (magazinul, căutarea, paginile,
-// creditele, contul), bara de sus (unde ești) și conținutul paginii.
-// Căutarea universală se deschide cu ⌘K / Ctrl+K de oriunde.
+// Rama platformei, în designul Bezeno: meniul fix în stânga (pe telefon, o
+// bară sus și meniul care glisează din stânga), iar pagina pe un fundal gri
+// foarte deschis, centrată. Căutarea universală se deschide cu ⌘K / Ctrl+K.
 // =============================================
-
-const COLLAPSED_KEY = 'hontrio:sidebar-collapsed'
-
-// Meniul strâns se ține minte pe dispozitiv (și se potrivește între filele deschise)
-const collapsedStore = {
-  subscribe(onChange: () => void) {
-    window.addEventListener('storage', onChange)
-    window.addEventListener(COLLAPSED_KEY, onChange)
-    return () => {
-      window.removeEventListener('storage', onChange)
-      window.removeEventListener(COLLAPSED_KEY, onChange)
-    }
-  },
-  get(): boolean {
-    try { return localStorage.getItem(COLLAPSED_KEY) === '1' } catch { return false }
-  },
-}
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { data: session } = useSession()
@@ -46,7 +28,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [menuAt, setMenuAt] = useState<string | null>(null)
   const mobileOpen = menuAt === pathname
   const setMobileOpen = (open: boolean) => setMenuAt(open ? pathname : null)
-  const collapsed = useSyncExternalStore(collapsedStore.subscribe, collapsedStore.get, () => false)
   const [searchOpen, setSearchOpen] = useState(false)
   const { credits, plan, avatarUrl } = useCredits()
   const { stores, active, switching, choose } = useStores()
@@ -62,11 +43,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     fetch('/api/user/me').then(r => r.json()).then(d => { if (d.user?.onboarding_completed === false) window.location.href = '/onboarding' }).catch(() => {})
   }, [session, admin])
 
-  const toggleCollapsed = useCallback(() => {
-    try { localStorage.setItem(COLLAPSED_KEY, collapsedStore.get() ? '0' : '1') } catch {}
-    window.dispatchEvent(new Event(COLLAPSED_KEY))
-  }, [])
-
   // ⌘K / Ctrl+K, de oriunde
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -76,48 +52,56 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
-  const page = activeItem(pathname, admin)
+  const sidebar = (layoutId: string, onNavigate: () => void) => (
+    <Sidebar pathname={pathname} admin={admin} layoutId={layoutId} onNavigate={onNavigate}
+      onSearch={() => { setMobileOpen(false); setSearchOpen(true) }}
+      stores={stores} activeStore={active} switching={switching} onChooseStore={choose}
+      user={{ name: userName, email: userEmail, avatarUrl }} credits={credits} plan={plan}
+      onLogout={() => signOut({ callbackUrl: '/login' })} />
+  )
 
   return (
     <TooltipProvider delayDuration={200}>
-      <div className="app min-h-screen bg-white text-neutral-900">
+      <div className="app flex min-h-screen bg-canvas text-neutral-950">
+        {/* Meniul, pe desktop */}
+        <aside className="sticky top-0 hidden h-screen w-[264px] shrink-0 border-r border-line bg-rail lg:block">
+          {sidebar('nav-active-desktop', () => {})}
+        </aside>
+
+        {/* Bara de sus, pe telefon */}
+        <div className="fixed inset-x-0 top-0 z-40 flex h-14 items-center justify-between border-b border-line bg-white/80 px-4 backdrop-blur-xl lg:hidden">
+          <Link href="/dashboard" className="flex items-center">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo-black.png" alt="Hontrio" className="h-5 w-auto" />
+          </Link>
+          <div className="flex items-center gap-2">
+            <Link href="/campaigns?new=1" className="grid size-9 place-items-center rounded-full bg-black text-white" aria-label={t('sidebar.new_campaign')}>
+              <Plus className="size-4" />
+            </Link>
+            <button onClick={() => setMobileOpen(true)} className="grid size-9 place-items-center rounded-full border border-line bg-white" aria-label={t('sidebar.open_menu')}>
+              <Menu className="size-4" />
+            </button>
+          </div>
+        </div>
         <AnimatePresence>
           {mobileOpen && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              className="fixed inset-0 z-40 bg-neutral-950/30 backdrop-blur-[2px] lg:hidden" onClick={() => setMobileOpen(false)} />
+            <>
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setMobileOpen(false)}
+                className="fixed inset-0 z-50 bg-black/30 backdrop-blur-sm lg:hidden" />
+              <motion.aside initial={{ x: '-100%' }} animate={{ x: 0 }} exit={{ x: '-100%' }} transition={{ type: 'spring', stiffness: 380, damping: 38 }}
+                className="fixed inset-y-0 left-0 z-50 w-[86%] max-w-[320px] bg-rail shadow-2xl lg:hidden">
+                <button onClick={() => setMobileOpen(false)} className="absolute right-3 top-4 z-10 grid size-9 place-items-center rounded-full hover:bg-neutral-100" aria-label={t('sidebar.close_menu')}>
+                  <X className="size-4" />
+                </button>
+                {sidebar('nav-active-mobile', () => setMobileOpen(false))}
+              </motion.aside>
+            </>
           )}
         </AnimatePresence>
 
-        <aside className={cn(
-          'fixed inset-y-0 left-0 z-50 w-[272px] border-r border-black/[0.06] bg-canvas transition-[transform,width] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] lg:translate-x-0',
-          mobileOpen ? 'translate-x-0' : '-translate-x-full',
-          collapsed ? 'lg:w-16' : 'lg:w-[248px]',
-        )}>
-          <Sidebar
-            pathname={pathname}
-            admin={admin}
-            collapsed={collapsed}
-            onToggleCollapsed={toggleCollapsed}
-            onNavigate={() => setMobileOpen(false)}
-            onSearch={() => { setMobileOpen(false); setSearchOpen(true) }}
-            stores={stores}
-            activeStore={active}
-            switching={switching}
-            onChooseStore={choose}
-            user={{ name: userName, email: userEmail, avatarUrl }}
-            credits={credits}
-            plan={plan}
-            onLogout={() => signOut({ callbackUrl: '/login' })}
-          />
-        </aside>
-
-        <div className={cn('transition-[padding] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]', collapsed ? 'lg:pl-16' : 'lg:pl-[248px]')}>
-          <Topbar store={active ? storeLabel(active) : null} page={page ? t(page.label) : null}
-            onMenu={() => setMobileOpen(true)} onSearch={() => setSearchOpen(true)} />
-          <main className="mx-auto w-full max-w-[1240px] px-4 pb-16 pt-6 sm:px-6 lg:px-10 lg:pt-8">
-            {children}
-          </main>
-        </div>
+        <main className="min-w-0 flex-1 px-4 pb-16 pt-20 sm:px-6 lg:px-10 lg:pt-8">
+          <div className="mx-auto w-full max-w-6xl">{children}</div>
+        </main>
 
         <CommandMenu open={searchOpen} onOpenChange={setSearchOpen} admin={admin} stores={stores} activeStoreId={active?.id ?? null} onChooseStore={choose} />
         <Toaster />

@@ -6,28 +6,28 @@ import { Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 // =============================================
-// Butoanele platformei. Unul singur „primary" pe ecran (accentul), restul
-// „secondary" (alb, cu contur fin) sau „ghost". Apăsarea se simte (scale),
-// focusul se vede (inel în culoarea accentului).
+// Butoanele platformei, în designul Bezeno: pastile. Unul singur „primary" pe
+// ecran (negru), restul „secondary" (alb, contur fin care se înnegrește la
+// hover) sau „ghost". Apăsarea se simte, focusul se vede.
 // =============================================
 
 export const buttonStyles = cva(
-  'relative inline-flex select-none items-center justify-center gap-1.5 whitespace-nowrap font-medium transition-[background-color,box-shadow,color,transform,opacity] duration-150 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-45 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brand-600/25 [&_svg]:pointer-events-none [&_svg]:shrink-0',
+  'relative inline-flex select-none items-center justify-center gap-1.5 whitespace-nowrap rounded-full font-semibold transition-[background-color,border-color,box-shadow,color,transform,opacity] duration-150 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-40 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-black/15 [&_svg]:pointer-events-none [&_svg]:shrink-0',
   {
     variants: {
       variant: {
-        primary: 'bg-brand-600 text-white shadow-[inset_0_1px_0_rgb(255_255_255/0.14),0_1px_2px_rgb(16_24_40/0.14)] hover:bg-brand-700',
-        secondary: 'bg-white text-neutral-800 shadow-[0_1px_2px_rgb(16_24_40/0.05)] ring-1 ring-inset ring-neutral-200 hover:bg-neutral-50 hover:ring-neutral-300',
-        ghost: 'text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900',
-        danger: 'bg-white text-red-600 ring-1 ring-inset ring-red-200 hover:bg-red-50',
+        primary: 'bg-[#0a0a0a] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_8px_20px_-10px_rgba(0,0,0,0.55)] hover:bg-[#2a2a2a]',
+        secondary: 'border border-line bg-white text-neutral-900 hover:border-black',
+        ghost: 'text-neutral-600 hover:bg-neutral-100 hover:text-black',
+        danger: 'border border-line bg-white text-red-600 hover:border-red-600',
         dark: 'bg-neutral-900 text-white hover:bg-neutral-800',
       },
       size: {
-        xs: 'h-7 rounded-md px-2 text-[12px] [&_svg]:size-3.5',
-        sm: 'h-8 rounded-lg px-2.5 text-[13px] [&_svg]:size-3.5',
-        md: 'h-9 rounded-lg px-3.5 text-[13px] [&_svg]:size-4',
-        lg: 'h-10 rounded-xl px-4 text-[14px] [&_svg]:size-4',
-        icon: 'size-8 rounded-lg [&_svg]:size-4',
+        xs: 'h-7 px-2.5 text-[12px] [&_svg]:size-3.5',
+        sm: 'h-8 px-3 text-[13px] [&_svg]:size-3.5',
+        md: 'h-10 px-[1.1rem] text-[14px] [&_svg]:size-4',
+        lg: 'h-12 px-6 text-[15px] [&_svg]:size-4',
+        icon: 'size-9 [&_svg]:size-4',
       },
     },
     defaultVariants: { variant: 'secondary', size: 'md' },

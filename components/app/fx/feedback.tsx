@@ -8,59 +8,13 @@ import { cn } from '@/lib/utils'
 
 // =============================================
 // Ce îi arată omului că se întâmplă ceva:
-//   ProgressCircle, Confetti, AnimatedList — Magic UI (magicui.design, MIT)
+//   Confetti, AnimatedList — Magic UI (magicui.design, MIT)
 //   LaunchSteps — Multi Step Loader din Aceternity UI (ui.aceternity.com; folosire
 //   în aplicații, fără redistribuirea codului)
-//   StatusMark și bifa desenată (Stepper) — React Bits (reactbits.dev, MIT +
+//   StatusMark — React Bits (reactbits.dev, MIT +
 //   Commons Clause: se folosește în produs, nu se revinde)
 // Toate țin cont de „reduce motion" din sistem.
 // =============================================
-
-/**
- * Câți pași s-au făcut, ca un cerc cu o mică pauză între capete (Magic UI ·
- * Animated Circular Progress Bar), cu „2/5" în mijloc. `tone="dark"` pe negru.
- */
-export function ProgressCircle({ value, max, label, size = 64, tone = 'light', className }: {
-  value: number; max: number; label?: string; size?: number; tone?: 'light' | 'dark'; className?: string
-}) {
-  const r = 45
-  const c = 2 * Math.PI * r
-  const pct = max > 0 ? Math.max(0, Math.min(1, value / max)) : 0
-  const gap = 0.04
-  const filled = Math.max(0, pct - (pct > 0 && pct < 1 ? gap : 0))
-  const rest = pct >= 1 ? 0 : Math.max(0, 1 - pct - (pct > 0 ? gap * 2 : 0))
-  const dark = tone === 'dark'
-  return (
-    <div className={cn('flex shrink-0 flex-col items-center gap-1.5', className)}>
-      <div className="relative" style={{ width: size, height: size }} role="img" aria-label={label}>
-        <svg viewBox="0 0 100 100" className="size-full -rotate-90" fill="none">
-          {rest > 0 && (
-            <circle cx="50" cy="50" r={r} strokeWidth="8" strokeLinecap="round" stroke={dark ? 'rgba(255,255,255,0.14)' : '#e5e5e5'}
-              strokeDasharray={`${rest * c} ${c}`} transform={`rotate(${(pct + (pct > 0 ? gap : 0)) * 360} 50 50)`}
-              style={{ transition: 'stroke-dasharray 1s ease, transform 1s ease' }} />
-          )}
-          <circle cx="50" cy="50" r={r} strokeWidth="8" strokeLinecap="round" stroke={dark ? '#ffffff' : '#0a0a0a'}
-            strokeDasharray={`${filled * c} ${c}`} style={{ transition: 'stroke-dasharray 1s ease' }} />
-        </svg>
-        <span className={cn('absolute inset-0 flex items-center justify-center text-[15px] font-semibold tabular-nums tracking-[-0.02em]', dark ? 'text-white' : 'text-neutral-950')}>
-          {value}<span className={dark ? 'text-white/40' : 'text-neutral-400'}>/{max}</span>
-        </span>
-      </div>
-      {label && <span className={cn('text-[11px] font-medium', dark ? 'text-white/50' : 'text-neutral-500')}>{label}</span>}
-    </div>
-  )
-}
-
-/** Bifa care se desenează (React Bits · Stepper). */
-export function DrawnCheck({ className }: { className?: string }) {
-  const reduce = useReducedMotion()
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} className={className} aria-hidden>
-      <motion.path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round"
-        initial={reduce ? false : { pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ delay: 0.08, type: 'tween', ease: 'easeOut', duration: 0.3 }} />
-    </svg>
-  )
-}
 
 export type MarkStatus = 'pending' | 'running' | 'done'
 

@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { Inter, Outfit } from 'next/font/google'
+import { Geist, Geist_Mono, Inter, Outfit } from 'next/font/google'
 import './globals.css'
 import { Providers } from '@/components/providers'
 import Script from 'next/script'
@@ -8,8 +8,11 @@ import { getLocale, tFor } from '@/lib/i18n/server'
 import { clientMessages } from '@/lib/i18n/dictionaries'
 
 const outfit = Outfit({ subsets: ['latin'], variable: '--font-outfit' })
-// Platforma (după autentificare) folosește Inter: cifre egale și lizibilitate la text mic
+// Inter rămâne pentru paginile vechi care îl cer direct
 const inter = Inter({ subsets: ['latin', 'latin-ext'], variable: '--font-inter', display: 'swap' })
+// Platforma (după autentificare) folosește Geist, ca în designul ales (Bezeno); Geist Mono pentru cifrele mici
+const geist = Geist({ subsets: ['latin', 'latin-ext'], variable: '--font-geist-sans', display: 'swap' })
+const geistMono = Geist_Mono({ subsets: ['latin'], variable: '--font-geist-mono', display: 'swap' })
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://hontrio.com'
 
@@ -258,7 +261,7 @@ export default async function RootLayout({
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
       </head>
-      <body className={`${outfit.variable} ${inter.variable} font-sans antialiased`}>
+      <body className={`${outfit.variable} ${inter.variable} ${geist.variable} ${geistMono.variable} font-sans antialiased`}>
         <Providers locale={locale} messages={messages} fallback={fallback}>
           {children}
           {/* În provider, ca bannerul de cookie-uri să fie și el tradus */}

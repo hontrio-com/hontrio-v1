@@ -7,39 +7,10 @@ import { cn } from '@/lib/utils'
 
 // =============================================
 // Controalele momentelor importante:
-//   ShimmerButton — Magic UI (magicui.design, MIT)
 //   SlideCommit („glisează ca să confirmi") — React Bits (reactbits.dev, MIT +
 //   Commons Clause: se folosește în produs, nu se revinde)
 // În alb-negru; verdele și roșul rămân doar pentru reușită și eșec.
 // =============================================
-
-/**
- * Butonul principal al unui moment important (Magic UI · Shimmer Button): negru,
- * cu o sclipire albă care îi ocolește marginea. Oprit, e un buton negru simplu.
- */
-export function ShimmerButton({ children, className, disabled, ...props }: React.ComponentProps<'button'>) {
-  return (
-    <button type="button" disabled={disabled}
-      style={{ '--spread': '90deg', '--shimmer-color': '#ffffff', '--radius': '12px', '--speed': '2.8s', '--cut': '0.07em', '--bg': '#0a0a0a' } as CSSProperties}
-      className={cn('group relative z-0 inline-flex h-11 cursor-pointer select-none items-center justify-center gap-2 overflow-hidden whitespace-nowrap px-6 text-[14px] font-semibold text-white',
-        'border border-white/10 [background:var(--bg)] [border-radius:var(--radius)] shadow-[0_10px_28px_-10px_rgb(0_0_0/0.55)]',
-        'transform-gpu transition-[transform,opacity,box-shadow] duration-200 hover:shadow-[0_14px_34px_-10px_rgb(0_0_0/0.6)] active:translate-y-px',
-        'focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-neutral-900/25 disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none',
-        className)}
-      {...props}>
-      {!disabled && (
-        <span aria-hidden className="absolute inset-0 -z-30 overflow-visible blur-[2px] [container-type:size] motion-reduce:hidden">
-          <span className="absolute inset-0 h-[100cqh] animate-shimmer-slide [aspect-ratio:1] [border-radius:0] [mask:none]">
-            <span className="absolute -inset-full w-auto rotate-0 animate-spin-around [background:conic-gradient(from_calc(270deg-(var(--spread)*0.5)),transparent_0,var(--shimmer-color)_var(--spread),transparent_var(--spread))] [translate:0_0]" />
-          </span>
-        </span>
-      )}
-      {children}
-      <span aria-hidden className="absolute inset-0 size-full [border-radius:var(--radius)] shadow-[inset_0_-8px_10px_#ffffff1f] transition-shadow duration-300 group-hover:shadow-[inset_0_-6px_10px_#ffffff3f] group-active:shadow-[inset_0_-10px_10px_#ffffff3f]" />
-      <span aria-hidden className="absolute -z-20 [background:var(--bg)] [border-radius:var(--radius)] [inset:var(--cut)]" />
-    </button>
-  )
-}
 
 // ── SlideCommit ──────────────────────────────────────────────────────────────
 
@@ -74,7 +45,7 @@ const finePointer = () => typeof window !== 'undefined' && !!window.matchMedia?.
  */
 export function SlideCommit({
   label, doneLabel, errorLabel, workingLabel, onConfirm, onError, disabled = false,
-  width = 300, height = 56, className,
+  width = 300, height = 56, radius, className,
 }: {
   label: string
   doneLabel: ReactNode
@@ -86,6 +57,8 @@ export function SlideCommit({
   disabled?: boolean
   width?: number
   height?: number
+  /** Colțurile șinei; implicit o pastilă (jumătate din înălțime). */
+  radius?: number
   className?: string
 }) {
   const reduce = useReducedMotion()
@@ -106,7 +79,7 @@ export function SlideCommit({
   const GRIP = height - PAD * 2
   const INNER = width - PAD * 2
   const TRAVEL = Math.max(1, INNER - GRIP)
-  const r = height / 2
+  const r = clamp(radius ?? height / 2, 0, height / 2)
   const gripR = Math.max(0, r - PAD)
   const k = 260 + 0.5 * 640
   const mass = 0.9

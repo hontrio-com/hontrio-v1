@@ -1,23 +1,21 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { AnimatePresence, motion } from 'framer-motion'
+import { Menu, X } from 'lucide-react'
 import { useT } from '@/lib/i18n/context'
-import { cn } from '@/lib/utils'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { AdminSidebar } from '@/components/app/shell/admin-sidebar'
-import { activeAdminItem } from '@/components/app/shell/admin-nav'
-import { Topbar } from '@/components/app/shell/topbar'
 import { CommandMenu } from '@/components/app/shell/command-menu'
 import { useStores } from '@/components/app/shell/stores'
 import { Toaster } from '@/components/app/toaster'
 
 // =============================================
-// Rama panoului de administrare: meniul lui, bara de sus (Panou de
-// administrare › pagina) și conținutul. Aceeași construcție ca rama platformei,
-// doar cu paginile de administrare în meniu.
+// Rama panoului de administrare: aceeași construcție ca rama platformei
+// (designul Bezeno), doar cu paginile de administrare în meniu.
 // =============================================
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -40,32 +38,46 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
-  const page = activeAdminItem(pathname)
   const user = { name: session?.user?.name || t('settings.default_user'), email: session?.user?.email || '' }
+  const sidebar = (layoutId: string, onNavigate: () => void) => (
+    <AdminSidebar pathname={pathname} user={user} layoutId={layoutId} onNavigate={onNavigate} onSearch={() => { setMobileOpen(false); setSearchOpen(true) }} />
+  )
 
   return (
     <TooltipProvider delayDuration={200}>
-      <div className="app min-h-screen bg-white text-neutral-900">
+      <div className="app flex min-h-screen bg-canvas text-neutral-950">
+        <aside className="sticky top-0 hidden h-screen w-[264px] shrink-0 border-r border-line bg-rail lg:block">
+          {sidebar('admin-nav-desktop', () => {})}
+        </aside>
+
+        <div className="fixed inset-x-0 top-0 z-40 flex h-14 items-center justify-between border-b border-line bg-white/80 px-4 backdrop-blur-xl lg:hidden">
+          <Link href="/admin/stats" className="flex items-center">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo-black.png" alt="Hontrio" className="h-5 w-auto" />
+          </Link>
+          <button onClick={() => setMobileOpen(true)} className="grid size-9 place-items-center rounded-full border border-line bg-white" aria-label={t('sidebar.open_menu')}>
+            <Menu className="size-4" />
+          </button>
+        </div>
         <AnimatePresence>
           {mobileOpen && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              className="fixed inset-0 z-40 bg-neutral-950/30 backdrop-blur-[2px] lg:hidden" onClick={() => setMobileOpen(false)} />
+            <>
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setMobileOpen(false)}
+                className="fixed inset-0 z-50 bg-black/30 backdrop-blur-sm lg:hidden" />
+              <motion.aside initial={{ x: '-100%' }} animate={{ x: 0 }} exit={{ x: '-100%' }} transition={{ type: 'spring', stiffness: 380, damping: 38 }}
+                className="fixed inset-y-0 left-0 z-50 w-[86%] max-w-[320px] bg-rail shadow-2xl lg:hidden">
+                <button onClick={() => setMobileOpen(false)} className="absolute right-3 top-4 z-10 grid size-9 place-items-center rounded-full hover:bg-neutral-100" aria-label={t('sidebar.close_menu')}>
+                  <X className="size-4" />
+                </button>
+                {sidebar('admin-nav-mobile', () => setMobileOpen(false))}
+              </motion.aside>
+            </>
           )}
         </AnimatePresence>
 
-        <aside className={cn(
-          'fixed inset-y-0 left-0 z-50 w-[272px] border-r border-black/[0.06] bg-canvas transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] lg:w-[248px] lg:translate-x-0',
-          mobileOpen ? 'translate-x-0' : '-translate-x-full',
-        )}>
-          <AdminSidebar pathname={pathname} user={user} onNavigate={() => setMobileOpen(false)} onSearch={() => { setMobileOpen(false); setSearchOpen(true) }} />
-        </aside>
-
-        <div className="lg:pl-[248px]">
-          <Topbar store={t('admin.layout_title')} page={page ? t(page.label) : null} onMenu={() => setMobileOpen(true)} onSearch={() => setSearchOpen(true)} />
-          <main className="mx-auto w-full max-w-[1240px] px-4 pb-16 pt-6 sm:px-6 lg:px-10 lg:pt-8">
-            {children}
-          </main>
-        </div>
+        <main className="min-w-0 flex-1 px-4 pb-16 pt-20 sm:px-6 lg:px-10 lg:pt-8">
+          <div className="mx-auto w-full max-w-6xl">{children}</div>
+        </main>
 
         <CommandMenu open={searchOpen} onOpenChange={setSearchOpen} admin stores={stores} activeStoreId={active?.id ?? null} onChooseStore={choose} />
         <Toaster />

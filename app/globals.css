@@ -109,24 +109,24 @@
   --color-brand-900: #000000;
 
   /* Fundalul aplicației, sub meniu și sub panouri */
-  --color-canvas: #fafafa;
+  --color-canvas: #f7f7f8;
+  /* Meniul din stânga și conturul fin al suprafețelor, ca în designul Bezeno */
+  --color-rail: #fbfbfb;
+  --color-line: #e7e7e7;
 
-  --shadow-card: 0 1px 2px 0 rgb(16 24 40 / 0.04), 0 1px 3px 0 rgb(16 24 40 / 0.03);
-  --shadow-raised: 0 12px 32px -8px rgb(16 24 40 / 0.14), 0 4px 8px -4px rgb(16 24 40 / 0.06);
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-raised: 0 1px 2px rgba(0, 0, 0, 0.04), 0 24px 50px -32px rgba(0, 0, 0, 0.35);
+  /* Suprafața mare a unei pagini (Bezeno · Surface) */
+  --shadow-surface: 0 1px 2px rgba(0, 0, 0, 0.04), 0 24px 60px -40px rgba(0, 0, 0, 0.35);
   --shadow-pop: 0 16px 48px -12px rgb(16 24 40 / 0.22), 0 0 0 1px rgb(16 24 40 / 0.06);
 
   --animate-shimmer: shimmer 1.8s ease-in-out infinite;
   --animate-live: live-dot 2.4s ease-out infinite;
 }
 
-/* ShimmerButton (Magic UI): viteza vine din --speed, pusă pe buton. „inline" scrie
-   valoarea direct în clasă, ca var(--speed) să se citească pe buton, nu pe :root */
+/* Animated Shiny Text (Magic UI): o lumină trece peste textul glisorului de lansare.
+   „inline" scrie valoarea direct în clasă (ce citește variabile se rezolvă pe element). */
 @theme inline {
-  --animate-shimmer-slide: shimmer-slide var(--speed) ease-in-out infinite alternate;
-  --animate-spin-around: spin-around calc(var(--speed) * 2) infinite linear;
-  /* Ripple (Magic UI): cercurile respiră pe rând, după --i */
-  --animate-ripple: ripple var(--duration, 2.4s) ease calc(var(--i, 0) * 0.2s) infinite;
-  /* Animated Shiny Text (Magic UI): o lumină trece peste text */
   --animate-shiny-text: shiny-text 3.4s linear infinite;
 }
 
@@ -168,23 +168,9 @@
 .range-mono:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 5px rgb(10 10 10 / 0.14); }
 .range-mono:disabled { cursor: not-allowed; opacity: 0.45; }
 
-@keyframes ripple {
-  0%, 100% { transform: translate(-50%, -50%) scale(1); }
-  50%      { transform: translate(-50%, -50%) scale(0.92); }
-}
 @keyframes shiny-text {
   from { background-position: 120% 0; }
   to   { background-position: -20% 0; }
-}
-
-@keyframes shimmer-slide {
-  to { transform: translate(calc(100cqw - 100%), 0); }
-}
-@keyframes spin-around {
-  0%       { transform: translateZ(0) rotate(0); }
-  15%, 35% { transform: translateZ(0) rotate(90deg); }
-  65%, 85% { transform: translateZ(0) rotate(270deg); }
-  100%     { transform: translateZ(0) rotate(360deg); }
 }
 
 @keyframes shimmer {
@@ -200,9 +186,15 @@
 /* Rădăcina platformei: Inter cu „a"-ul simplu și cifrele deschise */
 .app {
   /* direct pe variabila fontului: cele din @theme apar doar când le folosește o clasă */
-  font-family: var(--font-inter), ui-sans-serif, system-ui, -apple-system, sans-serif;
-  font-feature-settings: "cv11", "ss01";
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, sans-serif;
   letter-spacing: -0.006em;
+}
+.app .font-mono {
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+}
+.app ::selection {
+  background: #0a0a0a;
+  color: #fff;
 }
 .app .tabular-nums, .app .num {
   font-variant-numeric: tabular-nums;

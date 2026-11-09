@@ -25,10 +25,14 @@
   "store_active": "activ",
   "store_none": "Niciun magazin conectat",
   "stores": "Magazinele tale",
-  "collapse": "Strânge meniul",
-  "expand": "Lărgește meniul",
   "open_menu": "Deschide meniul",
   "language": "Limba",
-  "breadcrumb": "Unde ești",
-  "help": "Ajutor"
+  "new_campaign": "Campanie nouă",
+  "switch_store": "Schimbă",
+  "manage_store": "Gestionează",
+  "connections": "{{count}}/{{total}} conectate",
+  "connected": "conectat",
+  "section_ads": "Reclame",
+  "section_store": "Magazin",
+  "close_menu": "Închide meniul"
 }

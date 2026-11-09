@@ -13,13 +13,18 @@ export type NavGroup = { label: string | null; items: NavItem[]; admin?: boolean
 
 export const NAV: NavGroup[] = [
   {
-    label: null,
+    label: 'sidebar.section_ads',
     items: [
       { label: 'sidebar.dashboard', href: '/dashboard', icon: LayoutDashboard, keywords: ['dashboard', 'acasa', 'home', 'prezentare'] },
       { label: 'sidebar.campaigns', href: '/campaigns', icon: Megaphone, keywords: ['campanii', 'campaigns', 'reclame', 'ads', 'google', 'pmax', 'shopping'] },
+      { label: 'sidebar.reports', href: '/reports', icon: BarChart3, keywords: ['rapoarte', 'reports', 'statistici', 'roas', 'profit'] },
+    ],
+  },
+  {
+    label: 'sidebar.section_store',
+    items: [
       { label: 'sidebar.products', href: '/products', icon: Package, keywords: ['produse', 'products', 'catalog', 'costuri'] },
       { label: 'sidebar.ai_recommendations', href: '/recommendations', icon: Lightbulb, keywords: ['recomandari', 'recommendations', 'sugestii'] },
-      { label: 'sidebar.reports', href: '/reports', icon: BarChart3, keywords: ['rapoarte', 'reports', 'statistici', 'roas', 'profit'] },
     ],
   },
   {

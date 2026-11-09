@@ -37,7 +37,7 @@ type Filter = 'all' | Severity
 const SEVERITIES: Severity[] = ['critical', 'high', 'medium', 'low']
 const TONE: Record<Severity, Tone> = { critical: 'red', high: 'amber', medium: 'neutral', low: 'outline' }
 // i18n-ignore-start: clase de stil, nu text
-// Dunga din stânga a cardului: cât de urgent e
+// Semnul din stânga, lângă eticheta de urgență: cât de urgent e
 const STRIPE: Record<Severity, string> = { critical: 'bg-red-500', high: 'bg-amber-500', medium: 'bg-neutral-300', low: 'bg-neutral-200' }
 // i18n-ignore-end
 const COLLAPSED_ITEMS = 3
@@ -51,7 +51,7 @@ function RecCard({ rec, render, f }: { rec: Recommendation; render: (t: Text) =>
 
   return (
     <Card className="relative overflow-hidden">
-      <span aria-hidden className={cn('absolute inset-y-0 left-0 w-[3px]', STRIPE[rec.severity])} />
+      <span aria-hidden className={cn('absolute left-0 top-5 h-6 w-[3px] rounded-r-full', STRIPE[rec.severity])} />
       <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
