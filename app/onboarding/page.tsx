@@ -131,7 +131,12 @@ export default function OnboardingPage() {
     const go = (s: number) => { setDir(1); setStep(s) }
     if (params.get('google') === 'connected') {
       const warning = params.get('google_warning')
-      if (warning) setNotice(warning === 'discovery_failed' ? { key: 'google_ads.warning_discovery_failed' } : { key: 'google_ads.warning_generic', params: { code: warning } })
+      if (warning) {
+        const testOnly = warning.endsWith('DEVELOPER_TOKEN_NOT_APPROVED') || warning.endsWith('CLOUD_PROJECT_NOT_APPROVED_FOR_PRODUCTION')
+        setNotice(testOnly ? { key: 'google_ads.warning_test_token' }
+          : warning === 'discovery_failed' ? { key: 'google_ads.warning_discovery_failed' }
+          : { key: 'google_ads.warning_generic', params: { code: warning } })
+      }
       go(3)
     } else if (params.get('google_error')) {
       const code = params.get('google_error')!

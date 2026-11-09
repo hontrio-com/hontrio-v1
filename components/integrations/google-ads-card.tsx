@@ -74,7 +74,8 @@ export default function GoogleAdsCard() {
   }, [])
 
   function warningText(code: string) {
-    if (code.endsWith('DEVELOPER_TOKEN_NOT_APPROVED')) return t('google_ads.warning_test_token')
+    // Accesul de test: codul vechi (tokenul de dezvoltator) și cel nou, al proiectului Google Cloud
+    if (code.endsWith('DEVELOPER_TOKEN_NOT_APPROVED') || code.endsWith('CLOUD_PROJECT_NOT_APPROVED_FOR_PRODUCTION')) return t('google_ads.warning_test_token')
     if (code === 'discovery_failed') return t('google_ads.warning_discovery_failed')
     return t('google_ads.warning_generic', { code })
   }
