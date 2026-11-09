@@ -29,14 +29,14 @@ export async function generateMetadata(): Promise<Metadata> {
   description: t('marketing.meta_description'),
   // Cuvinte-cheie SEO, în ambele limbi deodată: nu sunt text afișat  i18n-ignore-start
   keywords: [
-    'platforma ecommerce Romania',
-    'optimizare imagini produse AI',
-    'SEO automat magazin online',
-    'agent chat magazin online',
-    'protectie comenzi COD Romania',
-    'AI product image generator',
-    'ecommerce SEO automation',
-    'AI sales agent online store',
+    'reclame Google Ads magazin online',
+    'Google Shopping magazin online',
+    'campanii Performance Max',
+    'pilot automat Google Ads',
+    'ROAS prag de profit',
+    'Google Ads automation for ecommerce',
+    'Shopping ads management',
+    'break-even ROAS',
   ],
   // i18n-ignore-end
   authors: [{ name: 'Hontrio', url: 'https://hontrio.com' }],

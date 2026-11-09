@@ -79,16 +79,6 @@
   --sidebar-ring: oklch(0.51 0.16 260);
 }
 
-/* Aurora animation (used by AuroraBackground component) */
-@keyframes aurora {
-  from { background-position: 50% 50%, 50% 50%; }
-  to   { background-position: 350% 50%, 350% 50%; }
-}
-
-@theme {
-  --animate-aurora: aurora 60s linear infinite;
-}
-
 /* ═══════════════════════════════════════════════════════════════════════
    Platforma (după autentificare): sistemul de design, în spiritul Stripe /
    Linear, în alb și negru, ca logo-ul Hontrio. Accentul („brand") e negrul:
