@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState, type ReactNode } from 'react'
+import { useId, useRef, useState, type ReactNode } from 'react'
 import Link from 'next/link'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import {
@@ -71,6 +71,7 @@ export function LaunchWizard({ plan, audit, store, f, continueLabel, onChanged, 
 }) {
   const { t, intlLocale } = useT()
   const reduce = useReducedMotion()
+  const uid = useId()
   const [picked, setPicked] = useState<StepId | null>(null)
   const [busy, setBusy] = useState<'recheck' | 'audit' | 'costs' | 'goal' | 'launch' | null>(null)
   const [note, setNote] = useState<Note | null>(null)
@@ -531,9 +532,14 @@ export function LaunchWizard({ plan, audit, store, f, continueLabel, onChanged, 
                   )}
                   <button type="button" onClick={() => setPicked(s.id === current ? null : s.id)} aria-current={active ? 'step' : undefined}
                     className={cn('relative flex w-full items-start gap-3 rounded-xl px-3 py-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brand-600/20',
-                      active ? 'bg-neutral-100/80' : 'hover:bg-neutral-50')}>
+                      !active && 'hover:bg-neutral-50')}>
+                    {/* Plăcuța pasului deschis alunecă de la un pas la altul (ca în Stepper-ul din React Bits) */}
+                    {active && (
+                      <motion.span aria-hidden layoutId={`${uid}-open-step`} className="absolute inset-0 rounded-xl bg-neutral-100/80"
+                        transition={reduce ? { duration: 0 } : { type: 'spring', stiffness: 520, damping: 42 }} />
+                    )}
                     <StepDot state={state} n={i + 1} />
-                    <span className="min-w-0 flex-1">
+                    <span className="relative min-w-0 flex-1">
                       <span className="flex items-center justify-between gap-2">
                         <span className={cn('text-[13.5px] font-medium leading-snug', state === 'done' && !active ? 'text-neutral-500' : 'text-neutral-900')}>{t(`wizard.${s.id}_title`)}</span>
                         {state === 'current' && <span className="shrink-0 rounded-full bg-neutral-950 px-1.5 py-px text-[10.5px] font-semibold text-white">{t('wizard.state_current')}</span>}

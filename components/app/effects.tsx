@@ -1,17 +1,20 @@
 'use client'
 
-import { useEffect, useId, useState, type CSSProperties, type ReactNode } from 'react'
-import { AnimatePresence, motion, useReducedMotion, type MotionStyle } from 'framer-motion'
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
+import { AnimatePresence, animate, motion, useMotionValue, useReducedMotion, type MotionStyle } from 'framer-motion'
 import confetti from 'canvas-confetti'
 import { cn } from '@/lib/utils'
 
 // =============================================
-// Efectele vizuale ale platformei, luate din bibliotecile open source (MIT)
-// și trecute pe alb și negru, ca logo-ul:
+// Efectele vizuale ale platformei, luate din biblioteci de componente și
+// trecute pe alb și negru, ca logo-ul:
 //   DotPattern, BorderBeam, ShimmerButton, AnimatedCircularProgressBar,
-//   Confetti — Magic UI (magicui.design)
-//   MultiStepLoader — Aceternity UI (ui.aceternity.com)
-//   bifa care se desenează — Stepper din React Bits (reactbits.dev)
+//   Confetti — Magic UI (magicui.design, MIT)
+//   MultiStepLoader — Aceternity UI (ui.aceternity.com; licența lor permite
+//   folosirea în aplicații, nu redistribuirea codului)
+//   bifa care se desenează (Stepper) și StatusMark — React Bits (reactbits.dev,
+//   MIT + Commons Clause: se folosește în produs, nu se revinde)
 // Toate sunt discrete și țin cont de „reduce motion" din sistem: pe un ecran
 // folosit zilnic, mișcarea arată unde e acțiunea, nu decorează.
 // =============================================
@@ -128,13 +131,106 @@ export function DrawnCheck({ className }: { className?: string }) {
   )
 }
 
+export type MarkStatus = 'pending' | 'running' | 'done'
+
+const MARK_UI = { type: 'spring' as const, duration: 0.3, bounce: 0 }
+const MARK_MORPH = { duration: 0.3, ease: [0.77, 0, 0.175, 1] as [number, number, number, number] }
+const MARK_IDLE_DASH = 0.3
+
+/**
+ * Starea unui pas (React Bits · Status Mark): inel punctat (urmează), arc care se
+ * rotește (acum), apoi bifa care se desenează (gata). Culoarea vine din `text-*`.
+ */
+export function StatusMark({ status, size = 22, strokeWidth = 2, dashes = 8, className }: {
+  status: MarkStatus; size?: number; strokeWidth?: number; dashes?: number; className?: string
+}) {
+  const reduce = useReducedMotion()
+  const r = 10 - strokeWidth / 2
+  const C = 2 * Math.PI * r
+  const P = C / Math.max(1, dashes)
+  const running = status === 'running'
+  const solid = status !== 'pending'
+  const targetArc = running ? 0.68 : 1
+
+  const mode = useMotionValue(solid ? 1 : 0)
+  const arc = useMotionValue(targetArc)
+  const travel = useMotionValue(0)
+  const ringRef = useRef<SVGCircleElement>(null)
+  const geo = useRef({ C, P })
+  const generation = useRef(0)
+
+  // Inelul trece din punctat (mode 0) în arc continuu (mode 1), lungimea lui fiind `arc`
+  const writeDash = useCallback(() => {
+    const { C: c, P: p } = geo.current
+    const m = mode.get()
+    const a = arc.get()
+    const dash = MARK_IDLE_DASH * p + (a * c - MARK_IDLE_DASH * p) * m
+    const gap = (1 - MARK_IDLE_DASH) * p + ((1 - a) * c - (1 - MARK_IDLE_DASH) * p) * m
+    ringRef.current?.setAttribute('stroke-dasharray', `${Math.max(0, dash)} ${Math.max(0, gap)}`)
+  }, [mode, arc])
+
+  useLayoutEffect(() => {
+    geo.current = { C, P }
+    writeDash()
+    ringRef.current?.setAttribute('stroke-dashoffset', String(travel.get()))
+  }, [C, P, writeDash, travel])
+
+  useEffect(() => {
+    const offs = [
+      mode.on('change', writeDash),
+      arc.on('change', writeDash),
+      travel.on('change', v => ringRef.current?.setAttribute('stroke-dashoffset', String(v))),
+    ]
+    return () => {
+      offs.forEach(off => off())
+      mode.stop(); arc.stop(); travel.stop()
+    }
+  }, [mode, arc, travel, writeDash])
+
+  useEffect(() => {
+    const g = ++generation.current
+    if (reduce) {
+      mode.jump(solid ? 1 : 0); arc.jump(targetArc); travel.jump(0)
+      return
+    }
+    if (mode.get() === 0) arc.jump(targetArc)
+    animate(mode, solid ? 1 : 0, MARK_MORPH)
+    animate(arc, targetArc, MARK_UI)
+    if (running) {
+      const from = travel.get()
+      const spin = animate(travel, [from, from - C], { duration: 1.1, ease: 'linear', repeat: Infinity })
+      return () => spin.stop()
+    }
+    animate(travel, Math.floor(travel.get() / P) * P, MARK_UI).then(() => {
+      if (generation.current === g) travel.jump(0)
+    })
+  }, [status, running, solid, targetArc, reduce, C, P, mode, arc, travel])
+
+  return (
+    <span data-status={status} aria-hidden className={cn('group inline-flex shrink-0', className)}>
+      <svg viewBox="0 0 24 24" width={size} height={size} className="overflow-visible">
+        <circle cx="12" cy="12" r={r} transform="rotate(-90 12 12)" strokeWidth={strokeWidth}
+          className="fill-current stroke-current [fill-opacity:0] [stroke-opacity:0] [transition:fill-opacity_180ms_ease,stroke-opacity_200ms_ease] group-data-[status=running]:[stroke-opacity:0.15] group-data-[status=done]:[fill-opacity:1]" />
+        <circle ref={ringRef} cx="12" cy="12" r={r} transform="rotate(-90 12 12)" strokeWidth={strokeWidth} strokeLinecap="round"
+          className="fill-none stroke-current opacity-50 [transition:opacity_200ms_ease] group-data-[status=done]:opacity-100 group-data-[status=running]:opacity-100" />
+        <path d="M7.5 12.25 10.5 15.25 16.75 8.75" pathLength={1} strokeWidth={strokeWidth + 0.5} strokeLinecap="round" strokeLinejoin="round"
+          className="fill-none stroke-white [stroke-dasharray:1_2] [stroke-dashoffset:1.05] opacity-0 [transition:stroke-dashoffset_160ms_cubic-bezier(0.23,1,0.32,1),opacity_0ms_linear_160ms] group-data-[status=done]:opacity-100 group-data-[status=done]:[stroke-dashoffset:0] group-data-[status=done]:[transition:stroke-dashoffset_240ms_cubic-bezier(0.23,1,0.32,1)_120ms,opacity_0ms_linear_120ms] motion-reduce:[stroke-dashoffset:0]" />
+      </svg>
+    </span>
+  )
+}
+
 /**
  * Ce se întâmplă cât durează o operație lungă (Aceternity UI · Multi Step Loader):
  * pașii trec unul câte unul peste un fundal estompat. Rămâne pe ultimul până se
  * termină operația; nu se întoarce la început.
  */
 export function LaunchSteps({ open, title, hint, steps, every = 2200 }: { open: boolean; title: ReactNode; hint?: ReactNode; steps: string[]; every?: number }) {
-  return (
+  // Peste toată pagina: un părinte cu transform/filter (animațiile de apariție) ar prinde
+  // `position: fixed` în el, așa că stratul stă direct în <body>
+  const client = useSyncExternalStore(noSubscribe, () => true, () => false)
+  if (!client) return null
+  return createPortal(
     <AnimatePresence>
       {open && (
         <motion.div role="status" aria-live="polite" className="fixed inset-0 z-[100] flex items-center justify-center bg-white/70 backdrop-blur-xl"
@@ -142,9 +238,12 @@ export function LaunchSteps({ open, title, hint, steps, every = 2200 }: { open: 
           <StepsCore title={title} hint={hint} steps={steps} every={every} />
         </motion.div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body,
   )
 }
+
+const noSubscribe = () => () => {}
 
 function StepsCore({ title, hint, steps, every }: { title: ReactNode; hint?: ReactNode; steps: string[]; every: number }) {
   const [at, setAt] = useState(0)
@@ -164,12 +263,9 @@ function StepsCore({ title, hint, steps, every }: { title: ReactNode; hint?: Rea
           const state = i < at ? 'done' : i === at ? 'now' : 'later'
           return (
             <motion.li key={s} className="flex items-center gap-3"
-              initial={{ opacity: 0, y: 6 }} animate={{ opacity: state === 'later' ? 0.35 : 1, y: 0 }} transition={{ duration: 0.35, delay: i * 0.05 }}>
-              <span className={cn('flex size-6 shrink-0 items-center justify-center rounded-full',
-                state === 'done' ? 'bg-neutral-950 text-white' : state === 'now' ? 'ring-2 ring-neutral-950' : 'ring-1 ring-neutral-300')}>
-                {state === 'done' && <DrawnCheck className="size-3.5" />}
-                {state === 'now' && <span className="size-2 animate-pulse rounded-full bg-neutral-950" />}
-              </span>
+              initial={{ opacity: 0, y: 6 }} animate={{ opacity: state === 'later' ? 0.4 : 1, y: 0 }} transition={{ duration: 0.35, delay: i * 0.05 }}>
+              <StatusMark status={state === 'done' ? 'done' : state === 'now' ? 'running' : 'pending'}
+                className={state === 'later' ? 'text-neutral-400' : 'text-neutral-950'} />
               <span className={cn('text-[14px]', state === 'now' ? 'font-medium text-neutral-950' : 'text-neutral-600')}>{s}</span>
             </motion.li>
           )

@@ -117,7 +117,11 @@
 
   --animate-shimmer: shimmer 1.8s ease-in-out infinite;
   --animate-live: live-dot 2.4s ease-out infinite;
-  /* ShimmerButton (Magic UI): viteza vine din variabila --speed a butonului */
+}
+
+/* ShimmerButton (Magic UI): viteza vine din --speed, pusă pe buton. „inline" scrie
+   valoarea direct în clasă, ca var(--speed) să se citească pe buton, nu pe :root */
+@theme inline {
   --animate-shimmer-slide: shimmer-slide var(--speed) ease-in-out infinite alternate;
   --animate-spin-around: spin-around calc(var(--speed) * 2) infinite linear;
 }
