@@ -7,6 +7,7 @@ import {
 } from 'lucide-react'
 import { useT } from '@/lib/i18n/context'
 import { translateStored } from '@/lib/i18n/stored'
+import type { TFunction } from '@/lib/i18n/translate'
 import { cn } from '@/lib/utils'
 import { Card, CardHeader } from '@/components/app/surface'
 import { Badge, type Tone } from '@/components/app/badge'
@@ -45,7 +46,7 @@ type Props = {
   onError: (text: string) => void
 }
 
-const KIND_ICON: Record<string, LucideIcon> = {
+export const KIND_ICON: Record<string, LucideIcon> = {
   set_target: Target,
   set_budget: Wallet,
   graduate: TrendingUp,
@@ -68,6 +69,25 @@ const STATUS_TONE: Record<ActionItem['status'], Tone> = {
 }
 
 const RULES = ['pilot_rule_target', 'pilot_rule_budget', 'pilot_rule_learning', 'pilot_rule_loss'] as const
+
+/** Ce schimbă o propunere a pilotului, pe scurt, din parametrii ei (și pe Dashboard). */
+export function actionDetail(a: ActionItem, t: TFunction, f: Formats): string | null {
+  const p = a.params
+  const n = (k: string) => Number(p[k])
+  switch (a.kind) {
+    case 'set_target': return p.from === null || p.from === undefined
+      ? t('campaigns.detail_target_first', { to: f.num.format(n('to')) })
+      : t('campaigns.detail_target', { from: f.num.format(n('from')), to: f.num.format(n('to')) })
+    case 'set_budget': return t('campaigns.detail_budget', { from: f.money.format(n('from')), to: f.money.format(n('to')) })
+    case 'graduate': return t('campaigns.detail_graduate', { roas: f.num.format(n('target_roas')), budget: f.money.format(n('daily_budget')) })
+    case 'segment': return t('campaigns.detail_segment', { high: f.num.format(n('high_target')), rest: f.num.format(n('rest_target')) })
+    case 'pause_loss_limit': return t('campaigns.detail_loss', { spend: f.money.format(n('spend')) })
+    case 'set_end_date': return typeof p.ends_on === 'string'
+      ? t('campaigns.detail_end_date', { date: f.date.format(day(p.ends_on)) })
+      : t('campaigns.detail_no_end_date')
+    default: return null
+  }
+}
 
 export function PilotTab({ mode, maxDailyBudget, currency, proposals, journal, campaigns, groupNames, piloting, f, onSaveSettings, onChanged, onError }: Props) {
   const { t } = useT()
@@ -117,24 +137,7 @@ export function PilotTab({ mode, maxDailyBudget, currency, proposals, journal, c
     return (c.group_id && groupNames.get(c.group_id)) || t(campaignKindKey(c))
   }
 
-  /** Ce schimbă propunerea, pe scurt, din parametrii ei. */
-  function detail(a: ActionItem): string | null {
-    const p = a.params
-    const n = (k: string) => Number(p[k])
-    switch (a.kind) {
-      case 'set_target': return p.from === null || p.from === undefined
-        ? t('campaigns.detail_target_first', { to: f.num.format(n('to')) })
-        : t('campaigns.detail_target', { from: f.num.format(n('from')), to: f.num.format(n('to')) })
-      case 'set_budget': return t('campaigns.detail_budget', { from: f.money.format(n('from')), to: f.money.format(n('to')) })
-      case 'graduate': return t('campaigns.detail_graduate', { roas: f.num.format(n('target_roas')), budget: f.money.format(n('daily_budget')) })
-      case 'segment': return t('campaigns.detail_segment', { high: f.num.format(n('high_target')), rest: f.num.format(n('rest_target')) })
-      case 'pause_loss_limit': return t('campaigns.detail_loss', { spend: f.money.format(n('spend')) })
-      case 'set_end_date': return typeof p.ends_on === 'string'
-        ? t('campaigns.detail_end_date', { date: f.date.format(day(p.ends_on)) })
-        : t('campaigns.detail_no_end_date')
-      default: return null
-    }
-  }
+  const detail = (a: ActionItem) => actionDetail(a, t, f)
 
   function items(a: ActionItem) {
     if (a.kind === 'exclude_products') {

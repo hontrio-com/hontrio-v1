@@ -1,121 +1,52 @@
 'use client'
 
-import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from 'react'
+import { Children, useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import { AnimatePresence, animate, motion, useMotionValue, useReducedMotion, type MotionStyle } from 'framer-motion'
+import { AnimatePresence, animate, motion, useMotionValue, useReducedMotion } from 'framer-motion'
 import confetti from 'canvas-confetti'
 import { cn } from '@/lib/utils'
 
 // =============================================
-// Efectele vizuale ale platformei, luate din biblioteci de componente și
-// trecute pe alb și negru, ca logo-ul:
-//   DotPattern, BorderBeam, ShimmerButton, AnimatedCircularProgressBar,
-//   Confetti — Magic UI (magicui.design, MIT)
-//   MultiStepLoader — Aceternity UI (ui.aceternity.com; licența lor permite
-//   folosirea în aplicații, nu redistribuirea codului)
-//   bifa care se desenează (Stepper) și StatusMark — React Bits (reactbits.dev,
-//   MIT + Commons Clause: se folosește în produs, nu se revinde)
-// Toate sunt discrete și țin cont de „reduce motion" din sistem: pe un ecran
-// folosit zilnic, mișcarea arată unde e acțiunea, nu decorează.
+// Ce îi arată omului că se întâmplă ceva:
+//   ProgressCircle, Confetti, AnimatedList — Magic UI (magicui.design, MIT)
+//   LaunchSteps — Multi Step Loader din Aceternity UI (ui.aceternity.com; folosire
+//   în aplicații, fără redistribuirea codului)
+//   StatusMark și bifa desenată (Stepper) — React Bits (reactbits.dev, MIT +
+//   Commons Clause: se folosește în produs, nu se revinde)
+// Toate țin cont de „reduce motion" din sistem.
 // =============================================
-
-/** Fundal de puncte (Magic UI · Dot Pattern). Culoarea vine din `text-*`; se estompează cu `mask-image`. */
-export function DotPattern({ size = 16, radius = 1, className }: { size?: number; radius?: number; className?: string }) {
-  const id = useId()
-  return (
-    <svg aria-hidden className={cn('pointer-events-none absolute inset-0 size-full fill-current', className)}>
-      <defs>
-        <pattern id={id} width={size} height={size} patternUnits="userSpaceOnUse" patternContentUnits="userSpaceOnUse">
-          <circle cx={radius} cy={radius} r={radius} />
-        </pattern>
-      </defs>
-      <rect width="100%" height="100%" strokeWidth={0} fill={`url(#${id})`} />
-    </svg>
-  )
-}
-
-/**
- * O rază care înconjoară conturul (Magic UI · Border Beam), în negru spre gri.
- * Se pune într-un părinte `relative` cu colțuri rotunjite; urmează conturul lui.
- */
-export function BorderBeam({ size = 90, duration = 7, delay = 0, width = 1.5, from = '#0a0a0a', to = '#a3a3a3', className }: {
-  size?: number; duration?: number; delay?: number; width?: number; from?: string; to?: string; className?: string
-}) {
-  const reduce = useReducedMotion()
-  if (reduce) return null
-  return (
-    <div aria-hidden className="pointer-events-none absolute inset-0 rounded-[inherit] border-transparent [mask-clip:padding-box,border-box] [mask-composite:intersect] [mask-image:linear-gradient(transparent,transparent),linear-gradient(#000,#000)]"
-      style={{ borderWidth: width, borderStyle: 'solid' }}>
-      <motion.div
-        className={cn('absolute aspect-square bg-gradient-to-l from-[var(--beam-from)] via-[var(--beam-to)] to-transparent', className)}
-        style={{ width: size, offsetPath: `rect(0 auto auto 0 round ${size}px)`, '--beam-from': from, '--beam-to': to } as MotionStyle} // i18n-ignore
-        initial={{ offsetDistance: '0%' }}
-        animate={{ offsetDistance: ['0%', '100%'] }}
-        transition={{ repeat: Infinity, ease: 'linear', duration, delay: -delay }}
-      />
-    </div>
-  )
-}
-
-/**
- * Butonul principal al unui moment important (Magic UI · Shimmer Button): negru,
- * cu o sclipire albă care îi ocolește marginea. Oprit, e un buton negru simplu.
- */
-export function ShimmerButton({ children, className, disabled, ...props }: React.ComponentProps<'button'>) {
-  return (
-    <button type="button" disabled={disabled}
-      style={{ '--spread': '90deg', '--shimmer-color': '#ffffff', '--radius': '12px', '--speed': '2.8s', '--cut': '0.07em', '--bg': '#0a0a0a' } as CSSProperties}
-      className={cn('group relative z-0 inline-flex h-11 cursor-pointer select-none items-center justify-center gap-2 overflow-hidden whitespace-nowrap px-6 text-[14px] font-semibold text-white',
-        'border border-white/10 [background:var(--bg)] [border-radius:var(--radius)] shadow-[0_10px_28px_-10px_rgb(0_0_0/0.55)]',
-        'transform-gpu transition-[transform,opacity,box-shadow] duration-200 hover:shadow-[0_14px_34px_-10px_rgb(0_0_0/0.6)] active:translate-y-px',
-        'focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-neutral-900/25 disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none',
-        className)}
-      {...props}>
-      {/* Sclipirea: un con de lumină care se rotește în spatele butonului */}
-      {!disabled && (
-        <span aria-hidden className="absolute inset-0 -z-30 overflow-visible blur-[2px] [container-type:size] motion-reduce:hidden">
-          <span className="absolute inset-0 h-[100cqh] animate-shimmer-slide [aspect-ratio:1] [border-radius:0] [mask:none]">
-            <span className="absolute -inset-full w-auto rotate-0 animate-spin-around [background:conic-gradient(from_calc(270deg-(var(--spread)*0.5)),transparent_0,var(--shimmer-color)_var(--spread),transparent_var(--spread))] [translate:0_0]" />
-          </span>
-        </span>
-      )}
-      {children}
-      {/* Lumina de jos, care crește la hover */}
-      <span aria-hidden className="absolute inset-0 size-full [border-radius:var(--radius)] shadow-[inset_0_-8px_10px_#ffffff1f] transition-shadow duration-300 group-hover:shadow-[inset_0_-6px_10px_#ffffff3f] group-active:shadow-[inset_0_-10px_10px_#ffffff3f]" />
-      {/* Fundalul, puțin mai mic decât butonul: lasă sclipirea să se vadă pe margine */}
-      <span aria-hidden className="absolute -z-20 [background:var(--bg)] [border-radius:var(--radius)] [inset:var(--cut)]" />
-    </button>
-  )
-}
 
 /**
  * Câți pași s-au făcut, ca un cerc cu o mică pauză între capete (Magic UI ·
- * Animated Circular Progress Bar), cu „2/5" în mijloc.
+ * Animated Circular Progress Bar), cu „2/5" în mijloc. `tone="dark"` pe negru.
  */
-export function ProgressCircle({ value, max, label, size = 64, className }: { value: number; max: number; label?: string; size?: number; className?: string }) {
+export function ProgressCircle({ value, max, label, size = 64, tone = 'light', className }: {
+  value: number; max: number; label?: string; size?: number; tone?: 'light' | 'dark'; className?: string
+}) {
   const r = 45
   const c = 2 * Math.PI * r
   const pct = max > 0 ? Math.max(0, Math.min(1, value / max)) : 0
   const gap = 0.04
   const filled = Math.max(0, pct - (pct > 0 && pct < 1 ? gap : 0))
   const rest = pct >= 1 ? 0 : Math.max(0, 1 - pct - (pct > 0 ? gap * 2 : 0))
+  const dark = tone === 'dark'
   return (
     <div className={cn('flex shrink-0 flex-col items-center gap-1.5', className)}>
       <div className="relative" style={{ width: size, height: size }} role="img" aria-label={label}>
         <svg viewBox="0 0 100 100" className="size-full -rotate-90" fill="none">
           {rest > 0 && (
-            <circle cx="50" cy="50" r={r} strokeWidth="9" strokeLinecap="round" stroke="#e5e5e5"
+            <circle cx="50" cy="50" r={r} strokeWidth="8" strokeLinecap="round" stroke={dark ? 'rgba(255,255,255,0.14)' : '#e5e5e5'}
               strokeDasharray={`${rest * c} ${c}`} transform={`rotate(${(pct + (pct > 0 ? gap : 0)) * 360} 50 50)`}
               style={{ transition: 'stroke-dasharray 1s ease, transform 1s ease' }} />
           )}
-          <circle cx="50" cy="50" r={r} strokeWidth="9" strokeLinecap="round" stroke="#0a0a0a"
+          <circle cx="50" cy="50" r={r} strokeWidth="8" strokeLinecap="round" stroke={dark ? '#ffffff' : '#0a0a0a'}
             strokeDasharray={`${filled * c} ${c}`} style={{ transition: 'stroke-dasharray 1s ease' }} />
         </svg>
-        <span className="absolute inset-0 flex items-center justify-center text-[15px] font-semibold tabular-nums tracking-[-0.02em] text-neutral-950">
-          {value}<span className="text-neutral-400">/{max}</span>
+        <span className={cn('absolute inset-0 flex items-center justify-center text-[15px] font-semibold tabular-nums tracking-[-0.02em]', dark ? 'text-white' : 'text-neutral-950')}>
+          {value}<span className={dark ? 'text-white/40' : 'text-neutral-400'}>/{max}</span>
         </span>
       </div>
-      {label && <span className="text-[11px] font-medium text-neutral-500">{label}</span>}
+      {label && <span className={cn('text-[11px] font-medium', dark ? 'text-white/50' : 'text-neutral-500')}>{label}</span>}
     </div>
   )
 }
@@ -139,10 +70,11 @@ const MARK_IDLE_DASH = 0.3
 
 /**
  * Starea unui pas (React Bits · Status Mark): inel punctat (urmează), arc care se
- * rotește (acum), apoi bifa care se desenează (gata). Culoarea vine din `text-*`.
+ * rotește (acum), apoi bifa care se desenează (gata). Culoarea vine din `text-*`;
+ * bifa ia culoarea `check`.
  */
-export function StatusMark({ status, size = 22, strokeWidth = 2, dashes = 8, className }: {
-  status: MarkStatus; size?: number; strokeWidth?: number; dashes?: number; className?: string
+export function StatusMark({ status, size = 22, strokeWidth = 2, dashes = 8, check = 'stroke-white', className }: {
+  status: MarkStatus; size?: number; strokeWidth?: number; dashes?: number; check?: string; className?: string
 }) {
   const reduce = useReducedMotion()
   const r = 10 - strokeWidth / 2
@@ -214,7 +146,7 @@ export function StatusMark({ status, size = 22, strokeWidth = 2, dashes = 8, cla
         <circle ref={ringRef} cx="12" cy="12" r={r} transform="rotate(-90 12 12)" strokeWidth={strokeWidth} strokeLinecap="round"
           className="fill-none stroke-current opacity-50 [transition:opacity_200ms_ease] group-data-[status=done]:opacity-100 group-data-[status=running]:opacity-100" />
         <path d="M7.5 12.25 10.5 15.25 16.75 8.75" pathLength={1} strokeWidth={strokeWidth + 0.5} strokeLinecap="round" strokeLinejoin="round"
-          className="fill-none stroke-white [stroke-dasharray:1_2] [stroke-dashoffset:1.05] opacity-0 [transition:stroke-dashoffset_160ms_cubic-bezier(0.23,1,0.32,1),opacity_0ms_linear_160ms] group-data-[status=done]:opacity-100 group-data-[status=done]:[stroke-dashoffset:0] group-data-[status=done]:[transition:stroke-dashoffset_240ms_cubic-bezier(0.23,1,0.32,1)_120ms,opacity_0ms_linear_120ms] motion-reduce:[stroke-dashoffset:0]" />
+          className={cn('fill-none [stroke-dasharray:1_2] [stroke-dashoffset:1.05] opacity-0 [transition:stroke-dashoffset_160ms_cubic-bezier(0.23,1,0.32,1),opacity_0ms_linear_160ms] group-data-[status=done]:opacity-100 group-data-[status=done]:[stroke-dashoffset:0] group-data-[status=done]:[transition:stroke-dashoffset_240ms_cubic-bezier(0.23,1,0.32,1)_120ms,opacity_0ms_linear_120ms] motion-reduce:[stroke-dashoffset:0]', check)} />
       </svg>
     </span>
   )
@@ -290,4 +222,35 @@ export function ConfettiBurst() {
     return () => { confetti.reset() }
   }, [])
   return null
+}
+
+/**
+ * O listă ale cărei rânduri intră unul după altul (Magic UI · Animated List),
+ * cel mai nou sus. Pentru jurnale și activitate.
+ */
+export function AnimatedList({ children, every = 420, className }: { children: ReactNode; every?: number; className?: string }) {
+  const reduce = useReducedMotion()
+  const items = Children.toArray(children)
+  const [count, setCount] = useState(reduce ? items.length : 1)
+  useEffect(() => {
+    if (count >= items.length) return
+    const timer = setTimeout(() => setCount(c => c + 1), every)
+    return () => clearTimeout(timer)
+  }, [count, items.length, every])
+  const shown = reduce ? items : items.slice(0, count)
+  return (
+    <div className={cn('flex flex-col gap-2', className)}>
+      <AnimatePresence initial={false}>
+        {shown.map((item, i) => (
+          <motion.div key={(item as { key?: string }).key ?? i} layout
+            initial={reduce ? false : { scale: 0.92, opacity: 0, y: -6 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            exit={{ scale: 0.92, opacity: 0 }}
+            transition={{ type: 'spring', stiffness: 350, damping: 38 }}>
+            {item}
+          </motion.div>
+        ))}
+      </AnimatePresence>
+    </div>
+  )
 }

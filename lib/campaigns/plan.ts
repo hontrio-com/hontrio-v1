@@ -204,6 +204,18 @@ export type Plan = {
 
 const REJECTED = ['disapproved', 'error', 'expirat']
 
+/**
+ * Estimarea pe o lună la un buget zilnic, dacă campania atinge ținta: cheltuiala,
+ * vânzările raportate, comenzile și profitul rămas după reclame. Aceeași în plan
+ * și în asistentul de lansare, unde se recalculează cât omul trage de buget.
+ */
+export function forecastFor(daily: number, target: number, breakEven: number, aov: number | null): NonNullable<Plan['forecast']> {
+  const spend = daily * DAYS_PER_MONTH
+  const revenue = spend * target
+  // Profitul rămas după reclame: valoarea ÷ prag = profitul dinaintea reclamei
+  return { spend, revenue, orders: aov ? revenue / aov : null, profit: revenue / breakEven - spend }
+}
+
 /** Un buget ușor de citit: din 10 în 10 peste 100, din 5 în 5 peste 20. */
 export function niceBudget(n: number): number {
   if (n >= 100) return Math.round(n / 10) * 10
@@ -333,13 +345,9 @@ export function buildPlan(input: PlanInput): Plan {
   const chosen = input.settings.daily_budget
   const daily = chosen ?? suggested
 
-  let forecast: Plan['forecast'] = null
-  if (target !== null && breakEven !== null && daily !== null) {
-    const spend = daily * DAYS_PER_MONTH
-    const revenue = spend * target
-    // Profitul rămas după reclame: valoarea ÷ prag = profitul dinaintea reclamei
-    forecast = { spend, revenue, orders: aov ? revenue / aov : null, profit: revenue / breakEven - spend }
-  }
+  const forecast: Plan['forecast'] = target !== null && breakEven !== null && daily !== null
+    ? forecastFor(daily, target, breakEven, aov)
+    : null
 
   // ── Treapta: Google cere 15 conversii în 30 de zile pentru ROAS țintă la Shopping ──
   const conversions30 = audit ? audit.history.conversions30 : input.googleAds30.orders

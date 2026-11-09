@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { brandTerms, buildPlan, type PlanInput } from '@/lib/campaigns/plan'
+import { DAYS_PER_MONTH, brandTerms, buildPlan, forecastFor, type PlanInput } from '@/lib/campaigns/plan'
 import { evaluateAudit } from '@/lib/google/audit'
 import { auditRaw, offer, setup } from './fixtures'
 
@@ -132,4 +132,16 @@ test('numele magazinului devine negativ doar când contul are o campanie Search'
   assert.deepEqual(buildPlan(input({ audit: withSearch })).structure.brand_negatives, ['lampi led'])
   assert.deepEqual(brandTerms('Casa Lumen S.R.L.', 'casalumen.ro'), ['casa lumen', 'casalumen'])
   assert.deepEqual(brandTerms(null, 'https://ab.ro'), [])
+})
+
+test('estimarea pe lună (și glisorul de buget din asistent): cheltuiala, vânzările, comenzile, profitul după reclame', () => {
+  const f = forecastFor(50, 4.4, 3.1, 220)
+  assert.equal(f.spend, 50 * DAYS_PER_MONTH)
+  assert.equal(f.revenue, 50 * DAYS_PER_MONTH * 4.4)
+  assert.ok(Math.abs((f.orders ?? 0) - (50 * DAYS_PER_MONTH * 4.4) / 220) < 1e-9)
+  // Profitul: valoarea ÷ prag = profitul dinaintea reclamei, minus reclama
+  assert.ok(Math.abs(f.profit - (f.revenue / 3.1 - f.spend)) < 1e-9)
+  // La țintă egală cu pragul, reclama își plătește doar costul: profit 0
+  assert.ok(Math.abs(forecastFor(80, 3.1, 3.1, 200).profit) < 1e-9)
+  assert.equal(forecastFor(50, 4.4, 3.1, null).orders, null)
 })
