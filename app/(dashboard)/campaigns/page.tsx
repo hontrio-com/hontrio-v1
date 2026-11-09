@@ -19,7 +19,7 @@ import { OverviewTab } from '@/components/campaigns/overview-tab'
 import { CampaignsTab } from '@/components/campaigns/campaigns-tab'
 import { PilotTab } from '@/components/campaigns/pilot-tab'
 import { PlanTab } from '@/components/campaigns/plan-tab'
-import { SetupGuide } from '@/components/campaigns/setup-guide'
+import { LaunchWizard } from '@/components/dashboard/launch-wizard'
 import { CampaignTable } from '@/components/campaigns/campaign-table'
 import { CampaignSheet } from '@/components/campaigns/campaign-sheet'
 import { GroupEditor, type Step } from '@/components/campaigns/group-editor'
@@ -66,16 +66,17 @@ function CampaignsView() {
   const [handledNew, setHandledNew] = useState(false)
   const scrollTarget = useRef<string | null>(null)
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (): Promise<CampaignsData | null> => {
     setFailed(false)
     try {
       const r = await fetch('/api/campaigns/plan')
       if (!r.ok) throw new Error()
-      setData(await r.json())
-      return true
+      const body = (await r.json()) as CampaignsData
+      setData(body)
+      return body
     } catch {
       setFailed(true)
-      return false
+      return null
     } finally {
       setLoading(false)
     }
@@ -132,7 +133,7 @@ function CampaignsView() {
       const r = await fetch('/api/campaigns/plan', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
       if (!r.ok) throw new Error()
       // Obiectivul și bugetul schimbă ținta, bugetul propus și estimarea: le socotește serverul
-      return await load()
+      return !!(await load())
     } catch {
       setNotice(t('campaigns.save_error'))
       return false
@@ -222,7 +223,12 @@ function CampaignsView() {
           f={f} onOpen={openView} onTab={next => goTab(next)} onNew={() => openEditor(null)} />
       ) : (
         <div className="space-y-6">
-          <FadeIn><SetupGuide plan={plan} f={f} onLaunch={() => goTab('plan', 'launch')} /></FadeIn>
+          <FadeIn>
+            <LaunchWizard plan={plan} audit={data.audit ?? null} f={f} continueLabel={t('wizard.launched_continue_campaigns')}
+              store={{ name: data.store.store_name ?? null, offers: plan.offers.length, orders: null }}
+              onChanged={async () => (await load())?.plan ?? null}
+              onLaunched={text => { setNotice(null); setSuccess(text); load() }} />
+          </FadeIn>
           {views.length > 1 && (
             <FadeIn delay={0.05}>
               <Card className="overflow-hidden">

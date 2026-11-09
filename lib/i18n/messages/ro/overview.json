@@ -78,5 +78,7 @@
   "chart_revenue": "Venit",
   "chart_orders": "Comenzi",
   "no_sales_title": "Nicio vânzare încă",
-  "google_connect": "Conectează"
+  "google_connect": "Conectează",
+  "store_numbers_title": "Vânzările magazinului",
+  "store_numbers_hint": "Ce s-a vândut pe site în {{period}}, comparat cu perioada dinainte"
 }

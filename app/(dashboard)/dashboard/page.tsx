@@ -19,11 +19,16 @@ import { FadeIn } from '@/components/app/motion'
 import { ProgressBar, ProgressRing } from '@/components/app/progress'
 import { useNow } from '@/components/app/time'
 import { day, useFormats } from '@/components/app/formats'
+import { LaunchWizard } from '@/components/dashboard/launch-wizard'
+import { isRunning } from '@/components/campaigns/live-campaigns'
+import type { CampaignsData } from '@/components/campaigns/types'
+import type { Plan } from '@/lib/campaigns/plan'
 
 // =============================================
-// Prezentarea generală — ce vinde magazinul pe site (comparat cu perioada
-// dinainte), ce aduce Google Ads și, până la prima campanie, pașii de
-// pregătire. Totul pe perioada aleasă sus, în dreapta.
+// Prezentarea generală — până la prima campanie, asistentul de lansare (toți
+// pașii, cu lansarea, într-un singur loc); apoi ce vinde magazinul pe site
+// (comparat cu perioada dinainte) și ce aduce Google Ads. Cifrele sunt pe
+// perioada aleasă sus, în dreapta.
 // =============================================
 
 type Totals = { revenue: number; orders: number; google_ads_orders: number; google_ads_revenue: number }
@@ -104,6 +109,10 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
   const [failed, setFailed] = useState(false)
   const [metric, setMetric] = useState<Metric>('revenue')
+  // Planul campaniei: pașii asistentului și dacă rulează deja o campanie Hontrio
+  const [campaigns, setCampaigns] = useState<CampaignsData | null>(null)
+  const [planLoading, setPlanLoading] = useState(true)
+  const [launchedText, setLaunchedText] = useState<string | null>(null)
 
   const load = useCallback(async (period: Period) => {
     setFailed(false)
@@ -118,7 +127,22 @@ export default function DashboardPage() {
     }
   }, [])
 
+  const loadPlan = useCallback(async (): Promise<Plan | null> => {
+    try {
+      const r = await fetch('/api/campaigns/plan')
+      if (!r.ok) throw new Error()
+      const body = (await r.json()) as CampaignsData
+      setCampaigns(body)
+      return body.plan
+    } catch {
+      return null
+    } finally {
+      setPlanLoading(false)
+    }
+  }, [])
+
   useEffect(() => { load(days) }, [days, load])
+  useEffect(() => { loadPlan() }, [loadPlan])
 
   const f = useFormats(data?.store?.currency || 'RON')
   const tz = data?.store?.timezone || 'Europe/Bucharest'
@@ -166,7 +190,28 @@ export default function DashboardPage() {
   const totalSteps = data?.checklist.length ?? 0
   const ready = totalSteps > 0 && done === totalSteps
 
-  const checklistCard = data && !ready && (
+  // Până rulează prima campanie Hontrio, asistentul ține locul listei de pași (și duce până la lansare)
+  const plan = campaigns?.plan ?? null
+  const piloting = (campaigns?.campaigns ?? []).some(isRunning)
+  const showWizard = !!plan && !piloting
+  const wizard = showWizard && data?.store && (
+    <FadeIn>
+      <LaunchWizard plan={plan} audit={campaigns?.audit ?? null} f={f}
+        store={{ name: data.store.store_name, offers: data.store.offers_count, orders: data.store.orders_count }}
+        onChanged={async () => {
+          const [next] = await Promise.all([loadPlan(), load(days)])
+          return next
+        }}
+        onLaunched={text => {
+          setLaunchedText(text)
+          loadPlan()
+          load(days)
+        }} />
+    </FadeIn>
+  )
+  const wizardSkeleton = planLoading && !ready && <Skeleton className="h-[460px] rounded-xl" />
+
+  const checklistCard = data && !ready && !showWizard && !planLoading && (
     <FadeIn>
       <Card>
         <div className="flex items-center justify-between gap-4 px-5 pt-5">
@@ -258,7 +303,20 @@ export default function DashboardPage() {
         </Callout>
       )}
 
+      {launchedText && <Callout tone="success" onClose={() => setLaunchedText(null)}>{launchedText}</Callout>}
+
+      {wizard || wizardSkeleton}
       {checklistCard}
+
+      {/* Până la prima campanie, cifrele magazinului vin după asistent, ca fundal */}
+      {showWizard && (
+        <div className="flex items-end justify-between gap-4 pt-2">
+          <div>
+            <h2 className="text-[15px] font-semibold tracking-[-0.01em] text-neutral-900">{t('overview.store_numbers_title')}</h2>
+            <p className="mt-0.5 text-[13px] text-neutral-500">{t('overview.store_numbers_hint', { period: t(`overview.period_${days}`).toLowerCase() })}</p>
+          </div>
+        </div>
+      )}
 
       {/* Cifrele perioadei, cu schimbarea față de perioada dinainte */}
       <FadeIn delay={0.03}>
