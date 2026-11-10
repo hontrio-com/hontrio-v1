@@ -5,11 +5,10 @@ import { Google_Sans } from 'next/font/google'
 import { useId, useState } from 'react'
 import { AnimatePresence, motion, useMotionValueEvent, useReducedMotion, useTransform, type MotionValue } from 'framer-motion'
 import {
-  ArrowLeft, ArrowRight, Check, ChevronDown, ChevronRight, EllipsisVertical, Grip, Keyboard, Menu, Mic, MousePointer2,
+  ArrowLeft, ArrowRight, ChevronDown, ChevronRight, EllipsisVertical, Grip, Keyboard, Menu, Mic, MousePointer2,
   Plus, RotateCw, Search, ShoppingBag, SlidersHorizontal, Star, Store, Truck, X,
 } from 'lucide-react'
 import { useT } from '@/lib/i18n/context'
-import { NumberTicker } from '@/components/app/motion'
 import { cn } from '@/lib/utils'
 
 // =============================================
@@ -33,7 +32,7 @@ const SITE_FONT = { fontFamily: 'var(--font-geist-sans), ui-sans-serif, system-u
 const T = {
   typeStart: 0.04, typeEnd: 0.26, select: 0.29, swap: 0.34,
   head: 0.37, cards: 0.4, cardGap: 0.022, cardDur: 0.05,
-  panel: 0.56, mark: 0.62, cursor: 0.68, click: 0.8, order: 0.83,
+  mark: 0.62, cursor: 0.68, click: 0.8, order: 0.83,
 }
 const STEPS = [0, T.swap, T.mark, T.click, 1]
 const stepAt = (p: number) => (p < T.swap ? 0 : p < T.mark ? 1 : p < T.click ? 2 : 3)
@@ -49,25 +48,20 @@ const CARDS: Card[] = [
   { img: 'lamp-7', ron: 149, eur: 31, oldRon: 179, oldEur: 37, ship: [24.99, 5.99], rating: [3.9, 8] },
   { img: 'lamp-4', ron: 279, eur: 58, rating: [4.4, 52] },
 ]
-const MARGIN = 0.45
-const BREAK_EVEN = 1.21 / MARGIN
-const TARGET = BREAK_EVEN / 0.75
-const ORDERS = 12
 
-type Frame = { typed: number; open: boolean; selected: boolean; results: boolean; ordered: boolean }
+type Frame = { typed: number; open: boolean; selected: boolean; results: boolean }
 function frameAt(p: number, len: number): Frame {
   const k = Math.min(1, Math.max(0, (p - T.typeStart) / (T.typeEnd - T.typeStart)))
   const typed = Math.round(k * len)
-  return { typed, open: typed >= 3 && p < T.swap, selected: p >= T.select && p < T.swap, results: p >= T.swap, ordered: p >= T.order }
+  return { typed, open: typed >= 3 && p < T.swap, selected: p >= T.select && p < T.swap, results: p >= T.swap }
 }
-const same = (a: Frame, b: Frame) => a.typed === b.typed && a.open === b.open && a.selected === b.selected && a.results === b.results && a.ordered === b.ordered
+const same = (a: Frame, b: Frame) => a.typed === b.typed && a.open === b.open && a.selected === b.selected && a.results === b.results
 
 function useFormats() {
   const { locale, intlLocale } = useT()
   const euro = locale !== 'ro'
   const fmt = new Intl.NumberFormat(intlLocale, { style: 'currency', currency: euro ? 'EUR' : 'RON', minimumFractionDigits: 2, maximumFractionDigits: 2 })
-  const one = new Intl.NumberFormat(intlLocale, { minimumFractionDigits: 1, maximumFractionDigits: 1 })
-  return { euro, money: (ron: number, eur: number) => fmt.format(euro ? eur : ron), one: (n: number) => one.format(n) }
+  return { euro, money: (ron: number, eur: number) => fmt.format(euro ? eur : ron) }
 }
 
 // ─── Piese Google ────────────────────────────────────────────────────────────
@@ -120,19 +114,29 @@ function Caret({ className }: { className?: string }) {
   return <span className={cn('ml-[0.05em] inline-block h-[1.2em] w-[0.08em] shrink-0 bg-[#16171a] animate-[blink_1.05s_step-end_infinite] motion-reduce:animate-none', className)} />
 }
 
-/** Stelele de recenzii, ca la Google: o bandă galbenă cât nota. */
+/** O stea cu cinci colțuri (11×11), cu colțurile ușor rotunjite, ca la Google. */
+const STAR = (() => {
+  const pts: string[] = []
+  for (let i = 0; i < 10; i++) {
+    const a = -Math.PI / 2 + (i * Math.PI) / 5
+    const r = i % 2 === 0 ? 5.1 : 2.15
+    pts.push(`${(5.5 + r * Math.cos(a)).toFixed(2)} ${(5.85 + r * Math.sin(a)).toFixed(2)}`)
+  }
+  return `M${pts.join('L')}Z`
+})()
+const STAR_X = [0, 14.25, 28.5, 42.75, 57]
+
+/** Stelele de recenzii, ca la Google: cinci stele, galbene cât nota și gri în rest. */
 function Stars({ value }: { value: number }) {
   const id = useId()
-  const star = (x: number) => `M${x + 5.5} .6l1.5 3.1 3.4.5-2.5 2.4.6 3.4-3-1.6-3 1.6.6-3.4L.9 4.2l3.4-.5z`
+  const row = (fill: string) => STAR_X.map(x => (
+    <path key={x} d={STAR} transform={`translate(${x} 0)`} fill={fill} stroke={fill} strokeWidth={0.7} strokeLinejoin="round" />
+  ))
   return (
     <svg viewBox="0 0 68 11" className="h-[1.1em] w-[6.8em] shrink-0" aria-hidden>
-      <defs>
-        <linearGradient id={id}>
-          <stop offset={`${(value / 5) * 100}%`} stopColor="#fbbc04" />
-          <stop offset={`${(value / 5) * 100}%`} stopColor="#dadbe5" />
-        </linearGradient>
-      </defs>
-      <path fill={`url(#${id})`} d={[0, 13.6, 27.2, 40.8, 54.4].map(star).join(' ')} />
+      <defs><clipPath id={id}><rect width={(value / 5) * 68} height="11" /></clipPath></defs>
+      <g>{row('#dadce0')}</g>
+      <g clipPath={`url(#${id})`}>{row('#fbbc04')}</g>
     </svg>
   )
 }
@@ -167,7 +171,7 @@ function ProductCard({ card, index, progress }: { card: Card; index: number; pro
           {sale && <span className="truncate text-[1.4em] text-[#656773] line-through">{money(card.oldRon!, card.oldEur!)}</span>}
         </p>
         <p className="flex h-[2.2em] items-center gap-[0.45em] overflow-hidden">
-          <span className={cn('grid size-[2em] shrink-0 place-items-center rounded-full border', mine ? 'border-black bg-black text-white' : 'border-[#d2d2d2] bg-[#f1f3f4] text-[#80868b]' /* i18n-ignore */)}>
+          <span className={cn('grid size-[1.8em] shrink-0 place-items-center rounded-full border', mine ? 'border-black bg-black text-white' : 'border-[#d2d2d2] bg-[#f1f3f4] text-[#80868b]' /* i18n-ignore */)}>
             <Store className="size-[1.1em]" strokeWidth={2.2} />
           </span>
           <span className="truncate text-[1.4em] text-[#16171a]">{mine ? t('site.gsim_your_store') : t('site.gsim_competitor', { n: index })}</span>
@@ -285,28 +289,11 @@ function SponsoredHeader() {
 
 // ─── Ce adaugă Hontrio peste pagină ──────────────────────────────────────────
 
-/** Încadrarea produsului tău, eticheta și „Comandă nouă". Stă peste primul card. */
-function YourMark({ progress, price, mobile = false }: { progress: MotionValue<number>; price: string; mobile?: boolean }) {
-  const { t } = useT()
+/** Conturul negru în jurul produsului tău (apare la pasul 3). */
+function YourRing({ progress }: { progress: MotionValue<number> }) {
   const opacity = useTransform(progress, [T.mark, T.mark + 0.035], [0, 1])
   const scale = useTransform(progress, [T.mark, T.mark + 0.035], [1.06, 1])
-  const orderOpacity = useTransform(progress, [T.order, T.order + 0.03], [0, 1])
-  const orderY = useTransform(progress, [T.order, T.order + 0.03], ['0.8em', '0em'])
-  return (
-    <>
-      <motion.div style={{ opacity, scale }} className="pointer-events-none absolute -left-[0.6em] -top-[0.6em] z-10 h-[31.6em] w-[14.2em] rounded-[1.3em] border-[0.25em] border-black" />
-      <motion.span style={{ opacity, x: '-50%', ...SITE_FONT }}
-        className="pointer-events-none absolute left-[6.5em] top-[-1.9em] z-20 whitespace-nowrap rounded-full bg-black px-[1em] py-[0.45em] text-white shadow-[0_0.6em_1.4em_-0.4em_rgba(0,0,0,0.5)]">
-        <span className="block text-[1.2em] font-semibold leading-none">{t('site.gsim_mark')}</span>
-      </motion.span>
-      {/* Pe telefon, aliniată la stânga cardului (centrată ar ieși din fereastră) */}
-      <motion.span style={{ opacity: orderOpacity, y: orderY, x: mobile ? '0%' : '-50%', ...SITE_FONT }}
-        className={cn('pointer-events-none absolute top-[9.4em] z-30 flex items-center gap-[0.5em] whitespace-nowrap rounded-full bg-black px-[1.1em] py-[0.6em] text-white shadow-[0_0.8em_1.8em_-0.6em_rgba(0,0,0,0.6)]',
-          mobile ? 'left-[0.4em]' : 'left-[6.5em]')}>
-        <Check className="size-[1.3em]" strokeWidth={3} /><span className="text-[1.25em] font-semibold leading-none">{t('site.gsim_order')} · {price}</span>
-      </motion.span>
-    </>
-  )
+  return <motion.div style={{ opacity, scale }} className="pointer-events-none absolute -left-[0.6em] -top-[0.6em] z-10 h-[31.6em] w-[14.2em] rounded-[1.3em] border-[0.22em] border-black" />
 }
 
 /** Cursorul care vine dinspre căutare și dă clic pe produsul tău. */
@@ -324,42 +311,35 @@ function Pointer({ progress, from, to }: { progress: MotionValue<number>; from: 
   )
 }
 
-/** Cardul Hontrio, pe un rând: ținta pusă pentru căutarea asta și comenzile din reclame de azi. */
-function HontrioPanel({ progress, query, ordered, mobile = false, className }: {
-  progress: MotionValue<number>; query: string; ordered: boolean; mobile?: boolean; className?: string
-}) {
+/** Fontul sistemului (San Francisco pe Mac și iPhone), ca o notificare adevărată. */
+const SYSTEM_FONT = { fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif' }
+
+/**
+ * După clic, vine comanda: o notificare de la Hontrio, ca cele de pe Mac (în colțul
+ * ferestrei, intră din dreapta) sau de pe iPhone (sus, coboară).
+ */
+function OrderNotice({ progress, mobile = false }: { progress: MotionValue<number>; mobile?: boolean }) {
   const { t } = useT()
-  const { one } = useFormats()
-  const opacity = useTransform(progress, [T.panel, T.panel + 0.04], [0, 1])
-  const y = useTransform(progress, [T.panel, T.panel + 0.04], ['1em', '0em'])
-  const count = (n: number) => String(Math.round(n))
-  const divider = <span className="h-[3.4em] w-px shrink-0 bg-white/12" />
+  const { money } = useFormats()
+  const reduce = useReducedMotion()
+  const opacity = useTransform(progress, [T.order, T.order + 0.025], [0, 1])
+  const slide = useTransform(progress, [T.order, T.order + 0.035], mobile ? ['-130%', '0%'] : ['115%', '0%'])
+  const style = reduce ? { opacity } : mobile ? { opacity, y: slide } : { opacity, x: slide }
   return (
-    <motion.div style={{ opacity, y, ...SITE_FONT }}
-      className={cn('pointer-events-none absolute z-30 flex items-center rounded-[1.4em] bg-[#0a0a0a] text-white shadow-[0_2em_4em_-1.6em_rgba(0,0,0,0.6)]',
-        mobile ? 'gap-[1.2em] px-[1.4em] py-[1.1em]' : 'gap-[1.8em] px-[1.8em] py-[1.3em]' /* i18n-ignore */, className)}>
-      <div className="flex shrink-0 flex-col gap-[0.7em]">
+    <motion.div style={{ ...style, ...SYSTEM_FONT }}
+      className={cn('pointer-events-none absolute z-50 flex items-center border border-black/[0.06] bg-[#f6f6f6]/90 shadow-[0_1.2em_3em_-0.8em_rgba(0,0,0,0.35),0_0_0_0.05em_rgba(0,0,0,0.04)] backdrop-blur-2xl',
+        mobile ? 'inset-x-[0.8em] top-[0.8em] gap-[1.1em] rounded-[2.2em] p-[1.2em]' : 'right-[1.2em] top-[1.2em] w-[36em] gap-[1.1em] rounded-[1.7em] p-[1.2em]' /* i18n-ignore */)}>
+      <span className={cn('grid shrink-0 place-items-center border border-black/[0.06] bg-white shadow-[0_0.1em_0.3em_rgba(0,0,0,0.12)]', mobile ? 'size-[4em] rounded-[0.95em]' : 'size-[3.8em] rounded-[0.85em]')}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/logo-black.png" alt="Hontrio" className="h-[1.3em] w-auto self-start invert" />
-        {!mobile && (
-          <span className="flex items-center gap-[0.5em] self-start rounded-full bg-white/10 px-[0.8em] py-[0.35em]">
-            <span className="size-[0.6em] rounded-full bg-white" /><span className="text-[1.05em] font-medium leading-none text-white/80">{t('site.gsim_panel_pilot')}</span>
-          </span>
-        )}
-      </div>
-      {divider}
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-white/55"><span className="text-[1.15em]">{mobile ? t('site.gsim_panel_target_short') : t('site.gsim_panel_target', { query })}</span></p>
-        <p className="flex items-baseline gap-[0.6em] whitespace-nowrap">
-          <span className={cn('font-bold leading-[1.15] tracking-[-0.03em]', mobile ? 'text-[2.1em]' : 'text-[2.6em]')}>{mobile ? one(TARGET) : `ROAS ${one(TARGET)}`}</span>{/* i18n-ignore: termen Google Ads */}
-          {!mobile && <span className="text-[1.15em] text-white/55">{t('site.gsim_panel_be', { value: one(BREAK_EVEN) })}</span>}
-        </p>
-      </div>
-      {divider}
-      <div className="shrink-0 text-right">
-        <p className="text-white/55"><span className="text-[1.15em]">{t('site.gsim_panel_orders')}</span></p>
-        <p className={cn('font-bold leading-[1.15] tabular-nums', mobile ? 'text-[2.1em]' : 'text-[2.6em]')}><NumberTicker value={ordered ? ORDERS + 1 : ORDERS} format={count} /></p>
-      </div>
+        <img src="/logo-icon.png" alt="" className="h-[52%] w-auto" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="flex items-baseline justify-between gap-[1em]">
+          <span className="truncate text-[1.3em] font-semibold text-[#1d1d1f]">{t('site.gsim_notif_title', { price: money(CARDS[0].ron, CARDS[0].eur) })}</span>
+          <span className="shrink-0 text-[1.1em] text-[#8e8e93]">{t('site.gsim_notif_time')}</span>
+        </span>
+        <span className="block truncate text-[1.25em] text-[#3a3a3c]">{t('site.gsim_notif_body', { product: t('site.gsim_p0') })}</span>
+      </span>
     </motion.div>
   )
 }
@@ -368,14 +348,13 @@ function HontrioPanel({ progress, query, ordered, mobile = false, className }: {
 
 function DesktopWindow({ frame, progress, query }: { frame: Frame; progress: MotionValue<number>; query: string }) {
   const { t } = useT()
-  const { money } = useFormats()
   const homeOpacity = useTransform(progress, [T.swap - 0.02, T.swap + 0.02], [1, 0])
   const resultsOpacity = useTransform(progress, [T.swap - 0.02, T.swap + 0.02], [0, 1])
   const headOpacity = useTransform(progress, [T.head, T.head + 0.04], [0, 1])
   const url = frame.results ? `google.com/search?q=${query.replace(/ /g, '+')}` : 'google.com'
 
   return (
-    <div className="overflow-hidden rounded-[1.2em] border border-black/10 bg-white shadow-[0_0.1em_0.2em_rgba(0,0,0,0.04),0_5em_10em_-5em_rgba(0,0,0,0.45)]">
+    <div className="relative overflow-hidden rounded-[1.2em] border border-black/10 bg-white shadow-[0_0.1em_0.2em_rgba(0,0,0,0.04),0_5em_10em_-5em_rgba(0,0,0,0.45)]">
       {/* Browserul */}
       <div className="flex h-[3.8em] items-end gap-[1.2em] bg-[#dfe3e8] pl-[1.4em] pr-[1.2em]">
         <span className="mb-[1.35em] flex gap-[0.7em]">{[0, 1, 2].map(i => <span key={i} className="size-[1.1em] rounded-full bg-black/15" />)}</span>
@@ -449,27 +428,26 @@ function DesktopWindow({ frame, progress, query }: { frame: Frame; progress: Mot
             <motion.span style={{ opacity: headOpacity }} className="absolute right-[-1.6em] top-[4.1em] grid size-[4em] place-items-center rounded-full bg-white shadow-[0_0.1em_0.3em_rgba(60,64,67,0.3),0_0.4em_0.8em_0.3em_rgba(60,64,67,0.15)]">
               <ChevronRight className="size-[2.2em] text-[#1f1f1f]" />
             </motion.span>
-            <YourMark progress={progress} price={money(CARDS[0].ron, CARDS[0].eur)} />
+            <YourRing progress={progress} />
           </div>
 
-          <HontrioPanel progress={progress} query={query} ordered={frame.ordered} className="right-[3.2em] top-[13em]" />
           <Pointer progress={progress} from={['64em', '4em']} to={['24.6em', '30.4em']} />
         </motion.div>
       </div>
+      <OrderNotice progress={progress} />
     </div>
   )
 }
 
 function MobileWindow({ frame, progress, query }: { frame: Frame; progress: MotionValue<number>; query: string }) {
   const { t } = useT()
-  const { money } = useFormats()
   const homeOpacity = useTransform(progress, [T.swap - 0.02, T.swap + 0.02], [1, 0])
   const resultsOpacity = useTransform(progress, [T.swap - 0.02, T.swap + 0.02], [0, 1])
   const headOpacity = useTransform(progress, [T.head, T.head + 0.04], [0, 1])
   const url = frame.results ? `google.com/search?q=${query.replace(/ /g, '+')}` : 'google.com'
 
   return (
-    <div className="overflow-hidden rounded-[2.4em] border border-black/10 bg-white shadow-[0_0.1em_0.2em_rgba(0,0,0,0.04),0_4em_8em_-4em_rgba(0,0,0,0.45)]">
+    <div className="relative overflow-hidden rounded-[2.4em] border border-black/10 bg-white shadow-[0_0.1em_0.2em_rgba(0,0,0,0.04),0_4em_8em_-4em_rgba(0,0,0,0.45)]">
       <div className="flex h-[5.4em] items-center gap-[1em] border-b border-[#e3e3e3] px-[1.2em] text-[#5f6368]">
         <span className="flex h-[3.6em] min-w-0 flex-1 items-center gap-[0.9em] rounded-full bg-[#f1f3f4] px-[1.3em]">
           <SlidersHorizontal className="size-[1.4em] shrink-0" />
@@ -480,7 +458,7 @@ function MobileWindow({ frame, progress, query }: { frame: Frame; progress: Moti
         </span>
       </div>
 
-      <div className="relative h-[66em] overflow-hidden bg-white font-[family-name:Arial,Helvetica,sans-serif] tracking-normal text-[#16171a]">
+      <div className="relative h-[59.4em] overflow-hidden bg-white font-[family-name:Arial,Helvetica,sans-serif] tracking-normal text-[#16171a]">
         <motion.div style={{ opacity: homeOpacity }} className="absolute inset-0">
           <div className="absolute inset-x-0 top-0 flex items-center justify-between px-[1.4em] pt-[1.2em]">
             <Menu className="size-[2.2em] text-[#5f6368]" />
@@ -506,13 +484,13 @@ function MobileWindow({ frame, progress, query }: { frame: Frame; progress: Moti
             <div className="flex gap-[0.8em]">
               {CARDS.slice(0, 3).map((c, i) => <ProductCard key={c.img} card={c} index={i} progress={progress} />)}
             </div>
-            <YourMark progress={progress} price={money(CARDS[0].ron, CARDS[0].eur)} mobile />
+            <YourRing progress={progress} />
           </div>
 
-          <HontrioPanel progress={progress} query={query} ordered={frame.ordered} mobile className="inset-x-[1.6em] bottom-[1.2em]" />
           <Pointer progress={progress} from={['30em', '7em']} to={['8.4em', '33.6em']} />
         </motion.div>
       </div>
+      <OrderNotice progress={progress} mobile />
     </div>
   )
 }
@@ -530,7 +508,7 @@ export function GoogleSim({ progress }: { progress: MotionValue<number> }) {
   return (
     <div className="@container w-full select-none">
       <div role="img" aria-label={t('site.gsim_label')}
-        className="mx-auto w-[40em] max-w-full text-left [font-size:min(calc(100cqw/40),calc((100svh_-_200px)/72))] @min-[640px]:w-[110em] @min-[640px]:[font-size:min(calc(100cqw/110),calc((100svh_-_200px)/63.8))]">
+        className="mx-auto w-[40em] max-w-full text-left [font-size:min(calc(100cqw/40),calc((100svh_-_200px)/66))] @min-[640px]:w-[110em] @min-[640px]:[font-size:min(calc(100cqw/110),calc((100svh_-_200px)/63.8))]">
         <div className="@min-[640px]:hidden"><MobileWindow frame={frame} progress={progress} query={query} /></div>
         <div className="hidden @min-[640px]:block"><DesktopWindow frame={frame} progress={progress} query={query} /></div>
       </div>

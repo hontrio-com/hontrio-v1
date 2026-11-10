@@ -63,7 +63,16 @@ function AutopilotSwitch() {
   )
 }
 
-const BRANDS = ['Edinio', 'WooCommerce', 'Shopify', 'Google Ads', 'Merchant Center'] // i18n-ignore: nume de produse
+/** Platformele cu care se conectează Hontrio, cu logo-urile lor oficiale (Edinio are logo cu nume). */
+// i18n-ignore-start (nume de produse)
+const BRANDS = [
+  { name: 'Edinio', src: '/site/logos/edinio.svg', wordmark: true },
+  { name: 'WooCommerce', src: '/site/logos/woocommerce.svg' },
+  { name: 'Shopify', src: '/site/logos/shopify.svg' },
+  { name: 'Google Ads', src: '/site/logos/google-ads.svg' },
+  { name: 'Merchant Center', src: '/site/logos/google-merchant-center.svg' },
+]
+// i18n-ignore-end
 
 export function Hero() {
   const { t } = useT()
@@ -125,9 +134,13 @@ export function Hero() {
 
         <div className="mt-16">
           <p className="text-sm text-neutral-500">{t('site.logos_label')}</p>
-          <ul className="mx-auto mt-5 flex max-w-4xl flex-wrap items-center justify-center gap-x-10 gap-y-4">
+          <ul className="mx-auto mt-6 flex max-w-4xl flex-wrap items-center justify-center gap-x-10 gap-y-5">
             {BRANDS.map(b => (
-              <li key={b} className="text-lg font-semibold tracking-tight text-neutral-400 transition-colors hover:text-black sm:text-xl">{b}</li>
+              <li key={b.name} className="flex items-center gap-2.5">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={b.src} alt={b.wordmark ? b.name : ''} className={b.wordmark ? 'h-[26px] w-auto' : 'h-7 w-auto'} />
+                {!b.wordmark && <span className="text-[17px] font-semibold tracking-tight text-neutral-800">{b.name}</span>}
+              </li>
             ))}
           </ul>
         </div>
