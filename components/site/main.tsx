@@ -1,11 +1,13 @@
 'use client'
 
-import { usePathname } from 'next/navigation'
 import type { ReactNode } from 'react'
+import { usePathname } from 'next/navigation'
+import { useAnnouncementDismissed } from './header'
 
-// Antetul plutește peste pagină: pagina principală își face singură loc sub el
-// (fundalul ei trece pe sub antet), celelalte primesc spațiul aici.
+// Pe pagina principală, începutul paginii stă sub antet; pe celelalte pagini,
+// conținutul începe sub antet: fâșia cu noutatea (36px, dacă n-a fost închisă) + bara (64px).
 export function SiteMain({ children }: { children: ReactNode }) {
   const pathname = usePathname()
-  return <main className={pathname === '/' ? undefined : 'pt-[60px]'}>{children}</main>
+  const dismissed = useAnnouncementDismissed()
+  return <main className={pathname === '/' ? undefined : dismissed ? 'pt-16' : 'pt-[100px]'}>{children}</main>
 }

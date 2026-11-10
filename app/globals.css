@@ -118,8 +118,6 @@
    „inline" scrie valoarea direct în clasă (ce citește variabile se rezolvă pe element). */
 @theme inline {
   --animate-shiny-text: shiny-text 3.4s linear infinite;
-  /* Magic UI · Marquee: rândurile care curg; --duration și --gap vin de pe element */
-  --animate-marquee: marquee var(--duration, 40s) linear infinite;
 }
 
 /* Glisorul platformei: șină gri, partea aleasă neagră, mâner alb cu contur negru.
@@ -159,11 +157,6 @@
 .range-mono:focus-visible { outline: none; }
 .range-mono:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 5px rgb(10 10 10 / 0.14); }
 .range-mono:disabled { cursor: not-allowed; opacity: 0.45; }
-
-@keyframes marquee {
-  from { transform: translateX(0); }
-  to   { transform: translateX(calc(-100% - var(--gap, 1rem))); }
-}
 
 @keyframes shiny-text {
   from { background-position: 120% 0; }
