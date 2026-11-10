@@ -9,13 +9,14 @@ import { cn } from '@/lib/utils'
 import { DotField } from './fx'
 import { Badge } from './section'
 import { primaryPill, Shine } from './header'
-import { ShoppingSim } from './shopping'
+import { GoogleSim, SimSteps } from './google-sim'
 
 // =============================================
 // Începutul paginii: titlul (cu un comutator „pilot automat" care se aprinde
 // în text, ca plăcuțele din titlul CLIPPING), ce face Hontrio, butoanele și,
-// dedesubt, simularea unei căutări pe Google Shopping în care produsul tău e
-// primul; se îndreaptă pe măsură ce derulezi.
+// dedesubt, căutarea pe Google: fereastra rămâne fixată cât derulezi, iar
+// derularea o duce pas cu pas (cineva caută, apar produsele promovate, al tău
+// e primul, clic, comandă). Înapoi, merge invers.
 // =============================================
 
 const EASE = [0.22, 1, 0.36, 1] as const
@@ -67,14 +68,18 @@ const BRANDS = ['Edinio', 'WooCommerce', 'Shopify', 'Google Ads', 'Merchant Cent
 export function Hero() {
   const { t } = useT()
   const reduce = useReducedMotion()
-  const frame = useRef<HTMLDivElement>(null)
-  const { scrollYProgress } = useScroll({ target: frame, offset: ['start end', 'start 0.35'] })
-  const rotateX = useTransform(scrollYProgress, [0, 1], [16, 0])
-  const scale = useTransform(scrollYProgress, [0, 1], [0.94, 1])
+  const track = useRef<HTMLDivElement>(null)
+  // Cât timp fereastra stă fixată (sub antet, la 76px): progresul poveștii, 0 → 1
+  const { scrollYProgress: story } = useScroll({ target: track, offset: ['start 76px', 'end end'] })
+  // Cât urcă spre locul ei: se îndreaptă
+  const { scrollYProgress: enter } = useScroll({ target: track, offset: ['start end', 'start 76px'] })
+  const rotateX = useTransform(enter, [0, 1], [14, 0])
+  const scale = useTransform(enter, [0, 1], [0.94, 1])
 
   return (
-    <section className="relative overflow-hidden px-5 pb-20 pt-32 sm:pt-36 md:pb-28">
-      <div className="absolute inset-x-0 top-0 h-[760px] opacity-80 [mask-image:radial-gradient(ellipse_70%_60%_at_50%_30%,black_30%,transparent_75%)]">
+    // Fără overflow-hidden pe secțiune: ar opri fixarea ferestrei (sticky)
+    <section className="relative px-5 pb-20 pt-32 sm:pt-36 md:pb-28">
+      <div className="absolute inset-x-0 top-0 h-[760px] overflow-hidden opacity-80 [mask-image:radial-gradient(ellipse_70%_60%_at_50%_30%,black_30%,transparent_75%)]">
         <DotField />
       </div>
 
@@ -107,12 +112,15 @@ export function Hero() {
           </Link>
         </motion.div>
 
-        {/* Căutarea pe Google Shopping, înclinată, care se îndreaptă pe măsură ce derulezi */}
-        <div ref={frame} className="mx-auto mt-14 max-w-5xl [perspective:1600px] md:mt-16">
-          <motion.div style={reduce ? undefined : { rotateX, scale, transformOrigin: '50% 0%' }}
-            initial={reduce ? false : { opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.9, delay: 0.7, ease: EASE }}>
-            <ShoppingSim />
-          </motion.div>
+        {/* Căutarea pe Google: zona e înaltă, fereastra rămâne fixată și derularea o duce pas cu pas */}
+        <div ref={track} className="relative mt-14 h-[270vh] md:mt-16 md:h-[320vh]">
+          <div className="sticky top-[76px] flex h-[calc(100svh-76px)] flex-col justify-center gap-5 pb-4">
+            <SimSteps progress={story} />
+            <motion.div style={reduce ? undefined : { rotateX, scale, transformPerspective: 1600, transformOrigin: '50% 0%' }}
+              initial={reduce ? false : { opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.9, delay: 0.7, ease: EASE }}>
+              <GoogleSim progress={story} />
+            </motion.div>
+          </div>
         </div>
 
         <div className="mt-16">
