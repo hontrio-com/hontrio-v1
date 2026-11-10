@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useId, useRef, useState, type ReactNode, type RefObject } from 'react'
+import { useEffect, useRef, type ReactNode } from 'react'
 import { motion, useReducedMotion } from 'framer-motion'
 import { cn } from '@/lib/utils'
 
@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils'
 //   Reveal — Magic UI · Blur Fade (magicui.design, MIT)
 //   DotField — după React Bits · Dot Grid (reactbits.dev, MIT + Commons Clause),
 //     rescris pe canvas 2D, fără dependențe
-//   AnimatedBeam, FlickeringGrid, DotPattern — Magic UI (MIT)
+//   FlickeringGrid — Magic UI (MIT)
 // Toate țin cont de „reduce motion" și nu consumă nimic cât nu se văd.
 // =============================================
 
@@ -145,21 +145,6 @@ export function DotField({ gap = 22, size = 1.4, grow = 1.6, proximity = 140, pu
   return <canvas ref={ref} aria-hidden className={cn('pointer-events-none absolute inset-0 size-full', className)} />
 }
 
-/** Puncte fixe pe un caroiaj (Magic UI · Dot Pattern). Culoarea vine din `text-*`. */
-export function DotPattern({ size = 16, radius = 1, className }: { size?: number; radius?: number; className?: string }) {
-  const id = useId()
-  return (
-    <svg aria-hidden className={cn('pointer-events-none absolute inset-0 size-full fill-current', className)}>
-      <defs>
-        <pattern id={id} width={size} height={size} patternUnits="userSpaceOnUse">
-          <circle cx={radius} cy={radius} r={radius} />
-        </pattern>
-      </defs>
-      <rect width="100%" height="100%" strokeWidth={0} fill={`url(#${id})`} />
-    </svg>
-  )
-}
-
 /**
  * Pătrățele care pâlpâie încet (Magic UI · Flickering Grid), pe canvas, pentru
  * fundalurile închise. Se oprește cât nu se vede; cu „reduce motion" rămâne fix.
@@ -235,79 +220,4 @@ export function FlickeringGrid({ square = 3, gap = 6, chance = 0.25, color = '25
   }, [square, gap, chance, color, maxOpacity, reduce])
 
   return <canvas ref={ref} aria-hidden className={cn('pointer-events-none absolute inset-0 size-full', className)} />
-}
-
-/**
- * O rază care curge între două elemente (Magic UI · Animated Beam). Coordonatele
- * se recalculează când containerul își schimbă mărimea.
- */
-export function AnimatedBeam({
-  containerRef, fromRef, toRef, curvature = 0, reverse = false, duration = 3.4, delay = 0,
-  color = '#0a0a0a', tail = '#a3a3a3', baseOpacity = 0.16, width = 1.75, className,
-}: {
-  containerRef: RefObject<HTMLElement | null>
-  fromRef: RefObject<HTMLElement | null>
-  toRef: RefObject<HTMLElement | null>
-  curvature?: number
-  reverse?: boolean
-  duration?: number
-  delay?: number
-  color?: string
-  tail?: string
-  baseOpacity?: number
-  width?: number
-  className?: string
-}) {
-  const id = useId()
-  const reduce = useReducedMotion()
-  const [geo, setGeo] = useState({ d: '', w: 0, h: 0 })
-
-  useEffect(() => {
-    const update = () => {
-      const box = containerRef.current
-      const a = fromRef.current
-      const b = toRef.current
-      if (!box || !a || !b) return
-      const rc = box.getBoundingClientRect()
-      const ra = a.getBoundingClientRect()
-      const rb = b.getBoundingClientRect()
-      const sx = ra.left - rc.left + ra.width / 2
-      const sy = ra.top - rc.top + ra.height / 2
-      const ex = rb.left - rc.left + rb.width / 2
-      const ey = rb.top - rc.top + rb.height / 2
-      setGeo({ d: `M ${sx},${sy} Q ${(sx + ex) / 2},${(sy + ey) / 2 - curvature} ${ex},${ey}`, w: rc.width, h: rc.height })
-    }
-    const observer = new ResizeObserver(update)
-    if (containerRef.current) observer.observe(containerRef.current)
-    const frame = requestAnimationFrame(update)
-    return () => {
-      observer.disconnect()
-      cancelAnimationFrame(frame)
-    }
-  }, [containerRef, fromRef, toRef, curvature])
-
-  const x = reverse ? { x1: ['90%', '-10%'], x2: ['100%', '0%'] } : { x1: ['10%', '110%'], x2: ['0%', '100%'] }
-
-  return (
-    <svg aria-hidden fill="none" width={geo.w} height={geo.h} viewBox={`0 0 ${geo.w || 1} ${geo.h || 1}`}
-      className={cn('pointer-events-none absolute left-0 top-0 transform-gpu', className)}>
-      <path d={geo.d} stroke={color} strokeWidth={width} strokeOpacity={baseOpacity} strokeLinecap="round" />
-      {reduce ? <path d={geo.d} stroke={color} strokeWidth={width} strokeOpacity={0.45} strokeLinecap="round" /> : (
-        <>
-          <path d={geo.d} strokeWidth={width + 0.5} stroke={`url(#${id})`} strokeLinecap="round" />
-          <defs>
-            <motion.linearGradient id={id} gradientUnits="userSpaceOnUse" className="transform-gpu"
-              initial={{ x1: '0%', x2: '0%', y1: '0%', y2: '0%' }}
-              animate={{ x1: x.x1, x2: x.x2, y1: ['0%', '0%'], y2: ['0%', '0%'] }}
-              transition={{ delay, duration, ease: [0.16, 1, 0.3, 1], repeat: Infinity, repeatDelay: 0.6 }}>
-              <stop stopColor={color} stopOpacity="0" />
-              <stop stopColor={color} />
-              <stop offset="32.5%" stopColor={tail} />
-              <stop offset="100%" stopColor={tail} stopOpacity="0" />
-            </motion.linearGradient>
-          </defs>
-        </>
-      )}
-    </svg>
-  )
 }
