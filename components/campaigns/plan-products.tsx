@@ -48,8 +48,6 @@ export function PlanProducts({ plan, groupNames, f, onChanged, onError, onOpenGr
   const pages = Math.max(1, Math.ceil(list.length / PER_PAGE))
   const current = Math.min(page, pages)
   const visible = list.slice((current - 1) * PER_PAGE, current * PER_PAGE)
-  // Sub 1%, o zecimală: o marjă de −0,4% nu e „0%"
-  const pct = (m: number) => `${Math.abs(m) < 0.01 && m !== 0 ? f.num.format(m * 100) : f.int.format(Math.round(m * 100))}%`
 
   async function setMode(offer: PlanOffer, mode: AdsMode) {
     setBusy(s => new Set(s).add(offer.offer_id))
@@ -94,15 +92,14 @@ export function PlanProducts({ plan, groupNames, f, onChanged, onError, onOpenGr
             <tr>
               <Th>{t('catalog.col_product')}</Th>
               <Th align="right">{t('campaigns.col_sales')}</Th>
-              <Th align="right">{t('catalog.col_margin')}</Th>
-              <Th align="right" title={t('campaigns.col_break_even_hint')}>{t('campaigns.col_break_even')}</Th>
+              <Th align="right" title={t('campaigns.col_ads_hint')}>{t('campaigns.col_ads_spend')}</Th>
+              <Th align="right" title={t('campaigns.col_ads_hint')}>{t('campaigns.kpi_roas')}</Th>
               {tab !== 'included' && <Th>{t(tab === 'groups' ? 'campaigns.col_group' : 'campaigns.col_reason')}</Th>}
               <Th className="w-px" />
             </tr>
           </thead>
           <tbody>
             {visible.map(o => {
-              const overTarget = o.reason === null && plan.target_roas !== null && (o.break_even === null ? o.margin !== null : o.break_even > plan.target_roas)
               const saving = busy.has(o.offer_id)
               return (
                 <Tr key={o.offer_id}>
@@ -133,21 +130,19 @@ export function PlanProducts({ plan, groupNames, f, onChanged, onError, onOpenGr
                       </>
                     ) : <span className="text-neutral-300">—</span>}
                   </Td>
+                  {/* Ce a raportat Google pentru produs în 30 de zile (toate campaniile Shopping și PMax) */}
                   <Td align="right" className="whitespace-nowrap">
-                    {o.margin !== null && o.cost_price !== null ? (
+                    {o.ads30 && o.ads30.cost > 0 ? (
                       <>
-                        <p className={cn('font-semibold', o.margin <= 0 ? 'text-red-600' : o.margin_issue ? 'text-amber-600' : 'text-emerald-600')}>{pct(o.margin)}</p>
-                        <p className="text-[12px] text-neutral-400">{f.money.format(o.price - o.cost_price)}</p>
+                        <p className="font-medium text-neutral-900">{f.money.format(o.ads30.cost)}</p>
+                        <p className="text-[12px] text-neutral-400">{t('campaigns.ads_sold', { value: f.money.format(o.ads30.value) })}</p>
                       </>
-                    ) : <span className="text-[12px] text-neutral-400" title={t('campaigns.no_cost_hint')}>{t('campaigns.no_cost')}</span>}
+                    ) : <span className="text-neutral-300">—</span>}
                   </Td>
                   <Td align="right" className="whitespace-nowrap">
-                    {o.break_even !== null ? (
-                      <span className={overTarget ? 'font-semibold text-amber-600' : 'text-neutral-700'}
-                        title={overTarget ? t('campaigns.over_target_hint', { roas: f.num.format(plan.target_roas!) }) : undefined}>
-                        {f.num.format(o.break_even)}
-                      </span>
-                    ) : <span className={cn('text-[12px]', o.margin !== null ? 'text-red-500' : 'text-neutral-300')}>{o.margin !== null ? t('campaigns.never_profitable') : '—'}</span>}
+                    {o.ads30 && o.ads30.cost > 0
+                      ? <span className={cn('font-medium', o.ads30.value < o.ads30.cost ? 'text-red-600' : 'text-neutral-700')}>{f.num.format(Math.round((o.ads30.value / o.ads30.cost) * 100) / 100)}</span>
+                      : <span className="text-neutral-300">—</span>}
                   </Td>
                   {tab === 'excluded' && (
                     <Td>

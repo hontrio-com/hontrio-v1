@@ -39,12 +39,7 @@
   "shopify_callback_invalid": "Lipsesc date din răspunsul Shopify. Pornește din nou conectarea.",
   "shopify_signature_invalid": "Semnătura Shopify nu e validă. Pornește din nou conectarea.",
   "shopify_token_failed": "Shopify nu ne-a dat accesul la magazin. Încearcă din nou.",
-  "cost_target_required": "Cererea trebuie să aibă fie offer_id, fie product_id.",
-  "cost_invalid": "Prețul de cost trebuie să fie un număr pozitiv.",
-  "cost_save_failed": "Nu am putut salva prețul de cost. Încearcă din nou.",
   "product_not_found": "Produsul nu a fost găsit.",
-  "bulk_scope_conflict": "Alege o categorie sau o marcă, nu amândouă.",
-  "goal_invalid": "Obiectiv invalid.",
   "nothing_to_save": "Nu e nimic de salvat.",
   "offers_invalid": "Alege cel puțin o ofertă și cel mult {{max}}.",
   "mode_invalid": "Alegere invalidă.",
@@ -111,5 +106,7 @@
   "group_missing": "Nu am găsit campania de lansat.",
   "launch_group_live": "Campania rulează deja.",
   "launch_group_blocked": "Campania mai are pași de făcut înainte de lansare (vezi rezumatul).",
-  "launch_too_many_exclusions": "Campania principală Performance Max ar trebui să lase afară {{count}} de produse, peste limita Google de 990. Pune mai puține produse în campaniile pe grupe."
+  "launch_too_many_exclusions": "Campania principală Performance Max ar trebui să lase afară {{count}} de produse, peste limita Google de 990. Pune mai puține produse în campaniile pe grupe.",
+  "apply_retired": "Propunerea nu mai e valabilă: Hontrio nu mai schimbă ținta și nu mai împarte campaniile pe marje.",
+  "launch_no_budget": "Alege întâi bugetul pe zi al campaniei."
 }

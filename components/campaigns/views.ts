@@ -5,7 +5,7 @@ import { isRunning, type LiveCampaign } from '@/components/campaigns/live-campai
 // =============================================
 // Campaniile, cum le vede omul: campania principală și câte una pentru
 // fiecare grupă a lui. În spatele fiecăreia pot fi mai multe campanii Google
-// (pornirea încheiată și Performance Max-ul de după, segmentele de marjă):
+// (pornirea încheiată și Performance Max-ul de după, segmentele vechi):
 // cifrele lor se adună.
 // =============================================
 
@@ -21,28 +21,26 @@ export type CampaignView = {
   type: 'shopping' | 'performance_max'
   /** Bugetul pe zi: al celor care rulează, altfel cel plănuit. */
   budget: number | null
-  last30: { cost: number; value: number; conversions: number; profit: number | null }
+  last30: { cost: number; value: number; conversions: number }
   roas: number | null
-  trend: { date: string; value: number; profit: number | null }[]
+  trend: { date: string; value: number; cost: number }[]
 }
 
 const byRunning = (a: LiveCampaign, b: LiveCampaign) => Number(isRunning(b)) - Number(isRunning(a))
 
 function sum(google: LiveCampaign[]): CampaignView['last30'] {
-  const anyProfit = google.some(c => c.last30.profit !== null)
   return google.reduce((s, c) => ({
     cost: s.cost + c.last30.cost,
     value: s.value + c.last30.value,
     conversions: s.conversions + c.last30.conversions,
-    profit: anyProfit ? (s.profit ?? 0) + (c.last30.profit ?? 0) : null,
-  }), { cost: 0, value: 0, conversions: 0, profit: anyProfit ? 0 : null } as CampaignView['last30'])
+  }), { cost: 0, value: 0, conversions: 0 })
 }
 
 function trendOf(google: LiveCampaign[]): CampaignView['trend'] {
-  const out = new Map<string, { value: number; profit: number | null }>()
+  const out = new Map<string, { value: number; cost: number }>()
   for (const c of google) for (const p of c.trend ?? []) {
-    const prev = out.get(p.date) ?? { value: 0, profit: null }
-    out.set(p.date, { value: prev.value + p.value, profit: p.profit === null ? prev.profit : (prev.profit ?? 0) + p.profit })
+    const prev = out.get(p.date) ?? { value: 0, cost: 0 }
+    out.set(p.date, { value: prev.value + p.value, cost: prev.cost + (p.cost ?? 0) })
   }
   return [...out].sort((a, b) => a[0].localeCompare(b[0])).map(([date, v]) => ({ date, ...v }))
 }

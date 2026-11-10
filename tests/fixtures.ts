@@ -30,7 +30,6 @@ export function offer(id: string, over: Partial<Offer> = {}): Offer {
     category: null,
     price: 100,
     compare_at_price: null,
-    cost_price: 50,
     available: true,
     stock: null,
     gtin: null,

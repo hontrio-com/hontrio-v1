@@ -68,19 +68,25 @@ const STATUS_TONE: Record<ActionItem['status'], Tone> = {
   proposed: 'outline', applied: 'green', rejected: 'neutral', failed: 'red', expired: 'neutral',
 }
 
-const RULES = ['pilot_rule_target', 'pilot_rule_budget', 'pilot_rule_learning', 'pilot_rule_loss'] as const
+const RULES = ['pilot_rule_loss', 'pilot_rule_products', 'pilot_rule_budget', 'pilot_rule_learning'] as const
+
+/**
+ * Motivul salvat al unei acțiuni, în limba omului. Motivele vechi, de când Hontrio lucra cu
+ * marje (ținta, împărțirea), nu mai au text: nu se arată deloc, decât cheia brută.
+ */
+export function reasonOf(t: TFunction, value: string | null | undefined, num: (n: number) => string): string | null {
+  if (!value) return null
+  const key = value.split('|')[0]
+  return /^[a-z0-9_]+(\.[a-z0-9_]+)+$/.test(key) && !t.has(key) ? null : translateStored(t, value, num)
+}
 
 /** Ce schimbă o propunere a pilotului, pe scurt, din parametrii ei (și pe Dashboard). */
 export function actionDetail(a: ActionItem, t: TFunction, f: Formats): string | null {
   const p = a.params
   const n = (k: string) => Number(p[k])
   switch (a.kind) {
-    case 'set_target': return p.from === null || p.from === undefined
-      ? t('campaigns.detail_target_first', { to: f.num.format(n('to')) })
-      : t('campaigns.detail_target', { from: f.num.format(n('from')), to: f.num.format(n('to')) })
     case 'set_budget': return t('campaigns.detail_budget', { from: f.money.format(n('from')), to: f.money.format(n('to')) })
-    case 'graduate': return t('campaigns.detail_graduate', { roas: f.num.format(n('target_roas')), budget: f.money.format(n('daily_budget')) })
-    case 'segment': return t('campaigns.detail_segment', { high: f.num.format(n('high_target')), rest: f.num.format(n('rest_target')) })
+    case 'graduate': return t('campaigns.detail_graduate', { budget: f.money.format(n('daily_budget')) })
     case 'pause_loss_limit': return t('campaigns.detail_loss', { spend: f.money.format(n('spend')) })
     case 'set_end_date': return typeof p.ends_on === 'string'
       ? t('campaigns.detail_end_date', { date: f.date.format(day(p.ends_on)) })
@@ -147,7 +153,7 @@ export function PilotTab({ mode, maxDailyBudget, currency, proposals, journal, c
         text: p.title,
         note: p.why === 'no_sales'
           ? t('campaigns.item_no_sales', { spend: f.money.format(p.cost) })
-          : t('campaigns.item_unprofitable', { spend: f.money.format(p.cost), roas: f.num.format(p.roas ?? 0) }),
+          : t('campaigns.item_below_cost', { spend: f.money.format(p.cost), roas: f.num.format(p.roas ?? 0) }),
       }))
     }
     if (a.kind === 'add_negatives') {
@@ -188,7 +194,7 @@ export function PilotTab({ mode, maxDailyBudget, currency, proposals, journal, c
                                 {label && <Badge>{label}</Badge>}
                               </div>
                               {d && <p className="mt-1 text-[14px] font-medium tabular-nums text-neutral-800">{d}</p>}
-                              {a.reason && <p className="mt-1 text-[13px] leading-relaxed text-neutral-500">{translateStored(t, a.reason, num)}</p>}
+                              {reasonOf(t, a.reason, num) && <p className="mt-1 text-[13px] leading-relaxed text-neutral-500">{reasonOf(t, a.reason, num)}</p>}
                               <p className="mt-2 text-[12px] text-neutral-400">{ago(a.created_at)}</p>
                             </div>
                           </div>
@@ -230,7 +236,7 @@ export function PilotTab({ mode, maxDailyBudget, currency, proposals, journal, c
                   {journal.map((a, i) => {
                     const Icon = KIND_ICON[a.kind] ?? Sparkles
                     const label = campaignLabel(a)
-                    const note = a.error ? translateStored(t, a.error, num) : [detail(a), a.reason ? translateStored(t, a.reason, num) : null].filter(Boolean).join(' · ')
+                    const note = a.error ? translateStored(t, a.error, num) : [detail(a), reasonOf(t, a.reason, num)].filter(Boolean).join(' · ')
                     return (
                       <li key={a.id} className="relative flex gap-3 pb-5 last:pb-0">
                         {i < journal.length - 1 && <span className="absolute bottom-0 left-[13px] top-8 w-px bg-neutral-200" />}

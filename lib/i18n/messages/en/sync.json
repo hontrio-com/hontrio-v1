@@ -39,12 +39,7 @@
   "shopify_callback_invalid": "Shopify's response is missing some details. Start connecting again.",
   "shopify_signature_invalid": "Shopify's signature isn't valid. Start connecting again.",
   "shopify_token_failed": "Shopify didn't grant access to the store. Please try again.",
-  "cost_target_required": "The request needs either offer_id or product_id.",
-  "cost_invalid": "The cost price must be a positive number.",
-  "cost_save_failed": "We couldn't save the cost price. Please try again.",
   "product_not_found": "Product not found.",
-  "bulk_scope_conflict": "Choose a category or a brand, not both.",
-  "goal_invalid": "Invalid goal.",
   "nothing_to_save": "There's nothing to save.",
   "offers_invalid": "Choose at least one offer and at most {{max}}.",
   "mode_invalid": "Invalid choice.",
@@ -111,5 +106,7 @@
   "group_missing": "The campaign to launch wasn't found.",
   "launch_group_live": "The campaign is already running.",
   "launch_group_blocked": "The campaign still has steps to do before launch (see the summary).",
-  "launch_too_many_exclusions": "The main Performance Max campaign would have to leave out {{count}} products, over the Google limit of 990. Put fewer products in your group campaigns."
+  "launch_too_many_exclusions": "The main Performance Max campaign would have to leave out {{count}} products, over the Google limit of 990. Put fewer products in your group campaigns.",
+  "apply_retired": "This proposal no longer applies: Hontrio no longer changes the target or splits campaigns by margin.",
+  "launch_no_budget": "Choose the campaign's daily budget first."
 }

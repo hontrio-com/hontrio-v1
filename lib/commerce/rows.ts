@@ -6,10 +6,8 @@
 export type Ctx = { storeId: string; userId: string; currency: string }
 
 /**
- * ⚠ `cost_price` și `ads_mode` lipsesc dinadins: le scrie omul în Hontrio, iar
- * upsert-ul actualizează doar coloanele trimise, deci sincronizarea nu le atinge.
- * Costurile din platformă (ex. „Cost of Goods" la WooCommerce) intră separat, prin
- * commerce_import_costs, care nu suprascrie costul scris de om.
+ * ⚠ `ads_mode` lipsește dinadins: îl alege omul în Hontrio, iar upsert-ul
+ * actualizează doar coloanele trimise, deci sincronizarea nu-l atinge.
  */
 export type OfferRow = {
   store_id: string; user_id: string; offer_id: string; external_product_id: string

@@ -10,13 +10,13 @@ const plan = { exclusions: { item_ids: ['x'] } } as unknown as Plan
 const row = (id: string, over: Partial<CampaignRow> = {}): CampaignRow =>
   ({ id, status: 'active', type: 'performance_max', segment: 'all', included_item_ids: null, excluded_item_ids: [], product_group_id: null, ...over }) as CampaignRow
 
-test('grupa ia produsele ei de acum; principala și segmentul de marjă mare le lasă afară', () => {
+test('grupa ia produsele ei de acum; principala și un segment vechi (pe marje) le lasă afară', () => {
   const group = row('g', { segment: 'group', product_group_id: 'grupa', included_item_ids: ['a'] })
   const high = row('h', { segment: 'high_margin', included_item_ids: ['a', 'b', 'x'] })
   const rest = row('r', { segment: 'rest' })
   // Regulile grupei prind acum și „c"; „x" e scos din toate campaniile
   assert.deepEqual(desiredListing(group, plan, [group, high, rest], null, ['A', 'c', 'x']).included, ['a', 'c'])
-  // Segmentul de marjă mare (listă fixă) pierde ce a luat grupa
+  // Segmentul vechi (listă fixă) pierde ce a luat grupa
   assert.deepEqual(desiredListing(high, plan, [group, high, rest], null).included, ['b'])
   // „Restul" lasă afară segmentul și grupa
   assert.deepEqual(desiredListing(rest, plan, [group, high, rest], null).excluded, ['a', 'b', 'x'])

@@ -11,7 +11,6 @@ import { runAudit } from '@/lib/ads/audit-run'
 import { logAction, notify, type ActionKind } from '@/lib/ads/journal'
 import { applyAction, ApplyError, CAMPAIGN_COLUMNS, closeGroupIfDone, groupItems, parseCampaign, syncCampaignProducts, type CampaignRow } from '@/lib/ads/apply'
 import { optimize, sumWindows, windowOf, EMPTY, type OptCampaign, type OptProduct, type Proposal, type Window } from '@/lib/ads/optimizer'
-import { campaignEconomics } from '@/lib/ads/campaign-economics'
 import { loadPlanContext, STORE_PLAN_COLUMNS, type PlanContext, type PlanStore } from '@/lib/campaigns/context'
 import { brandTerms, CAMPAIGN_EXCLUSIONS } from '@/lib/campaigns/plan'
 import { syncMerchant } from '@/lib/merchant/sync'
@@ -32,6 +31,8 @@ const addDays = (s: string, n: number) => dayStr(new Date(Date.parse(`${s}T00:00
 const daysSince = (iso: string | null, now: number) => (iso ? Math.floor((now - Date.parse(iso)) / DAY) : null)
 /** Propunerile nedecise expiră: cifrele de sub ele s-au schimbat. */
 const PROPOSAL_TTL_DAYS = 7
+/** Felurile de propuneri de când Hontrio lucra cu marje (ținta, împărțirea): nu se mai aplică. */
+const RETIRED_KINDS = ['set_target', 'segment']
 const FIRST_SYNC_DAYS = 90
 const OVERLAP_DAYS = 3
 
@@ -60,7 +61,7 @@ async function propose(supabase: Supabase, store: PlanStore, p: Proposal) {
 export type ApplyEnv = { supabase: Supabase; store: PlanStore; ctx: PlanContext; token: string; acc: Account; campaigns: CampaignRow[] }
 
 /**
- * Pune arborii de produse ai campaniilor la zi cu planul (alegerile omului, stocul, marjele, pilotul)
+ * Pune arborii de produse ai campaniilor la zi cu planul (alegerile omului, stocul, pilotul)
  * și cu grupele omului: întâi campaniile grupelor (regulile lor pot prinde produse noi), apoi
  * celelalte, care le lasă produsele afară.
  */
@@ -148,7 +149,7 @@ export async function runAutopilot(storeId: string, opts: { deadline?: number } 
 
   const account = await storeAdsAccount(supabase, store.user_id, store.google_ads_customer_id)
 
-  // Merchant Center merge și fără cont Google Ads ales (stările și costurile ajută și înainte de lansare)
+  // Merchant Center merge și fără cont Google Ads ales (stările ofertelor ajută și înainte de lansare)
   const { data: auditRow } = await supabase.from('google_audits').select('checked_at, customer_id, result').eq('store_id', storeId).maybeSingle()
   let auditFresh = !!auditRow && nowMs - Date.parse(auditRow.checked_at) < AUDIT_FRESH_MS * 0.8 && auditRow.customer_id === account?.customer_id
   if (account && !auditFresh) {
@@ -244,7 +245,7 @@ export async function runAutopilot(storeId: string, opts: { deadline?: number } 
       }
     }
 
-    // 4. Merchant Center (stări, costuri, piață), apoi planul pe datele proaspete
+    // 4. Merchant Center (stări, piață), apoi planul pe datele proaspete
     let { context } = await loadPlanContext(supabase, store.user_id, store)
     if (!context) return finish('no_plan')
     await runMerchant(supabase, store, context)
@@ -272,6 +273,8 @@ export async function runAutopilot(storeId: string, opts: { deadline?: number } 
     // 5. Bucla de optimizare
     await supabase.from('ad_actions').update({ status: 'expired', decided_at: syncedAt })
       .eq('store_id', storeId).eq('status', 'proposed').lt('created_at', new Date(nowMs - PROPOSAL_TTL_DAYS * DAY).toISOString())
+    await supabase.from('ad_actions').update({ status: 'expired', decided_at: syncedAt })
+      .eq('store_id', storeId).eq('status', 'proposed').in('kind', RETIRED_KINDS)
 
     let proposedNew = 0
     let applied = 0
@@ -349,7 +352,6 @@ async function optimizerInput(supabase: Supabase, store: PlanStore, ctx: PlanCon
   const optCampaigns: OptCampaign[] = campaigns.map(c => {
     const rows = (dailyRes.data ?? []).filter(r => r.google_campaign_id === c.google_campaign_id).map(toDay)
     const lossFrom = (c.loss_check_from ?? c.launched_at ?? since).slice(0, 10)
-    const econ = campaignEconomics(c, plan, campaigns)
     return {
       id: c.id,
       google_campaign_id: c.google_campaign_id!,
@@ -358,12 +360,8 @@ async function optimizerInput(supabase: Supabase, store: PlanStore, ctx: PlanCon
       segment: c.segment ?? 'all',
       status: c.status === 'active' ? 'active' : 'paused',
       days_live: daysSince(c.launched_at, nowMs) ?? 0,
-      target_roas: c.target_roas,
       daily_budget: c.daily_budget ?? 0,
-      break_even: econ.break_even,
-      goal_target: econ.goal_target,
       group: !!c.product_group_id,
-      days_since_target_change: daysSince(c.target_changed_at, nowMs),
       days_since_budget_change: daysSince(c.budget_changed_at, nowMs),
       google: google.get(c.google_campaign_id!) ?? null,
       since_loss_check: windowOf(rows, lossFrom, yesterday),
@@ -386,11 +384,9 @@ async function optimizerInput(supabase: Supabase, store: PlanStore, ctx: PlanCon
     offer_id: o.offer_id,
     title: o.variant_title ? `${o.title} · ${o.variant_title}` : o.title,
     price: o.price,
-    break_even: o.break_even,
     included_by_user: o.mode === 'include',
     // Produsele grupelor rulează, în campaniile lor: pilotul le judecă la fel
     excluded: o.reason !== null && o.reason !== 'in_group',
-    in_group: o.reason === 'in_group',
     window: byItem.get(normalizeItemId(o.item_id!))!,
     days: longest,
   }))
@@ -400,7 +396,7 @@ async function optimizerInput(supabase: Supabase, store: PlanStore, ctx: PlanCon
     campaign_id: rowOf.get(t.google_campaign_id)!, term: t.search_term, cost: Number(t.cost) || 0, conversions: Number(t.conversions) || 0, clicks: Number(t.clicks) || 0,
   }))
 
-  // Ce s-a hotărât deja: negativele puse, ce a respins omul (30 de zile), segmentarea
+  // Ce s-a hotărât deja: negativele puse, ce a respins omul (30 de zile)
   const journal = journalRes.data ?? []
   const negatives = new Map<string, Set<string>>()
   const rejected = { items: new Set<string>(), terms: new Set<string>(), kinds: new Set<string>() }
@@ -418,10 +414,8 @@ async function optimizerInput(supabase: Supabase, store: PlanStore, ctx: PlanCon
       rejected.kinds.add(a.kind)
     }
   }
-  const segmentationDone = journal.some(a => a.kind === 'segment' && a.status === 'applied') || campaigns.some(c => c.stage === 'segment')
-
   return {
-    economics: { break_even: plan.economics.break_even, goal_target: plan.target_roas, aov: plan.economics.aov },
+    economics: { aov: plan.economics.aov },
     account: { conversions30: ctx.audit?.result?.history.conversions30 ?? 0 },
     max_daily_budget: ctx.draft.max_daily_budget,
     loss_limit: plan.structure.loss_limit,
@@ -431,7 +425,6 @@ async function optimizerInput(supabase: Supabase, store: PlanStore, ctx: PlanCon
     negatives,
     brand: brandTerms(store.store_name, store.store_url),
     rejected,
-    segmentation_done: segmentationDone,
   }
 }
 

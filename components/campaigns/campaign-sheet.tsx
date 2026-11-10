@@ -58,7 +58,6 @@ function SheetBody({ view: v, onClose, plan, f, onEdit, onPlan, onChanged }: Omi
   const s = STATUS[v.status]
   const live = v.google.filter(c => c.status !== 'ended')
   const hasNumbers = v.google.length > 0 && (v.last30.cost > 0 || live.length > 0)
-  const breakEven = g ? g.economics.break_even : plan.economics.break_even
 
   async function act(kind: 'end' | 'delete') {
     if (!g) return
@@ -110,12 +109,12 @@ function SheetBody({ view: v, onClose, plan, f, onEdit, onPlan, onChanged }: Omi
       : <Button size="sm" onClick={onPlan}>{t('campaigns.board_see_plan')}<ArrowRight /></Button>
   }
 
-  const roasWarn = v.roas !== null && breakEven !== null && v.roas < breakEven
-  const stats = [
+  // ROAS sub 1: reclamele au costat mai mult decât au adus vânzările
+  const stats: { label: string; value: string; tone?: 'bad' }[] = [
     { label: t('campaigns.kpi_spend'), value: f.money.format(v.last30.cost) },
     { label: t('campaigns.kpi_value'), value: f.money.format(v.last30.value) },
-    { label: t('campaigns.kpi_roas'), value: v.roas === null ? '—' : f.num.format(v.roas), tone: roasWarn ? 'bad' : undefined, sub: breakEven !== null ? t('campaigns.kpi_break_even', { roas: f.num.format(breakEven) }) : undefined },
-    { label: t('campaigns.kpi_profit'), value: v.last30.profit === null ? '—' : f.money.format(v.last30.profit), tone: v.last30.profit === null ? undefined : v.last30.profit < 0 ? 'bad' : v.last30.profit > 0 ? 'good' : undefined },
+    { label: t('campaigns.kpi_roas'), value: v.roas === null ? '—' : f.num.format(v.roas), tone: v.roas !== null && v.roas < 1 ? 'bad' : undefined },
+    { label: t('campaigns.kpi_conversions'), value: f.num.format(Math.round(v.last30.conversions * 10) / 10) },
   ]
 
   return (
@@ -124,7 +123,6 @@ function SheetBody({ view: v, onClose, plan, f, onEdit, onPlan, onChanged }: Omi
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-1.5">
             <Badge tone={s.tone} dot live={s.live}>{t(s.key)}</Badge>
-            {g && <Badge>{t(`campaigns.goal_${g.group.goal}`)}</Badge>}
             {v.budget !== null && <Badge>{t('campaigns.g_budget_value', { budget: f.money.format(v.budget) })}</Badge>}
             {g?.group.ends_on && (
               <Badge><CalendarRange className="size-3" />{t(g.group.starts_on ? 'campaigns.g_period_between' : 'campaigns.g_period_until', {
@@ -147,8 +145,7 @@ function SheetBody({ view: v, onClose, plan, f, onEdit, onPlan, onChanged }: Omi
               {stats.map(k => (
                 <div key={k.label} className="bg-white px-4 py-3">
                   <dt className="text-[12px] text-neutral-500">{k.label}</dt>
-                  <dd className={cn('mt-1 text-[18px] font-semibold tabular-nums tracking-[-0.015em]', k.tone === 'bad' ? 'text-red-600' : k.tone === 'good' ? 'text-emerald-600' : 'text-neutral-950')}>{k.value}</dd>
-                  {k.sub && <p className="mt-0.5 text-[11px] text-neutral-400">{k.sub}</p>}
+                  <dd className={cn('mt-1 text-[18px] font-semibold tabular-nums tracking-[-0.015em]', k.tone === 'bad' ? 'text-red-600' : 'text-neutral-950')}>{k.value}</dd>
                 </div>
               ))}
             </dl>
@@ -172,7 +169,7 @@ function SheetBody({ view: v, onClose, plan, f, onEdit, onPlan, onChanged }: Omi
                 { label: t('campaigns.g_stat_conversions'), value: f.num.format(g.conversions30) },
                 g.type === 'shopping'
                   ? { label: t('campaigns.g_stat_cpc'), value: g.cpc_ceiling !== null ? f.money2.format(g.cpc_ceiling) : '—' }
-                  : { label: t('campaigns.econ_target'), value: g.start_target !== null ? f.num.format(g.start_target) : t('campaigns.g_no_target_short') },
+                  : { label: t('campaigns.g_stat_type'), value: t('campaigns.type_pmax') },
                 { label: t('campaigns.g_stat_budget'), value: g.budget.daily !== null ? f.money.format(g.budget.daily) : '—' },
               ].map(k => (
                 <div key={k.label} className="bg-white px-4 py-3">
@@ -181,11 +178,6 @@ function SheetBody({ view: v, onClose, plan, f, onEdit, onPlan, onChanged }: Omi
                 </div>
               ))}
             </dl>
-            {g.forecast && (
-              <p className="mt-3 text-[13px] text-neutral-600">
-                {t('campaigns.sheet_forecast', { profit: f.money.format(g.forecast.profit), revenue: f.money.format(g.forecast.revenue), spend: f.money.format(g.forecast.spend) })}
-              </p>
-            )}
             {(g.blockers.length > 0 || g.warnings.length > 0) && (
               <div className="mt-4 space-y-2">
                 {g.blockers.map(b => <Callout key={b.id} tone="danger">{t(`campaigns.g_block_${b.id}`, noteParams(b.params, f.money))}</Callout>)}
@@ -219,7 +211,7 @@ function SheetBody({ view: v, onClose, plan, f, onEdit, onPlan, onChanged }: Omi
           <SectionTitle>{t('campaigns.sheet_google')}</SectionTitle>
           {v.google.length ? (
             <div className="mt-3 space-y-3">
-              {v.google.map(c => <LiveCampaignItem key={c.id} campaign={c} breakEven={plan.economics.break_even} f={f} onChanged={onChanged} onError={onError} />)}
+              {v.google.map(c => <LiveCampaignItem key={c.id} campaign={c} f={f} onChanged={onChanged} onError={onError} />)}
             </div>
           ) : (
             <p className="mt-3 rounded-xl border border-dashed border-neutral-200 px-4 py-6 text-center text-[13px] text-neutral-500">{t('campaigns.sheet_google_none')}</p>

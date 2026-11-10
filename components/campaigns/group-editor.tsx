@@ -14,7 +14,7 @@ import { Callout } from '@/components/app/feedback'
 import { ChoiceCard, Input } from '@/components/app/input'
 import { Segmented } from '@/components/app/tabs'
 import { NumberTicker } from '@/components/app/motion'
-import { GOAL_KEEP, GOALS, type Goal, type Plan, type PlanOffer } from '@/lib/campaigns/plan'
+import type { Plan, PlanOffer } from '@/lib/campaigns/plan'
 import {
   accountBlockers, assignedAsDraft, assignGroups, buildGroupPlan, canRun, EMPTY_RULES, GROUP_TYPES, isEmptyRules, otherBudgetsFor,
   type GroupPlan, type GroupRules, type GroupType, type ProductGroup,
@@ -27,8 +27,7 @@ import { AccountChoices, choicesDone, type Overlap } from '@/components/campaign
 // =============================================
 // Editorul unei campanii pe grupă de produse, în trei pași: ce produse vinde
 // (categorie, brand, preț, reduceri, alese de mână, și orice combinație),
-// cum rulează (obiectiv, buget, tip, perioadă), apoi rezumatul cu estimarea
-// și lansarea. Alături, rezumatul se schimbă pe loc la fiecare alegere:
+// cum rulează (buget, tip, perioadă), apoi rezumatul și lansarea. Alături, rezumatul se schimbă pe loc la fiecare alegere:
 // planul grupei se socotește cu aceleași funcții ca pe server
 // (lib/campaigns/groups.ts), deci cifrele sunt cele de la lansare.
 // =============================================
@@ -122,7 +121,6 @@ function EditorBody({ group, initialStep = 1, plan, groups, campaigns, audit, to
   const [active, setActive] = useState<Set<Filter>>(() => (group ? filtersOf(group.rules) : new Set()))
   const [name, setName] = useState(group?.name ?? '')
   const [nameTouched, setNameTouched] = useState(!!group)
-  const [goal, setGoal] = useState<Goal>(group?.goal ?? plan.goal)
   const [budgetText, setBudgetText] = useState(group?.daily_budget ? String(group.daily_budget).replace('.', ',') : '')
   const [type, setType] = useState<GroupType>(group?.campaign_type ?? 'auto')
   const [period, setPeriod] = useState<'always' | 'period'>(group?.ends_on || group?.starts_on ? 'period' : 'always')
@@ -158,7 +156,6 @@ function EditorBody({ group, initialStep = 1, plan, groups, campaigns, audit, to
     id: group?.id ?? NEW_ID,
     name: shownName,
     rules,
-    goal,
     daily_budget: typeof budget === 'number' ? budget : null,
     campaign_type: type,
     starts_on: period === 'period' && startsOn ? startsOn : null,
@@ -228,14 +225,13 @@ function EditorBody({ group, initialStep = 1, plan, groups, campaigns, audit, to
   // ── Salvarea și lansarea ──────────────────────────────────────────────────
   function payload(): Record<string, unknown> {
     const all: Record<string, unknown> = {
-      name: shownName.trim(), rules, goal, daily_budget: draft.daily_budget, campaign_type: type, starts_on: draft.starts_on, ends_on: draft.ends_on,
+      name: shownName.trim(), rules, daily_budget: draft.daily_budget, campaign_type: type, starts_on: draft.starts_on, ends_on: draft.ends_on,
     }
     if (!group) return all
     // La o grupă existentă, doar ce s-a schimbat: pe una lansată, fiecare câmp ajunge în Google Ads
     const changed: Record<string, unknown> = {}
     if (all.name !== group.name) changed.name = all.name
     if (!sameRules(rules, group.rules)) changed.rules = rules
-    if (goal !== group.goal) changed.goal = goal
     if (draft.daily_budget !== group.daily_budget) changed.daily_budget = draft.daily_budget
     if (type !== group.campaign_type) changed.campaign_type = type
     if (draft.starts_on !== group.starts_on) changed.starts_on = draft.starts_on
@@ -349,25 +345,6 @@ function EditorBody({ group, initialStep = 1, plan, groups, campaigns, audit, to
                   onChange={e => { setName(e.target.value); setNameTouched(true) }} />
               </Block>
 
-              <Block title={t('campaigns.goal_title')} hint={t('campaigns.g_goal_hint')}>
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                  {GOALS.map(g => {
-                    const target = preview.economics.targets[g]
-                    return (
-                      <ChoiceCard key={g} active={goal === g} onClick={() => setGoal(g)} title={t(`campaigns.goal_${g}`)}
-                        aside={g === 'balanced' ? <Badge tone="brand">{t('campaigns.recommended')}</Badge> : undefined}
-                        description={t(`campaigns.goal_${g}_desc`, { keep: String(Math.round(GOAL_KEEP[g] * 100)) })}
-                        footer={
-                          <span className="flex items-baseline justify-between gap-2 border-t border-neutral-100 pt-3">
-                            <span className="text-[12px] text-neutral-500">{t('campaigns.econ_target')}</span>
-                            <span className="text-[15px] font-semibold tabular-nums text-neutral-900">{target !== null ? f.num.format(target) : '—'}</span>
-                          </span>
-                        } />
-                    )
-                  })}
-                </div>
-              </Block>
-
               <Block title={t('campaigns.row_budget')}>
                 <div className="flex flex-wrap items-center gap-3">
                   <Input value={budgetText} inputMode="decimal" aria-label={t('campaigns.row_budget')} aria-invalid={budget === 'invalid'} suffix={currency}
@@ -382,12 +359,9 @@ function EditorBody({ group, initialStep = 1, plan, groups, campaigns, audit, to
                   )}
                 </div>
                 <p className="mt-2 max-w-2xl text-[12px] leading-relaxed text-neutral-500">
-                  {preview.budget.suggested !== null && preview.economics.aov !== null && preview.economics.target !== null
-                    ? t('campaigns.g_budget_hint', {
-                      conversions: f.int.format(Math.min(30, Math.max(10, Math.round(preview.conversions30 * 1.25)))),
-                      aov: f.money.format(preview.economics.aov), roas: f.num.format(preview.economics.target), budget: f.money.format(preview.budget.suggested),
-                    })
-                    : t('campaigns.budget_hint_no_target')}
+                  {preview.budget.suggested !== null && preview.economics.aov !== null
+                    ? t('campaigns.g_budget_hint', { aov: f.money.format(preview.economics.aov), budget: f.money.format(preview.budget.suggested) })
+                    : t('campaigns.budget_hint_none')}
                 </p>
               </Block>
 
@@ -495,10 +469,8 @@ function Summary({ preview: p, name, f, showNotes, className }: { preview: Group
   const blockers = p.blockers.filter(b => b.id !== 'empty').length
   const rows = [
     { label: t('campaigns.g_stat_conversions'), value: f.num.format(p.conversions30) },
-    { label: t('campaigns.econ_break_even'), value: p.economics.break_even !== null ? f.num.format(p.economics.break_even) : '—' },
-    p.type === 'shopping'
-      ? { label: t('campaigns.g_stat_cpc'), value: p.cpc_ceiling !== null ? f.money2.format(p.cpc_ceiling) : '—' }
-      : { label: t('campaigns.econ_target'), value: p.start_target !== null ? f.num.format(p.start_target) : t('campaigns.g_no_target_short') },
+    { label: t('campaigns.econ_aov'), value: p.economics.aov !== null ? f.money.format(p.economics.aov) : '—' },
+    ...(p.type === 'shopping' ? [{ label: t('campaigns.g_stat_cpc'), value: p.cpc_ceiling !== null ? f.money2.format(p.cpc_ceiling) : '—' }] : []),
     { label: t('campaigns.g_stat_budget'), value: p.budget.daily !== null ? f.money.format(p.budget.daily) : '—' },
   ]
   return (
@@ -508,7 +480,6 @@ function Summary({ preview: p, name, f, showNotes, className }: { preview: Group
         <p className="mt-2 line-clamp-2 text-[15px] font-semibold leading-snug text-neutral-900">{name}</p>
         <div className="mt-2 flex flex-wrap gap-1.5">
           <Badge tone="brand">{t(p.type === 'shopping' ? 'campaigns.g_type_shopping' : 'campaigns.g_type_performance_max')}</Badge>
-          <Badge>{t(`campaigns.goal_${p.group.goal}`)}</Badge>
         </div>
 
         <div className="mt-5 rounded-xl bg-white p-4 shadow-card ring-1 ring-neutral-200/70">
@@ -527,14 +498,6 @@ function Summary({ preview: p, name, f, showNotes, className }: { preview: Group
             </div>
           ))}
         </dl>
-
-        {p.forecast && (
-          <div className="mt-4 rounded-xl bg-gradient-to-br from-emerald-50 to-white p-4 ring-1 ring-emerald-100">
-            <p className="text-[12px] text-neutral-500">{t('campaigns.setup_forecast')}</p>
-            <p className="mt-1 text-[20px] font-semibold tabular-nums tracking-[-0.02em] text-emerald-600">{f.money.format(p.forecast.profit)}</p>
-            <p className="mt-0.5 text-[12px] leading-relaxed text-neutral-500">{t('campaigns.setup_forecast_hint', { revenue: f.money.format(p.forecast.revenue), spend: f.money.format(p.forecast.spend) })}</p>
-          </div>
-        )}
 
         {showNotes && (blockers > 0 || p.warnings.length > 0) && (
           <div className="mt-4 space-y-1.5 text-[12px]">
@@ -672,7 +635,7 @@ function ProductsStep({ plan, rules, setRules, active, toggleFilter, assigned, g
           {[
             { label: t('campaigns.g_stat_products'), value: f.int.format(preview.counts.included) },
             { label: t('campaigns.g_stat_conversions'), value: f.num.format(preview.conversions30) },
-            { label: t('campaigns.econ_break_even'), value: preview.economics.break_even !== null ? f.num.format(preview.economics.break_even) : '—' },
+            { label: t('campaigns.g_stat_budget'), value: preview.budget.daily !== null ? f.money.format(preview.budget.daily) : '—' },
           ].map(k => (
             <div key={k.label} className="bg-white px-4 py-2.5">
               <p className="text-[11px] text-neutral-500">{k.label}</p>
@@ -725,7 +688,6 @@ function ProductsStep({ plan, rules, setRules, active, toggleFilter, assigned, g
                     <p className="text-[13px] font-medium tabular-nums text-neutral-900">{f.money.format(o.price)}</p>
                     <p className="text-[11px] tabular-nums text-neutral-400">
                       {o.units > 0 ? t('catalog.units', { count: Number(o.units) }) : '—'}
-                      {o.margin !== null ? ` · ${Math.round(o.margin * 100)}%` : ''}
                     </p>
                   </div>
                 </li>
@@ -826,23 +788,20 @@ function ReviewStep({ plan, preview: p, name, account, audit, live, overlap, set
     },
     p.type === 'shopping' ? {
       label: t('campaigns.row_bidding'),
-      value: p.cpc_ceiling !== null ? t('campaigns.bidding_cpc', { cpc: f.money2.format(p.cpc_ceiling) }) : t('campaigns.bidding_cpc_unknown'),
-      hint: p.cpc_ceiling !== null && p.economics.aov !== null && p.economics.break_even !== null
-        ? `${t('campaigns.bidding_cpc_hint', { aov: f.money.format(p.economics.aov), roas: f.num.format(p.economics.break_even) })}${p.cpc_ceiling_low ? ` ${t('campaigns.bidding_cpc_low')}` : ''}`
+      value: p.cpc_ceiling !== null ? t('campaigns.bidding_clicks', { cpc: f.money2.format(p.cpc_ceiling) }) : t('campaigns.bidding_clicks_no_cap'),
+      hint: p.cpc_ceiling !== null && p.economics.aov !== null
+        ? `${t('campaigns.bidding_clicks_hint', { aov: f.money.format(p.economics.aov) })}${p.cpc_ceiling_low ? ` ${t('campaigns.bidding_cpc_low')}` : ''}`
         : undefined,
     } : {
       label: t('campaigns.row_bidding'),
-      value: p.start_target !== null ? t('campaigns.bidding_target', { roas: f.num.format(p.start_target) }) : t('campaigns.g_bidding_no_target'),
-      hint: p.start_target !== null && p.economics.target !== null && p.economics.break_even !== null
-        ? t('campaigns.bidding_start_hint', { goal: f.num.format(p.economics.target), break_even: f.num.format(p.economics.break_even) })
-        : t('campaigns.g_bidding_no_target_hint'),
+      value: t('campaigns.bidding_value'),
+      hint: t('campaigns.bidding_value_hint'),
     },
     { label: t('campaigns.row_budget'), value: p.budget.daily !== null ? t('campaigns.g_budget_value', { budget: f.money.format(p.budget.daily) }) : '—' },
     {
       label: t('campaigns.g_period'),
       value: g.ends_on ? t(g.starts_on ? 'campaigns.g_period_between' : 'campaigns.g_period_until', { start: g.starts_on ? f.date.format(day(g.starts_on)) : '', end: f.date.format(day(g.ends_on)) }) : t('campaigns.g_period_always'),
     },
-    { label: t('campaigns.goal_title'), value: t(`campaigns.goal_${g.goal}`) },
     {
       label: t('campaigns.row_safety'),
       value: p.loss_limit ? t('campaigns.safety_value', { none: f.money.format(p.loss_limit.no_conversions), low: f.money.format(p.loss_limit.low_roas) }) : t('campaigns.safety_unknown'),
@@ -859,8 +818,8 @@ function ReviewStep({ plan, preview: p, name, account, audit, live, overlap, set
         <p className="relative mt-1.5 text-[20px] font-semibold tracking-[-0.02em]">{name}</p>
         <dl className="relative mt-5 grid grid-cols-2 gap-4 sm:grid-cols-4">
           {[
-            { label: t('campaigns.econ_break_even'), value: p.economics.break_even !== null ? f.num.format(p.economics.break_even) : '—' },
-            { label: t('campaigns.econ_target'), value: p.economics.target !== null ? f.num.format(p.economics.target) : '—' },
+            { label: t('campaigns.g_stat_products'), value: f.int.format(p.counts.included) },
+            { label: t('campaigns.g_stat_budget'), value: p.budget.daily !== null ? f.money.format(p.budget.daily) : '—' },
             { label: t('campaigns.econ_aov'), value: p.economics.aov !== null ? f.money.format(p.economics.aov) : '—' },
             { label: t('campaigns.g_stat_conversions'), value: f.num.format(p.conversions30) },
           ].map(k => (
@@ -883,26 +842,6 @@ function ReviewStep({ plan, preview: p, name, account, audit, live, overlap, set
           </div>
         ))}
       </dl>
-
-      {p.forecast && (
-        <div className="rounded-xl border border-neutral-200/80 p-5">
-          <p className="text-[13px] font-semibold text-neutral-900">{t('campaigns.forecast_title')}</p>
-          <dl className="mt-3 grid grid-cols-2 gap-4 sm:grid-cols-4">
-            {[
-              { label: t('campaigns.forecast_spend'), value: f.money.format(p.forecast.spend) },
-              { label: t('campaigns.forecast_revenue'), value: f.money.format(p.forecast.revenue) },
-              { label: t('campaigns.forecast_orders'), value: p.forecast.orders !== null ? `~${f.int.format(p.forecast.orders)}` : '—' },
-              { label: t('campaigns.forecast_profit'), value: f.money.format(p.forecast.profit), strong: true },
-            ].map(k => (
-              <div key={k.label}>
-                <dt className="text-[12px] text-neutral-500">{k.label}</dt>
-                <dd className={cn('mt-0.5 text-[16px] font-semibold tabular-nums', k.strong ? 'text-emerald-600' : 'text-neutral-900')}>{k.value}</dd>
-              </div>
-            ))}
-          </dl>
-          <p className="mt-3 text-[12px] leading-relaxed text-neutral-400">{t('campaigns.forecast_note')}</p>
-        </div>
-      )}
 
       {/* Ce oprește lansarea și ce trebuie știut */}
       {(account.length > 0 || p.blockers.length > 0 || p.warnings.length > 0) && (

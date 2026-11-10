@@ -10,19 +10,19 @@ import { evaluateAudit } from '@/lib/google/audit'
 import { auditRaw, offer, setup } from './fixtures'
 
 // Grupele de produse făcute de om: ce produse prind regulile, cine are
-// întâietate la un produs, pragul, treapta, bugetul și ce oprește lansarea.
+// întâietate la un produs, comanda medie, treapta, bugetul și ce oprește lansarea.
 
 const ctx = { storeCurrency: 'RON', storeMerchantId: '555', hontrioCampaignIds: new Set<string>() }
 const audit = evaluateAudit(auditRaw(), ctx)
 
-// Lustre (marjă 40%), becuri (marjă 60%), o aplică la reducere și una epuizată
+// Lustre, becuri, o aplică la reducere și una epuizată
 const offers = [
-  offer('l1', { category: 'Lustre', brand: 'Aria', price: 500, cost_price: 300 }),
-  offer('l2', { category: 'Lustre', brand: 'Nova', price: 300, cost_price: 180 }),
-  offer('b1', { category: 'Becuri', brand: 'Ledvance', price: 60, cost_price: 24 }),
-  offer('b2', { category: 'Becuri', brand: 'ledvance', price: 40, cost_price: 16 }),
-  offer('a1', { category: 'Aplice', brand: 'Nova', price: 180, cost_price: 70, compare_at_price: 220 }),
-  offer('a2', { category: 'Aplice', brand: 'Nova', price: 150, cost_price: 60, available: false }),
+  offer('l1', { category: 'Lustre', brand: 'Aria', price: 500 }),
+  offer('l2', { category: 'Lustre', brand: 'Nova', price: 300 }),
+  offer('b1', { category: 'Becuri', brand: 'Ledvance', price: 60 }),
+  offer('b2', { category: 'Becuri', brand: 'ledvance', price: 40 }),
+  offer('a1', { category: 'Aplice', brand: 'Nova', price: 180, compare_at_price: 220 }),
+  offer('a2', { category: 'Aplice', brand: 'Nova', price: 150, available: false }),
 ]
 
 function input(over: Partial<PlanInput> = {}): PlanInput {
@@ -42,14 +42,14 @@ function input(over: Partial<PlanInput> = {}): PlanInput {
     googleAds90: { orders: 0, total: 0 },
     googleAds30: { orders: 0, total: 0 },
     googleSales30: new Map([['b1', { units: 12, revenue: 720, orders: 9 }], ['b2', { units: 9, revenue: 360, orders: 8 }], ['l1', { units: 2, revenue: 1000, orders: 2 }]]),
-    settings: { goal: 'balanced', daily_budget: null, mode: 'approve', max_daily_budget: null },
+    settings: { daily_budget: null, mode: 'approve', max_daily_budget: null },
     ...over,
   }
 }
 
 function group(id: string, rules: Partial<GroupRules>, over: Partial<ProductGroup> = {}): ProductGroup {
   return {
-    id, name: id, rules: { ...EMPTY_RULES, ...rules }, goal: 'balanced', daily_budget: null, campaign_type: 'auto',
+    id, name: id, rules: { ...EMPTY_RULES, ...rules }, daily_budget: null, campaign_type: 'auto',
     starts_on: null, ends_on: null, position: 1, status: 'draft', launched_at: null, ...over,
   }
 }
@@ -88,7 +88,7 @@ test('un produs stă într-o singură grupă: întâi cele lansate (cea mai vech
   assert.deepEqual([...b.keys()], ['b1'])
 })
 
-test('planul magazinului: produsele grupelor lansate ies din campania principală, pragul rămâne al catalogului', () => {
+test('planul magazinului: produsele grupelor lansate ies din campania principală, comanda medie rămâne a magazinului', () => {
   const base = buildPlan(input())
   const assigned = assignGroups(groupOffers, [group('becuri', { categories: ['Becuri'] }, { status: 'live', launched_at: '2026-10-20T10:00:00Z' })])
   const withGroup = buildPlan(input({ groups: { assigned, live: new Set(['becuri']) } }))
@@ -97,7 +97,7 @@ test('planul magazinului: produsele grupelor lansate ies din campania principal�
   assert.equal(withGroup.offers.find(o => o.offer_id === 'a2')!.reason, 'out_of_stock')
   assert.equal(withGroup.counts.in_groups, 2)
   assert.equal(withGroup.counts.included, base.counts.included - 2)
-  assert.equal(withGroup.economics.break_even, base.economics.break_even)
+  assert.equal(withGroup.economics.aov, base.economics.aov)
   // Nu se exclud „pentru totdeauna": doar campania principală le lasă afară
   assert.ok(!withGroup.exclusions.item_ids.includes('b1'))
   // O ciornă nu scoate nimic din campania principală
@@ -106,36 +106,39 @@ test('planul magazinului: produsele grupelor lansate ies din campania principal�
   assert.equal(draft.offers.find(o => o.offer_id === 'b1')!.group_id, 'becuri')
 })
 
-test('grupa: pragul produselor ei, ținta obiectivului ei, Shopping sub 15 conversii', () => {
+test('grupa: comanda medie a produselor ei dă plafonul, oprirea și bugetul; Shopping sub 15 conversii', () => {
   const plan = buildPlan(input())
-  const g = group('becuri', { categories: ['Becuri'] }, { goal: 'profit' })
+  const g = group('becuri', { categories: ['Becuri'] })
   const p = buildGroupPlan(g, { plan, assigned: assignGroups(groupOffers, [g]), otherConversions: 0, otherBudgets: 0, today: TODAY })
   assert.deepEqual(p.members.sort(), ['b1', 'b2'])
   assert.equal(p.counts.included, 2)
-  // Marja 60% → prag mult sub al magazinului; ținta „profit" = prag ÷ 0,6
-  assert.ok(p.economics.break_even! < plan.economics.break_even!)
-  assert.equal(p.economics.target, Math.round((p.economics.break_even! / 0.6) * 10) / 10)
   // 9 + 8 comenzi din Google în 30 de zile: destule pentru Performance Max
   assert.equal(p.conversions30, 17)
   assert.equal(p.auto_type, 'performance_max')
-  // Lustrele, cu 2: Shopping standard cu CPC plafonat
+  assert.equal(p.cpc_ceiling, null)
+  // 2.600 în 35 de comenzi, cu TVA și transport ca la magazin (9.000 / 7.200): 92,86
+  assert.equal(p.economics.aov, 92.86)
+  assert.equal(p.budget.suggested, 19)
+  // Lustrele, cu 2: Shopping standard cu „Maximizează clicurile"
   const small = group('lustre', { categories: ['Lustre'] })
   const s = buildGroupPlan(small, { plan, assigned: assignGroups(groupOffers, [small]), otherConversions: 0, otherBudgets: 0, today: TODAY })
   assert.equal(s.conversions30, 2)
   assert.equal(s.type, 'shopping')
   assert.equal(s.stage, 'starter')
-  assert.ok(s.cpc_ceiling !== null && s.cpc_ceiling > 0)
-  assert.ok(s.loss_limit !== null)
-  // Bugetul: ținta de învățare (10 vânzări pe lună) la comanda medie a grupei și ținta ei
-  assert.ok(s.budget.suggested !== null && s.budget.suggested > 0)
+  // 3.500 în 9 comenzi × 1,25 = 486,11: plafon 1%, oprire la 1× / 3×, buget o cincime
+  assert.equal(s.economics.aov, 486.11)
+  assert.equal(s.cpc_ceiling, 4.86)
+  assert.deepEqual(s.loss_limit, { no_conversions: 487, low_roas: 1459 })
+  assert.deepEqual(s.budget, { suggested: 95, chosen: null, daily: 95 })
+  assert.deepEqual(s.blockers, [])
 })
 
-test('grupa: Performance Max ales de om, cu puține conversii, pornește fără țintă și cu avertisment', () => {
+test('grupa: Performance Max ales de om, cu puține conversii, are avertisment', () => {
   const plan = buildPlan(input())
   const g = group('lustre', { categories: ['Lustre'] }, { campaign_type: 'performance_max' })
   const p = buildGroupPlan(g, { plan, assigned: assignGroups(groupOffers, [g]), otherConversions: 0, otherBudgets: 0, today: TODAY })
   assert.equal(p.type, 'performance_max')
-  assert.equal(p.start_target, null)
+  assert.equal(p.cpc_ceiling, null)
   assert.ok(p.warnings.some(w => w.id === 'pmax_low_data'))
 })
 
@@ -146,10 +149,6 @@ test('grupa: ce oprește lansarea și ce trebuie știut', () => {
   assert.deepEqual(run(group('gol', {})).blockers.map(b => b.id), ['empty'])
   // Doar aplica epuizată: nimic nu poate rula
   assert.deepEqual(run(group('epuizat', { include: ['a2'] })).blockers.map(b => b.id), ['no_products'])
-  // Fără costuri pe produsele grupei: fără prag
-  const noCost = buildPlan(input({ offers: offers.map(o => (o.category === 'Becuri' ? { ...o, cost_price: null } : o)) }))
-  const nc = group('becuri', { categories: ['Becuri'] })
-  assert.ok(buildGroupPlan(nc, { plan: noCost, assigned: assignGroups(groupOffers, [nc]), otherConversions: 0, otherBudgets: 0, today: TODAY }).blockers.some(b => b.id === 'costs'))
   // Perioada în trecut
   assert.ok(run(group('vara', { categories: ['Lustre'] }, { ends_on: '2026-08-31' })).blockers.some(b => b.id === 'period'))
   // Un produs epuizat în grupă, unul prins și de altă grupă, puține produse
@@ -160,7 +159,7 @@ test('grupa: ce oprește lansarea și ce trebuie știut', () => {
   assert.ok(few.warnings.some(w => w.id === 'few_products'))
   assert.ok(few.warnings.some(w => w.id === 'excluded_members'))
   // Peste bugetul maxim al omului, cu celelalte campanii
-  const capped = buildPlan(input({ settings: { goal: 'balanced', daily_budget: null, mode: 'approve', max_daily_budget: 50 } }))
+  const capped = buildPlan(input({ settings: { daily_budget: null, mode: 'approve', max_daily_budget: 50 } }))
   const big = group('becuri', { categories: ['Becuri'] }, { daily_budget: 30 })
   const over = buildGroupPlan(big, { plan: capped, assigned: assignGroups(groupOffers, [big]), otherConversions: 0, otherBudgets: 40, today: TODAY })
   assert.ok(over.warnings.some(w => w.id === 'over_max_budget' && w.params?.total === 70))

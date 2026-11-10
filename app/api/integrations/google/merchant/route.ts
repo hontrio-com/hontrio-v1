@@ -9,18 +9,17 @@ import { getT } from '@/lib/i18n/server'
 
 // =============================================
 // GET   /api/integrations/google/merchant — contul Merchant Center al
-//       magazinului activ, de unde îl știm, și ce trimite Hontrio acolo
-// PATCH /api/integrations/google/merchant — { merchant_center_id?: string|null,
-//       send_costs_to_google?: boolean }
+//       magazinului activ și de unde îl știm
+// PATCH /api/integrations/google/merchant — { merchant_center_id?: string|null }
 // =============================================
 
 const ROUTE = '/api/integrations/google/merchant'
 
 type StoreRow = {
   id: string; platform: string; platform_data: unknown; merchant_center_id: string | null
-  merchant_synced_at: string | null; merchant_error: string | null; send_costs_to_google: boolean
+  merchant_synced_at: string | null; merchant_error: string | null
 }
-const COLUMNS = 'id, platform, platform_data, merchant_center_id, merchant_synced_at, merchant_error, send_costs_to_google'
+const COLUMNS = 'id, platform, platform_data, merchant_center_id, merchant_synced_at, merchant_error'
 
 export async function GET() {
   const t = await getT()
@@ -36,10 +35,9 @@ export async function GET() {
   }
   if (!store) return NextResponse.json({ store: null })
 
-  const [{ data: audit }, { count: matched }, { count: pushed }] = await Promise.all([
+  const [{ data: audit }, { count: matched }] = await Promise.all([
     supabase.from('google_audits').select('result').eq('store_id', store.id).maybeSingle(),
     supabase.from('commerce_offers').select('offer_id', { count: 'exact', head: true }).eq('store_id', store.id).not('merchant_offer_id', 'is', null),
-    supabase.from('commerce_offers').select('offer_id', { count: 'exact', head: true }).eq('store_id', store.id).not('merchant_cogs_pushed', 'is', null),
   ])
   const linked = ((audit?.result as { merchant_ids?: string[] } | null)?.merchant_ids) ?? []
   const auditMerchant = (audit?.result as { merchant_id?: string | null } | null)?.merchant_id ?? null
@@ -54,9 +52,7 @@ export async function GET() {
       linked,
       synced_at: store.merchant_synced_at,
       error: store.merchant_error,
-      send_costs_to_google: store.send_costs_to_google,
       matched: matched ?? 0,
-      costs_sent: pushed ?? 0,
     },
   })
 }
@@ -67,7 +63,7 @@ export async function PATCH(request: Request) {
   if (!session?.user) return NextResponse.json({ error: t('api.unauthorized') }, { status: 401 })
   const userId = session.user.id
 
-  const body = await request.json().catch(() => ({})) as { merchant_center_id?: unknown; send_costs_to_google?: unknown }
+  const body = await request.json().catch(() => ({})) as { merchant_center_id?: unknown }
   const patch: Record<string, unknown> = {}
   if (body.merchant_center_id !== undefined) {
     const id = body.merchant_center_id === null ? null : String(body.merchant_center_id).trim()
@@ -78,10 +74,6 @@ export async function PATCH(request: Request) {
     patch.merchant_data_source = null
     patch.merchant_label_index = null
     patch.merchant_error = null
-  }
-  if (body.send_costs_to_google !== undefined) {
-    if (typeof body.send_costs_to_google !== 'boolean') return NextResponse.json({ error: t('api.invalid_request') }, { status: 400 })
-    patch.send_costs_to_google = body.send_costs_to_google
   }
   if (!Object.keys(patch).length) return NextResponse.json({ error: t('sync.nothing_to_save') }, { status: 400 })
 

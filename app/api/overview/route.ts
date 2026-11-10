@@ -5,10 +5,8 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { logApiError } from '@/lib/logger'
 import { storeSetup } from '@/lib/commerce/setup'
 import { getActiveStore } from '@/lib/stores/active'
-import { loadPlanContext, STORE_PLAN_COLUMNS, type PlanStore } from '@/lib/campaigns/context'
+import { STORE_PLAN_COLUMNS, type PlanStore } from '@/lib/campaigns/context'
 import { storeAdsAccount } from '@/lib/google/accounts'
-import { CAMPAIGN_COLUMNS, parseCampaign } from '@/lib/ads/apply'
-import { campaignBreakEvens, profitByCampaign, segmentSplits } from '@/lib/ads/campaign-economics'
 import { getT } from '@/lib/i18n/server'
 
 type StoreRow = PlanStore & {
@@ -25,14 +23,6 @@ type StoreRow = PlanStore & {
 const ROUTE = '/api/overview'
 const PERIOADE = [7, 30, 90, 365]
 const TOP_PRODUSE = 5
-
-type Costs = {
-  with_cost: number; total: number
-  /** Ca în planul campaniei: partea din vânzări (sau, fără vânzări, din oferte) care are cost */
-  coverage: number; basis: 'sales' | 'catalog' | null
-  /** Planul poate socoti marja: pasul e făcut */
-  ready: boolean
-}
 
 export async function GET(request: Request) {
   const session = await getServerSession(authOptions)
@@ -59,63 +49,37 @@ export async function GET(request: Request) {
 
   let overview: Record<string, unknown> | null = null
   let topProducts: unknown[] = []
-  let costs: Costs = { with_cost: 0, total: 0, coverage: 0, basis: null, ready: false }
-  // Cifrele din Google Ads ale perioadei (din cronul zilnic), cu profitul estimat după prag
-  let googleAds: { cost: number; value: number; conversions: number; roas: number | null; break_even: number | null; profit: number | null } | null = null
+  // Cifrele din Google Ads ale perioadei (din cronul zilnic)
+  let googleAds: { cost: number; value: number; conversions: number; roas: number | null } | null = null
   const googleConnected = googleRes.data?.status === 'active'
   // Contul Google Ads e al magazinului (fiecare magazin își alege contul)
   const account = googleConnected && store ? await storeAdsAccount(supabase, userId, store.google_ads_customer_id) : null
 
   if (store && setup) {
     const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString()
-    const [ovRes, salesRes, ads] = await Promise.all([
+    const [ovRes, salesRes] = await Promise.all([
       supabase.rpc('commerce_overview', { p_store_id: store.id, p_days: days, p_tz: store.timezone || 'Europe/Bucharest' }),
       supabase.rpc('commerce_offer_sales', { p_store_id: store.id, p_since: since }),
-      loadPlanContext(supabase, userId, store),
     ])
     if (ovRes.error) logApiError(ROUTE, 500, 'Eroare la commerce_overview', { userId, error: ovRes.error.message })
     if (salesRes.error) logApiError(ROUTE, 500, 'Eroare la commerce_offer_sales', { userId, error: salesRes.error.message })
-    for (const error of ads.errors) logApiError(ROUTE, 500, 'Eroare la citirea datelor magazinului', { userId, error })
     overview = (ovRes.data as Record<string, unknown> | null) ?? null
 
-    // Pasul costurilor are regula planului de campanie, ca să nu se contrazică
-    if (ads.context) {
-      const since = new Date(Date.now() - days * 86_400_000).toISOString().slice(0, 10)
-      const sums = { cost: 0, value: 0, conversions: 0 }
-      const dayRows: { google_campaign_id: string; date: string; cost: number; value: number }[] = []
-      for (let from = 0; ; from += 1000) {
-        const { data: rows } = await supabase.from('ad_metrics_daily').select('google_campaign_id, date, cost, conversions, conversions_value')
-          .eq('store_id', store.id).gte('date', since).range(from, from + 999)
-        for (const r of rows ?? []) {
-          sums.cost += Number(r.cost); sums.value += Number(r.conversions_value); sums.conversions += Number(r.conversions)
-          dayRows.push({ google_campaign_id: r.google_campaign_id, date: r.date, cost: Number(r.cost) || 0, value: Number(r.conversions_value) || 0 })
-        }
-        if (!rows || rows.length < 1000) break
+    // Ce a cheltuit și ce a adus Google Ads în perioadă, după cifrele raportate de Google
+    const sinceDay = since.slice(0, 10)
+    const sums = { cost: 0, value: 0, conversions: 0 }
+    for (let from = 0; ; from += 1000) {
+      const { data: rows } = await supabase.from('ad_metrics_daily').select('cost, conversions, conversions_value')
+        .eq('store_id', store.id).gte('date', sinceDay).range(from, from + 999)
+      for (const r of rows ?? []) {
+        sums.cost += Number(r.cost) || 0; sums.value += Number(r.conversions_value) || 0; sums.conversions += Number(r.conversions) || 0
       }
-      if (sums.cost > 0 || sums.value > 0) {
-        const be = ads.context.plan.economics.break_even
-        // Segmentele de marjă au pragul lor: profitul se socotește pe campanie și pe zi, ca în Rapoarte
-        const [campaignsRes, segmentsRes] = await Promise.all([
-          supabase.from('ad_campaigns').select(CAMPAIGN_COLUMNS).eq('store_id', store.id).not('google_campaign_id', 'is', null),
-          supabase.from('ad_actions').select('kind, status, ad_campaign_id, applied_at').eq('store_id', store.id).eq('kind', 'segment').eq('status', 'applied'),
-        ])
-        const campaignRows = (campaignsRes.data ?? []).map(r => parseCampaign(r as Record<string, unknown>))
-        const profits = profitByCampaign(dayRows, campaignBreakEvens(campaignRows, ads.context.plan), be, segmentSplits(campaignRows, segmentsRes.data ?? []))
-        const profit = profits ? [...profits.values()].reduce((sum, p) => sum + p, 0) : null
-        googleAds = {
-          cost: Math.round(sums.cost * 100) / 100, value: Math.round(sums.value * 100) / 100, conversions: Math.round(sums.conversions * 10) / 10,
-          roas: sums.cost > 0 ? Math.round((sums.value / sums.cost) * 100) / 100 : null,
-          break_even: be,
-          profit: profit === null ? null : Math.round(profit * 100) / 100,
-        }
-      }
-      const { economics } = ads.context.plan
-      costs = {
-        with_cost: ads.context.data.offers.filter(o => o.cost_price !== null).length,
-        total: ads.context.data.offers.length,
-        coverage: economics.cost_coverage,
-        basis: economics.cost_basis,
-        ready: economics.margin !== null,
+      if (!rows || rows.length < 1000) break
+    }
+    if (sums.cost > 0 || sums.value > 0) {
+      googleAds = {
+        cost: Math.round(sums.cost * 100) / 100, value: Math.round(sums.value * 100) / 100, conversions: Math.round(sums.conversions * 10) / 10,
+        roas: sums.cost > 0 ? Math.round((sums.value / sums.cost) * 100) / 100 : null,
       }
     }
 
@@ -124,7 +88,7 @@ export async function GET(request: Request) {
       .slice(0, TOP_PRODUSE)
     if (top.length) {
       const { data: offers } = await supabase.from('commerce_offers')
-        .select('offer_id, title, product_name, variant_title, image_url, price, cost_price')
+        .select('offer_id, title, product_name, variant_title, image_url, price')
         .eq('store_id', store.id)
         .in('offer_id', top.map(t => t.offer_id))
       const byId = new Map((offers ?? []).map(o => [o.offer_id as string, o]))
@@ -136,7 +100,6 @@ export async function GET(request: Request) {
           variant_title: o?.variant_title ?? null,
           image_url: o?.image_url ?? null,
           price: o ? Number(o.price) : null,
-          cost_price: o?.cost_price === null || o?.cost_price === undefined ? null : Number(o.cost_price),
           units: Number(t.units) || 0,
           revenue: Number(t.revenue) || 0,
         }
@@ -158,7 +121,6 @@ export async function GET(request: Request) {
         href: step?.href ?? '/settings?tab=integrations', external: !!step,
       }
     }),
-    { id: 'costs', done: costs.ready, href: '/products?view=no_cost', external: false },
   ]
 
   return NextResponse.json({
@@ -185,7 +147,6 @@ export async function GET(request: Request) {
       account: account ? { id: account.customer_id, name: account.descriptive_name, currency: account.currency_code } : null,
     },
     checklist,
-    costs,
     ads: googleAds,
     overview,
     top_products: topProducts,

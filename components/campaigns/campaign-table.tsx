@@ -75,7 +75,7 @@ export function CampaignTable({ views, plan, f, onOpen, compact }: {
           <Th align="right">{t('campaigns.kpi_spend')}</Th>
           {!compact && <Th align="right">{t('campaigns.kpi_value')}</Th>}
           <Th align="right">{t('campaigns.kpi_roas')}</Th>
-          <Th align="right">{t('campaigns.kpi_profit')}</Th>
+          <Th align="right">{t('campaigns.kpi_conversions')}</Th>
           {!compact && <Th className="w-[120px]">{t('campaigns.col_trend')}</Th>}
           <Th className="w-8" />
         </tr>
@@ -85,7 +85,6 @@ export function CampaignTable({ views, plan, f, onOpen, compact }: {
           const Icon = iconOf(v.group?.group.rules ?? null)
           const s = STATUS[v.status]
           const silent = v.status === 'draft' || v.status === 'not_launched'
-          const profit = v.last30.profit
           return (
             <Tr key={v.key} clickable onClick={() => onOpen(v)} onKeyDown={e => { if (e.key === 'Enter') onOpen(v) }} tabIndex={0}>
               <Td>
@@ -104,9 +103,10 @@ export function CampaignTable({ views, plan, f, onOpen, compact }: {
               {!compact && <Td align="right" className="text-neutral-700">{v.budget !== null ? f.money.format(v.budget) : '—'}</Td>}
               <Td align="right" className={silent ? 'text-neutral-300' : 'text-neutral-700'}>{silent ? '—' : f.money.format(v.last30.cost)}</Td>
               {!compact && <Td align="right" className={silent ? 'text-neutral-300' : 'text-neutral-700'}>{silent ? '—' : f.money.format(v.last30.value)}</Td>}
-              <Td align="right" className={silent || v.roas === null ? 'text-neutral-300' : 'font-medium text-neutral-900'}>{silent || v.roas === null ? '—' : f.num.format(v.roas)}</Td>
-              <Td align="right" className={cn('font-medium', silent || profit === null ? 'text-neutral-300' : profit < 0 ? 'text-red-600' : profit > 0 ? 'text-emerald-600' : 'text-neutral-700')}>
-                {silent || profit === null ? '—' : f.money.format(profit)}
+              {/* ROAS sub 1: reclamele au costat mai mult decât au adus vânzările */}
+              <Td align="right" className={silent || v.roas === null ? 'text-neutral-300' : v.roas < 1 ? 'font-medium text-red-600' : 'font-medium text-neutral-900'}>{silent || v.roas === null ? '—' : f.num.format(v.roas)}</Td>
+              <Td align="right" className={silent ? 'text-neutral-300' : 'text-neutral-700'}>
+                {silent ? '—' : f.num.format(Math.round(v.last30.conversions * 10) / 10)}
               </Td>
               {!compact && (
                 <Td>

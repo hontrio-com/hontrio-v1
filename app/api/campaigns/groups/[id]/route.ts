@@ -109,10 +109,6 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     const fresh = await loadApplyEnv(supabase, store.id)
     if (!('error' in fresh)) env = fresh
     const mine = groupCampaigns(env, group.id)
-    if (fields.goal !== undefined) {
-      // Ținta se mută spre noul obiectiv treptat, prin pilot (cel mult 12% o dată)
-      await supabase.from('ad_campaigns').update({ goal: fields.goal, updated_at: now }).eq('product_group_id', group.id).in('status', ['active', 'paused'])
-    }
     if (fields.daily_budget !== undefined) {
       const to = fields.daily_budget ?? env.ctx.groupPlans.find(p => p.group.id === group.id)?.budget.suggested ?? null
       for (const c of mine) {

@@ -8,19 +8,16 @@ import { getActiveStore } from '@/lib/stores/active'
 import { buildRecommendations, CSS_COUNTRIES } from '@/lib/recommendations/engine'
 import { loadPlanContext, STORE_PLAN_COLUMNS, statusesKnown, type PlanStore } from '@/lib/campaigns/context'
 import { merchantIdForStore, type BestSellerRow, type PriceCompetitivenessRow, type PriceInsightRow } from '@/lib/merchant/sync'
-import type { EdinioStore } from '@/lib/edinio/types'
 import { getT } from '@/lib/i18n/server'
 
 // =============================================
 // GET /api/recommendations
 // Recomandările magazinului, calculate acum din modelul comun: setările care
 // blochează campaniile, contul Google Ads (auditul), ofertele care nu pot rula
-// la Google, stocul, marjele și piața (rapoartele din Merchant Center).
+// la Google, stocul și piața (rapoartele din Merchant Center).
 // =============================================
 
 const ROUTE = '/api/recommendations'
-
-type EdinioAds = { google_ads?: Pick<NonNullable<EdinioStore['google_ads']>, 'conversie_id' | 'cos'> | null }
 
 export async function GET() {
   const t = await getT()
@@ -49,7 +46,6 @@ export async function GET() {
 
   const rows = (kind: string) => ((insightsRes.data ?? []).find(r => r.kind === kind)?.rows ?? []) as unknown[]
   const country = (context.setup.feed.country || store.country || '').toUpperCase()
-  const edinioAds = store.platform === 'edinio' ? (store.platform_data as EdinioAds | null)?.google_ads : null
 
   const recommendations = buildRecommendations({
     store: { connection_status: store.connection_status },
@@ -62,10 +58,7 @@ export async function GET() {
     merchant: {
       id: merchantIdForStore(store, context.audit?.result?.merchant_id ?? null),
       from_merchant: store.platform !== 'edinio' && statusesKnown(context.setup, store),
-      send_costs: store.send_costs_to_google,
       css_region: CSS_COUNTRIES.has(country),
-      // Edinio spune dacă trimite coșul în conversie; la celelalte platforme nu știm
-      cart_data: edinioAds?.conversie_id ? !!edinioAds.cos : null,
     },
     insights: {
       price_competitiveness: rows('price_competitiveness') as PriceCompetitivenessRow[],
@@ -81,7 +74,7 @@ export async function GET() {
       store_name: store.store_name,
       currency: store.currency || 'RON',
       last_sync_at: store.last_sync_at,
-      // Fără vânzări în ultimele 90 de zile, recomandările de stoc și marjă n-au pe ce se sprijini
+      // Fără vânzări în ultimele 90 de zile, recomandările de stoc n-au pe ce se sprijini
       has_recent_sales: context.data.sales90.size > 0,
     },
     recommendations,

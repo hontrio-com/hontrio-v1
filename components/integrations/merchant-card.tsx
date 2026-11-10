@@ -6,13 +6,12 @@ import { useT } from '@/lib/i18n/context'
 import { translateStored } from '@/lib/i18n/stored'
 import { Card, CardHeader } from '@/components/app/surface'
 import { Button } from '@/components/app/button'
-import { Checkbox, Input, Select } from '@/components/app/input'
+import { Input, Select } from '@/components/app/input'
 import { Callout, Skeleton } from '@/components/app/feedback'
 
 // =============================================
 // Merchant Center-ul magazinului activ: contul folosit (din Edinio, legat de
-// contul Google Ads, sau ales), trimiterea costurilor (pentru profitul brut
-// din Google Ads) și o sincronizare la cerere.
+// contul Google Ads, sau ales) și o sincronizare la cerere.
 // =============================================
 
 type MerchantState = {
@@ -22,9 +21,7 @@ type MerchantState = {
   linked: string[]
   synced_at: string | null
   error: string | null
-  send_costs_to_google: boolean
   matched: number
-  costs_sent: number
 }
 
 export default function MerchantCard() {
@@ -32,7 +29,7 @@ export default function MerchantCard() {
   const fmtInt = new Intl.NumberFormat(intlLocale)
   const [state, setState] = useState<MerchantState | null>(null)
   const [loading, setLoading] = useState(true)
-  const [busy, setBusy] = useState<'sync' | 'costs' | 'choose' | null>(null)
+  const [busy, setBusy] = useState<'sync' | 'choose' | null>(null)
   const [manual, setManual] = useState('')
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null)
 
@@ -50,7 +47,7 @@ export default function MerchantCard() {
 
   useEffect(() => { load() }, [])
 
-  async function patch(body: Record<string, unknown>, kind: 'costs' | 'choose') {
+  async function patch(body: Record<string, unknown>, kind: 'choose') {
     setBusy(kind)
     setNotice(null)
     try {
@@ -119,15 +116,10 @@ export default function MerchantCard() {
           </Button>
         </div>
 
-        {/* Costurile trimise la Google */}
-        <Checkbox checked={state.send_costs_to_google} onChange={v => { if (!busy) patch({ send_costs_to_google: v }, 'costs') }} className="items-start">
-          <span className="leading-relaxed"><span className="font-medium text-neutral-900">{t('settings.merchant_costs')}</span> — {t('settings.merchant_costs_hint')}</span>
-        </Checkbox>
-
         {state.merchant_center_id && (
           <p className="text-[12px] leading-relaxed text-neutral-500">
             {syncedAt
-              ? t('settings.merchant_status', { when: syncedAt, matched: fmtInt.format(state.matched), sent: fmtInt.format(state.costs_sent) })
+              ? t('settings.merchant_status', { when: syncedAt, matched: fmtInt.format(state.matched) })
               : t('settings.merchant_never')}
           </p>
         )}

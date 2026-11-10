@@ -19,7 +19,7 @@ const PERIOADE = [30, 90, 365]
 // PostgREST întoarce cel mult 1000 de rânduri pe cerere
 const PAGINA = 1000
 
-const COLOANE = 'offer_id, external_product_id, item_group_id, title, product_name, variant_title, category, url, image_url, price, compare_at_price, currency, available, stock, sku, gtin, brand, google_status, cost_price, cost_source, synced_at'
+const COLOANE = 'offer_id, external_product_id, item_group_id, title, product_name, variant_title, category, url, image_url, price, compare_at_price, currency, available, stock, sku, gtin, brand, google_status, synced_at'
 
 export async function GET(request: Request) {
   const t = await getT()
@@ -55,7 +55,6 @@ export async function GET(request: Request) {
     sync_status: store.sync_status,
     last_sync_at: store.last_sync_at,
     last_error: store.last_error,
-    prices_include_vat: setup?.pricesIncludeVat ?? null,
     // WooCommerce nu știe ce face Google cu ofertele: starea vine după legarea contului Google
     google_status_known: setup?.googleStatusKnown ?? false,
     supported: !!setup,
@@ -103,7 +102,6 @@ export async function GET(request: Request) {
       ...o,
       price: Number(o.price),
       compare_at_price: o.compare_at_price === null ? null : Number(o.compare_at_price),
-      cost_price: o.cost_price === null ? null : Number(o.cost_price),
       sales: salesByOffer.get(o.offer_id as string) ?? { units: 0, revenue: 0, orders: 0 },
     })),
   })

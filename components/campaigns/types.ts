@@ -22,7 +22,7 @@ export type ActionItem = {
 }
 
 /** O zi din evoluția campaniilor Hontrio, la un loc. */
-export type SeriesPoint = { date: string; cost: number; value: number; conversions: number; profit: number | null }
+export type SeriesPoint = { date: string; cost: number; value: number; conversions: number }
 
 export type CampaignsData = {
   store: { platform: string; supported: boolean; store_name?: string | null; currency?: string } | null

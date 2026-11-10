@@ -8,7 +8,7 @@
   "unread_count_other": "{{count}} new",
   "announcement": "Announcement",
   "campaign_launched_title": "Your campaign is live",
-  "campaign_launched_starter": "“{{name}}” is in your Google Ads account: standard Shopping with a capped cost per click. The autopilot watches the figures daily.",
+  "campaign_launched_starter": "“{{name}}” is in your Google Ads account: Standard Shopping, with “Maximize clicks”. The autopilot watches the numbers every day.",
   "campaign_launched_growth": "“{{name}}” is in your Google Ads account: a feed-only Performance Max. The autopilot watches the figures daily.",
   "loss_limit_title": "A campaign was stopped at the loss limit",
   "proposals_title": "The autopilot has new proposals",

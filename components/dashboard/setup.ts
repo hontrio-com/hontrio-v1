@@ -1,14 +1,14 @@
-import { Calculator, Megaphone, Rocket, ScanBarcode, Store, type LucideIcon } from 'lucide-react'
+import { Megaphone, Rocket, ScanBarcode, Store, type LucideIcon } from 'lucide-react'
 import type { BlockerId, Plan } from '@/lib/campaigns/plan'
 
 // =============================================
-// Drumul până la prima campanie, în cinci pași, citit din planul campaniei
+// Drumul până la prima campanie, în patru pași, citit din planul campaniei
 // (`plan.blockers`): aceeași sursă pentru antetul Dashboard-ului (harta cu
 // razele) și pentru panoul cu pași. Lansarea e mereu ultima: pasul de acum e
 // primul de pregătire neterminat, altfel lansarea.
 // =============================================
 
-export type StepId = 'store' | 'google' | 'tracking' | 'costs' | 'launch'
+export type StepId = 'store' | 'google' | 'tracking' | 'launch'
 export type StepState = 'done' | 'current' | 'next'
 export type Blocker = Plan['blockers'][number]
 
@@ -19,8 +19,8 @@ export const STEPS: { id: StepId; icon: LucideIcon; blockers: readonly BlockerId
     id: 'tracking', icon: ScanBarcode,
     blockers: ['merchant', 'merchant_not_linked', 'merchant_other', 'merchant_choose', 'conversion', 'purchase_missing', 'purchase_not_primary', 'purchase_no_value'],
   },
-  { id: 'costs', icon: Calculator, blockers: ['costs', 'no_offers', 'too_many_exclusions'] },
-  { id: 'launch', icon: Rocket, blockers: ['audit'] },
+  // „Niciun produs” și „prea multe excluderi” se repară din Produse, dar se văd la lansare
+  { id: 'launch', icon: Rocket, blockers: ['audit', 'no_offers', 'too_many_exclusions'] },
 ]
 
 /** Pașii pe care îi spune auditul contului: după reparație, verificarea se reface ca să se vadă. */

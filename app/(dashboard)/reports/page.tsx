@@ -4,7 +4,6 @@ import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import Link from 'next/link'
 import { AlertCircle, ArrowRight, ImageIcon, Info, Store } from 'lucide-react'
 import { useT } from '@/lib/i18n/context'
-import { cn } from '@/lib/utils'
 import { PageHeader } from '@/components/app/page-header'
 import { Card, CardHeader } from '@/components/app/surface'
 import { Badge, type Tone } from '@/components/app/badge'
@@ -20,29 +19,27 @@ import { campaignKindKey } from '@/components/campaigns/live-campaigns'
 
 // =============================================
 // Rapoarte — ce aduc reclamele Google Ads (din cronul zilnic): cheltuiala,
-// valoarea conversiilor, ROAS-ul față de pragul de profit, profitul estimat,
-// pe zi, campanie, produs și termen de căutare; plus vânzările de pe site
-// pe sursă și cele aduse de campaniile Hontrio.
+// valoarea conversiilor, ROAS-ul și costul pe conversie, pe zi, campanie,
+// produs și termen de căutare; plus vânzările de pe site pe sursă și cele
+// aduse de campaniile Hontrio.
 // =============================================
 
-type Kpi = { cost: number; clicks: number; impressions: number; conversions: number; value: number; roas: number | null; profit: number | null }
+type Kpi = { cost: number; clicks: number; impressions: number; conversions: number; value: number; roas: number | null }
 type Data = {
   store: { platform: string; supported: boolean; store_name?: string | null; currency?: string } | null
   period?: { days: number; from: string; to: string }
   google?: { connected: boolean; account: { id: string; name: string | null } | null; synced_at: string | null }
-  break_even?: number | null
   ads?: {
     total: Kpi
     hontrio: Kpi | null
     daily: { date: string; cost: number; value: number }[]
     campaigns: {
       id: string; name: string; channel: string; hontrio: boolean
-      /** Felul campaniei Hontrio (pornire, PMax, segment de marjă); null la ale omului. */
+      /** Felul campaniei Hontrio (pornire, PMax, grupă); null la ale omului. */
       kind: { type: 'shopping' | 'performance_max'; segment: string | null } | null
-      break_even: number | null
-      cost: number; clicks: number; conversions: number; value: number; roas: number | null; profit: number | null
+      cost: number; clicks: number; conversions: number; value: number; roas: number | null
     }[]
-    products: { item_id: string; title: string; image_url: string | null; cost: number; clicks: number; conversions: number; value: number; roas: number | null; break_even: number | null; verdict: 'loses' | 'profitable' | 'no_sales' | 'none' }[]
+    products: { item_id: string; title: string; image_url: string | null; cost: number; clicks: number; conversions: number; value: number; roas: number | null; verdict: Verdict }[]
     search_terms: { term: string; cost: number; clicks: number; conversions: number; value: number }[]
   } | null
   sales?: {
@@ -54,7 +51,9 @@ type Data = {
 }
 
 const PERIODS = [7, 30, 90]
-const VERDICT_TONE: Record<'loses' | 'profitable' | 'no_sales' | 'none', Tone> = { loses: 'red', profitable: 'green', no_sales: 'amber', none: 'neutral' }
+/** Ca pilotul: fără vânzări, sau vânzări sub costul reclamei (ROAS sub 1). */
+type Verdict = 'below_cost' | 'sells' | 'no_sales' | 'none'
+const VERDICT_TONE: Record<Verdict, Tone> = { below_cost: 'red', sells: 'green', no_sales: 'amber', none: 'neutral' }
 
 export default function ReportsPage() {
   const { t } = useT()
@@ -124,7 +123,6 @@ export default function ReportsPage() {
   }
 
   const ads = data.ads ?? null
-  const be = data.break_even ?? null
   const sales = data.sales ?? null
   const noAdsReason = !data.google?.connected ? 'reports.no_ads_google' : !data.google.account ? 'reports.no_ads_account' : data.google.synced_at ? 'reports.no_ads_empty' : 'reports.no_ads_waiting'
   const daily = ads?.daily ?? []
@@ -152,9 +150,9 @@ export default function ReportsPage() {
               <KpiCard label={t('reports.kpi_value')} value={ads.total.value} format={n => f.money.format(n)} series={spark(d => d.value)}
                 footnote={t('reports.kpi_conversions_count', { count: Math.round(ads.total.conversions), value: f.num.format(ads.total.conversions) })} />
               <KpiCard label={t('reports.kpi_roas')} value={ads.total.roas} format={n => f.num.format(n)} series={spark(d => (d.cost > 0 ? d.value / d.cost : null))}
-                footnote={be !== null ? t('reports.kpi_roas_be', { roas: f.num.format(be) }) : undefined} />
-              <KpiCard label={t('reports.kpi_profit')} value={ads.total.profit} format={n => f.money.format(n)} color="#10b981"
-                footnote={ads.total.profit === null ? t('reports.kpi_profit_need_costs') : t('reports.kpi_profit_sub')} />
+                footnote={t('reports.kpi_roas_sub')} />
+              <KpiCard label={t('reports.kpi_cpa')} value={ads.total.conversions > 0 ? ads.total.cost / ads.total.conversions : null} format={n => f.money.format(n)} color="#a3a3a3"
+                footnote={t('reports.kpi_cpa_sub')} />
             </div>
           </FadeIn>
           {ads.hontrio && (
@@ -181,11 +179,9 @@ export default function ReportsPage() {
               head={<tr>
                 <Th>{t('reports.col_campaign')}</Th>
                 <Th align="right">{t('reports.kpi_spend')}</Th><Th align="right">{t('reports.kpi_value')}</Th>
-                <Th align="right">{t('reports.kpi_roas')}</Th><Th align="right">{t('reports.kpi_conversions')}</Th><Th align="right">{t('reports.kpi_profit')}</Th>
+                <Th align="right">{t('reports.kpi_roas')}</Th><Th align="right">{t('reports.kpi_conversions')}</Th>
               </tr>}>
               {ads.campaigns.map(c => {
-                // Campaniile pe marje au pragul lor
-                const cbe = c.break_even ?? be
                 return (
                   <Tr key={c.id}>
                     <Td className="max-w-[340px]">
@@ -197,11 +193,8 @@ export default function ReportsPage() {
                     </Td>
                     <Td align="right">{f.money.format(c.cost)}</Td>
                     <Td align="right">{f.money.format(c.value)}</Td>
-                    <Td align="right" className={c.roas !== null && cbe !== null && c.roas < cbe ? 'font-semibold text-red-600' : 'font-medium text-neutral-900'}>{c.roas === null ? '—' : f.num.format(c.roas)}</Td>
+                    <Td align="right" className={c.roas !== null && c.roas < 1 ? 'font-semibold text-red-600' : 'font-medium text-neutral-900'}>{c.roas === null ? '—' : f.num.format(c.roas)}</Td>
                     <Td align="right">{f.num.format(c.conversions)}</Td>
-                    <Td align="right" className={cn('font-medium', c.profit === null ? 'text-neutral-300' : c.profit < 0 ? 'text-red-600' : c.profit > 0 ? 'text-emerald-600' : 'text-neutral-700')}>
-                      {c.profit === null ? '—' : f.money.format(c.profit)}
-                    </Td>
                   </Tr>
                 )
               })}
@@ -214,7 +207,7 @@ export default function ReportsPage() {
               head={<tr>
                 <Th>{t('catalog.col_product')}</Th>
                 <Th align="right">{t('reports.kpi_spend')}</Th><Th align="right">{t('reports.kpi_value')}</Th>
-                <Th align="right">{t('reports.kpi_roas')}</Th><Th align="right">{t('reports.col_break_even')}</Th><Th>{t('reports.col_verdict')}</Th>
+                <Th align="right">{t('reports.kpi_roas')}</Th><Th>{t('reports.col_verdict')}</Th>
               </tr>}>
               {ads.products.map(p => (
                 <Tr key={p.item_id}>
@@ -232,7 +225,6 @@ export default function ReportsPage() {
                   <Td align="right">{f.money.format(p.cost)}</Td>
                   <Td align="right">{f.money.format(p.value)}</Td>
                   <Td align="right" className="font-medium text-neutral-900">{p.roas === null ? '—' : f.num.format(p.roas)}</Td>
-                  <Td align="right" className="text-neutral-500">{p.break_even === null ? '—' : f.num.format(p.break_even)}</Td>
                   <Td><Badge tone={VERDICT_TONE[p.verdict]} dot>{t(`reports.verdict_${p.verdict}`)}</Badge></Td>
                 </Tr>
               ))}

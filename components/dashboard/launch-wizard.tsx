@@ -3,13 +3,12 @@
 import { useId, useState, type ReactNode } from 'react'
 import Link from 'next/link'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
-import { AlertTriangle, ArrowLeft, ArrowRight, Check, CircleCheck, ExternalLink, Info, Loader2, Lock, RefreshCw, ShieldCheck, Sparkles } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, ArrowRight, Check, CircleCheck, ExternalLink, Info, Loader2, Lock, RefreshCw, ShieldCheck } from 'lucide-react'
 import { useT } from '@/lib/i18n/context'
 import { translateStored } from '@/lib/i18n/stored'
 import { cn } from '@/lib/utils'
 import { Button, linkStyles, textActionStyles } from '@/components/app/button'
 import { Callout } from '@/components/app/feedback'
-import { InfoTip } from '@/components/app/info-tip'
 import { NumberTicker } from '@/components/app/motion'
 import { Surface } from '@/components/app/surface'
 import { SlideCommit } from '@/components/app/fx/controls'
@@ -17,16 +16,16 @@ import { LaunchSteps } from '@/components/app/fx/feedback'
 import { AccountChoices, choicesDone as choicesMade, type Overlap } from '@/components/campaigns/account-choices'
 import type { AuditData } from '@/components/campaigns/types'
 import type { Formats } from '@/components/app/formats'
-import { DAYS_PER_MONTH, GOAL_KEEP, GOALS, MIN_COST_COVERAGE, forecastFor, niceBudget, type Goal, type Plan } from '@/lib/campaigns/plan'
+import { DAYS_PER_MONTH, niceBudget, type Plan } from '@/lib/campaigns/plan'
 import { FROM_AUDIT, STEPS, blockerText, customerId, setupOf, type Blocker, type SetupStep, type StepId } from '@/components/dashboard/setup'
 
 // =============================================
 // Asistentul de lansare, pe suprafața mare a Dashboard-ului (ca „Create new
 // clips" la Bezeno): sus, ce urmează și cât mai e; pașii într-o pastilă gri, cu
 // cel ales pe negru; dedesubt, acțiunea pasului (un rând înalt și butonul mare,
-// negru) și, în dreapta, pe negru, ce schimbă: marja și pragul la costuri,
-// profitul pe lună la buget, recalculat cât tragi de glisor. Lansarea se face
-// glisând, nu dintr-un clic scăpat.
+// negru) și, în dreapta, pe negru, ce înseamnă pasul: la lansare, cât se
+// cheltuie pe lună, recalculat cât tragi de glisor. Lansarea se face glisând,
+// nu dintr-un clic scăpat.
 // =============================================
 
 const EASE = [0.22, 1, 0.36, 1] as const
@@ -40,7 +39,7 @@ const chip = 'rounded-full border border-line bg-white px-2.5 py-0.5 text-xs tex
 /** Magazinul, pentru primul pas; `orders` null = pagina nu-l știe (nu se arată). */
 export type WizardStore = { name: string | null; offers: number; orders: number | null }
 type Note = { tone: 'success' | 'warning' | 'danger'; text: string; details?: string[] }
-type Busy = 'recheck' | 'audit' | 'costs' | 'goal' | 'budget' | 'launch' | null
+type Busy = 'recheck' | 'audit' | 'budget' | 'launch' | null
 
 export function LaunchWizard({ plan, audit, store, f, picked: pickedProp, onPick, onChanged, onLaunched }: {
   plan: Plan
@@ -65,8 +64,7 @@ export function LaunchWizard({ plan, audit, store, f, picked: pickedProp, onPick
   const [note, setNote] = useState<Note | null>(null)
   const [overlap, setOverlap] = useState<Overlap>(null)
   const [declareEu, setDeclareEu] = useState(false)
-  const [percent, setPercent] = useState(60)
-  // Bugetul tras pe glisor, încă nesalvat: estimarea din dreapta îl urmează
+  // Bugetul tras pe glisor, încă nesalvat: cheltuiala pe lună din dreapta îl urmează
   const [budgetDraft, setBudgetDraft] = useState<number | null>(null)
 
   const setup = setupOf(plan)
@@ -113,38 +111,18 @@ export function LaunchWizard({ plan, audit, store, f, picked: pickedProp, onPick
     }
   }
 
-  async function estimateCosts() {
-    setBusy('costs')
+  async function saveBudget(daily: number | null) {
+    setBusy('budget')
     setNote(null)
     try {
-      const r = await fetch('/api/catalog/cost/bulk', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ percent, only_missing: true }),
-      })
-      const body = await r.json().catch(() => ({}))
-      if (!r.ok) { setNote({ tone: 'danger', text: body.error || t('wizard.costs_failed') }); return }
-      await onChanged()
-      pick(null)
-      setNote({ tone: 'success', text: t('wizard.costs_applied', { count: Number(body.updated) || 0 }) })
-    } catch {
-      setNote({ tone: 'danger', text: t('wizard.costs_failed') })
-    } finally {
-      setBusy(null)
-    }
-  }
-
-  async function saveSettings(kind: 'goal' | 'budget', body: { goal?: Goal; daily_budget?: number | null }) {
-    setBusy(kind)
-    setNote(null)
-    try {
-      const r = await fetch('/api/campaigns/plan', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      const r = await fetch('/api/campaigns/plan', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ daily_budget: daily }) })
       if (!r.ok) throw new Error()
       await onChanged()
     } catch {
       setNote({ tone: 'danger', text: t('campaigns.save_error') })
     } finally {
       setBusy(null)
-      if (kind === 'budget') setBudgetDraft(null)
+      setBudgetDraft(null)
     }
   }
 
@@ -248,18 +226,14 @@ export function LaunchWizard({ plan, audit, store, f, picked: pickedProp, onPick
                 {step.id === 'store' && <StoreStep step={step} store={store} />}
                 {step.id === 'google' && <GoogleStep plan={plan} step={step} text={text} recheckButton={recheckButton} />}
                 {step.id === 'tracking' && <TrackingStep plan={plan} step={step} text={text} recheckButton={recheckButton} />}
-                {step.id === 'costs' && (
-                  <CostsStep plan={plan} step={step} percent={percent} onPercent={setPercent} busy={busy === 'costs'} disabled={!!busy && busy !== 'costs'}
-                    f={f} text={text} onApply={estimateCosts} />
-                )}
                 {step.id === 'launch' && (
-                  <LaunchStep plan={plan} audit={audit} setup={setup} f={f} intlLocale={intlLocale} busy={busy}
+                  <LaunchStep plan={plan} audit={audit} setup={setup} step={step} f={f} intlLocale={intlLocale} busy={busy} text={text}
                     overlap={overlap} onOverlap={setOverlap} declareEu={declareEu} onDeclareEu={setDeclareEu}
-                    onGoTo={() => pick(null)} onGoal={g => { if (g !== plan.goal && !busy) saveSettings('goal', { goal: g }) }}
+                    onGoTo={() => pick(null)}
                     budgetDraft={budgetDraft} onBudgetDraft={setBudgetDraft}
                     onBudget={value => {
                       if (value === undefined) setBudgetDraft(null)
-                      else saveSettings('budget', { daily_budget: value })
+                      else saveBudget(value)
                     }} onAudit={runAudit} onLaunch={launch} />
                 )}
                 {backToCurrent && <div className="mt-5">{backToCurrent}</div>}
@@ -271,7 +245,7 @@ export function LaunchWizard({ plan, audit, store, f, picked: pickedProp, onPick
           <AnimatePresence mode="wait" initial={false}>
             <motion.div key={shown} initial={reduce ? false : { opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={reduce ? undefined : { opacity: 0, y: -8 }}
               transition={{ duration: 0.25, ease: EASE }}>
-              <Aside step={step.id} plan={plan} store={store} percent={percent} budgetDraft={budgetDraft} f={f} />
+              <Aside step={step.id} plan={plan} store={store} budgetDraft={budgetDraft} f={f} />
             </motion.div>
           </AnimatePresence>
         </div>
@@ -393,81 +367,17 @@ function TrackingStep({ plan, step, text, recheckButton }: { plan: Plan; step: S
   )
 }
 
-function CostsStep({ plan, step, percent, onPercent, busy, disabled, f, text, onApply }: {
-  plan: Plan; step: SetupStep; percent: number; onPercent: (n: number) => void; busy: boolean; disabled: boolean
-  f: Formats; text: (b: Blocker) => string; onApply: () => void
-}) {
-  const { t } = useT()
-  const econ = plan.economics
-  const coverage = Math.round(econ.cost_coverage * 100)
-  const missing = plan.offers.filter(o => o.cost_price === null && o.price > 0).length
-  const costsBlocker = step.open.find(b => b.id === 'costs') ?? null
-  const other = step.open.filter(b => b.id !== 'costs')
-
-  return (
-    <>
-      <Lead>{t('wizard.costs_desc')}</Lead>
-
-      {other.map(b => (
-        <Callout key={b.id} tone="warning" className="mt-5" action={<Button asChild size="sm"><Link href={b.href}>{t('wizard.tracking_fix')}<ArrowRight /></Link></Button>}>
-          {text(b)}
-        </Callout>
-      ))}
-
-      {costsBlocker || missing > 0 ? (
-        <>
-          <div className="mt-5 flex flex-col gap-3 md:flex-row md:items-stretch">
-            <div className={cn(field, 'flex-1 flex-col items-stretch gap-1.5 py-3')}>
-              <div className="flex items-baseline justify-between gap-3">
-                <span className="text-[15px] text-neutral-800">{t('wizard.costs_estimate_value', { pct: String(percent) })}</span>
-                <span className="font-mono text-[13px] font-semibold text-neutral-950">{percent}%</span>
-              </div>
-              <input type="range" min={10} max={90} step={5} value={percent} onChange={e => onPercent(Number(e.target.value))}
-                aria-label={t('wizard.costs_estimate_slider')} disabled={disabled || busy}
-                className="range-mono h-6 w-full" style={{ '--pct': `${((percent - 10) / 80) * 100}%` } as React.CSSProperties} />
-            </div>
-            <button type="button" onClick={onApply} disabled={disabled || busy || missing === 0} className={bigButton}>
-              {busy ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
-              {missing > 0 ? t('wizard.costs_apply', { count: missing }) : t('wizard.costs_apply_none')}
-              {!busy && <ArrowRight className="size-4 transition group-hover:translate-x-0.5" />}
-            </button>
-          </div>
-          <Chips items={[
-            t(econ.cost_basis === 'catalog' ? 'wizard.costs_coverage_catalog' : 'wizard.costs_coverage_sales', { pct: String(coverage) }),
-            t('wizard.costs_needed'),
-            <Link key="exact" href="/products?view=no_cost" className="text-neutral-700 hover:text-black">{t('wizard.costs_exact')} →</Link>,
-          ]} />
-          <p className="mt-3 text-xs text-neutral-400">{t('wizard.costs_estimate_hint')}</p>
-        </>
-      ) : null}
-
-      {!costsBlocker && econ.margin !== null && econ.break_even !== null && (
-        <DoneRow>{t('wizard.costs_done', { pct: String(Math.round(econ.margin * 100)), roas: f.num.format(econ.break_even) })}</DoneRow>
-      )}
-
-      {/* Acoperirea, cu pragul de 50% */}
-      <div className="mt-5 max-w-md">
-        <div className="relative h-1.5 overflow-hidden rounded-full bg-neutral-200">
-          <motion.div className="h-full rounded-full bg-black" initial={{ width: 0 }} animate={{ width: `${Math.min(100, coverage)}%` }} transition={{ duration: 0.8, ease: 'easeOut' }} />
-          <span aria-hidden className="absolute inset-y-0 w-px bg-neutral-500" style={{ left: `${MIN_COST_COVERAGE * 100}%` }} />
-        </div>
-      </div>
-    </>
-  )
-}
-
-function LaunchStep({ plan, audit, setup, f, intlLocale, busy, overlap, onOverlap, declareEu, onDeclareEu, onGoTo, onGoal, budgetDraft, onBudgetDraft, onBudget, onAudit, onLaunch }: {
-  plan: Plan; audit: AuditData | null; setup: ReturnType<typeof setupOf>; f: Formats; intlLocale: string; busy: Busy
+function LaunchStep({ plan, audit, setup, step, f, intlLocale, busy, text, overlap, onOverlap, declareEu, onDeclareEu, onGoTo, budgetDraft, onBudgetDraft, onBudget, onAudit, onLaunch }: {
+  plan: Plan; audit: AuditData | null; setup: ReturnType<typeof setupOf>; step: SetupStep; f: Formats; intlLocale: string; busy: Busy
+  text: (b: Blocker) => string
   overlap: Overlap; onOverlap: (v: 'pause' | 'keep') => void; declareEu: boolean; onDeclareEu: (v: boolean) => void
-  onGoTo: () => void; onGoal: (g: Goal) => void
+  onGoTo: () => void
   budgetDraft: number | null; onBudgetDraft: (n: number) => void
   /** null = bugetul propus de Hontrio; undefined = nimic de salvat (glisorul a rămas pe valoarea salvată). */
   onBudget: (value: number | null | undefined) => void
   onAudit: () => void; onLaunch: () => Promise<void>
 }) {
   const { t } = useT()
-  const uid = useId()
-  const reduce = useReducedMotion()
   const locked = setup.blocking
   const result = audit?.result ?? null
   const hasAccount = !!plan.campaign.account
@@ -478,6 +388,8 @@ function LaunchStep({ plan, audit, setup, f, intlLocale, busy, overlap, onOverla
   const asked = new Set([...(result?.overlap.length ? ['overlap'] : []), ...(result?.eu_undeclared.length ? ['eu_undeclared'] : [])])
   const checks = (result?.checks ?? []).filter(c => c.id !== 'currency_mismatch' && c.level !== 'blocker' && !asked.has(c.id))
   const place = placeOf(plan, intlLocale)
+  // Ce se repară din Produse (niciun produs de vândut, prea multe excluderi); auditul are cardul lui
+  const products = step.open.filter(b => b.id !== 'audit')
 
   return (
     <>
@@ -490,32 +402,11 @@ function LaunchStep({ plan, audit, setup, f, intlLocale, busy, overlap, onOverla
         </div>
       )}
 
-      {/* Obiectivul (Bezeno · alegerea în pastilă, cu un rând sub fiecare variantă) */}
-      <div className="mt-5">
-        <div className="mb-2 flex items-center gap-2 text-xs font-semibold text-neutral-500">
-          {t('wizard.goal_label')}{busy === 'goal' && <Loader2 className="size-3 animate-spin" />}
-        </div>
-        <div className="flex flex-wrap gap-1 rounded-2xl bg-neutral-100 p-1">
-          {GOALS.map(g => {
-            const active = plan.goal === g
-            const target = plan.targets[g]
-            return (
-              <button key={g} type="button" onClick={() => onGoal(g)} disabled={!!busy} aria-pressed={active}
-                title={t(`campaigns.goal_${g}_desc`, { keep: String(Math.round(GOAL_KEEP[g] * 100)) })}
-                className={cn('relative flex min-w-0 flex-1 flex-col items-center justify-center rounded-xl px-2.5 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed',
-                  active ? 'text-white' : 'text-neutral-500 hover:text-black')}>
-                {active && <motion.span layoutId={`${uid}-goal`} className="absolute inset-0 rounded-xl bg-black shadow-sm" transition={reduce ? { duration: 0 } : { type: 'spring', stiffness: 500, damping: 36 }} />}
-                <span className="relative flex items-center gap-1.5 whitespace-nowrap">
-                  {t(`campaigns.goal_${g}`)}{g === 'balanced' && <span className={cn('size-1.5 rounded-full', active ? 'bg-white' : 'bg-black')} />}
-                </span>
-                <span className={cn('relative text-[10px]', active ? 'text-white/60' : 'text-neutral-400')}>
-                  {target !== null ? t('wizard.goal_target', { roas: f.num.format(target) }) : t(`campaigns.goal_${g}`)}
-                </span>
-              </button>
-            )
-          })}
-        </div>
-      </div>
+      {products.map(b => (
+        <Callout key={b.id} tone="warning" className="mt-5" action={<Button asChild size="sm"><Link href={b.href}>{t('wizard.tracking_fix')}<ArrowRight /></Link></Button>}>
+          {text(b)}
+        </Callout>
+      ))}
 
       {/* Bugetul */}
       <BudgetSlider plan={plan} f={f} draft={budgetDraft} onDraft={onBudgetDraft} saving={busy === 'budget'} disabled={!!busy && busy !== 'budget'} onSave={onBudget} />
@@ -573,7 +464,7 @@ function LaunchStep({ plan, audit, setup, f, intlLocale, busy, overlap, onOverla
   )
 }
 
-/** Bugetul pe zi, dintr-un glisor: estimarea din dreapta se schimbă cât tragi; se salvează când lași mânerul. */
+/** Bugetul pe zi, dintr-un glisor: cheltuiala pe lună din dreapta se schimbă cât tragi; se salvează când lași mânerul. */
 function BudgetSlider({ plan, f, draft, onDraft, saving, disabled, onSave }: {
   plan: Plan; f: Formats; draft: number | null; onDraft: (n: number) => void; saving: boolean; disabled: boolean
   onSave: (value: number | null | undefined) => void
@@ -582,7 +473,7 @@ function BudgetSlider({ plan, f, draft, onDraft, saving, disabled, onSave }: {
   const { budget } = plan
   const anchor = budget.daily ?? budget.suggested
   if (anchor === null) {
-    return <p className={cn(field, 'mt-5 text-sm text-neutral-500')}>{t('wizard.budget_after_costs')}</p>
+    return <p className={cn(field, 'mt-5 text-sm text-neutral-500')}>{t('wizard.budget_none')}</p>
   }
   const base = budget.suggested ?? anchor
   const max = niceBudget(Math.max(base * 3, 30))
@@ -621,6 +512,9 @@ function BudgetSlider({ plan, f, draft, onDraft, saving, disabled, onSave }: {
         </div>
         <div className="mt-3 flex justify-between font-mono text-[10px] text-neutral-400"><span>{f.money.format(min)}</span><span>{f.money.format(max)}</span></div>
       </div>
+      {budget.basis && budget.suggested !== null && (
+        <p className="mt-2 text-xs text-neutral-400">{t(budget.basis === 'history' ? 'wizard.budget_basis_history' : 'wizard.budget_basis_aov', { amount: f.money.format(budget.suggested) })}</p>
+      )}
     </div>
   )
 }
@@ -664,7 +558,7 @@ function Facts({ facts }: { facts: string[] }) {
   )
 }
 
-function Aside({ step, plan, store, percent, budgetDraft, f }: { step: StepId; plan: Plan; store: WizardStore; percent: number; budgetDraft: number | null; f: Formats }) {
+function Aside({ step, plan, store, budgetDraft, f }: { step: StepId; plan: Plan; store: WizardStore; budgetDraft: number | null; f: Formats }) {
   const { t } = useT()
   switch (step) {
     case 'store':
@@ -678,47 +572,11 @@ function Aside({ step, plan, store, percent, budgetDraft, f }: { step: StepId; p
       return <DarkPanel label={t('wizard.aside_google_title')}><Facts facts={[t('wizard.aside_google_1'), t('wizard.aside_google_2'), t('wizard.aside_google_3')]} /></DarkPanel>
     case 'tracking':
       return <DarkPanel label={t('wizard.aside_tracking_title')}><Facts facts={[t('wizard.aside_tracking_1'), t('wizard.aside_tracking_2'), t('wizard.aside_tracking_3')]} /></DarkPanel>
-    case 'costs': {
-      const econ = plan.economics
-      // Ca în planul campaniei: profitul vânzării, fără TVA și reduceri, față de valoarea raportată
-      const margin = 1 - percent / 100
-      const net = margin - econ.discount_pct / 100
-      const be = net > 0 ? ((1 + econ.vat_pct / 100) * econ.value_ratio) / net : null
-      return (
-        <DarkPanel label={t('wizard.aside_costs_title', { pct: String(percent) })} value={be === null ? '—' : `≈ ${f.num.format(Math.round(be * 10) / 10)}`} bar={margin * 100}>
-          <p className="text-white">{t('wizard.aside_costs_be')} · {t('wizard.aside_costs_margin').toLowerCase()} {Math.round(margin * 100)}%</p>
-          <p className="mt-2">{t('wizard.aside_costs_desc')}</p>
-        </DarkPanel>
-      )
-    }
     case 'launch': {
-      const { target_roas: target, economics } = plan
-      const forecast = budgetDraft !== null && target !== null && economics.break_even !== null
-        ? forecastFor(budgetDraft, target, economics.break_even, economics.aov)
-        : plan.forecast
-      if (!forecast) {
-        return (
-          <DarkPanel label={t('wizard.forecast_title')}>
-            {t('campaigns.econ_need_costs', { pct: String(Math.round(plan.economics.cost_coverage * 100)) })}
-          </DarkPanel>
-        )
-      }
+      const daily = budgetDraft ?? plan.budget.daily
       return (
-        <DarkPanel label={t('wizard.forecast_profit')} value={<NumberTicker value={forecast.profit} format={n => f.money.format(Math.round(n))} />}
-          bar={forecast.revenue > 0 ? (forecast.profit / forecast.revenue) * 100 * 4 : 0}>
-          <p className="text-white/80">{t('wizard.forecast_per_month')}</p>
-          <dl className="mt-3 space-y-1.5 border-t border-white/10 pt-3">
-            {[
-              { label: t('wizard.forecast_revenue'), value: f.money.format(forecast.revenue) },
-              { label: t('wizard.forecast_spend'), value: f.money.format(forecast.spend) },
-              ...(forecast.orders !== null ? [{ label: t('wizard.forecast_orders'), value: `~${f.int.format(forecast.orders)}` }] : []),
-            ].map(r => (
-              <div key={r.label} className="flex items-center justify-between gap-3">
-                <dt>{r.label}</dt><dd className="font-semibold tabular-nums text-white">{r.value}</dd>
-              </div>
-            ))}
-          </dl>
-          <p className="mt-3 flex gap-2 text-xs text-white/45"><InfoTip>{t('wizard.forecast_note')}</InfoTip>{t('wizard.forecast_title')}</p>
+        <DarkPanel label={t('wizard.aside_launch_title')} value={daily === null ? '—' : <NumberTicker value={daily * DAYS_PER_MONTH} format={n => f.money.format(Math.round(n))} />}>
+          <Facts facts={[t('wizard.aside_launch_1'), t('wizard.aside_launch_2'), t('wizard.aside_launch_3')]} />
         </DarkPanel>
       )
     }

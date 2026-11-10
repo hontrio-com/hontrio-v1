@@ -1,7 +1,6 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { storedMessage } from '@/lib/i18n/stored'
 import { logError } from '@/lib/logger'
-import { economicsOf } from '@/lib/ads/economics'
 import { storeSetup } from '@/lib/commerce/setup'
 import { getAccessTokenForUser, GoogleAuthError } from '@/lib/google/oauth'
 import {
@@ -14,9 +13,11 @@ import { dominantFeed, freeLabelIndex, matchProducts, shoppingIssues, shoppingSt
 // =============================================
 // Sincronizarea cu Merchant Center-ul magazinului (cron zilnic și la cerere):
 // 1. potrivește produsele de acolo cu ofertele și le citește starea și problemele;
-// 2. trimite costurile (fără TVA) și etichetele Hontrio în sursa suplimentară „Hontrio";
+// 2. pune eticheta Hontrio pe produsele scoase din campanii, în sursa suplimentară
+//    „Hontrio" (doar la cataloagele prea mari pentru lista de ID-uri);
 // 3. aduce rapoartele de piață (prețuri față de concurență, cele mai vândute).
-// Vezi docs/campanii/SPECIFICATIE.md §4, §7, §8.
+// Hontrio nu mai trimite costuri: un cost trimis înainte se șterge la prima trecere.
+// Vezi docs/campanii/SPECIFICATIE.md §4, §8.
 // =============================================
 
 type Supabase = ReturnType<typeof createAdminClient>
@@ -28,10 +29,10 @@ type StoreRow = {
   id: string; user_id: string; platform: string; store_url: string | null; currency: string | null
   country: string | null; language: string | null; platform_data: unknown
   merchant_center_id: string | null; merchant_feed_label: string | null; merchant_content_language: string | null
-  merchant_data_source: string | null; merchant_label_index: number | null; send_costs_to_google: boolean
+  merchant_data_source: string | null; merchant_label_index: number | null
 }
 
-const STORE_COLUMNS = 'id, user_id, platform, store_url, currency, country, language, platform_data, merchant_center_id, merchant_feed_label, merchant_content_language, merchant_data_source, merchant_label_index, send_costs_to_google'
+const STORE_COLUMNS = 'id, user_id, platform, store_url, currency, country, language, platform_data, merchant_center_id, merchant_feed_label, merchant_content_language, merchant_data_source, merchant_label_index'
 
 type EdinioMerchant = { google_merchant?: { cont_id?: string | null; eticheta_feed?: string | null; tara?: string | null; limba?: string | null } | null }
 
@@ -62,7 +63,7 @@ export type MerchantSyncResult =
   | { ok: false; reason: 'no_store' | 'no_merchant' | 'google_not_connected' | 'denied' | 'failed' }
 
 type OfferRow = OfferRef & {
-  cost_price: number | null
+  /** Costul trimis cândva în Merchant Center (înainte să renunțăm la costuri): se șterge. */
   merchant_cogs_pushed: number | null
   merchant_label_pushed: string | null
 }
@@ -71,13 +72,12 @@ async function readOffers(supabase: Supabase, storeId: string): Promise<OfferRow
   const all: OfferRow[] = []
   for (let from = 0; ; from += 1000) {
     const { data, error } = await supabase.from('commerce_offers')
-      .select('offer_id, external_product_id, sku, gtin, url, cost_price, merchant_cogs_pushed, merchant_label_pushed')
+      .select('offer_id, external_product_id, sku, gtin, url, merchant_cogs_pushed, merchant_label_pushed')
       .eq('store_id', storeId).order('offer_id').range(from, from + 999)
     if (error) throw new Error(`commerce_offers: ${error.message}`)
     for (const o of data ?? []) {
       all.push({
         ...o,
-        cost_price: o.cost_price === null ? null : Number(o.cost_price),
         merchant_cogs_pushed: o.merchant_cogs_pushed === null ? null : Number(o.merchant_cogs_pushed),
       } as OfferRow)
     }
@@ -101,7 +101,7 @@ async function pool<T>(items: T[], size: number, fn: (x: T) => Promise<void>, de
 /**
  * Sursa suplimentară „Hontrio": o găsește sau o creează și o leagă de sursele
  * principale ale produselor, ULTIMA în regula implicită. Ce e deja în feedul
- * omului câștigă; noi completăm doar ce lipsește (costul, eticheta noastră).
+ * omului câștigă; noi completăm doar ce lipsește (eticheta noastră).
  */
 async function ensureSupplemental(token: string, merchantId: string, known: string | null, primaries: Set<string>): Promise<string> {
   const sources = await listDataSources(token, merchantId)
@@ -266,18 +266,13 @@ export async function syncMerchant(storeId: string, opts: { auditMerchantId?: st
     const feed = dominantFeed(matched)
     const labelIndex = store.merchant_label_index ?? freeLabelIndex(products)
 
-    // 2. Costurile și etichetele, în sursa suplimentară
+    // 2. Etichetele, în sursa suplimentară (un cost trimis cândva se scoate odată cu ele)
     let pushed = 0
     let removed = 0
     let dataSource = store.merchant_data_source
     const labels = opts.labels ?? null
-    // Google pune costul lângă prețurile din coș, care sunt fără TVA: costul (scris pe
-    // aceeași bază ca prețul) se împarte la factorul de TVA din pragul de profit
-    const vatFactor = setup && store.send_costs_to_google && offers.some(o => o.cost_price !== null)
-      ? await storeVatFactor(supabase, storeId, setup.pricesIncludeVat, setup.assumedVatRate)
-      : 1
     const wanted = (o: OfferRow) => ({
-      cogs: store.send_costs_to_google && o.cost_price !== null ? Math.round((o.cost_price / vatFactor) * 100) / 100 : null,
+      cogs: null as number | null,
       label: labels && labelIndex !== null ? labels.get(o.offer_id) ?? null : null,
     })
     const sendList = offers.filter(o => {
@@ -300,9 +295,6 @@ export async function syncMerchant(storeId: string, opts: { auditMerchantId?: st
             removed++
           } else {
             const attrs: Record<string, unknown> = {}
-            if (cogs !== null) {
-              attrs.costOfGoodsSold = { amountMicros: String(Math.round(cogs * 1_000_000)), currencyCode: p.productAttributes?.price?.currencyCode || store.currency || 'RON' }
-            }
             if (w.label !== null && labelIndex !== null) attrs[`customLabel${labelIndex}`] = w.label
             await insertProductInput(token, merchantId, dataSource!, { offerId: p.offerId, contentLanguage: p.contentLanguage, feedLabel: p.feedLabel, productAttributes: attrs })
             pushed++
@@ -350,13 +342,4 @@ export async function syncMerchant(storeId: string, opts: { auditMerchantId?: st
     }
     throw err
   }
-}
-
-/** Factorul de TVA al magazinului, din comenzile pe 90 de zile (ca pragul de profit). */
-async function storeVatFactor(supabase: Supabase, storeId: string, pricesIncludeVat: boolean | null, assumedVatRate: number | null): Promise<number> {
-  const since = new Date(Date.now() - 90 * 86400_000).toISOString()
-  const { data } = await supabase.rpc('commerce_order_economics', { p_store_id: storeId, p_since: since })
-  const e = (data ?? {}) as Record<string, number>
-  const n = (k: string) => Number(e[k]) || 0
-  return economicsOf({ orders: n('orders'), total: n('total'), items: n('items'), discount: n('discount'), tax: n('tax') }, pricesIncludeVat, assumedVatRate).vatFactor
 }

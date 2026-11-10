@@ -204,6 +204,9 @@ export async function launchFromPlan(supabase: Supabase, userId: string, store: 
   const a = audit!.result!
   const merchantId = plan.structure.merchant_id
   if (!merchantId) return failWith('no_merchant', storedMessage('sync.launch_no_merchant'))
+  // Fără buget nu trimitem nimic (Google ar primi cea mai mică unitate facturabilă)
+  const daily = plan.budget.daily
+  if (!daily || daily <= 0) return failWith('no_budget', storedMessage('sync.launch_no_budget'))
 
   // Campaniile grupelor nu țin locul campaniei principale
   const { data: live } = await supabase.from('ad_campaigns').select('id').eq('store_id', store.id).in('status', ['active', 'paused']).is('product_group_id', null).limit(1)
@@ -238,7 +241,6 @@ export async function launchFromPlan(supabase: Supabase, userId: string, store: 
     const country = plan.campaign.country || store.country
     if (!country) return failWith('geo_unknown', storedMessage('sync.launch_geo_unknown', { country: '?' }))
     const targeting = await resolveTargeting(token, acc, country, plan.campaign.language)
-    const daily = plan.budget.daily!
     const kind = plan.structure.type
     const name = campaignName(kind, store.store_name)
     const common = {
@@ -254,9 +256,9 @@ export async function launchFromPlan(supabase: Supabase, userId: string, store: 
       negatives: plan.structure.brand_negatives.map(text => ({ text, match: 'PHRASE' as const })),
     }
     const spec: LaunchSpec = kind === 'shopping'
-      ? { ...common, kind, cpcCeiling: plan.structure.cpc_ceiling!, campaignPriority: opts.overlap === 'keep' ? 0 : 1 }
+      ? { ...common, kind, cpcCeiling: plan.structure.cpc_ceiling, campaignPriority: opts.overlap === 'keep' ? 0 : 1 }
       : {
-        ...common, kind, targetRoas: plan.structure.start_target, languageConstant: targeting.language,
+        ...common, kind, languageConstant: targeting.language,
         finalUrl: store.store_url, goals: a.goals.map(g => ({ category: g.category, origin: g.origin })),
       }
     const ids = await createCampaign(token, acc, spec)
@@ -267,7 +269,6 @@ export async function launchFromPlan(supabase: Supabase, userId: string, store: 
       store_id: store.id,
       type: kind,
       status: 'active',
-      goal: plan.goal,
       daily_budget: daily,
       currency,
       customer_id: acc.customer_id,
@@ -280,11 +281,10 @@ export async function launchFromPlan(supabase: Supabase, userId: string, store: 
       feed_label: plan.structure.feed_label,
       google_budget_id: ids.budget,
       ...(kind === 'shopping' ? { google_ad_group_id: ids.group } : { google_asset_group_id: ids.group }),
-      target_roas: kind === 'performance_max' ? plan.structure.start_target : null,
+      target_roas: null,
       cpc_ceiling: kind === 'shopping' ? plan.structure.cpc_ceiling : null,
       excluded_item_ids: listing.kind === 'exclude_items' ? listing.item_ids : [],
       loss_check_from: now,
-      target_changed_at: now,
       budget_changed_at: now,
     }).select('id').single()
     if (error || !row) return lostCampaign(s, ids.campaign, error?.message)
@@ -295,7 +295,7 @@ export async function launchFromPlan(supabase: Supabase, userId: string, store: 
     await logAction(supabase, {
       user_id: userId, store_id: store.id, ad_campaign_id: row.id, kind: 'launch', status: 'applied', source: 'user',
       params: {
-        type: kind, stage: plan.stage.id, daily_budget: daily, target_roas: spec.kind === 'performance_max' ? spec.targetRoas : null,
+        type: kind, stage: plan.stage.id, daily_budget: daily,
         cpc_ceiling: spec.kind === 'shopping' ? spec.cpcCeiling : null, excluded: plan.exclusions.item_ids.length, google_campaign_id: ids.campaign,
       },
     })
@@ -310,8 +310,8 @@ export async function launchFromPlan(supabase: Supabase, userId: string, store: 
 
 /**
  * Lansarea campaniei unei grupe: produsele ei (lista de ID-uri), treapta ei (Shopping standard sau
- * Performance Max), ținta și bugetul ei, perioada aleasă. Campania principală care rulează le lasă
- * apoi afară (apelantul îi reface arborele).
+ * Performance Max), bugetul ei, perioada aleasă. Campania principală care rulează le lasă apoi
+ * afară (apelantul îi reface arborele).
  */
 export async function launchGroup(supabase: Supabase, userId: string, store: PlanStore, ctx: PlanContext, groupId: string, opts: LaunchOptions): Promise<LaunchResult> {
   const { plan, account, audit } = ctx
@@ -330,7 +330,7 @@ export async function launchGroup(supabase: Supabase, userId: string, store: Pla
   const merchantId = plan.structure.merchant_id
   if (!merchantId) return failWith('no_merchant', storedMessage('sync.launch_no_merchant'))
   const daily = gp.budget.daily
-  if (daily === null) return failWith('group_blocked', storedMessage('sync.launch_group_blocked'))
+  if (!daily || daily <= 0) return failWith('no_budget', storedMessage('sync.launch_no_budget'))
 
   // Campania principală Performance Max trebuie să poată lăsa afară și produsele grupei (cel mult 1.000 de noduri)
   const { data: mains } = await supabase.from('ad_campaigns').select('type').eq('store_id', store.id).in('status', ['active', 'paused']).is('product_group_id', null).is('included_item_ids', null)
@@ -373,9 +373,9 @@ export async function launchGroup(supabase: Supabase, userId: string, store: Pla
       endDateTime: group.ends_on ? endOfDay(group.ends_on) : null,
     }
     const spec: LaunchSpec = kind === 'shopping'
-      ? { ...common, kind, cpcCeiling: gp.cpc_ceiling!, campaignPriority: opts.overlap === 'keep' ? 0 : 1 }
+      ? { ...common, kind, cpcCeiling: gp.cpc_ceiling, campaignPriority: opts.overlap === 'keep' ? 0 : 1 }
       : {
-        ...common, kind, targetRoas: gp.start_target, languageConstant: targeting.language,
+        ...common, kind, languageConstant: targeting.language,
         finalUrl: store.store_url, goals: a.goals.map(g => ({ category: g.category, origin: g.origin })),
       }
     const ids = await createCampaign(token, acc, spec)
@@ -388,7 +388,6 @@ export async function launchGroup(supabase: Supabase, userId: string, store: Pla
       product_group_id: group.id,
       type: kind,
       status: 'active',
-      goal: group.goal,
       daily_budget: daily,
       currency,
       customer_id: acc.customer_id,
@@ -401,12 +400,11 @@ export async function launchGroup(supabase: Supabase, userId: string, store: Pla
       feed_label: plan.structure.feed_label,
       google_budget_id: ids.budget,
       ...(kind === 'shopping' ? { google_ad_group_id: ids.group } : { google_asset_group_id: ids.group }),
-      target_roas: kind === 'performance_max' ? gp.start_target : null,
+      target_roas: null,
       cpc_ceiling: kind === 'shopping' ? gp.cpc_ceiling : null,
       included_item_ids: items,
       excluded_item_ids: [],
       loss_check_from: start,
-      target_changed_at: start,
       budget_changed_at: start,
     }).select('id').single()
     if (error || !row) return lostCampaign(s, ids.campaign, error?.message)
@@ -417,7 +415,7 @@ export async function launchGroup(supabase: Supabase, userId: string, store: Pla
     await logAction(supabase, {
       user_id: userId, store_id: store.id, ad_campaign_id: row.id, kind: 'launch', status: 'applied', source: 'user',
       params: {
-        type: kind, stage: gp.stage, daily_budget: daily, target_roas: spec.kind === 'performance_max' ? spec.targetRoas : null,
+        type: kind, stage: gp.stage, daily_budget: daily,
         cpc_ceiling: spec.kind === 'shopping' ? spec.cpcCeiling : null, included: items.length, google_campaign_id: ids.campaign,
         group_id: group.id, group: group.name, starts_on: later, ends_on: group.ends_on,
       },

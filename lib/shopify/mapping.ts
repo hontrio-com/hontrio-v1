@@ -71,15 +71,6 @@ export function offerRow(ctx: Ctx, v: ShopifyVariant, syncedAt: string): OfferRo
   }
 }
 
-/**
- * Costul ofertei din „Cost per item", adus pe baza prețului: `multiplier`
- * adaugă TVA-ul când prețurile îl includ (costul din Shopify e cel contabil).
- */
-export function costRow(v: ShopifyVariant, multiplier: number): { offer_id: string; cost: number } | null {
-  if (!isListed(v.product)) return null
-  const cost = num(v.inventoryItem?.unitCost?.amount)
-  return cost > 0 ? { offer_id: v.legacyResourceId, cost: round2(cost * multiplier) } : null
-}
 
 // ── Comenzile ──────────────────────────────────────────────────────────────
 

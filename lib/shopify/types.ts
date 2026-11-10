@@ -40,8 +40,7 @@ export type ShopifyVariant = {
   inventoryQuantity: number | null
   updatedAt: string
   selectedOptions: { name: string; value: string }[]
-  /** `unitCost` = „Cost per item", costul contabil al bucății */
-  inventoryItem: { tracked: boolean; unitCost: { amount: string } | null } | null
+  inventoryItem: { tracked: boolean } | null
   media: { nodes: MediaPreview[] } | null
   product: ShopifyProductRef
 }

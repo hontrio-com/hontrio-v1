@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 
 import Link from 'next/link'
 import { useSession } from 'next-auth/react'
 import { motion } from 'framer-motion'
-import { AlertCircle, Banknote, Megaphone, Receipt, ShoppingBag, ShoppingCart, Store, Target, TrendingUp, Wallet } from 'lucide-react'
+import { AlertCircle, Banknote, Megaphone, Receipt, ShoppingBag, ShoppingCart, Store, Target, Wallet } from 'lucide-react'
 import { useT } from '@/lib/i18n/context'
 import { translateStored } from '@/lib/i18n/stored'
 import { Button } from '@/components/app/button'
@@ -221,15 +221,14 @@ export default function DashboardPage() {
     const s14 = (campaigns?.series ?? []).slice(-14)
     const roasOf = (p: { value: number; cost: number }) => (p.cost > 0 ? p.value / p.cost : 0)
     stats = [
-      { key: 'profit', icon: TrendingUp, label: t('home.stat_profit'), value: ads?.profit ?? 0, format: n => f.money.format(Math.round(n)), hint: period,
-        series: s14.map(p => Math.max(0, p.profit ?? 0)), axis, trend: trend(weekChange(s14.map(p => p.profit ?? 0))) },
       { key: 'sales', icon: ShoppingBag, label: t('home.stat_sales'), value: ads?.value ?? 0, format: n => f.money.format(Math.round(n)), hint: period,
         series: s14.map(p => p.value), axis, trend: trend(weekChange(s14.map(p => p.value))) },
       { key: 'spend', icon: Wallet, label: t('overview.ads_spend'), value: ads?.cost ?? 0, format: n => f.money.format(Math.round(n)), hint: period,
         series: s14.map(p => p.cost), axis, trend: trend(weekChange(s14.map(p => p.cost))) },
-      { key: 'roas', icon: Target, label: 'ROAS', value: ads?.roas ?? 0, format: n => f.num.format(n),
-        hint: ads?.break_even != null ? t('overview.ads_roas_be', { roas: f.num.format(ads.break_even) }) : period,
+      { key: 'roas', icon: Target, label: 'ROAS', value: ads?.roas ?? 0, format: n => f.num.format(n), hint: period,
         series: s14.map(roasOf), axis, trend: trend(weekChange(s14.map(roasOf))) },
+      { key: 'conversions', icon: ShoppingCart, label: t('campaigns.kpi_conversions'), value: ads?.conversions ?? 0, format: n => f.num.format(Math.round(n * 10) / 10), hint: period,
+        series: s14.map(p => p.conversions), axis, trend: trend(weekChange(s14.map(p => p.conversions))) },
     ]
   } else {
     const last = series.slice(-14)

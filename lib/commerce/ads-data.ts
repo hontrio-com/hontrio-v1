@@ -23,7 +23,6 @@ export type Offer = {
   price: number
   /** Prețul de dinainte de reducere, când produsul e la reducere. */
   compare_at_price: number | null
-  cost_price: number | null
   available: boolean
   stock: number | null
   gtin: string | null
@@ -60,7 +59,7 @@ export type AdsData = {
 
 export const SALES_DAYS = 90
 const PAGE = 1000
-const OFFER_COLUMNS = 'offer_id, title, product_name, variant_title, image_url, category, price, compare_at_price, cost_price, available, stock, gtin, mpn, brand, google_status, ads_mode, merchant_offer_id, merchant_issues, ads_auto_reason'
+const OFFER_COLUMNS = 'offer_id, title, product_name, variant_title, image_url, category, price, compare_at_price, available, stock, gtin, mpn, brand, google_status, ads_mode, merchant_offer_id, merchant_issues, ads_auto_reason'
 
 /**
  * Citește tot. Fără oferte nu se poate socoti nimic, deci `data` e null; fără
@@ -86,7 +85,6 @@ export async function loadAdsData(supabase: Supabase, storeId: string): Promise<
           ...(o as Offer),
           price: Number(o.price),
           compare_at_price: o.compare_at_price === null ? null : Number(o.compare_at_price),
-          cost_price: o.cost_price === null ? null : Number(o.cost_price),
         })
       }
       if (!data || data.length < PAGE) return all

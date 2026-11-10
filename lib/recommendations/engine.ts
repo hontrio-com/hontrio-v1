@@ -1,4 +1,4 @@
-import { breakEvenRoas, economicsOf, marginOf, round1, THIN_MARGIN, type OrderTotals } from '@/lib/ads/economics'
+import type { OrderTotals } from '@/lib/ads/economics'
 import type { Offer, Sales } from '@/lib/commerce/ads-data'
 import type { StoreSetup } from '@/lib/commerce/setup'
 import type { AuditResult } from '@/lib/google/audit'
@@ -54,11 +54,8 @@ export type EngineInput = {
     id: string | null
     /** Stările ofertelor vin din Merchant Center (WooCommerce, Shopify), nu de la platformă. */
     from_merchant: boolean
-    send_costs: boolean
     /** Magazinul e în SEE/Elveția/Regatul Unit, unde reclamele Shopping trec printr-un CSS. */
     css_region: boolean
-    /** Edinio trimite coșul de produse în conversie; null = nu știm (alte platforme). */
-    cart_data: boolean | null
   }
   insights?: {
     price_competitiveness: PriceCompetitivenessRow[]
@@ -102,7 +99,6 @@ export function buildRecommendations(input: EngineInput): Recommendation[] {
   const revenueOf = (list: Offer[]) => list.reduce((s, o) => s + sold(o).revenue, 0)
   const itemsRevenue = input.orders90.items
   const { setup } = input
-  const econ = economicsOf(input.orders90, setup.pricesIncludeVat, setup.assumedVatRate)
   const openInStore = `recs.action_open_${setup.platform}`
   // La Edinio, pagina Merchant se deschide pe „De reparat", cu motivul fiecărei respingeri,
   // și acolo se repară datele produsului
@@ -295,101 +291,6 @@ export function buildRecommendations(input: EngineInput): Recommendation[] {
     })
   }
 
-  // ── Marjele ──────────────────────────────────────────────────────────────
-  const sellersNoCost = offers.filter(o => o.cost_price === null && sold(o).revenue > 0).sort(byRevenue)
-  if (sellersNoCost.length) {
-    const impact = revenueOf(sellersNoCost)
-    recs.push({
-      id: 'missing_costs', severity: itemsRevenue > 0 && impact / itemsRevenue >= 0.5 ? 'high' : 'medium',
-      title: { key: 'recs.missing_costs_title', params: { count: sellersNoCost.length } },
-      body: { key: 'recs.missing_costs_body' },
-      impact_revenue: impact,
-      items: sellersNoCost.slice(0, MAX_ITEMS).map(o => item(o, {
-        key: 'recs.note_sold', params: { units: sold(o).units, revenue: sold(o).revenue }, money: ['revenue'],
-      })),
-      total_items: sellersNoCost.length,
-      action: { href: '/products?view=no_cost', external: false, label_key: 'recs.action_add_costs' },
-    })
-  } else {
-    const noCost = offers.filter(o => o.cost_price === null)
-    if (noCost.length && offers.length && noCost.length / offers.length >= 0.2) {
-      recs.push({
-        id: 'missing_costs', severity: 'medium',
-        title: { key: 'recs.missing_costs_generic_title', params: { count: noCost.length } },
-        body: { key: 'recs.missing_costs_body' },
-        impact_revenue: null, items: [], total_items: noCost.length,
-        action: { href: '/products?view=no_cost', external: false, label_key: 'recs.action_add_costs' },
-      })
-    }
-  }
-
-  const belowCost = offers.filter(o => o.cost_price !== null && o.cost_price >= o.price).sort(byRevenue)
-  if (belowCost.length) {
-    recs.push({
-      id: 'negative_margin', severity: 'high',
-      title: { key: 'recs.negative_margin_title', params: { count: belowCost.length } },
-      body: { key: 'recs.negative_margin_body' },
-      impact_revenue: revenueOf(belowCost) || null,
-      items: belowCost.slice(0, MAX_ITEMS).map(o => item(o, {
-        key: 'recs.note_price_cost', params: { price: o.price, cost: o.cost_price! }, money: ['price', 'cost'],
-      })),
-      total_items: belowCost.length,
-      action: { href: '/products', external: false, label_key: 'recs.action_check_costs' },
-    })
-  }
-
-  const thin = offers
-    .filter(o => o.cost_price !== null && o.cost_price < o.price && (marginOf(o.price, o.cost_price) ?? 0) < THIN_MARGIN && sold(o).revenue > 0)
-    .sort(byRevenue)
-  if (thin.length) {
-    recs.push({
-      id: 'thin_margin_sellers', severity: 'medium',
-      title: { key: 'recs.thin_margin_title', params: { count: thin.length } },
-      body: { key: 'recs.thin_margin_body', params: { pct: Math.round(THIN_MARGIN * 100) } },
-      impact_revenue: revenueOf(thin),
-      items: thin.slice(0, MAX_ITEMS).map(o => {
-        const margin = marginOf(o.price, o.cost_price!)!
-        const roas = breakEvenRoas(margin, econ)
-        const pct = Math.round(margin * 100)
-        return item(o, roas === null
-          ? { key: 'recs.note_margin_no_roas', params: { pct } }
-          : { key: 'recs.note_margin_roas', params: { pct, roas: round1(roas) } })
-      }),
-      total_items: thin.length,
-      action: planPage,
-    })
-  }
-
-  // Pragul de profit pentru tot magazinul, din produsele vândute care au cost
-  const withCost = offers.filter(o => o.cost_price !== null && sold(o).revenue > 0)
-  const costRevenue = revenueOf(withCost)
-  if (withCost.length && itemsRevenue > 0 && costRevenue / revenueOf(offers) >= 0.5) {
-    const profit = withCost.reduce((s, o) => s + sold(o).revenue - sold(o).units * o.cost_price!, 0)
-    const margin = profit / costRevenue
-    const roas = breakEvenRoas(margin, econ)
-    if (roas !== null) {
-      recs.push({
-        id: 'break_even', severity: 'low',
-        title: { key: 'recs.break_even_title', params: { roas: round1(roas) } },
-        body: [
-          { key: 'recs.break_even_body', params: { margin: Math.round(margin * 100), roas: round1(roas) } },
-          ...(econ.vatFactor > 1 ? [{ key: econ.vatAssumed ? 'recs.break_even_vat_assumed' : 'recs.break_even_vat', params: { vat: Math.round((econ.vatFactor - 1) * 100) } }] : []),
-          ...(econ.discountRate >= 0.01 ? [{ key: 'recs.break_even_discount', params: { discount: Math.round(econ.discountRate * 100) } }] : []),
-        ],
-        impact_revenue: null, items: [], total_items: 0, action: planPage,
-      })
-    } else if (margin > 0) {
-      // Reducerile mănâncă toată marja: vânzările pierd bani înainte de orice reclamă
-      recs.push({
-        id: 'discounts_over_margin', severity: 'high',
-        title: { key: 'recs.discounts_over_margin_title' },
-        body: { key: 'recs.discounts_over_margin_body', params: { margin: Math.round(margin * 100), discount: Math.round(econ.discountRate * 100) } },
-        impact_revenue: costRevenue, items: [], total_items: 0,
-        action: { href: '/products', external: false, label_key: 'recs.action_check_costs' },
-      })
-    }
-  }
-
   // ── Identificatorii ──────────────────────────────────────────────────────
   // Ofertele ținute departe de Google (prețul se află abia la comandă) n-au nevoie de cod
   const noId = offers.filter(o => o.brand && !o.gtin && !o.mpn && o.available && o.google_status !== 'exclus').sort(byRevenue)
@@ -469,24 +370,8 @@ export function buildRecommendations(input: EngineInput): Recommendation[] {
     })
   }
 
-  // ── Profitul în Google și costul pe click ────────────────────────────────
+  // ── Reclamele Shopping prin CSS ────────────────────────────────────────
   const merchant = input.merchant
-  if (merchant?.id && !merchant.send_costs && offers.some(o => o.cost_price !== null)) {
-    recs.push({
-      id: 'costs_to_google', severity: 'low',
-      title: { key: 'recs.costs_to_google_title' }, body: { key: 'recs.costs_to_google_body' },
-      impact_revenue: null, items: [], total_items: 0,
-      action: { href: '/settings?tab=integrations', external: false, label_key: 'recs.action_open_settings' },
-    })
-  }
-  if (merchant?.cart_data === false) {
-    recs.push({
-      id: 'cart_data_missing', severity: 'low',
-      title: { key: 'recs.cart_data_missing_title' }, body: { key: 'recs.cart_data_missing_body' },
-      impact_revenue: null, items: [], total_items: 0,
-      action: { href: setup.conversion.href, external: true, label_key: openInStore },
-    })
-  }
   if (merchant?.css_region && setup.merchant.status !== 'missing') {
     recs.push({
       id: 'css_partner', severity: 'low',

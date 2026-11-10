@@ -1,9 +1,7 @@
-import { round1 } from '@/lib/ads/economics'
 import { MAX_LISTING_ITEMS } from '@/lib/google/operations'
 import {
-  ASSUMED_CONVERSION_RATE, CONVERSIONS_PER_MONTH, DAYS_PER_MONTH, GOAL_KEEP, GOALS, GROWTH_MIN_CONVERSIONS,
-  LOSS_LOW_ROAS, LOSS_NO_CONVERSIONS, LOW_CPC, MIN_COST_COVERAGE, niceBudget, startingTarget,
-  type Goal, type Plan, type PlanOffer,
+  GROWTH_MIN_CONVERSIONS, LOW_CPC, cpcCeilingOf, lossLimitOf, startBudget,
+  type Plan, type PlanOffer,
 } from '@/lib/campaigns/plan'
 
 // =============================================
@@ -16,16 +14,15 @@ import {
 // - un produs stă într-o singură campanie: grupele lansate își păstrează
 //   produsele (cea lansată mai devreme are întâietate), apoi ciornele, în
 //   ordinea lor; ce nu e în nicio grupă rămâne în campania principală;
-// - grupa are pragul de profit al produselor ei și ținta obiectivului ei;
+// - grupa are bugetul ei; comanda medie a produselor ei dă plafonul pe click,
+//   oprirea de siguranță și bugetul propus;
 // - treapta se alege pe grupă, ca pe magazin: sub 15 conversii în 30 de zile,
-//   Shopping standard cu CPC plafonat (nu are nevoie de istoric); altfel
-//   Performance Max cu ROAS țintă.
+//   Shopping standard cu „Maximizează clicurile" (nu are nevoie de istoric);
+//   altfel Performance Max cu „Maximizează valoarea conversiilor".
 // =============================================
 
 /** Grupele care pot rula în același timp, pe lângă campania principală: altfel bugetul se fărâmițează. */
 export const MAX_GROUPS = 5
-/** Cât trebuie să învețe o campanie nouă: ținta bugetului propus, chiar fără istoric. */
-export const LEARNING_CONVERSIONS = 10
 /** O campanie Performance Max are nevoie de ~6 săptămâni; sub 2 nu apucă să învețe nimic. */
 export const SHORT_PERIOD_DAYS = 14
 const MAX_LIST = 200
@@ -54,7 +51,6 @@ export type ProductGroup = {
   id: string
   name: string
   rules: GroupRules
-  goal: Goal
   /** null = bugetul propus de Hontrio. */
   daily_budget: number | null
   campaign_type: GroupType
@@ -95,13 +91,11 @@ export function parseRules(raw: unknown): GroupRules {
 
 /** Un rând din ad_product_groups, citit. */
 export function parseGroup(row: Record<string, unknown>): ProductGroup {
-  const goal = GOALS.includes(row.goal as Goal) ? (row.goal as Goal) : 'balanced'
   const budget = row.daily_budget === null || row.daily_budget === undefined ? null : Number(row.daily_budget)
   return {
     id: String(row.id),
     name: String(row.name ?? '').slice(0, MAX_NAME),
     rules: parseRules(row.rules),
-    goal,
     daily_budget: budget !== null && Number.isFinite(budget) && budget > 0 ? budget : null,
     campaign_type: GROUP_TYPES.includes(row.campaign_type as GroupType) ? (row.campaign_type as GroupType) : 'auto',
     starts_on: isDay(row.starts_on) ? row.starts_on : null,
@@ -166,21 +160,13 @@ export function assignGroups(offers: GroupOffer[], groups: Ordered[]): Map<strin
   return out
 }
 
-/** Pragul unei liste de produse: pragul fiecăruia, ponderat cu vânzările (fără vânzări, cu prețul). */
-export function weightedBreakEven(offers: Pick<PlanOffer, 'break_even' | 'revenue' | 'price'>[]): number | null {
-  const priced = offers.filter(o => o.break_even !== null)
-  const weight = priced.reduce((s, o) => s + (o.revenue || o.price), 0)
-  if (!priced.length || weight <= 0) return null
-  return priced.reduce((s, o) => s + o.break_even! * (o.revenue || o.price), 0) / weight
-}
-
-/** Produsul poate rula (motivul de excludere al planului se aplică și grupelor: epuizat, marjă mică, scos de om). */
+/** Produsul poate rula (motivul de excludere al planului se aplică și grupelor: epuizat, scos de om sau de pilot). */
 export const canRun = (o: Pick<PlanOffer, 'reason'>) => o.reason === null || o.reason === 'in_group'
 
 export type GroupWarningId =
   | 'few_products' | 'excluded_members' | 'unmatched' | 'in_other_group'
   | 'pmax_low_data' | 'main_low_data' | 'over_max_budget' | 'low_budget' | 'short_period'
-export type GroupBlockerId = 'empty' | 'no_products' | 'not_in_merchant' | 'costs' | 'too_many_items' | 'period'
+export type GroupBlockerId = 'empty' | 'no_products' | 'not_in_merchant' | 'too_many_items' | 'period'
 
 type Note<Id> = { id: Id; params?: Record<string, string | number> }
 
@@ -192,7 +178,7 @@ export type GroupPlan = {
     members: number
     /** Pot rula și sunt găsite în Merchant Center: intră în campanie. */
     included: number
-    /** Nu pot rula acum (epuizate, marjă mică, scoase de om...). */
+    /** Nu pot rula acum (epuizate, scoase de om sau de pilot...). */
     excluded: number
     /** Pot rula, dar nu sunt găsite în Merchant Center. */
     unmatched: number
@@ -206,23 +192,19 @@ export type GroupPlan = {
   conversions30: number
   basis: 'google_ads' | 'store'
   economics: {
-    break_even: number | null
+    /** Comanda medie cu produsele grupei (cu TVA și transport, ca la magazin). */
     aov: number | null
-    targets: Record<Goal, number | null>
-    target: number | null
-    /** ROAS-ul pe care îl fac acum produsele grupei (sau contul), de la care pornește ținta. */
+    /** ROAS-ul pe care îl fac acum produsele grupei (sau contul), doar ca informație. */
     historical_roas: number | null
   }
   /** Ce ar alege Hontrio din date, și ce rulează (alegerea omului, dacă a făcut una). */
   auto_type: 'shopping' | 'performance_max'
   type: 'shopping' | 'performance_max'
   stage: 'starter' | 'growth'
-  start_target: number | null
   cpc_ceiling: number | null
   cpc_ceiling_low: boolean
   loss_limit: { no_conversions: number; low_roas: number } | null
   budget: { suggested: number | null; chosen: number | null; daily: number | null }
-  forecast: { spend: number; revenue: number; orders: number | null; profit: number } | null
   warnings: Note<GroupWarningId>[]
   blockers: Note<GroupBlockerId>[]
 }
@@ -253,19 +235,8 @@ export function buildGroupPlan(group: ProductGroup, ctx: GroupPlanContext): Grou
   const matched = running.filter(o => o.item_id)
   const itemIds = [...new Set(matched.map(o => o.item_id!))]
 
-  // ── Pragul grupei: al produselor ei, ponderat cu vânzările ──────────────
-  // Ca la magazin, costurile trebuie să acopere măcar jumătate din vânzări (sau din oferte, fără vânzări)
-  const sold = running.filter(o => o.revenue > 0)
-  const soldRevenue = sold.reduce((s, o) => s + o.revenue, 0)
-  const coverage = soldRevenue > 0
-    ? sold.filter(o => o.cost_price !== null).reduce((s, o) => s + o.revenue, 0) / soldRevenue
-    : running.length ? running.filter(o => o.margin !== null).length / running.length : 0
-  const rawBe = coverage >= MIN_COST_COVERAGE ? weightedBreakEven(running) : null
-  const breakEven = rawBe === null ? null : round1(rawBe)
-  const targets = Object.fromEntries(GOALS.map(g => [g, breakEven === null ? null : round1(breakEven / (1 - GOAL_KEEP[g]))])) as Record<Goal, number | null>
-  const target = targets[group.goal]
-
   // Valoarea medie a unei comenzi cu produsele grupei: valoarea lor pe comandă, cu TVA și transport ca la magazin
+  const soldRevenue = running.reduce((s, o) => s + o.revenue, 0)
   const orders = running.reduce((s, o) => s + o.orders, 0)
   const ratio = plan.economics.value_ratio || 1
   const aov = orders > 0 && soldRevenue > 0
@@ -285,27 +256,12 @@ export function buildGroupPlan(group: ProductGroup, ctx: GroupPlanContext): Grou
   // ── Treapta, ca pe magazin; omul poate alege altfel ─────────────────────
   const autoType = conversions30 >= GROWTH_MIN_CONVERSIONS ? 'performance_max' : 'shopping'
   const type = group.campaign_type === 'auto' ? autoType : group.campaign_type
-  // Performance Max fără destule conversii pornește fără țintă: o țintă fără istoric taie traficul
-  const startTarget = type === 'performance_max' && breakEven !== null && conversions30 >= GROWTH_MIN_CONVERSIONS
-    ? startingTarget(historical, breakEven, target)
-    : null
-  const cpcCeiling = type === 'shopping' && breakEven !== null && aov !== null
-    ? Math.max(0.01, Math.floor(((aov * ASSUMED_CONVERSION_RATE) / breakEven) * 100) / 100)
-    : null
-  const cpa = breakEven !== null && aov !== null ? aov / breakEven : null
-  const lossLimit = cpa !== null ? { no_conversions: Math.ceil(LOSS_NO_CONVERSIONS * cpa), low_roas: Math.ceil(LOSS_LOW_ROAS * cpa) } : null
+  const cpcCeiling = type === 'shopping' ? cpcCeilingOf(aov) : null
 
-  // ── Bugetul: cât ajunge pentru vânzările grupei la țintă, cu loc de creștere și de învățare ──
-  const wanted = Math.min(CONVERSIONS_PER_MONTH, Math.max(LEARNING_CONVERSIONS, conversions30 * 1.25))
-  const suggested = target !== null && aov !== null ? niceBudget((wanted * aov) / target / DAYS_PER_MONTH) : null
+  // ── Bugetul: ales de om, altfel o cincime din comanda medie a grupei ─────
+  const suggested = startBudget(aov)
   const chosen = group.daily_budget
   const daily = chosen ?? suggested
-  let forecast: GroupPlan['forecast'] = null
-  if (target !== null && breakEven !== null && daily !== null) {
-    const spend = daily * DAYS_PER_MONTH
-    const revenue = spend * target
-    forecast = { spend, revenue, orders: aov ? revenue / aov : null, profit: revenue / breakEven - spend }
-  }
 
   // ── Ce trebuie știut ────────────────────────────────────────────────────
   const warnings: Note<GroupWarningId>[] = []
@@ -337,7 +293,6 @@ export function buildGroupPlan(group: ProductGroup, ctx: GroupPlanContext): Grou
   if (isEmptyRules(group.rules)) blockers.push({ id: 'empty' })
   else if (!running.length) blockers.push({ id: 'no_products' })
   else if (!matched.length) blockers.push({ id: 'not_in_merchant' })
-  else if (breakEven === null) blockers.push({ id: 'costs', params: { pct: Math.round(coverage * 100) } })
   if (type === 'performance_max' && itemIds.length > MAX_LISTING_ITEMS) blockers.push({ id: 'too_many_items', params: { count: itemIds.length, limit: MAX_LISTING_ITEMS } })
   if (group.ends_on && (group.ends_on < ctx.today || (group.starts_on !== null && group.ends_on < group.starts_on))) blockers.push({ id: 'period' })
 
@@ -349,16 +304,14 @@ export function buildGroupPlan(group: ProductGroup, ctx: GroupPlanContext): Grou
     sales90: { units: running.reduce((s, o) => s + o.units, 0), revenue: soldRevenue },
     conversions30,
     basis: googleData ? 'google_ads' : 'store',
-    economics: { break_even: breakEven, aov: aov === null ? null : Math.round(aov * 100) / 100, targets, target, historical_roas: historical },
+    economics: { aov: aov === null ? null : Math.round(aov * 100) / 100, historical_roas: historical },
     auto_type: autoType,
     type,
     stage: type === 'shopping' ? 'starter' : 'growth',
-    start_target: startTarget,
     cpc_ceiling: cpcCeiling,
     cpc_ceiling_low: cpcCeiling !== null && cpcCeiling < LOW_CPC,
-    loss_limit: lossLimit,
+    loss_limit: lossLimitOf(aov),
     budget: { suggested, chosen, daily },
-    forecast,
     warnings,
     blockers,
   }

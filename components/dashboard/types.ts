@@ -19,7 +19,7 @@ export type StoreInfo = {
 
 export type TopProduct = {
   offer_id: string; title: string; variant_title: string | null; image_url: string | null
-  price: number | null; cost_price: number | null; units: number; revenue: number
+  price: number | null; units: number; revenue: number
 }
 
 export type OverviewData = {
@@ -28,9 +28,8 @@ export type OverviewData = {
   google: { connected: boolean; status: string | null; account: { id: string; name: string | null; currency: string | null } | null }
   /** `unverified`: un plugin pe care Hontrio nu-l poate întreba (se verifică la lansare); `variant`: platforma. */
   checklist: { id: string; done: boolean; href: string; external: boolean; unverified?: boolean; variant?: string | null; via?: string | null }[]
-  costs: { with_cost: number; total: number; coverage: number; basis: 'sales' | 'catalog' | null; ready: boolean }
-  /** Cifrele din Google Ads ale perioadei (null = nicio cheltuială încă), cu profitul estimat după prag. */
-  ads: { cost: number; value: number; conversions: number; roas: number | null; break_even: number | null; profit: number | null } | null
+  /** Cifrele din Google Ads ale perioadei (null = nicio cheltuială încă). */
+  ads: { cost: number; value: number; conversions: number; roas: number | null } | null
   overview: Overview | null
   top_products: TopProduct[]
 }

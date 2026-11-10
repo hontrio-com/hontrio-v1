@@ -50,7 +50,7 @@ test('Merchant Center la WooCommerce: respinsele cu mesajul Google, cele retrogr
   const woo = setup({ platform: 'woocommerce', platformName: 'WooCommerce', googleStatusKnown: false })
   const recs = buildRecommendations(input({
     setup: woo,
-    merchant: { id: '555', from_merchant: true, send_costs: true, css_region: false, cart_data: null },
+    merchant: { id: '555', from_merchant: true, css_region: false },
     offers: [
       offer('a', { google_status: 'disapproved', merchant_offer_id: 'gla_a', merchant_issues: [{ code: 'x', severity: 'DISAPPROVED', attribute: null, description: 'Missing price', documentation: null }] }),
       offer('b', { google_status: 'active', merchant_offer_id: 'gla_b', merchant_issues: [{ code: 'y', severity: 'DEMOTED', attribute: 'image', description: 'Image too small', documentation: null }] }),
@@ -91,11 +91,12 @@ test('piața: prețuri peste referință, prețuri sugerate, produse căutate', 
   assert.equal(best.items[0].variant_title, 'Philips')
 })
 
-test('profitul în Google și CSS', () => {
-  const got = ids(input({ merchant: { id: '555', from_merchant: false, send_costs: false, css_region: true, cart_data: false } }))
-  assert.ok(got.includes('costs_to_google'))
-  assert.ok(got.includes('cart_data_missing'))
+test('CSS în Europa; nicio recomandare despre costuri, marje sau profit', () => {
+  const got = ids(input({ merchant: { id: '555', from_merchant: false, css_region: true } }))
   assert.ok(got.includes('css_partner'))
-  const none = ids(input({ merchant: { id: '555', from_merchant: false, send_costs: true, css_region: false, cart_data: true } }))
-  assert.ok(!none.includes('costs_to_google') && !none.includes('cart_data_missing') && !none.includes('css_partner'))
+  const none = ids(input({ merchant: { id: '555', from_merchant: false, css_region: false } }))
+  assert.ok(!none.includes('css_partner'))
+  for (const id of ['missing_costs', 'negative_margin', 'thin_margin_sellers', 'break_even', 'discounts_over_margin', 'costs_to_google', 'cart_data_missing']) {
+    assert.ok(!got.includes(id) && !none.includes(id), id)
+  }
 })

@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { toMicros, idFromResourceName } from '@/lib/google/ads'
 import {
-  buildLaunchOperations, budgetOp, endDateOp, endOfDay, euDeclarationOps, pmaxListingOps, removeNodesOps, shoppingListingOps, startOfDay, targetRoasOp,
+  buildLaunchOperations, budgetOp, endDateOp, endOfDay, euDeclarationOps, pmaxListingOps, removeNodesOps, shoppingListingOps, startOfDay,
   FINAL_URL_SUFFIX, type GrowthSpec, type StarterSpec,
 } from '@/lib/google/operations'
 
@@ -22,7 +22,7 @@ const common = {
 }
 
 const growth: GrowthSpec = {
-  ...common, kind: 'performance_max', targetRoas: 4.5, languageConstant: 'languageConstants/1032',
+  ...common, kind: 'performance_max', languageConstant: 'languageConstants/1032',
   finalUrl: 'https://magazin.ro', listing: { kind: 'all' },
   goals: [{ category: 'PURCHASE', origin: 'WEBSITE' }, { category: 'ADD_TO_CART', origin: 'WEBSITE' }],
 }
@@ -67,7 +67,8 @@ test('PMax doar pe feed: ordinea și câmpurile cerute', () => {
   assert.equal(c.advertisingChannelType, 'PERFORMANCE_MAX')
   assert.equal(c.campaignBudget, budget.resourceName)
   assert.deepEqual(c.shoppingSetting, { merchantId: '555', feedLabel: 'RO' })
-  assert.deepEqual(c.maximizeConversionValue, { targetRoas: 4.5 })
+  // „Maximizează valoarea conversiilor", fără ROAS țintă
+  assert.deepEqual(c.maximizeConversionValue, {})
   assert.equal(c.containsEuPoliticalAdvertising, 'DOES_NOT_CONTAIN_EU_POLITICAL_ADVERTISING')
   assert.deepEqual(c.geoTargetTypeSetting, { positiveGeoTargetType: 'PRESENCE' })
   assert.equal(c.finalUrlSuffix, FINAL_URL_SUFFIX)
@@ -91,11 +92,6 @@ test('PMax doar pe feed: ordinea și câmpurile cerute', () => {
   assert.equal(body(ops[7]).update.biddable, false)
 })
 
-test('PMax fără ROAS țintă: licitare pe valoare, fără țintă', () => {
-  const ops = buildLaunchOperations({ ...growth, targetRoas: null })
-  assert.deepEqual(body(ops[1]).create.maximizeConversionValue, {})
-})
-
 test('excluderile: rădăcină SUBDIVISION, câte un nod exclus pe produs și „restul" inclus', () => {
   const ops = pmaxListingOps('1', '-3', { kind: 'exclude_items', item_ids: ['SKU-1', 'sku-1', 'B2'] })
   assert.equal(ops.length, 4, 'rădăcina + 2 produse (SKU-1 = sku-1) + restul')
@@ -112,7 +108,7 @@ test('excluderile: rădăcină SUBDIVISION, câte un nod exclus pe produs și �
   assert.ok(ops.every(o => body(o).create.listingSource === 'SHOPPING'))
 })
 
-test('segmentul de marjă mare: doar lista lui, restul exclus', () => {
+test('lista unei grupe: doar produsele ei, restul exclus', () => {
   const ops = pmaxListingOps('1', '9', { kind: 'include_items', item_ids: ['a'] }).map(o => body(o).create)
   assert.equal(ops[1].type, 'UNIT_INCLUDED')
   assert.equal(ops[2].type, 'UNIT_EXCLUDED')
@@ -125,7 +121,7 @@ test('eticheta Hontrio: filtrul pe custom_label, cu indexul ca enum', () => {
   assert.deepEqual(ops[2].caseValue, { productCustomAttribute: { index: 'INDEX3' } })
 })
 
-test('Shopping standard: campania, grupul, anunțul și arborele cu ofertă pe „restul"', () => {
+test('Shopping standard: „Maximizează clicurile" cu plafon, grupul fără ofertă, anunțul și arborele', () => {
   const ops = buildLaunchOperations({ ...starter, listing: { kind: 'exclude_items', item_ids: ['x'] }, negatives: [{ text: 'Lampi LED', match: 'PHRASE' }, { text: 'lampi  led', match: 'PHRASE' }] })
   assert.deepEqual(ops.map(key), [
     'campaignBudgetOperation', 'campaignOperation', 'campaignCriterionOperation', 'campaignCriterionOperation',
@@ -134,7 +130,9 @@ test('Shopping standard: campania, grupul, anunțul și arborele cu ofertă pe �
   const c = body(ops[1]).create
   assert.equal(c.advertisingChannelType, 'SHOPPING')
   assert.deepEqual(c.shoppingSetting, { merchantId: '555', feedLabel: 'RO', campaignPriority: 1 })
-  assert.deepEqual(c.manualCpc, { enhancedCpcEnabled: false })
+  // Plafonul pe click, în micros, multiplu de unitatea facturabilă
+  assert.deepEqual(c.targetSpend, { cpcBidCeilingMicros: '790000' })
+  assert.equal(c.manualCpc, undefined)
   assert.deepEqual(c.networkSettings, { targetGoogleSearch: true, targetSearchNetwork: false, targetContentNetwork: false })
   assert.equal(c.containsEuPoliticalAdvertising, 'DOES_NOT_CONTAIN_EU_POLITICAL_ADVERTISING')
   assert.equal(c.assetAutomationSettings, undefined)
@@ -142,7 +140,7 @@ test('Shopping standard: campania, grupul, anunțul și arborele cu ofertă pe �
   assert.deepEqual(body(ops[3]).create, { campaign: c.resourceName, negative: true, keyword: { text: 'lampi led', matchType: 'PHRASE' } })
   const ag = body(ops[4]).create
   assert.equal(ag.type, 'SHOPPING_PRODUCT_ADS')
-  assert.equal(ag.cpcBidMicros, '790000')
+  assert.equal(ag.cpcBidMicros, undefined, 'licitează Google, nu o ofertă pe grup')
   assert.deepEqual(body(ops[5]).create, { adGroup: ag.resourceName, status: 'ENABLED', ad: { shoppingProductAd: {} } })
   const [root, excluded, rest] = ops.slice(6).map(o => body(o).create)
   assert.equal(root.listingGroup.type, 'SUBDIVISION')
@@ -151,19 +149,23 @@ test('Shopping standard: campania, grupul, anunțul și arborele cu ofertă pe �
   assert.equal(excluded.cpcBidMicros, undefined, 'un nod negativ n-are ofertă')
   assert.equal(excluded.listingGroup.parentAdGroupCriterion, root.resourceName)
   assert.equal(rest.negative, undefined)
-  assert.equal(rest.cpcBidMicros, '790000')
+  assert.equal(rest.cpcBidMicros, undefined)
   assert.deepEqual(rest.listingGroup.caseValue, { productItemId: {} })
 })
 
-test('Shopping fără excluderi: o singură unitate, cu oferta', () => {
-  const ops = shoppingListingOps('1', '5', { kind: 'all' }, '100000').map(o => body(o).create)
+test('Shopping fără excluderi: o singură unitate, fără ofertă', () => {
+  const ops = shoppingListingOps('1', '5', { kind: 'all' }).map(o => body(o).create)
   assert.equal(ops.length, 1)
   assert.deepEqual(ops[0].listingGroup, { type: 'UNIT' })
-  assert.equal(ops[0].cpcBidMicros, '100000')
+  assert.equal(ops[0].cpcBidMicros, undefined)
+})
+
+test('Shopping fără plafon: „Maximizează clicurile" simplu', () => {
+  const ops = buildLaunchOperations({ ...starter, cpcCeiling: null })
+  assert.deepEqual(body(ops[1]).create.targetSpend, {})
 })
 
 test('modificările de după lansare: măștile câmpurilor în camelCase', () => {
-  assert.deepEqual(targetRoasOp('1', '2', 3.3), { campaignOperation: { update: { resourceName: 'customers/1/campaigns/2', maximizeConversionValue: { targetRoas: 3.3 } }, updateMask: 'maximizeConversionValue.targetRoas' } })
   assert.deepEqual(budgetOp('1', '7', 96, 10_000), { campaignBudgetOperation: { update: { resourceName: 'customers/1/campaignBudgets/7', amountMicros: '96000000' }, updateMask: 'amountMicros' } })
   assert.deepEqual(euDeclarationOps('1', ['3'])[0], { campaignOperation: { update: { resourceName: 'customers/1/campaigns/3', containsEuPoliticalAdvertising: 'DOES_NOT_CONTAIN_EU_POLITICAL_ADVERTISING' }, updateMask: 'containsEuPoliticalAdvertising' } })
 })

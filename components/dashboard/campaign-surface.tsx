@@ -5,7 +5,6 @@ import Link from 'next/link'
 import { ArrowRight } from 'lucide-react'
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { useT } from '@/lib/i18n/context'
-import { cn } from '@/lib/utils'
 import { Surface } from '@/components/app/surface'
 import { StatusMark } from '@/components/app/fx/feedback'
 import { day, type Formats } from '@/components/app/formats'
@@ -15,7 +14,7 @@ import type { Plan } from '@/lib/campaigns/plan'
 // =============================================
 // După lansare, suprafața mare a Dashboard-ului (ca „Create new clips" la
 // Bezeno): ce aduc reclamele zi de zi (vânzările, linia neagră, și cheltuiala,
-// punctată), cu pragul de profit, ținta și bugetul în pastile, și drumul spre
+// punctată), cu bugetul și modul pilotului în pastile, și drumul spre
 // campanii. Până vin primele cifre, spune că Google verifică reclamele.
 // =============================================
 
@@ -26,7 +25,7 @@ export function CampaignSurface({ plan, series, days, f }: { plan: Plan | null; 
   const { t } = useT()
   const id = useId().replace(/:/g, '')
   const shown = series.slice(-Math.min(days, series.length))
-  const points = shown.map(d => ({ label: f.shortDate.format(day(d.date)), value: d.value, cost: d.cost, profit: d.profit }))
+  const points = shown.map(d => ({ label: f.shortDate.format(day(d.date)), value: d.value, cost: d.cost }))
   const empty = points.every(p => p.value === 0 && p.cost === 0)
 
   return (
@@ -71,10 +70,6 @@ export function CampaignSurface({ plan, series, days, f }: { plan: Plan | null; 
                         <p className="mb-1 text-white/55">{label}</p>
                         <p className="flex justify-between gap-6"><span className="text-white/60">{t('home.ads_sales')}</span><span className="font-semibold tabular-nums">{f.money.format(p.value)}</span></p>
                         <p className="flex justify-between gap-6"><span className="text-white/60">{t('overview.ads_spend')}</span><span className="tabular-nums">{f.money.format(p.cost)}</span></p>
-                        {p.profit !== null && (
-                          <p className="mt-1 flex justify-between gap-6 border-t border-white/10 pt-1"><span className="text-white/60">{t('home.profit_short')}</span>
-                            <span className={cn('font-semibold tabular-nums', p.profit < 0 ? 'text-red-300' : 'text-emerald-300')}>{f.money.format(p.profit)}</span></p>
-                        )}
                       </div>
                     )
                   }} />
@@ -89,8 +84,6 @@ export function CampaignSurface({ plan, series, days, f }: { plan: Plan | null; 
 
         <div className="mt-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-wrap items-center gap-2">
-            {plan?.economics.break_even != null && <span className={chip}>{t('overview.ads_roas_be', { roas: f.num.format(plan.economics.break_even) })}</span>}
-            {plan?.target_roas != null && <span className={chip}>{t('wizard.goal_target', { roas: f.num.format(plan.target_roas) })}</span>}
             {plan?.budget.daily != null && <span className={chip}>{t('home.budget_chip', { budget: f.money.format(plan.budget.daily) })}</span>}
             {plan && <span className={chip}>{t('home.pilot_on', { mode: t(`campaigns.mode_${plan.settings.mode}`) })}</span>}
           </div>

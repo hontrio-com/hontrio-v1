@@ -2,10 +2,9 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { decrypt } from '@/lib/security/encryption'
 import { logError, logWarn } from '@/lib/logger'
 import { storedMessage } from '@/lib/i18n/stored'
-import { standardVatRate } from '@/lib/ads/vat'
 import type { Ctx } from '@/lib/commerce/rows'
 import { PAGE_SIZE, WooApi, WooError } from './api'
-import { costRows, isListed, isVariable, lineRows, offerRows, orderRow, storeFields, type WooStoreInfo } from './mapping'
+import { isListed, isVariable, lineRows, offerRows, orderRow, storeFields, type WooStoreInfo } from './mapping'
 import type { WooOrder, WooProduct, WooVariation } from './types'
 
 // =============================================
@@ -43,8 +42,6 @@ const ID_CHUNK = 100
 class DeadlineReached extends Error {}
 
 type Supabase = ReturnType<typeof createAdminClient>
-/** `costMultiplier` aduce costul din WooCommerce (fără TVA) pe baza prețului. */
-type SyncCtx = Ctx & { costMultiplier: number }
 
 function chunks<T>(arr: T[], size: number): T[][] {
   const out: T[][] = []
@@ -63,7 +60,7 @@ function filtersByModified(version: unknown): boolean {
 }
 
 /** Ofertele unei pagini de produse; variațiile se cer câte patru produse deodată. */
-async function saveProducts(api: WooApi, supabase: Supabase, ctx: SyncCtx, products: WooProduct[], deadline: number): Promise<number> {
+async function saveProducts(api: WooApi, supabase: Supabase, ctx: Ctx, products: WooProduct[], deadline: number): Promise<number> {
   const syncedAt = new Date().toISOString()
   const variable = products.filter(p => isListed(p) && isVariable(p))
   const variations = new Map<number, WooVariation[]>()
@@ -83,13 +80,6 @@ async function saveProducts(api: WooApi, supabase: Supabase, ctx: SyncCtx, produ
   for (const ids of chunks(products.map(p => String(p.id)), ID_CHUNK)) {
     const { error } = await supabase.from('commerce_offers').delete()
       .eq('store_id', ctx.storeId).in('external_product_id', ids).lt('synced_at', syncedAt)
-    check(error)
-  }
-  // Costurile din „Cost of Goods" (când magazinul îl folosește): completează golurile
-  // și înlocuiesc estimările; costul scris de om în Hontrio rămâne
-  const costs = products.flatMap(p => costRows(p, variations.get(p.id) ?? [], ctx.costMultiplier))
-  for (const chunk of chunks(costs, UPSERT_CHUNK)) {
-    const { error } = await supabase.rpc('commerce_import_costs', { p_store_id: ctx.storeId, p_costs: chunk, p_source: 'woocommerce' })
     check(error)
   }
   return rows.length
@@ -203,13 +193,11 @@ export async function syncWooStore(
     const api = new WooApi(store.store_url, plain(store.api_key), plain(store.api_secret))
     let pd = (store.platform_data ?? {}) as Record<string, unknown>
     let currency = store.currency || 'RON'
-    let country: string | null = store.country
 
     if (mode === 'full' && !cursor) {
       // Trecere nouă: întâi magazinul (moneda, TVA-ul, pluginurile)
       const { platform_data, ...fields } = storeFields(await readStoreInfo(api))
       currency = fields.currency || currency
-      country = fields.country || country
       pd = platform_data
       // Ce nu știe magazinul (nume, țară) nu șterge ce aveam
       const known = Object.fromEntries(Object.entries(fields).filter(([, v]) => v !== null))
@@ -217,9 +205,7 @@ export async function syncWooStore(
       check(error)
       await saveCursor({ pass_start: startedAt.toISOString(), phase: 'products', page: 1 })
     }
-    // Costul din WooCommerce e fără TVA: cu prețuri care îl includ (sau când nu știm), îl adăugăm
-    const costMultiplier = pd.prices_include_vat === false ? 1 : 1 + (standardVatRate(country) ?? 0)
-    const ctx: SyncCtx = { storeId, userId: store.user_id, currency, costMultiplier }
+    const ctx: Ctx = { storeId, userId: store.user_id, currency }
 
     if (mode === 'full') {
       const c = cursor!

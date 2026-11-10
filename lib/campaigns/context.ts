@@ -4,7 +4,7 @@ import { storeSetup, type StoreSetup } from '@/lib/commerce/setup'
 import { storeAdsAccount, type StoreAdsAccount } from '@/lib/google/accounts'
 import type { AuditResult } from '@/lib/google/audit'
 import { feedLabelForStore, merchantIdForStore } from '@/lib/merchant/sync'
-import { buildPlan, GOALS, MODES, type Goal, type Mode, type Plan } from '@/lib/campaigns/plan'
+import { buildPlan, MODES, type Mode, type Plan } from '@/lib/campaigns/plan'
 import { assignGroups, buildGroupPlans, groupOfferOf, parseGroup, todayIn, type GroupPlan, type ProductGroup } from '@/lib/campaigns/groups'
 
 // =============================================
@@ -15,14 +15,14 @@ import { assignGroups, buildGroupPlans, groupOfferOf, parseGroup, todayIn, type 
 
 type Supabase = ReturnType<typeof createAdminClient>
 
-export const STORE_PLAN_COLUMNS = 'id, user_id, platform, store_name, store_url, currency, country, language, timezone, connection_status, last_sync_at, platform_data, google_ads_customer_id, merchant_center_id, merchant_feed_label, merchant_label_index, merchant_synced_at, merchant_error, send_costs_to_google'
+export const STORE_PLAN_COLUMNS = 'id, user_id, platform, store_name, store_url, currency, country, language, timezone, connection_status, last_sync_at, platform_data, google_ads_customer_id, merchant_center_id, merchant_feed_label, merchant_label_index, merchant_synced_at, merchant_error'
 
 export type PlanStore = {
   id: string; user_id: string; platform: string; store_name: string | null; store_url: string; currency: string | null
   country: string | null; language: string | null; timezone: string | null; connection_status: string | null
   last_sync_at: string | null; platform_data: unknown; google_ads_customer_id: string | null
   merchant_center_id: string | null; merchant_feed_label: string | null; merchant_label_index: number | null
-  merchant_synced_at: string | null; merchant_error: string | null; send_costs_to_google: boolean
+  merchant_synced_at: string | null; merchant_error: string | null
 }
 
 export type StoredAudit = {
@@ -33,7 +33,7 @@ export type StoredAudit = {
   error: string | null
 }
 
-export type Draft = { id: string | null; goal: Goal; daily_budget: number | null; mode: Mode; max_daily_budget: number | null }
+export type Draft = { id: string | null; daily_budget: number | null; mode: Mode; max_daily_budget: number | null }
 
 export type PlanContext = {
   setup: StoreSetup
@@ -51,7 +51,7 @@ export type PlanContext = {
   today: string
 }
 
-export const GROUP_COLUMNS = 'id, name, rules, goal, daily_budget, campaign_type, starts_on, ends_on, position, status, launched_at'
+export const GROUP_COLUMNS = 'id, name, rules, daily_budget, campaign_type, starts_on, ends_on, position, status, launched_at'
 
 /**
  * Știm starea fiecărei oferte la Google: Edinio o spune când Merchant Center e legat;
@@ -88,7 +88,7 @@ export async function loadPlanContext(supabase: Supabase, userId: string, store:
 
   const [ads, draftRes, account, auditRes, groupsRes, liveRes] = await Promise.all([
     loadAdsData(supabase, store.id),
-    supabase.from('ad_campaigns').select('id, goal, daily_budget, mode, max_daily_budget').eq('store_id', store.id).eq('status', 'draft').maybeSingle(),
+    supabase.from('ad_campaigns').select('id, daily_budget, mode, max_daily_budget').eq('store_id', store.id).eq('status', 'draft').maybeSingle(),
     // Contul Google Ads e al magazinului
     googleConnected ? storeAdsAccount(supabase, userId, store.google_ads_customer_id) : null,
     supabase.from('google_audits').select('checked_at, customer_id, result').eq('store_id', store.id).maybeSingle(),
@@ -110,7 +110,6 @@ export async function loadPlanContext(supabase: Supabase, userId: string, store:
   const d = draftRes.data
   const draft: Draft = {
     id: d?.id ?? null,
-    goal: GOALS.includes(d?.goal as Goal) ? (d!.goal as Goal) : 'balanced',
     daily_budget: d?.daily_budget === null || d?.daily_budget === undefined ? null : Number(d.daily_budget),
     mode: MODES.includes(d?.mode as Mode) ? (d!.mode as Mode) : 'approve',
     max_daily_budget: d?.max_daily_budget === null || d?.max_daily_budget === undefined ? null : Number(d.max_daily_budget),
@@ -142,7 +141,7 @@ export async function loadPlanContext(supabase: Supabase, userId: string, store:
     googleSales30: ads.data.googleSales30,
     products30: ads.data.products30,
     groups: { assigned, live: liveGroups },
-    settings: { goal: draft.goal, daily_budget: draft.daily_budget, mode: draft.mode, max_daily_budget: draft.max_daily_budget },
+    settings: { daily_budget: draft.daily_budget, mode: draft.mode, max_daily_budget: draft.max_daily_budget },
   })
 
   const today = todayIn(store.timezone)

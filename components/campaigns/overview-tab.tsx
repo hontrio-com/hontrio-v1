@@ -20,12 +20,12 @@ import type { ActionItem, SeriesPoint } from '@/components/campaigns/types'
 import type { Mode, Plan } from '@/lib/campaigns/plan'
 
 // =============================================
-// Prezentarea campaniilor: cele patru cifre care contează (profitul după
-// reclame, vânzările aduse, ROAS-ul și cheltuiala, față de cele 30 de zile
-// de dinainte), evoluția lor, ce așteaptă pilotul de la tine și campaniile.
+// Prezentarea campaniilor: cele patru cifre care contează (vânzările aduse,
+// ROAS-ul, cheltuiala și conversiile, față de cele 30 de zile de dinainte),
+// evoluția lor, ce așteaptă pilotul de la tine și campaniile.
 // =============================================
 
-type Metric = 'profit' | 'value' | 'cost'
+type Metric = 'value' | 'cost'
 
 export function OverviewTab({ plan, views, series, mode, proposals, journal, f, onOpen, onTab, onNew }: {
   plan: Plan
@@ -40,14 +40,13 @@ export function OverviewTab({ plan, views, series, mode, proposals, journal, f, 
   onNew: () => void
 }) {
   const { t } = useT()
-  const [metric, setMetric] = useState<Metric>('profit')
+  const [metric, setMetric] = useState<Metric>('value')
 
   const { cur, prev, points } = useMemo(() => {
     const half = Math.floor(series.length / 2)
     const sum = (list: SeriesPoint[]) => list.reduce((s, p) => ({
       cost: s.cost + p.cost, value: s.value + p.value, conversions: s.conversions + p.conversions,
-      profit: p.profit === null || s.profit === null ? null : s.profit + p.profit,
-    }), { cost: 0, value: 0, conversions: 0, profit: 0 as number | null })
+    }), { cost: 0, value: 0, conversions: 0 })
     return { cur: sum(series.slice(half)), prev: sum(series.slice(0, half)), points: series.slice(half) }
   }, [series])
 
@@ -55,7 +54,7 @@ export function OverviewTab({ plan, views, series, mode, proposals, journal, f, 
   const noData = series.every(p => p.cost === 0 && p.value === 0)
   const delta = (a: number | null, b: number | null) => (noData || a === null || b === null || b === 0 ? null : (a - b) / Math.abs(b))
   const roas = (p: { cost: number; value: number }) => (p.cost > 0 ? p.value / p.cost : null)
-  const line = (key: Metric) => (noData ? undefined : points.map(p => ({ label: f.shortDate.format(day(p.date)), value: key === 'profit' ? p.profit ?? 0 : p[key] })))
+  const line = (key: Metric | 'conversions') => (noData ? undefined : points.map(p => ({ label: f.shortDate.format(day(p.date)), value: p[key] })))
   // O zi fără cheltuială n-are ROAS (nu e un ROAS de zero)
   const roasLine = noData ? undefined : points.filter(p => p.cost > 0).map(p => ({ label: f.shortDate.format(day(p.date)), value: p.value / p.cost }))
   const ago = useTimeAgo()
@@ -65,15 +64,14 @@ export function OverviewTab({ plan, views, series, mode, proposals, journal, f, 
       {/* Cifrele-cheie */}
       <FadeIn>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <KpiCard label={t('campaigns.kpi_profit')} value={cur.profit} format={n => f.money.format(n)} delta={delta(cur.profit, prev.profit)}
-            series={line('profit')} color={CHART.green} help={t('campaigns.kpi_profit_help')} footnote={t('campaigns.kpi_last30')} />
           <KpiCard label={t('campaigns.kpi_value')} value={cur.value} format={n => f.money.format(n)} delta={delta(cur.value, prev.value)}
-            series={line('value')} help={t('campaigns.kpi_value_help')} footnote={t('campaigns.kpi_conversions_count', { count: Math.round(cur.conversions) })} />
+            series={line('value')} help={t('campaigns.kpi_value_help')} footnote={t('campaigns.kpi_last30')} />
           <KpiCard label={t('campaigns.kpi_roas')} value={roas(cur)} format={n => f.num.format(n)} delta={delta(roas(cur), roas(prev))}
-            series={roasLine} help={t('campaigns.kpi_roas_help', { roas: plan.economics.break_even !== null ? f.num.format(plan.economics.break_even) : '—' })}
-            footnote={plan.economics.break_even !== null ? t('campaigns.kpi_break_even', { roas: f.num.format(plan.economics.break_even) }) : undefined} />
+            series={roasLine} help={t('campaigns.kpi_roas_help')} footnote={t('campaigns.kpi_last30')} />
           <KpiCard label={t('campaigns.kpi_spend')} value={cur.cost} format={n => f.money.format(n)} delta={delta(cur.cost, prev.cost)} good="up"
             series={line('cost')} color={CHART.neutral} help={t('campaigns.kpi_spend_help')} footnote={t('campaigns.kpi_last30')} />
+          <KpiCard label={t('campaigns.kpi_conversions')} value={cur.conversions} format={n => f.num.format(Math.round(n * 10) / 10)} delta={delta(cur.conversions, prev.conversions)}
+            series={line('conversions')} help={t('campaigns.kpi_conversions_help')} footnote={t('campaigns.kpi_last30')} />
         </div>
       </FadeIn>
 
@@ -84,7 +82,7 @@ export function OverviewTab({ plan, views, series, mode, proposals, journal, f, 
             <CardHeader title={t('campaigns.trend_title')}
               description={points.length ? t('campaigns.trend_hint', { from: f.shortDate.format(day(points[0].date)), to: f.shortDate.format(day(points[points.length - 1].date)) }) : undefined}
               action={noData ? undefined : <Segmented id="trend-metric" size="sm" value={metric} onChange={setMetric}
-                items={[{ value: 'profit', label: t('campaigns.trend_profit') }, { value: 'value', label: t('campaigns.trend_value') }, { value: 'cost', label: t('campaigns.trend_cost') }]} />} />
+                items={[{ value: 'value', label: t('campaigns.trend_value') }, { value: 'cost', label: t('campaigns.trend_cost') }]} />} />
             {noData ? (
               <EmptyState icon={<ChartLine />} title={t('campaigns.trend_empty_title')} description={t('campaigns.trend_empty')} className="py-16" />
             ) : (
@@ -92,7 +90,7 @@ export function OverviewTab({ plan, views, series, mode, proposals, journal, f, 
               <div className="relative min-h-[240px] flex-1">
                 <div className="absolute inset-x-3 bottom-4 top-4">
                   <TrendChart data={line(metric) ?? []} format={n => f.money.format(n)} axisFormat={n => f.compact.format(n)} height="100%"
-                    color={metric === 'profit' ? CHART.green : metric === 'cost' ? CHART.neutral : CHART.brand} />
+                    color={metric === 'cost' ? CHART.neutral : CHART.brand} />
                 </div>
               </div>
             )}

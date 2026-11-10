@@ -5,18 +5,17 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { logApiError } from '@/lib/logger'
 import { isCommercePlatform } from '@/lib/commerce/sync'
 import { getActiveStore } from '@/lib/stores/active'
-import { GOALS, MODES, type Goal, type Mode } from '@/lib/campaigns/plan'
+import { MODES, type Mode } from '@/lib/campaigns/plan'
 import { loadPlanContext, STORE_PLAN_COLUMNS, type PlanStore } from '@/lib/campaigns/context'
 import { CAMPAIGN_COLUMNS, parseCampaign } from '@/lib/ads/apply'
-import { campaignBreakEvens, profitByCampaign, profitOfRow, segmentSplits } from '@/lib/ads/campaign-economics'
 import { AUDIT_FRESH_MS } from '@/lib/google/audit'
 import { getT } from '@/lib/i18n/server'
 
 // =============================================
 // GET   /api/campaigns/plan — planul, socotit acum din datele magazinului, cu
 //       auditul contului, campaniile lansate, propunerile pilotului și jurnalul
-// PATCH /api/campaigns/plan — obiectivul, bugetul zilnic, modul pilotului și
-//       bugetul maxim (ciorna din ad_campaigns, una pe magazin)
+// PATCH /api/campaigns/plan — bugetul zilnic, modul pilotului și bugetul maxim
+//       (ciorna din ad_campaigns, una pe magazin)
 // =============================================
 
 const ROUTE = '/api/campaigns/plan'
@@ -53,13 +52,11 @@ export async function GET() {
     return NextResponse.json({ store: { platform: store.platform, supported: false }, plan: null })
   }
 
-  const [{ context, errors }, campaignsRes, actionsRes, segmentsRes] = await Promise.all([
+  const [{ context, errors }, campaignsRes, actionsRes] = await Promise.all([
     loadPlanContext(supabase, userId, store),
     supabase.from('ad_campaigns').select(`${CAMPAIGN_COLUMNS}, paused_reason, updated_at`).eq('store_id', store.id).in('status', ['active', 'paused', 'ended']).not('google_campaign_id', 'is', null).order('launched_at', { ascending: false }),
     supabase.from('ad_actions').select('id, ad_campaign_id, kind, params, reason, status, source, error, created_at, decided_at, applied_at')
       .eq('store_id', store.id).order('created_at', { ascending: false }).limit(JOURNAL + 20),
-    // Împărțirea pe marje, oricât de veche: de la ea „restul" are pragul lui
-    supabase.from('ad_actions').select('kind, status, ad_campaign_id, applied_at').eq('store_id', store.id).eq('kind', 'segment').eq('status', 'applied'),
   ])
   for (const error of errors) logApiError(ROUTE, 500, 'Eroare la citirea datelor magazinului', { userId, error })
   if (!context) return NextResponse.json({ error: t('sync.products_read_failed') }, { status: 500 })
@@ -95,33 +92,27 @@ export async function GET() {
 
   const actions = actionsRes.data ?? []
   const audit = context.audit
-  // Segmentele de marjă au pragul lor: profitul fiecărei campanii se socotește cu el, pe zi
-  const breakEvens = campaignBreakEvens(campaigns, context.plan)
-  const storeBe = context.plan.economics.break_even
-  const splits = segmentSplits(campaigns, segmentsRes.data ?? [])
-  const profits = profitByCampaign(recent, breakEvens, storeBe, splits)
 
   // Evoluția pe zi, a tuturor campaniilor Hontrio la un loc (pentru cifrele și graficele paginii)
-  const empty = () => ({ cost: 0, value: 0, conversions: 0, profit: 0 })
+  const empty = () => ({ cost: 0, value: 0, conversions: 0 })
   const byDay = new Map<string, ReturnType<typeof empty>>()
   const byCampaignDay = new Map<string, Map<string, ReturnType<typeof empty>>>()
   for (const r of rows) {
-    const p = storeBe === null ? 0 : profitOfRow(r, breakEvens, storeBe, splits)
     const d = byDay.get(r.date) ?? empty()
-    byDay.set(r.date, { cost: d.cost + r.cost, value: d.value + r.value, conversions: d.conversions + r.conversions, profit: d.profit + p })
+    byDay.set(r.date, { cost: d.cost + r.cost, value: d.value + r.value, conversions: d.conversions + r.conversions })
     const own = byCampaignDay.get(r.google_campaign_id) ?? new Map()
     const c = own.get(r.date) ?? empty()
-    own.set(r.date, { cost: c.cost + r.cost, value: c.value + r.value, conversions: c.conversions + r.conversions, profit: c.profit + p })
+    own.set(r.date, { cost: c.cost + r.cost, value: c.value + r.value, conversions: c.conversions + r.conversions })
     byCampaignDay.set(r.google_campaign_id, own)
   }
   const round = (n: number) => Math.round(n * 100) / 100
   const series = days.map(date => {
     const d = byDay.get(date) ?? empty()
-    return { date, cost: round(d.cost), value: round(d.value), conversions: round(d.conversions), profit: storeBe === null ? null : round(d.profit) }
+    return { date, cost: round(d.cost), value: round(d.value), conversions: round(d.conversions) }
   })
   const trendOf = (googleId: string) => days.slice(-30).map(date => {
     const d = byCampaignDay.get(googleId)?.get(date) ?? empty()
-    return { date, value: round(d.value), profit: storeBe === null ? null : round(d.profit) }
+    return { date, value: round(d.value), cost: round(d.cost) }
   })
 
   return NextResponse.json({
@@ -147,11 +138,7 @@ export async function GET() {
       included: c.included_item_ids?.length ?? null,
       paused_reason: c.status === 'active' ? null : stateOf.get(c.id)?.paused_reason ?? null,
       ended_at: c.status === 'ended' ? stateOf.get(c.id)?.updated_at ?? null : null,
-      break_even: breakEvens.get(c.google_campaign_id!) ?? context.plan.economics.break_even,
-      last30: {
-        ...(totals.get(c.google_campaign_id!) ?? { cost: 0, clicks: 0, conversions: 0, value: 0 }),
-        profit: profits ? Math.round((profits.get(c.google_campaign_id!) ?? 0) * 100) / 100 : null,
-      },
+      last30: totals.get(c.google_campaign_id!) ?? { cost: 0, clicks: 0, conversions: 0, value: 0 },
       trend: trendOf(c.google_campaign_id!),
     })),
     // Pe zi, ultimele 60 de zile, toate campaniile Hontrio la un loc
@@ -170,7 +157,7 @@ export async function PATCH(request: Request) {
   if (!session?.user) return NextResponse.json({ error: t('api.unauthorized') }, { status: 401 })
   const userId = session.user.id
 
-  let body: { goal?: unknown; daily_budget?: unknown; mode?: unknown; max_daily_budget?: unknown }
+  let body: { daily_budget?: unknown; mode?: unknown; max_daily_budget?: unknown }
   try {
     body = await request.json()
   } catch {
@@ -184,11 +171,7 @@ export async function PATCH(request: Request) {
     return Math.round(n * 100) / 100
   }
 
-  const fields: { goal?: Goal; daily_budget?: number | null; mode?: Mode; max_daily_budget?: number | null } = {}
-  if (body.goal !== undefined) {
-    if (!GOALS.includes(body.goal as Goal)) return NextResponse.json({ error: t('sync.goal_invalid') }, { status: 400 })
-    fields.goal = body.goal as Goal
-  }
+  const fields: { daily_budget?: number | null; mode?: Mode; max_daily_budget?: number | null } = {}
   if (body.daily_budget !== undefined) {
     // null = bugetul propus de Hontrio
     const v = amount(body.daily_budget)
@@ -200,7 +183,7 @@ export async function PATCH(request: Request) {
     fields.mode = body.mode as Mode
   }
   if (body.max_daily_budget !== undefined) {
-    // null = fără plafon: pilotul doar propune creșterile de buget
+    // null = fără plafon pentru propunerile de creștere a bugetului
     const v = amount(body.max_daily_budget)
     if (v === 'invalid') return NextResponse.json({ error: t('campaigns.budget_invalid') }, { status: 400 })
     fields.max_daily_budget = v
@@ -216,7 +199,7 @@ export async function PATCH(request: Request) {
   if (!store || !isCommercePlatform(store.platform)) return NextResponse.json({ error: t('sync.platform_unsupported') }, { status: 400 })
 
   const now = new Date().toISOString()
-  const columns = 'goal, daily_budget, mode, max_daily_budget'
+  const columns = 'daily_budget, mode, max_daily_budget'
   const update = () => supabase.from('ad_campaigns')
     .update({ ...fields, updated_at: now })
     .eq('store_id', store.id).eq('status', 'draft')
@@ -239,5 +222,5 @@ export async function PATCH(request: Request) {
 
   const saved = rows[0]
   const n = (v: unknown) => (v === null || v === undefined ? null : Number(v))
-  return NextResponse.json({ goal: saved.goal, daily_budget: n(saved.daily_budget), mode: saved.mode, max_daily_budget: n(saved.max_daily_budget) })
+  return NextResponse.json({ daily_budget: n(saved.daily_budget), mode: saved.mode, max_daily_budget: n(saved.max_daily_budget) })
 }

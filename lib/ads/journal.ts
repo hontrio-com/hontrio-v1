@@ -15,8 +15,10 @@ export type ActionKind =
   // Încheierea unei campanii: de om sau la sfârșitul perioadei ei
   | 'end'
   // Ale pilotului
-  | 'pause_loss_limit' | 'graduate' | 'set_target' | 'set_budget'
-  | 'exclude_products' | 'sync_products' | 'add_negatives' | 'segment'
+  | 'pause_loss_limit' | 'graduate' | 'set_budget'
+  | 'exclude_products' | 'sync_products' | 'add_negatives'
+  // Vechi, din jurnal: de când Hontrio lucra cu marje (nu se mai propun)
+  | 'set_target' | 'segment'
 
 export type ActionStatus = 'proposed' | 'applied' | 'rejected' | 'failed' | 'expired'
 

@@ -49,14 +49,15 @@ type Common = {
 
 export type StarterSpec = Common & {
   kind: 'shopping'
-  cpcCeiling: number
+  /** Plafonul pe click al „Maximizează clicurile"; null = fără plafon. */
+  cpcCeiling: number | null
   /** 0 când omul își păstrează campaniile Shopping (ale lui au întâietate), altfel 1. */
   campaignPriority: 0 | 1
 }
 
+/** Performance Max cu „Maximizează valoarea conversiilor", fără ROAS țintă. */
 export type GrowthSpec = Common & {
   kind: 'performance_max'
-  targetRoas: number | null
   /** 'languageConstants/1032'; null = toate limbile */
   languageConstant: string | null
   /** Adresa magazinului, pentru grupul de materiale (ca în exemplul Google). */
@@ -134,8 +135,12 @@ export function pmaxListingOps(cid: string, assetGroupId: string, listing: Listi
   }))
 }
 
-/** Arborele unui grup de anunțuri Shopping standard: excluderile sunt noduri negative, fără ofertă. */
-export function shoppingListingOps(cid: string, adGroupId: string, listing: ListingSpec, cpcMicros: string, firstTemp = FIRST_NODE): MutateOperation[] {
+/**
+ * Arborele unui grup de anunțuri Shopping standard: excluderile sunt noduri negative. Fără
+ * oferte pe noduri: licitează „Maximizează clicurile" (iar o campanie veche cu CPC manual
+ * folosește oferta grupului de anunțuri).
+ */
+export function shoppingListingOps(cid: string, adGroupId: string, listing: ListingSpec, firstTemp = FIRST_NODE): MutateOperation[] {
   const nextId = counter(firstTemp)
   const root = nextId()
   return listingNodes(listing, root, nextId).map(n => ({
@@ -150,7 +155,6 @@ export function shoppingListingOps(cid: string, adGroupId: string, listing: List
           ...(n.caseValue ? { caseValue: n.caseValue } : {}),
           ...(n.parent ? { parentAdGroupCriterion: criterionPath(cid, adGroupId, n.parent) } : {}),
         },
-        ...(n.type === 'UNIT' && n.included ? { cpcBidMicros: cpcMicros } : {}),
       },
     },
   }))
@@ -213,7 +217,8 @@ export function buildLaunchOperations(spec: LaunchSpec): MutateOperation[] {
           ...common,
           advertisingChannelType: 'SHOPPING',
           shoppingSetting: { ...shoppingSetting, campaignPriority: spec.campaignPriority },
-          manualCpc: { enhancedCpcEnabled: false },
+          // „Maximizează clicurile": Google licitează singur în limita bugetului, cu plafonul nostru pe click
+          targetSpend: spec.cpcCeiling ? { cpcBidCeilingMicros: toMicros(spec.cpcCeiling, spec.billableUnitMicros) } : {},
           networkSettings: { targetGoogleSearch: true, targetSearchNetwork: false, targetContentNetwork: false },
         },
       },
@@ -225,7 +230,8 @@ export function buildLaunchOperations(spec: LaunchSpec): MutateOperation[] {
           ...common,
           advertisingChannelType: 'PERFORMANCE_MAX',
           shoppingSetting,
-          maximizeConversionValue: spec.targetRoas ? { targetRoas: spec.targetRoas } : {},
+          // Fără ROAS țintă: Google aduce cea mai mare valoare a vânzărilor din buget
+          maximizeConversionValue: {},
           // Clicurile duc la pagina produsului: fără extinderea URL-ului final
           assetAutomationSettings: [
             { assetAutomationType: 'FINAL_URL_EXPANSION_TEXT_ASSET_AUTOMATION', assetAutomationStatus: 'OPTED_OUT' },
@@ -242,7 +248,6 @@ export function buildLaunchOperations(spec: LaunchSpec): MutateOperation[] {
   ops.push(...negativeOps(cid, campaign, spec.negatives))
 
   if (spec.kind === 'shopping') {
-    const cpc = toMicros(spec.cpcCeiling, spec.billableUnitMicros)
     ops.push({
       adGroupOperation: {
         create: {
@@ -251,12 +256,11 @@ export function buildLaunchOperations(spec: LaunchSpec): MutateOperation[] {
           name: spec.name,
           status: 'ENABLED',
           type: 'SHOPPING_PRODUCT_ADS',
-          cpcBidMicros: cpc,
         },
       },
     })
     ops.push({ adGroupAdOperation: { create: { adGroup: adGroupPath(cid, GROUP), status: 'ENABLED', ad: { shoppingProductAd: {} } } } })
-    ops.push(...shoppingListingOps(cid, GROUP, spec.listing, cpc))
+    ops.push(...shoppingListingOps(cid, GROUP, spec.listing))
   } else {
     ops.push({
       assetGroupOperation: {
@@ -294,15 +298,6 @@ export type LaunchIds = { budget: string | null; campaign: string | null; group:
 
 export function campaignStatusOp(cid: string, campaignId: string, status: 'ENABLED' | 'PAUSED'): MutateOperation {
   return { campaignOperation: { update: { resourceName: campaignPath(cid, campaignId), status }, updateMask: 'status' } }
-}
-
-export function targetRoasOp(cid: string, campaignId: string, targetRoas: number): MutateOperation {
-  return {
-    campaignOperation: {
-      update: { resourceName: campaignPath(cid, campaignId), maximizeConversionValue: { targetRoas } },
-      updateMask: 'maximizeConversionValue.targetRoas',
-    },
-  }
 }
 
 export function budgetOp(cid: string, budgetId: string, amount: number, billableUnitMicros: number): MutateOperation {

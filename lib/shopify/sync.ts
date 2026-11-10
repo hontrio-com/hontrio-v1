@@ -2,10 +2,9 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { decrypt } from '@/lib/security/encryption'
 import { logError, logWarn } from '@/lib/logger'
 import { storedMessage } from '@/lib/i18n/stored'
-import { standardVatRate } from '@/lib/ads/vat'
 import type { Ctx } from '@/lib/commerce/rows'
 import { ShopifyApi, ShopifyError, shopifyDate } from './api'
-import { costRow, lineRows, offerRow, orderRow, storeFields, type ShopifyStoreInfo } from './mapping'
+import { lineRows, offerRow, orderRow, storeFields, type ShopifyStoreInfo } from './mapping'
 import type { ShopifyOrder, ShopifyVariant } from './types'
 
 // =============================================
@@ -45,10 +44,8 @@ const PRODUCTS_PER_QUERY = 25
 class DeadlineReached extends Error {}
 
 type Supabase = ReturnType<typeof createAdminClient>
-/** `costMultiplier` aduce costul din Shopify (fără TVA) pe baza prețului. */
-type SyncCtx = Ctx & { costMultiplier: number }
 /** Câmpurile la care Shopify poate refuza accesul; se încearcă din nou la fiecare trecere completă. */
-type Access = { cost: boolean; country: boolean; orders: boolean }
+type Access = { country: boolean; orders: boolean }
 
 function chunks<T>(arr: T[], size: number): T[][] {
   const out: T[][] = []
@@ -60,26 +57,19 @@ function check(error: { message: string } | null) {
   if (error) throw new Error(error.message)
 }
 
-/** Ofertele și costurile unor variante; cele nelistate nu se scriu (curățenia le scoate). */
-async function saveVariants(supabase: Supabase, ctx: SyncCtx, variants: ShopifyVariant[]): Promise<number> {
+/** Ofertele unor variante; cele nelistate nu se scriu (curățenia le scoate). */
+async function saveVariants(supabase: Supabase, ctx: Ctx, variants: ShopifyVariant[]): Promise<number> {
   const syncedAt = new Date().toISOString()
   const rows = variants.map(v => offerRow(ctx, v, syncedAt)).filter(r => r !== null)
   for (const chunk of chunks(rows, UPSERT_CHUNK)) {
     const { error } = await supabase.from('commerce_offers').upsert(chunk, { onConflict: 'store_id,offer_id' })
     check(error)
   }
-  // Costurile din „Cost per item": completează golurile și înlocuiesc estimările;
-  // costul scris de om în Hontrio rămâne
-  const costs = variants.map(v => costRow(v, ctx.costMultiplier)).filter(c => c !== null)
-  for (const chunk of chunks(costs, UPSERT_CHUNK)) {
-    const { error } = await supabase.rpc('commerce_import_costs', { p_store_id: ctx.storeId, p_costs: chunk, p_source: 'shopify' })
-    check(error)
-  }
   return rows.length
 }
 
 /** Toate variantele unor produse, apoi ce nu mai e ofertă la ele (variantă ștearsă, produs arhivat). */
-async function refreshProducts(api: ShopifyApi, supabase: Supabase, ctx: SyncCtx, access: Access, productIds: string[], deadline: number): Promise<number> {
+async function refreshProducts(api: ShopifyApi, supabase: Supabase, ctx: Ctx, productIds: string[], deadline: number): Promise<number> {
   let saved = 0
   for (const ids of chunks(productIds, PRODUCTS_PER_QUERY)) {
     if (Date.now() > deadline) throw new DeadlineReached()
@@ -87,8 +77,7 @@ async function refreshProducts(api: ShopifyApi, supabase: Supabase, ctx: SyncCtx
     const variants: ShopifyVariant[] = []
     const query = ids.map(id => `product_id:${id}`).join(' OR ')
     for (let after: string | null = null; ;) {
-      const page = await api.variants({ after, query, withCost: access.cost })
-      if (page.costDenied) access.cost = false
+      const page = await api.variants({ after, query })
       variants.push(...page.items)
       if (!page.hasNext) break
       after = page.endCursor
@@ -185,31 +174,27 @@ export async function syncShopifyStore(
   let offers = 0
   let orders = 0
   let pd = (store.platform_data ?? {}) as Record<string, unknown>
-  const access: Access = { cost: pd.cost_access !== false, country: pd.order_country_access !== false, orders: pd.orders_access !== false }
+  const access: Access = { country: pd.order_country_access !== false, orders: pd.orders_access !== false }
   // Ce a aflat rularea despre drepturi rămâne pe magazin, ca rulările următoare să nu reîncerce degeaba
-  const accessData = () => ({ ...pd, cost_access: access.cost, order_country_access: access.country, orders_access: access.orders })
+  const accessData = () => ({ ...pd, order_country_access: access.country, orders_access: access.orders })
   try {
     const token = store.api_key.includes(':') ? decrypt(store.api_key) : store.api_key
     const api = new ShopifyApi(store.store_url, token)
     let currency = store.currency || 'RON'
-    let country: string | null = store.country
 
     if (mode === 'full' && !cursor) {
       // Trecere nouă: întâi magazinul (moneda, TVA-ul, drepturile aplicației)
       const { platform_data, ...fields } = storeFields(await readStoreInfo(api))
       currency = fields.currency || currency
-      country = fields.country || country
       pd = platform_data
-      Object.assign(access, { cost: true, country: true, orders: true })
+      Object.assign(access, { country: true, orders: true })
       // Ce nu știe magazinul (limba fără `read_locales`) nu șterge ce aveam
       const known = Object.fromEntries(Object.entries(fields).filter(([, v]) => v !== null))
       const { error } = await supabase.from('stores').update({ ...known, currency, platform_data }).eq('id', storeId)
       check(error)
       await saveCursor({ pass_start: startedAt.toISOString(), phase: 'products', after: null })
     }
-    // Costul din Shopify e fără TVA: cu prețuri care îl includ (sau când nu știm), îl adăugăm
-    const costMultiplier = pd.prices_include_vat === false ? 1 : 1 + (standardVatRate(country) ?? 0)
-    const ctx: SyncCtx = { storeId, userId: store.user_id, currency, costMultiplier }
+    const ctx: Ctx = { storeId, userId: store.user_id, currency }
 
     /** Comenzile unui filtru, pagină cu pagină. Fără acces la comenzi, se trece mai departe. */
     const eachOrders = async (query: string, from: string | null, onPage: (r: { saved: number; productIds: string[] }, next: string | null) => Promise<void>) => {
@@ -244,8 +229,7 @@ export async function syncShopifyStore(
       if (c.phase === 'products') {
         for (let after = c.after; ;) {
           if (Date.now() > deadline) throw new DeadlineReached()
-          const page = await api.variants({ after, withCost: access.cost })
-          if (page.costDenied) access.cost = false
+          const page = await api.variants({ after })
           offers += await saveVariants(supabase, ctx, page.items)
           if (!page.hasNext) break
           after = page.endCursor
@@ -263,7 +247,7 @@ export async function syncShopifyStore(
 
       // Curățenia: ce n-a fost atins în toată trecerea nu mai e în magazin.
       // ⚠ O trecere care n-a văzut nimic nu șterge nimic: un răspuns ciudat ne-ar
-      // face să pierdem toate ofertele, cu prețurile de cost puse de om cu tot
+      // face să pierdem toate ofertele, cu alegerile omului cu tot
       if (Date.now() > deadline) throw new DeadlineReached()
       const passStart = cursor!.pass_start
       if (await countRows(supabase, 'commerce_offers', storeId, passStart) > 0) {
@@ -292,7 +276,7 @@ export async function syncShopifyStore(
       await eachOrders(`updated_at:>${since(store.orders_watermark!)}`, null, async res => {
         res.productIds.forEach(id => changed.add(id))
       })
-      offers += await refreshProducts(api, supabase, ctx, access, [...changed], deadline)
+      offers += await refreshProducts(api, supabase, ctx, [...changed], deadline)
     }
 
     const [offersTotal, ordersTotal] = await Promise.all([

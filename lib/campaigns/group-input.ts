@@ -1,4 +1,3 @@
-import { GOALS, type Goal } from '@/lib/campaigns/plan'
 import { GROUP_TYPES, isDay, isEmptyRules, parseRules, type GroupRules, type GroupType } from '@/lib/campaigns/groups'
 
 // =============================================
@@ -11,7 +10,6 @@ const MAX_BUDGET = 1_000_000
 export type GroupFields = {
   name?: string
   rules?: GroupRules
-  goal?: Goal
   daily_budget?: number | null
   campaign_type?: GroupType
   starts_on?: string | null
@@ -30,10 +28,6 @@ export function parseGroupFields(body: Record<string, unknown>, today: string): 
     const rules = parseRules(body.rules)
     if (isEmptyRules(rules)) return { error: 'campaigns.group_empty' }
     fields.rules = rules
-  }
-  if (body.goal !== undefined) {
-    if (!GOALS.includes(body.goal as Goal)) return { error: 'sync.goal_invalid' }
-    fields.goal = body.goal as Goal
   }
   if (body.daily_budget !== undefined) {
     if (body.daily_budget === null) fields.daily_budget = null

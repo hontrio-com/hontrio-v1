@@ -2,8 +2,8 @@ import type { McProduct } from '@/lib/merchant/api'
 
 // =============================================
 // Potrivirea produselor din Merchant Center cu ofertele magazinului.
-// Campaniile exclud produse după ID-ul din Merchant Center, iar costurile se
-// trimit tot pe el. La Edinio e chiar ID-ul ofertei; la WooCommerce și
+// Campaniile exclud produse după ID-ul din Merchant Center, iar eticheta
+// Hontrio se pune tot pe el. La Edinio e chiar ID-ul ofertei; la WooCommerce și
 // Shopify, aplicațiile de feed îl construiesc altfel:
 //   Google for WooCommerce   gla_{id}
 //   WooCommerce Product Feed woocommerce_gpf_{id}

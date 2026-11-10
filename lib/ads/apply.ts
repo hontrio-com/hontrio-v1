@@ -1,9 +1,9 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { storedMessage } from '@/lib/i18n/stored'
-import { billableUnitMicros, GoogleAdsApiError, mutate, toMicros, type MutateOperation } from '@/lib/google/ads'
+import { billableUnitMicros, GoogleAdsApiError, mutate, type MutateOperation } from '@/lib/google/ads'
 import {
   addNegativesOps, budgetOp, campaignStatusOp, endDateOp, endOfDay, normalizeItemId, pmaxListingOps, removeNodesOps, shoppingListingOps,
-  targetRoasOp, FINAL_URL_SUFFIX, MAX_LISTING_ITEMS, type ListingSpec,
+  FINAL_URL_SUFFIX, MAX_LISTING_ITEMS, type ListingSpec,
 } from '@/lib/google/operations'
 import { campaignName, createCampaign, EXCLUDE_LABEL, LaunchError, resolveTargeting, type Account } from '@/lib/google/launch'
 import { fetchListingNodes } from '@/lib/google/reporting'
@@ -31,12 +31,11 @@ export type CampaignRow = {
   daily_budget: number | null; target_roas: number | null; cpc_ceiling: number | null; currency: string | null
   excluded_item_ids: string[]; included_item_ids: string[] | null
   launched_at: string | null; target_changed_at: string | null; budget_changed_at: string | null; loss_check_from: string | null
-  goal: string
-  /** Grupa omului a cărei campanie e; null = campania principală (sau un segment al ei). */
+  /** Grupa omului a cărei campanie e; null = campania principală (sau un segment vechi al ei). */
   product_group_id: string | null
 }
 
-export const CAMPAIGN_COLUMNS = 'id, user_id, store_id, type, status, stage, segment, name, customer_id, google_campaign_id, google_budget_id, google_asset_group_id, google_ad_group_id, merchant_center_id, feed_label, daily_budget, target_roas, cpc_ceiling, currency, excluded_item_ids, included_item_ids, launched_at, target_changed_at, budget_changed_at, loss_check_from, goal, product_group_id'
+export const CAMPAIGN_COLUMNS = 'id, user_id, store_id, type, status, stage, segment, name, customer_id, google_campaign_id, google_budget_id, google_asset_group_id, google_ad_group_id, merchant_center_id, feed_label, daily_budget, target_roas, cpc_ceiling, currency, excluded_item_ids, included_item_ids, launched_at, target_changed_at, budget_changed_at, loss_check_from, product_group_id'
 
 export function parseCampaign(r: Record<string, unknown>): CampaignRow {
   const num = (v: unknown) => (v === null || v === undefined ? null : Number(v))
@@ -79,7 +78,7 @@ async function run(token: string, acc: Account, ops: MutateOperation[]) {
 // ─── Produsele din campanie ─────────────────────────────────────────────────
 
 /**
- * Arborele dorit al unei campanii: lista ei (segmentul de marjă mare, o grupă) sau totul minus
+ * Arborele dorit al unei campanii: lista ei (o grupă, sau un segment vechi pe marje) sau totul minus
  * excluderi și minus produsele campaniilor cu lista lor. `members` = produsele grupei acum (regulile ei
  * pot prinde produse noi), în locul listei salvate.
  */
@@ -87,14 +86,14 @@ export function desiredListing(c: CampaignRow, plan: Plan, others: CampaignRow[]
   const excluded = new Set(plan.exclusions.item_ids.map(normalizeItemId))
   const base = members ?? c.included_item_ids
   if (base) {
-    // Segmentul de marjă mare (lista lui e fixă) lasă afară produsele grupelor lansate după el
+    // Un segment vechi (lista lui e fixă) lasă afară produsele grupelor lansate după el
     const grouped = c.product_group_id ? new Set<string>() : new Set(others
       .filter(o => o.id !== c.id && o.product_group_id && o.included_item_ids && ['active', 'paused'].includes(o.status))
       .flatMap(o => o.included_item_ids!.map(normalizeItemId)))
     const included = [...new Set(base.map(normalizeItemId))].filter(id => !excluded.has(id) && !grouped.has(id)).sort()
     return { listing: { kind: 'include_items', item_ids: included }, excluded: [], included }
   }
-  // Campania principală („restul") lasă afară produsele segmentului de marjă mare și ale grupelor
+  // Campania principală lasă afară produsele grupelor (și ale unui segment vechi)
   let taken = 0
   for (const o of others) {
     if (o.id === c.id || !o.included_item_ids || !['active', 'paused'].includes(o.status)) continue
@@ -111,7 +110,7 @@ export function desiredListing(c: CampaignRow, plan: Plan, others: CampaignRow[]
 const sameSet = (a: string[], b: string[]) => a.length === b.length && [...a].sort().join('\n') === [...b].sort().join('\n')
 
 /**
- * Reface arborele de produse când planul s-a schimbat (alegerile omului, stocul, marjele, grupele).
+ * Reface arborele de produse când planul s-a schimbat (alegerile omului, stocul, pilotul, grupele).
  * Întoarce listele noi, sau null când nu era nimic de schimbat.
  */
 export async function syncCampaignProducts(supabase: Supabase, token: string, acc: Account, c: CampaignRow, plan: Plan, others: CampaignRow[], labelIndex: number | null, members: string[] | null = null): Promise<{ included: string[] | null; excluded: string[] } | null> {
@@ -126,7 +125,7 @@ export async function syncCampaignProducts(supabase: Supabase, token: string, ac
   const nodes = await fetchListingNodes(token, acc, { type: c.type, group_id: groupId })
   const ops: MutateOperation[] = c.type === 'performance_max'
     ? [...removeNodesOps(nodes, 'assetGroupListingGroupFilterOperation'), ...pmaxListingOps(acc.customer_id, groupId, want.listing)]
-    : [...removeNodesOps(nodes, 'adGroupCriterionOperation'), ...shoppingListingOps(acc.customer_id, groupId, want.listing, toMicros(c.cpc_ceiling ?? 0.1, await billableUnitMicros(token, acc.customer_id, c.currency || 'RON', acc.login_customer_id)))]
+    : [...removeNodesOps(nodes, 'adGroupCriterionOperation'), ...shoppingListingOps(acc.customer_id, groupId, want.listing)]
   await run(token, acc, ops)
   await supabase.from('ad_campaigns').update({
     excluded_item_ids: want.excluded,
@@ -196,14 +195,10 @@ export async function applyAction(ctx: ApplyContext, kind: ActionKind, campaignI
       await run(token, acc, [endDateOp(acc.customer_id, x.google_campaign_id, day ? endOfDay(day) : null)])
       return { ends_on: day }
     }
-    case 'set_target': {
-      const x = needCampaign()
-      const to = Number(params.to)
-      if (!(to > 0)) throw new ApplyError(storedMessage('sync.apply_invalid'))
-      await run(token, acc, [targetRoasOp(acc.customer_id, x.google_campaign_id, to)])
-      await supabase.from('ad_campaigns').update({ target_roas: to, target_changed_at: now, updated_at: now }).eq('id', x.id)
-      return params
-    }
+    case 'set_target':
+    case 'segment':
+      // Propuneri vechi, de când Hontrio lucra cu marje: nu se mai aplică
+      throw new ApplyError(storedMessage('sync.apply_retired'))
     case 'set_budget': {
       const x = needCampaign()
       const to = Number(params.to)
@@ -234,15 +229,17 @@ export async function applyAction(ctx: ApplyContext, kind: ActionKind, campaignI
       return params
     }
     case 'graduate':
-    case 'segment':
-      return launchFollowUp(ctx, kind, needCampaign(), params)
+      return graduate(ctx, needCampaign(), params)
     default:
       throw new ApplyError(storedMessage('sync.apply_invalid'))
   }
 }
 
-/** Trecerea la PMax și segmentarea pe marje: campanii noi, create la fel ca lansarea. */
-async function launchFollowUp(ctx: ApplyContext, kind: 'graduate' | 'segment', from: CampaignRow & { google_campaign_id: string }, params: Record<string, unknown>) {
+/**
+ * Trecerea la Performance Max: o campanie nouă, creată la fel ca lansarea, cu „Maximizează
+ * valoarea conversiilor" fără ROAS țintă; pornirea se oprește după.
+ */
+async function graduate(ctx: ApplyContext, from: CampaignRow & { google_campaign_id: string }, params: Record<string, unknown>) {
   const { supabase, token, acc, store, plan, audit } = ctx
   if (!audit || !from.merchant_center_id) throw new ApplyError(storedMessage('sync.launch_audit_missing'))
   const country = plan.campaign.country || store.country
@@ -253,27 +250,15 @@ async function launchFollowUp(ctx: ApplyContext, kind: 'graduate' | 'segment', f
 
   // Campania unei grupe rămâne a grupei: aceleași produse (cum le prind regulile acum), aceeași perioadă
   const group = from.product_group_id ? ctx.groups.find(g => g.id === from.product_group_id) ?? null : null
-  const segment = kind === 'segment' ? 'high_margin' : group ? 'group' : 'all'
   const others = ctx.campaigns.filter(x => x.id !== from.id)
-  let included: string[] | null
-  let listing: ListingSpec
-  if (kind === 'segment') {
-    const excluded = new Set(plan.exclusions.item_ids.map(normalizeItemId))
-    included = ((params.high_item_ids as string[] | undefined) ?? []).map(normalizeItemId).filter(id => !excluded.has(id))
-    listing = { kind: 'include_items', item_ids: included }
-  } else {
-    // Pornirea principală trece la PMax fără produsele grupelor; a unei grupe, cu produsele ei
-    const want = group
-      ? desiredListing(from, plan, others, store.merchant_label_index, groupItems(plan, ctx.assigned, group.id))
-      : desiredListing({ ...from, type: 'performance_max', included_item_ids: null }, plan, others, store.merchant_label_index)
-    included = want.included
-    listing = want.listing
-  }
-  const target = Number(kind === 'segment' ? params.high_target : params.target_roas) || null
-  const daily = kind === 'segment'
-    ? Math.max(1, Math.round(((from.daily_budget ?? 10) / 2) * 100) / 100)
-    : from.daily_budget ?? plan.budget.daily ?? 10
-  const name = campaignName('performance_max', store.store_name, kind === 'segment' ? 'high-margin' : group?.name)
+  // Pornirea principală trece la PMax fără produsele grupelor; a unei grupe, cu produsele ei
+  const want = group
+    ? desiredListing(from, plan, others, store.merchant_label_index, groupItems(plan, ctx.assigned, group.id))
+    : desiredListing({ ...from, type: 'performance_max', included_item_ids: null }, plan, others, store.merchant_label_index)
+  const included = want.included
+  const listing: ListingSpec = want.listing
+  const daily = Number(params.daily_budget) || from.daily_budget || plan.budget.daily || 10
+  const name = campaignName('performance_max', store.store_name, group?.name)
 
   const ids = await createCampaign(token, acc, {
     kind: 'performance_max',
@@ -289,40 +274,23 @@ async function launchFollowUp(ctx: ApplyContext, kind: 'graduate' | 'segment', f
     finalUrlSuffix: FINAL_URL_SUFFIX,
     listing,
     negatives: plan.structure.brand_negatives.map(text => ({ text, match: 'PHRASE' as const })),
-    targetRoas: target,
     goals: audit.goals.map(g => ({ category: g.category, origin: g.origin })),
     endDateTime: group?.ends_on ? endOfDay(group.ends_on) : null,
   }).catch(err => { throw err instanceof LaunchError ? new ApplyError(err.stored) : err })
 
   const { data: row } = await supabase.from('ad_campaigns').insert({
-    user_id: from.user_id, store_id: from.store_id, type: 'performance_max', status: 'active', goal: from.goal,
+    user_id: from.user_id, store_id: from.store_id, type: 'performance_max', status: 'active',
     daily_budget: daily, currency: from.currency, customer_id: acc.customer_id, google_campaign_id: ids.campaign,
-    launched_at: now, stage: kind === 'segment' ? 'segment' : 'growth', segment, name,
+    launched_at: now, stage: 'growth', segment: group ? 'group' : 'all', name,
     merchant_center_id: from.merchant_center_id, feed_label: from.feed_label, google_budget_id: ids.budget,
-    google_asset_group_id: ids.group, target_roas: target, included_item_ids: included,
+    google_asset_group_id: ids.group, target_roas: null, included_item_ids: included,
     excluded_item_ids: listing.kind === 'exclude_items' ? listing.item_ids : [],
-    loss_check_from: now, target_changed_at: now, budget_changed_at: now,
+    loss_check_from: now, budget_changed_at: now,
     product_group_id: from.product_group_id,
   }).select('id').single()
 
-  if (kind === 'graduate') {
-    // Pornirea și-a făcut treaba: se oprește, ca să nu concureze cu PMax pe aceleași produse
-    await run(token, acc, [campaignStatusOp(acc.customer_id, from.google_campaign_id, 'PAUSED')])
-    await supabase.from('ad_campaigns').update({ status: 'ended', paused_reason: 'graduated', updated_at: now }).eq('id', from.id)
-  } else {
-    // Campania de până acum devine „restul": fără produsele de marjă mare, cu ținta grupei ei
-    const restTarget = Number(params.rest_target) || from.target_roas
-    if (restTarget) await run(token, acc, [targetRoasOp(acc.customer_id, from.google_campaign_id, restTarget)])
-    await supabase.from('ad_campaigns').update({
-      segment: 'rest', stage: 'segment', target_roas: restTarget, target_changed_at: now, updated_at: now,
-      daily_budget: Math.max(1, Math.round(((from.daily_budget ?? 10) - daily) * 100) / 100),
-    }).eq('id', from.id)
-    if (from.google_budget_id && from.daily_budget) {
-      await run(token, acc, [budgetOp(acc.customer_id, from.google_budget_id, Math.max(1, from.daily_budget - daily), unit)])
-    }
-    const fresh = { ...from, segment: 'rest' }
-    const all = [...ctx.campaigns.filter(x => x.id !== from.id), fresh, { ...from, id: row?.id ?? 'new', included_item_ids: included, status: 'active' }]
-    await syncCampaignProducts(supabase, token, acc, fresh, plan, all, store.merchant_label_index)
-  }
+  // Pornirea și-a făcut treaba: se oprește, ca să nu concureze cu PMax pe aceleași produse
+  await run(token, acc, [campaignStatusOp(acc.customer_id, from.google_campaign_id, 'PAUSED')])
+  await supabase.from('ad_campaigns').update({ status: 'ended', paused_reason: 'graduated', updated_at: now }).eq('id', from.id)
   return { ...params, new_campaign_id: row?.id ?? null, google_campaign_id: ids.campaign }
 }

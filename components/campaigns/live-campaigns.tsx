@@ -10,7 +10,7 @@ import type { Formats } from '@/components/app/formats'
 
 // =============================================
 // O campanie Hontrio din Google Ads: starea, cifrele pe 30 de zile (din
-// cronul zilnic), ținta, bugetul, și pauza/repornirea cerute de om. Apare în
+// cronul zilnic), bugetul, și pauza/repornirea cerute de om. Apare în
 // fișa campaniei (principala sau o grupă), câte una pentru fiecare campanie
 // Google din spatele ei.
 // =============================================
@@ -34,19 +34,16 @@ export type LiveCampaign = {
   /** De ce e oprită sau încheiată: loss_limit, user, google, graduated, scheduled. */
   paused_reason: string | null
   ended_at: string | null
-  /** Pragul de profit al produselor campaniei (segmentele de marjă și grupele au pragul lor). */
-  break_even: number | null
-  /** Profitul e socotit pe server, pe zi (înainte de împărțirea pe marje, „restul" avea pragul magazinului). */
-  last30: { cost: number; clicks: number; conversions: number; value: number; profit: number | null }
+  last30: { cost: number; clicks: number; conversions: number; value: number }
   /** Pe zi, ultimele 30 de zile. */
-  trend?: { date: string; value: number; profit: number | null }[]
+  trend?: { date: string; value: number; cost: number }[]
 }
 
-/** Felul campaniei, pe scurt (pornirea, PMax, segmentele de marjă, grupele omului). */
+/** Felul campaniei, pe scurt (pornirea, PMax, grupele omului; segmentele vechi apar ca PMax). */
 export function campaignKindKey(c: Pick<LiveCampaign, 'type' | 'segment'>): string {
   if (c.segment === 'group') return c.type === 'shopping' ? 'campaigns.kind_group_shopping' : 'campaigns.kind_group_pmax'
   if (c.type === 'shopping') return 'campaigns.kind_starter'
-  return c.segment === 'high_margin' ? 'campaigns.kind_high_margin' : c.segment === 'rest' ? 'campaigns.kind_rest' : 'campaigns.kind_growth'
+  return 'campaigns.kind_growth'
 }
 
 export const isRunning = (c: Pick<LiveCampaign, 'status'>) => c.status === 'active' || c.status === 'paused'
@@ -55,14 +52,13 @@ export const STATUS_TONE: Record<string, Tone> = { active: 'green', paused: 'amb
 
 type Props = {
   campaign: LiveCampaign
-  breakEven: number | null
   f: Formats
   onChanged: () => Promise<unknown>
   onError: (text: string) => void
 }
 
 /** O campanie din Google Ads, cu starea, cifrele și pauza/repornirea. */
-export function LiveCampaignItem({ campaign: c, breakEven, f, onChanged, onError }: Props) {
+export function LiveCampaignItem({ campaign: c, f, onChanged, onError }: Props) {
   const { t } = useT()
   const [busy, setBusy] = useState(false)
 
@@ -93,14 +89,14 @@ export function LiveCampaignItem({ campaign: c, breakEven, f, onChanged, onError
     return null
   }
 
-  const be = c.break_even ?? breakEven
   const roas = c.last30.cost > 0 ? c.last30.value / c.last30.cost : null
   const note = stateNote()
   const stats = [
     { label: t('campaigns.kpi_spend'), value: f.money.format(c.last30.cost) },
     { label: t('campaigns.kpi_value'), value: f.money.format(c.last30.value) },
-    { label: t('campaigns.kpi_roas'), value: roas === null ? '—' : f.num.format(roas), warn: roas !== null && be !== null && roas < be },
-    { label: t('campaigns.kpi_profit'), value: c.last30.profit === null ? '—' : f.money.format(c.last30.profit), warn: c.last30.profit !== null && c.last30.profit < 0 },
+    // Sub 1, reclamele au costat mai mult decât au adus vânzările
+    { label: t('campaigns.kpi_roas'), value: roas === null ? '—' : f.num.format(roas), warn: roas !== null && roas < 1 },
+    { label: t('campaigns.kpi_conversions'), value: f.num.format(Math.round(c.last30.conversions * 10) / 10) },
   ]
 
   return (
@@ -147,7 +143,6 @@ export function LiveCampaignItem({ campaign: c, breakEven, f, onChanged, onError
               c.daily_budget !== null ? t('campaigns.live_budget', { budget: f.money.format(c.daily_budget) }) : null,
               c.type === 'shopping' && c.cpc_ceiling !== null ? t('campaigns.live_cpc', { cpc: f.money2.format(c.cpc_ceiling) }) : null,
               c.type === 'performance_max' ? (c.target_roas !== null ? t('campaigns.live_target', { roas: f.num.format(c.target_roas) }) : t('campaigns.live_no_target')) : null,
-              be !== null ? t('campaigns.live_break_even', { roas: f.num.format(be) }) : null,
               c.included !== null ? t('campaigns.live_included', { count: c.included }) : t('campaigns.live_excluded', { count: c.excluded }),
             ].filter(Boolean).join(' · ')}
           </p>

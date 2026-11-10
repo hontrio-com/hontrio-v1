@@ -6,7 +6,6 @@ import { motion, useReducedMotion } from 'framer-motion'
 import { ArrowRight, ArrowUpRight, Check, ImageIcon, ShoppingBag, Sparkles, X } from 'lucide-react'
 import { Area, AreaChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { useT } from '@/lib/i18n/context'
-import { translateStored } from '@/lib/i18n/stored'
 import { cn } from '@/lib/utils'
 import { AnimatedList } from '@/components/app/fx/feedback'
 import { Segmented } from '@/components/app/tabs'
@@ -14,7 +13,7 @@ import { Badge } from '@/components/app/badge'
 import { Button, textActionStyles } from '@/components/app/button'
 import { useTimeAgo } from '@/components/app/time'
 import { day, type Formats } from '@/components/app/formats'
-import { KIND_ICON, actionDetail } from '@/components/campaigns/pilot-tab'
+import { KIND_ICON, actionDetail, reasonOf } from '@/components/campaigns/pilot-tab'
 import type { ActionItem } from '@/components/campaigns/types'
 import type { Plan } from '@/lib/campaigns/plan'
 import type { OverviewData } from '@/components/dashboard/types'
@@ -215,7 +214,6 @@ function TopProducts({ data, f, className }: { data: OverviewData; f: Formats; c
       ) : (
         <ol className="divide-y divide-neutral-100 border-t border-neutral-100">
           {data.top_products.map((p, i) => {
-            const margin = p.cost_price !== null && p.price ? Math.round(((p.price - p.cost_price) / p.price) * 100) : null
             return (
               <li key={p.offer_id}>
                 <Link href={`/products?search=${encodeURIComponent(p.title)}`} className="group flex items-center gap-3 px-5 py-3 transition-colors hover:bg-neutral-50/80">
@@ -230,7 +228,6 @@ function TopProducts({ data, f, className }: { data: OverviewData; f: Formats; c
                     <span className="block truncate text-[13.5px] font-medium text-neutral-900">{p.title}</span>
                     <span className="mt-0.5 flex items-center gap-2 text-[12px] text-neutral-500">
                       {p.variant_title ? `${p.variant_title} · ` : ''}{t('catalog.units', { count: Number(p.units) })}
-                      {margin !== null && <span className="rounded-md bg-neutral-100 px-1.5 py-px text-[11px] font-medium text-neutral-600">{t('overview.margin', { pct: String(margin) })}</span>}
                     </span>
                   </span>
                   <span className="hidden w-28 shrink-0 sm:block">
@@ -341,7 +338,7 @@ function PilotCard({ proposals, journal, f, onChanged }: { proposals: ActionItem
                   <div className="min-w-0 flex-1">
                     <p className="text-[13.5px] font-semibold text-neutral-900">{t(`campaigns.kind_action_${a.kind}`)}</p>
                     {detail && <p className="mt-0.5 text-[12.5px] font-medium tabular-nums text-neutral-700">{detail}</p>}
-                    {a.reason && <p className="mt-0.5 line-clamp-2 text-[12px] leading-relaxed text-neutral-500">{translateStored(t, a.reason, num)}</p>}
+                    {reasonOf(t, a.reason, num) && <p className="mt-0.5 line-clamp-2 text-[12px] leading-relaxed text-neutral-500">{reasonOf(t, a.reason, num)}</p>}
                   </div>
                 </div>
                 <div className="mt-3 flex justify-end gap-2">

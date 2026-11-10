@@ -9,8 +9,8 @@ import type { ShopifyOrder, ShopifyShop, ShopifyVariant } from './types'
 // Shopify măsoară fiecare interogare în „puncte": una prea scumpă e refuzată
 // (se reia cu pagini mai mici), iar când găleata e goală se așteaptă cât spune
 // Shopify că se umple la loc. Câmpurile la care Shopify poate refuza accesul
-// (adresa, pentru țara cumpărătorului; costul bucății) sunt opționale: pagina
-// se reia fără ele, iar sincronizarea află asta.
+// (adresa, pentru țara cumpărătorului) sunt opționale: pagina se reia fără
+// ele, iar sincronizarea află asta.
 // =============================================
 
 export const API_VERSION = '2026-07'
@@ -49,7 +49,7 @@ const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
 const VARIANT_FIELDS = `
   legacyResourceId title sku barcode price compareAtPrice availableForSale inventoryQuantity updatedAt
   selectedOptions { name value }
-  inventoryItem { tracked unitCost @include(if: $withCost) { amount } }
+  inventoryItem { tracked }
   media(first: 1) { nodes { preview { image { url } } } }
   product {
     legacyResourceId title handle status vendor productType onlineStoreUrl isGiftCard hasOnlyDefaultVariant updatedAt
@@ -67,7 +67,7 @@ const QUERIES = {
   }`,
   locales: `query Locales { shopLocales(published: true) { locale primary } }`,
   // i18n-ignore: interogare GraphQL, nu text
-  variants: `query Variants($first: Int!, $after: String, $query: String, $withCost: Boolean!) {
+  variants: `query Variants($first: Int!, $after: String, $query: String) {
     productVariants(first: $first, after: $after, query: $query, sortKey: ID) {
       pageInfo { hasNextPage endCursor }
       nodes { ${VARIANT_FIELDS} }
@@ -240,11 +240,10 @@ export class ShopifyApi {
   }
 
   /** Variantele (ofertele), cu produsul lor, în ordinea id-ului: paginile nu se decalează. */
-  async variants(opts: { after: string | null; query?: string; withCost: boolean }): Promise<ShopifyPage<ShopifyVariant> & { costDenied: boolean }> {
+  async variants(opts: { after: string | null; query?: string }): Promise<ShopifyPage<ShopifyVariant>> {
     const r = await this.page<ShopifyVariant>(QUERIES.variants, 'productVariants',
-      { first: VARIANTS_PAGE, after: opts.after, query: opts.query ?? null, withCost: opts.withCost },
-      { flag: 'withCost', fields: ['unitCost'] })
-    return { ...r, costDenied: r.optionalDenied }
+      { first: VARIANTS_PAGE, after: opts.after, query: opts.query ?? null })
+    return { items: r.items, hasNext: r.hasNext, endCursor: r.endCursor }
   }
 
   /** Id-urile produselor care se potrivesc filtrului (ex. modificate de la o dată). */

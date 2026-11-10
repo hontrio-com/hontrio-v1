@@ -50,14 +50,11 @@ export async function POST(request: Request) {
   if (open >= MAX_GROUPS) return NextResponse.json({ error: t('campaigns.group_limit', { max: MAX_GROUPS }) }, { status: 409 })
   const position = Math.max(0, ...(existing ?? []).map(g => Number(g.position) || 0)) + 1
 
-  // Obiectivul implicit e al magazinului (ciorna planului)
-  const { data: draft } = await supabase.from('ad_campaigns').select('goal').eq('store_id', store.id).eq('status', 'draft').maybeSingle()
   const { data: row, error } = await supabase.from('ad_product_groups').insert({
     user_id: userId,
     store_id: store.id,
     name: fields.name,
     rules: fields.rules,
-    goal: fields.goal ?? draft?.goal ?? 'balanced',
     daily_budget: fields.daily_budget ?? null,
     campaign_type: fields.campaign_type ?? 'auto',
     starts_on: fields.starts_on ?? null,
