@@ -3,12 +3,15 @@
 import Link from 'next/link'
 import { useRef } from 'react'
 import { motion, useMotionTemplate, useMotionValue, useReducedMotion, useSpring } from 'framer-motion'
-import { ArrowUp, ArrowUpRight } from 'lucide-react'
-import { useT } from '@/lib/i18n/context'
+import { ArrowUp, ArrowUpRight, Globe } from 'lucide-react'
+import { useLocale } from '@/lib/i18n/context'
+import { LOCALES, LOCALE_NAMES } from '@/lib/i18n/config'
+import { cn } from '@/lib/utils'
 
 // =============================================
 // Subsolul site-ului (ca în CLIPPING): negru, coloanele de linkuri și, jos,
-// logo-ul mare, aprins de o lumină care urmărește cursorul.
+// logo-ul mare, aprins de o lumină care urmărește cursorul. Tot aici se
+// schimbă limba (antetul rămâne curat).
 // =============================================
 
 const BRANDS = ['Edinio', 'WooCommerce', 'Shopify', 'Google Ads', 'Merchant Center'] // i18n-ignore: nume de produse
@@ -16,8 +19,24 @@ const LOGO_MASK = '[mask-image:url(/logo-black.png)] [mask-position:center] [mas
 // Anul, o dată la încărcare (nu la fiecare randare)
 const YEAR = String(new Date().getFullYear())
 
+/** Română | English. Alegerea se ține minte și pagina se reîncarcă în limba nouă. */
+function LanguageSwitch() {
+  const { locale, setLocale, t } = useLocale()
+  return (
+    <div role="group" aria-label={t('common.language_change')} className="flex items-center gap-1 rounded-full border border-white/10 p-1">
+      <Globe aria-hidden className="ml-1.5 mr-0.5 size-3.5 text-white/40" />
+      {LOCALES.map(l => (
+        <button key={l} type="button" lang={l} onClick={() => setLocale(l)} aria-pressed={l === locale}
+          className={cn('rounded-full px-2.5 py-1 transition-colors', l === locale ? 'bg-white text-black' : 'text-white/60 hover:text-white')}>
+          {LOCALE_NAMES[l]}
+        </button>
+      ))}
+    </div>
+  )
+}
+
 export function SiteFooter() {
-  const { t } = useT()
+  const { t } = useLocale()
   const reduce = useReducedMotion()
   const ref = useRef<HTMLDivElement>(null)
   const mx = useSpring(useMotionValue(50), { stiffness: 120, damping: 20 })
@@ -97,10 +116,13 @@ export function SiteFooter() {
 
         <div className="flex flex-col items-center justify-between gap-4 py-6 text-xs text-white/40 md:flex-row">
           <span>{t('site.footer_rights', { year: YEAR })}</span>
-          <button type="button" onClick={() => window.scrollTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' })}
-            className="group flex items-center gap-2 rounded-full border border-white/10 px-3 py-1.5 text-white/60 transition hover:border-white/30 hover:text-white">
-            {t('site.footer_top')}<ArrowUp className="size-3.5 transition group-hover:-translate-y-0.5" />
-          </button>
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            <LanguageSwitch />
+            <button type="button" onClick={() => window.scrollTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' })}
+              className="group flex items-center gap-2 rounded-full border border-white/10 px-3 py-1.5 text-white/60 transition hover:border-white/30 hover:text-white">
+              {t('site.footer_top')}<ArrowUp className="size-3.5 transition group-hover:-translate-y-0.5" />
+            </button>
+          </div>
         </div>
       </div>
 
