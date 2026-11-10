@@ -11,7 +11,8 @@ import { SectionHeader } from './section'
 // =============================================
 // Cum funcționează: cei patru pași, fiecare cu ecranul real din aplicație
 // (capturi din contul demonstrativ: magazinul conectat, Google Ads conectat,
-// pragul de profit din asistentul de lansare, cum lucrează pilotul).
+// bugetul și lansarea din asistent, cum lucrează pilotul). Pe telefon, pasul 3
+// e doar cardul negru, cu colțurile transparente chiar în imagine.
 // Pe calculator, pașii sunt în stânga și ecranul stă fixat în dreapta, pe
 // fundalul aplicației; derularea schimbă pasul. Pe telefon, ecranul stă sub pas.
 // =============================================
@@ -33,8 +34,8 @@ const STEPS: Step[] = [
  * lor în CSS; fișierele sunt 2× (calculator) și 3× (telefon, „-m"). Engleza e în `en/`.
  */
 const SIZES: Record<'ro' | 'en', Record<StepId | `${StepId}-m`, [number, number]>> = {
-  ro: { store: [823, 429], 'store-m': [372, 483], google: [823, 347], 'google-m': [371, 379], plan: [1124, 501], 'plan-m': [316, 233], pilot: [367, 534], 'pilot-m': [371, 502] },
-  en: { store: [823, 429], 'store-m': [372, 435], google: [823, 347], 'google-m': [371, 330], plan: [1124, 501], 'plan-m': [316, 233], pilot: [367, 564], 'pilot-m': [371, 520] },
+  ro: { store: [823, 429], 'store-m': [372, 483], google: [823, 347], 'google-m': [371, 379], plan: [1124, 754], 'plan-m': [316, 273], pilot: [368, 536], 'pilot-m': [370, 501] },
+  en: { store: [823, 429], 'store-m': [372, 435], google: [823, 347], 'google-m': [371, 330], plan: [1124, 777], 'plan-m': [316, 295], pilot: [368, 556], 'pilot-m': [370, 520] },
 }
 
 function useShot() {
@@ -90,7 +91,7 @@ function Stage({ active }: { active: number }) {
             {/* Mărimea din CSS (fișierul e 2×); se micșorează doar dacă nu încape */}
             <Image src={shot(s.id).src} alt={t(`site.how_${s.id}_img`)} width={shot(s.id).size[0]} height={shot(s.id).size[1]} unoptimized
               style={{ width: shot(s.id).size[0], height: shot(s.id).size[1] }}
-              className={cn('max-h-full max-w-full object-contain', s.id === 'plan' && 'rounded-[1.4rem]')} />
+              className="max-h-full max-w-full object-contain" />
           </motion.div>
         ))}
       </div>
@@ -137,7 +138,7 @@ export function HowItWorks() {
               <StepText step={s} index={i} active />
               <div className="mt-6 grid place-items-center rounded-[1.5rem] border border-line bg-[#f7f7f8] p-4">
                 <Image src={shot(s.id, true).src} alt={t(`site.how_${s.id}_img`)} width={shot(s.id, true).size[0]} height={shot(s.id, true).size[1]} unoptimized
-                  className={cn('h-auto w-full max-w-[372px]', s.id === 'plan' && 'rounded-[1.1rem]')} />
+                  className="h-auto w-full max-w-[372px]" />
               </div>
             </li>
           ))}

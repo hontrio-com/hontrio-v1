@@ -33,10 +33,10 @@ export async function generateMetadata(): Promise<Metadata> {
     'Google Shopping magazin online',
     'campanii Performance Max',
     'pilot automat Google Ads',
-    'ROAS prag de profit',
+    'campanii Google Shopping automate',
     'Google Ads automation for ecommerce',
     'Shopping ads management',
-    'break-even ROAS',
+    'Google Shopping autopilot',
   ],
   // i18n-ignore-end
   authors: [{ name: 'Hontrio', url: 'https://hontrio.com' }],

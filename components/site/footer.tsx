@@ -49,7 +49,6 @@ export function SiteFooter() {
       links: [
         { label: t('site.nav_how'), href: '/#how' },
         { label: t('site.nav_features'), href: '/#features' },
-        { label: t('site.nav_calculator'), href: '/#calculator' },
         { label: t('site.nav_faq'), href: '/#faq' },
         { label: t('site.footer_blog'), href: '/blog' },
       ],

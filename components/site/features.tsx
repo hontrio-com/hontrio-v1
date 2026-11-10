@@ -2,7 +2,7 @@
 
 import { useRef, useState, type ReactNode } from 'react'
 import { AnimatePresence, motion, useInView, useReducedMotion } from 'framer-motion'
-import { Check, CircleSlash, Clock, Hourglass, Layers, Lightbulb, PackageX, SearchX, Sparkles, Split, Target, TrendingUp, X } from 'lucide-react'
+import { Check, Clock, Hourglass, Layers, Lightbulb, PackageX, Rocket, SearchX, ShieldAlert, Sparkles, Tag, TrendingUp, X } from 'lucide-react'
 import { useT } from '@/lib/i18n/context'
 import { NumberTicker } from '@/components/app/motion'
 import { cn } from '@/lib/utils'
@@ -12,7 +12,7 @@ import { SectionHeader } from './section'
 // =============================================
 // Funcțiile, ca o grilă de carduri (Magic UI · Bento Grid), fiecare cu o mică
 // interfață vie din aplicație. Lumina de sub cursor e Magic UI · Magic Card.
-// Cifrele din carduri sunt exemple coerente între ele (TVA 21%).
+// Cifrele din carduri sunt exemple coerente între ele.
 // =============================================
 
 function Card({ title, desc, children, className, delay = 0 }: { title: string; desc: string; children: ReactNode; className?: string; delay?: number }) {
@@ -38,31 +38,34 @@ function Card({ title, desc, children, className, delay = 0 }: { title: string; 
   )
 }
 
+/** Produsele unei campanii: ce intră și de ce a ieșit un produs (cheltuiala și ROAS-ul pe 30 de zile). */
 const PRODUCTS = [
-  { key: 'site.feat_product_1', margin: 0.38, status: 'in' },
-  { key: 'site.feat_product_2', margin: 0.38, status: 'in' },
-  { key: 'site.feat_product_3', margin: 0.64, status: 'in' },
-  { key: 'site.feat_product_4', margin: 0.12, status: 'low' },
-  { key: 'site.feat_product_5', margin: 0.63, status: 'out' },
+  { key: 'site.feat_product_1', spend: 120, roas: 7.5, status: 'in' },
+  { key: 'site.feat_product_2', spend: 95, roas: 3.4, status: 'in' },
+  { key: 'site.feat_product_3', spend: null, roas: null, status: 'out' },
+  { key: 'site.feat_product_4', spend: 80, roas: 0, status: 'no_sales' },
+  { key: 'site.feat_product_5', spend: 140, roas: 0.9, status: 'loses' },
 ] as const
 
-function BreakEvenTable() {
+function CampaignProducts() {
   const { t, intlLocale } = useT()
   const one = (n: number) => new Intl.NumberFormat(intlLocale, { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(n)
+  const money = (n: number) => new Intl.NumberFormat(intlLocale, { style: 'currency', currency: 'RON', maximumFractionDigits: 0 }).format(n)
   return (
     <div className="overflow-hidden rounded-2xl border border-line bg-neutral-50/70">
-      <div className="grid grid-cols-[minmax(0,1fr)_52px_52px_auto] gap-3 border-b border-line px-4 py-2.5 text-[11px] font-semibold uppercase tracking-[0.1em] text-neutral-400 sm:grid-cols-[minmax(0,1fr)_64px_64px_118px]">
-        <span>{t('site.feat_col_product')}</span><span className="text-right">{t('site.feat_col_margin')}</span><span className="text-right">{t('site.feat_col_breakeven')}</span><span className="hidden sm:block" />
+      <div className="grid grid-cols-[minmax(0,1fr)_64px_44px_auto] gap-3 border-b border-line px-4 py-2.5 text-[11px] font-semibold uppercase tracking-[0.1em] text-neutral-400 sm:grid-cols-[minmax(0,1fr)_76px_52px_150px]">
+        <span>{t('site.feat_col_product')}</span><span className="text-right">{t('site.feat_col_spend')}</span>
+        <span className="text-right">ROAS</span>{/* i18n-ignore: termen Google Ads */}
+        <span className="hidden sm:block" />
       </div>
       {PRODUCTS.map((p, i) => (
         <motion.div key={p.key} initial={{ opacity: 0, x: -8 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ delay: 0.15 + i * 0.07 }}
-          className={cn('grid grid-cols-[minmax(0,1fr)_52px_52px_auto] items-center gap-3 border-b border-line/70 px-4 py-2.5 text-[13px] last:border-0 sm:grid-cols-[minmax(0,1fr)_64px_64px_118px]',
-            p.status !== 'in' && 'text-neutral-400')}>
+          className="grid grid-cols-[minmax(0,1fr)_64px_44px_auto] items-center gap-3 border-b border-line/70 px-4 py-2.5 text-[13px] last:border-0 sm:grid-cols-[minmax(0,1fr)_76px_52px_150px]">
           <span className={cn('truncate font-medium', p.status === 'in' ? 'text-neutral-900' : 'text-neutral-400')}>{t(p.key)}</span>
-          <span className="text-right tabular-nums">{Math.round(p.margin * 100)}%</span>
-          <span className="text-right font-semibold tabular-nums">{one(1.21 / p.margin)}</span>
+          <span className="text-right tabular-nums text-neutral-600">{p.spend === null ? '—' : money(p.spend)}</span>
+          <span className={cn('text-right font-semibold tabular-nums', p.roas !== null && p.roas < 1 ? 'text-red-600' : 'text-neutral-900')}>{p.roas === null ? '—' : one(p.roas)}</span>
           <span className={cn('col-span-3 justify-self-start rounded-full px-2 py-0.5 text-[11px] font-semibold sm:col-span-1 sm:justify-self-end',
-            p.status === 'in' ? 'bg-black text-white' : 'bg-neutral-200/70 text-neutral-500')}>
+            p.status === 'in' ? 'bg-black text-white' : p.status === 'out' ? 'bg-neutral-200/70 text-neutral-500' : 'bg-amber-50 text-amber-700')}>
             {t(`site.feat_status_${p.status}`)}
           </span>
         </motion.div>
@@ -75,12 +78,13 @@ function PilotModes() {
   const { t } = useT()
   const reduce = useReducedMotion()
   const [mode, setMode] = useState<'approve' | 'auto'>('approve')
+  // Oprirea de siguranță se aplică în ambele moduri; bugetul așteaptă mereu aprobarea omului
   const log = [
-    { icon: SearchX, key: 'site.feat_log_negatives', applied: true },
-    { icon: TrendingUp, key: 'site.feat_log_budget', applied: mode === 'auto' },
-    { icon: PackageX, key: 'site.feat_log_products', applied: true },
-    { icon: Target, key: 'site.feat_log_target', applied: mode === 'auto' },
-    { icon: Split, key: 'site.feat_log_split', applied: true },
+    { icon: ShieldAlert, key: 'site.feat_log_pause', applied: true },
+    { icon: SearchX, key: 'site.feat_log_negatives', applied: mode === 'auto' },
+    { icon: PackageX, key: 'site.feat_log_products', applied: mode === 'auto' },
+    { icon: Rocket, key: 'site.feat_log_graduate', applied: mode === 'auto' },
+    { icon: TrendingUp, key: 'site.feat_log_budget', applied: false },
   ]
   return (
     <div className="flex h-full flex-col">
@@ -171,7 +175,7 @@ function Groups() {
 
 function Rules() {
   const { t } = useT()
-  const rules = ['site.feat_rule_target', 'site.feat_rule_budget', 'site.feat_rule_learning', 'site.feat_rule_loss'] as const
+  const rules = ['site.feat_rule_loss', 'site.feat_rule_products', 'site.feat_rule_budget', 'site.feat_rule_learning'] as const
   return (
     <ul className="space-y-2">
       {rules.map((key, i) => (
@@ -185,8 +189,8 @@ function Rules() {
   )
 }
 
-// Profitul din reclame pe ultimele 8 săptămâni (RON)
-const WEEKS = [380, 520, 610, 560, 690, 740, 820, 905]
+// Vânzările aduse de reclame pe ultimele 8 săptămâni (RON)
+const WEEKS = [1900, 2600, 3050, 2800, 3450, 3700, 4100, 4520]
 
 function Reports() {
   const { t, intlLocale } = useT()
@@ -200,7 +204,7 @@ function Reports() {
       <div className="mt-4 flex h-20 items-end gap-1.5">
         {WEEKS.map((v, i) => (
           <motion.span key={i} className={cn('flex-1 rounded-md', i === WEEKS.length - 1 ? 'bg-black' : 'bg-neutral-300')}
-            initial={{ height: '6%' }} animate={{ height: seen ? `${(v / 905) * 100}%` : '6%' }} transition={{ duration: 0.7, delay: 0.1 + i * 0.06, ease: [0.22, 1, 0.36, 1] }} />
+            initial={{ height: '6%' }} animate={{ height: seen ? `${(v / Math.max(...WEEKS)) * 100}%` : '6%' }} transition={{ duration: 0.7, delay: 0.1 + i * 0.06, ease: [0.22, 1, 0.36, 1] }} />
         ))}
       </div>
     </div>
@@ -210,8 +214,8 @@ function Reports() {
 function Recommendations() {
   const { t } = useT()
   const recs = [
-    { key: 'site.feat_rec_cost', sub: 'site.feat_rec_cost_sub', icon: CircleSlash, tone: 'bg-amber-500' },
     { key: 'site.feat_rec_rejected', sub: 'site.feat_rec_rejected_sub', icon: X, tone: 'bg-amber-500' },
+    { key: 'site.feat_rec_price', sub: 'site.feat_rec_price_sub', icon: Tag, tone: 'bg-amber-500' },
     { key: 'site.feat_rec_gtin', sub: 'site.feat_rec_gtin_sub', icon: Lightbulb, tone: 'bg-neutral-300' },
   ] as const
   return (
@@ -232,11 +236,11 @@ function Recommendations() {
 export function Features() {
   const { t } = useT()
   return (
-    <section id="features" className="scroll-mt-24 border-y border-line bg-neutral-50 px-5 py-24 md:py-32">
+    <section id="features" className="scroll-mt-24 border-b border-line bg-neutral-50 px-5 py-24 md:py-32">
       <div className="mx-auto max-w-6xl">
         <SectionHeader badge={t('site.feat_badge')} icon={<Sparkles />} titleA={t('site.feat_title_a')} titleB={t('site.feat_title_b')} />
         <div className="mt-14 grid grid-cols-1 gap-4 lg:grid-cols-3">
-          <Card className="lg:col-span-2" title={t('site.feat_breakeven_title')} desc={t('site.feat_breakeven_desc')}><BreakEvenTable /></Card>
+          <Card className="lg:col-span-2" title={t('site.feat_products_title')} desc={t('site.feat_products_desc')}><CampaignProducts /></Card>
           <Card className="lg:row-span-2" delay={0.05} title={t('site.feat_pilot_title')} desc={t('site.feat_pilot_desc')}><PilotModes /></Card>
           <Card delay={0.05} title={t('site.feat_groups_title')} desc={t('site.feat_groups_desc')}><Groups /></Card>
           <Card delay={0.1} title={t('site.feat_rules_title')} desc={t('site.feat_rules_desc')}><Rules /></Card>

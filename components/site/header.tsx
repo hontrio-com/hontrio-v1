@@ -19,7 +19,6 @@ import { cn } from '@/lib/utils'
 const NAV = [
   { hash: 'how', key: 'site.nav_how' },
   { hash: 'features', key: 'site.nav_features' },
-  { hash: 'calculator', key: 'site.nav_calculator' },
   { hash: 'faq', key: 'site.nav_faq' },
 ] as const
 
