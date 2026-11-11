@@ -7,31 +7,22 @@ import { useT } from '@/lib/i18n/context'
 import { PageHeader } from '@/components/app/page-header'
 import { Card, CardFooter, CardHeader } from '@/components/app/surface'
 import { Button } from '@/components/app/button'
-import { ChoiceCard, Input, Select, Textarea } from '@/components/app/input'
-import { Segmented } from '@/components/app/tabs'
+import { ChoiceCard, Input, Textarea } from '@/components/app/input'
 import { ConfirmDialog } from '@/components/app/dialog'
 import { FadeIn } from '@/components/app/motion'
-import { usePlanLabel } from '@/components/admin/parts'
 
 // =============================================
-// Anunțuri: o notificare în aplicație către toți oamenii sau către un grup.
-// În dreapta se vede cum arată; trimiterea cere o confirmare, fiindcă nu se
-// mai poate lua înapoi.
+// Anunțuri: o notificare în aplicație către toți oamenii. În dreapta se vede
+// cum arată; trimiterea cere o confirmare, fiindcă nu se mai poate lua înapoi.
 // =============================================
 
 const TYPES = ['info', 'success', 'warning', 'error']
-const TARGETS = ['all', 'paid', 'free', 'plan'] as const
-const PLANS = ['starter', 'professional', 'enterprise']
-type Target = (typeof TARGETS)[number]
 
 export default function BroadcastPage() {
   const { t } = useT()
-  const planLabel = usePlanLabel()
   const [title, setTitle] = useState('')
   const [message, setMessage] = useState('')
   const [type, setType] = useState('info')
-  const [target, setTarget] = useState<Target>('all')
-  const [plan, setPlan] = useState('starter')
   const [confirming, setConfirming] = useState(false)
   const [sending, setSending] = useState(false)
   const ready = !!title.trim() && !!message.trim()
@@ -42,7 +33,7 @@ export default function BroadcastPage() {
       const res = await fetch('/api/admin/broadcast', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, message, type, target, plan: target === 'plan' ? plan : undefined }),
+        body: JSON.stringify({ title, message, type }),
       })
       const data = await res.json()
       if (data.sent) {
@@ -73,18 +64,6 @@ export default function BroadcastPage() {
                 {TYPES.map(v => (
                   <ChoiceCard key={v} active={type === v} onClick={() => setType(v)} title={t(`admin.notif_type_${v}`)} description={t(`admin.broadcast_type_${v}_desc`)} />
                 ))}
-              </div>
-            </div>
-
-            <div>
-              <p className="mb-2 text-[13px] font-medium text-neutral-700">{t('admin.broadcast_recipients')}</p>
-              <div className="flex flex-wrap items-center gap-2">
-                <Select value={target} onChange={e => setTarget(e.target.value as Target)} wrapperClassName="min-w-[220px] flex-1 sm:flex-none">
-                  {TARGETS.map(v => <option key={v} value={v}>{t(`admin.broadcast_target_${v}`)}</option>)}
-                </Select>
-                {target === 'plan' && (
-                  <Segmented id="broadcast-plan" value={plan} onChange={setPlan} items={PLANS.map(p => ({ value: p, label: planLabel(p) }))} />
-                )}
               </div>
             </div>
 

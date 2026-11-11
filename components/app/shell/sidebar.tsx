@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { DropdownMenu } from 'radix-ui'
 import { motion } from 'framer-motion'
-import { Check, ChevronsUpDown, Crown, Languages, LogOut, Megaphone, Plus, Search, Settings, ShoppingBag, Store } from 'lucide-react'
+import { Check, ChevronsUpDown, Languages, LogOut, Megaphone, Plus, Search, Settings, ShoppingBag, Store } from 'lucide-react'
 import { useLocale } from '@/lib/i18n/context'
 import { LOCALES, LOCALE_NAMES } from '@/lib/i18n/config'
 import { cn } from '@/lib/utils'
@@ -28,8 +28,6 @@ type Props = {
   switching: string | null
   onChooseStore: (s: StoreItem) => void
   user: { name: string; email: string; avatarUrl: string | null }
-  credits: number
-  plan: string
   onLogout: () => void
   /** Id unic pentru pastila paginii active (meniul de pe telefon are altul). */
   layoutId: string
@@ -39,7 +37,7 @@ const menuItem = 'flex cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-
 const menuContent = 'app z-50 min-w-[248px] rounded-2xl border border-line bg-white p-1.5 shadow-[0_24px_60px_-20px_rgba(0,0,0,0.3)] data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-[0.98]'
 
 export function Sidebar(p: Props) {
-  const { t, intlLocale } = useLocale()
+  const { t } = useLocale()
   const current = activeItem(p.pathname, p.admin)
 
   return (
@@ -74,8 +72,7 @@ export function Sidebar(p: Props) {
             {g.label && <div className="mb-2 px-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-neutral-400">{t(g.label)}</div>}
             <div className="flex flex-col gap-0.5">
               {g.items.map(item => (
-                <NavLink key={item.href} item={item} label={t(item.label)} active={current?.href === item.href} layoutId={p.layoutId} onNavigate={p.onNavigate}
-                  count={item.href === '/credits' ? new Intl.NumberFormat(intlLocale).format(p.credits) : undefined} />
+                <NavLink key={item.href} item={item} label={t(item.label)} active={current?.href === item.href} layoutId={p.layoutId} onNavigate={p.onNavigate} />
               ))}
             </div>
           </div>
@@ -90,8 +87,8 @@ export function Sidebar(p: Props) {
   )
 }
 
-export function NavLink({ item, label, active, layoutId, onNavigate, count }: {
-  item: NavItem; label: string; active: boolean; layoutId: string; onNavigate: () => void; count?: string
+export function NavLink({ item, label, active, layoutId, onNavigate }: {
+  item: NavItem; label: string; active: boolean; layoutId: string; onNavigate: () => void
 }) {
   return (
     <Link href={item.href} onClick={onNavigate} aria-current={active ? 'page' : undefined}
@@ -103,8 +100,7 @@ export function NavLink({ item, label, active, layoutId, onNavigate, count }: {
       )}
       <item.icon className="relative size-[18px] shrink-0" strokeWidth={active ? 2.2 : 1.8} />
       <span className="relative truncate">{label}</span>
-      {count && !active && <span className="relative ml-auto font-mono text-[11px] text-neutral-400">{count}</span>}
-      {active && <span className="relative ml-auto size-1.5 rounded-full bg-black" />}
+      {active &&<span className="relative ml-auto size-1.5 rounded-full bg-black" />}
     </Link>
   )
 }
@@ -175,7 +171,7 @@ function StoreCard(p: Props) {
   )
 }
 
-/** Contul: inițiala, numele și emailul, cu meniul (setări, limba, abonamentul) și ieșirea. */
+/** Contul: inițiala, numele și emailul, cu meniul (setări, limba) și ieșirea. */
 function UserCard(p: Props) {
   const { t, locale, setLocale } = useLocale()
   const initial = (p.user.name || p.user.email).slice(0, 1).toUpperCase()
@@ -200,12 +196,6 @@ function UserCard(p: Props) {
           <DropdownMenu.Content side="top" align="start" sideOffset={10} className={menuContent}>
             <DropdownMenu.Item asChild className={menuItem}>
               <Link href="/settings" onClick={p.onNavigate}><Settings className="size-4 text-neutral-400" />{t('sidebar.settings')}</Link>
-            </DropdownMenu.Item>
-            <DropdownMenu.Item asChild className={menuItem}>
-              <Link href="/credits" onClick={p.onNavigate}>
-                <Crown className="size-4 text-neutral-400" /><span className="flex-1">{t('common.upgrade_plan')}</span>
-                <span className="font-mono text-[11px] text-neutral-400">{t.has(`credits.plan_${p.plan}`) ? t(`credits.plan_${p.plan}`) : p.plan}</span>
-              </Link>
             </DropdownMenu.Item>
             <DropdownMenu.Sub>
               <DropdownMenu.SubTrigger className={menuItem}>

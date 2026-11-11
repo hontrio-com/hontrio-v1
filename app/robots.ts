@@ -22,8 +22,6 @@ export default function robots(): MetadataRoute.Robots {
         disallow: [
           '/dashboard',
           '/products',
-          '/images',
-          '/credits',
           '/settings',
           '/support',
           '/admin',

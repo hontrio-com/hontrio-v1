@@ -2,11 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
-import { Bell, CheckCircle2, Minus, Plus, Search, Send, Trash2, UserCheck, Users } from 'lucide-react'
+import { Bell, CheckCircle2, Search, Send, Trash2, UserCheck, Users } from 'lucide-react'
 import { useT } from '@/lib/i18n/context'
-import { storedMessage } from '@/lib/i18n/stored'
-import { paidPlan } from '@/lib/billing/catalog'
-import { cn } from '@/lib/utils'
 import { PageHeader } from '@/components/app/page-header'
 import { Card } from '@/components/app/surface'
 import { DataRow } from '@/components/app/kpi'
@@ -20,21 +17,19 @@ import { ConfirmDialog, Modal } from '@/components/app/dialog'
 import { Callout, EmptyState, Skeleton } from '@/components/app/feedback'
 import { FadeIn } from '@/components/app/motion'
 import { useFormats } from '@/components/app/formats'
-import { PlanBadge, UserAvatar, usePlanLabel } from '@/components/admin/parts'
+import { UserAvatar } from '@/components/admin/parts'
 
 // =============================================
-// Utilizatorii: lista lor, cu căutare și filtre. Un rând deschide panoul
-// omului: creditele, planul, rolul, notificările și ștergerea contului.
+// Utilizatorii: lista lor, cu căutare și filtru după rol. Un rând deschide
+// panoul omului: rolul, notificările și ștergerea contului.
 // =============================================
 
 type User = {
   id: string; email: string; name: string | null; role: string
-  credits: number; plan: string; onboarding_completed: boolean; created_at: string
+  onboarding_completed: boolean; created_at: string
 }
 
-const PLANS = ['free', 'starter', 'professional', 'enterprise']
 const ROLES = ['user', 'admin']
-const CREDIT_STEPS = [10, 20, 50, 100, 500]
 
 const post = (url: string, body: unknown) =>
   fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
@@ -96,21 +91,17 @@ function NotifyModal({ onClose, title, description, icon, titlePlaceholder, mess
 export default function AdminUsersPage() {
   const { t, intlLocale } = useT()
   const f = useFormats('USD')
-  const planLabel = usePlanLabel()
   const roleLabel = (role: string) => t.has(`admin.users_role_${role}`) ? t(`admin.users_role_${role}`) : role
 
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
-  const [planFilter, setPlanFilter] = useState('all')
   const [roleFilter, setRoleFilter] = useState('all')
 
   // Panoul unui om
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [sheetOpen, setSheetOpen] = useState(false)
   const [busy, setBusy] = useState('')
-  const [creditAmount, setCreditAmount] = useState('10')
-  const [creditReason, setCreditReason] = useState('')
   const selected = users.find(u => u.id === selectedId) ?? null
 
   // Ferestrele peste panou
@@ -134,47 +125,14 @@ export default function AdminUsersPage() {
     const q = search.toLowerCase()
     return users.filter(u =>
       (!q || u.email.toLowerCase().includes(q) || (u.name ?? '').toLowerCase().includes(q)) &&
-      (planFilter === 'all' || u.plan === planFilter) &&
       (roleFilter === 'all' || u.role === roleFilter))
-  }, [users, search, planFilter, roleFilter])
+  }, [users, search, roleFilter])
 
   const patchUser = (id: string, patch: Partial<User>) => setUsers(prev => prev.map(u => u.id === id ? { ...u, ...patch } : u))
 
   const openUser = (user: User) => {
     setSelectedId(user.id)
     setSheetOpen(true)
-    setCreditAmount('10')
-    setCreditReason('')
-  }
-
-  const changeCredits = async (user: User, sign: 1 | -1) => {
-    const amount = parseInt(creditAmount)
-    if (!amount) return
-    const failed = t(sign > 0 ? 'admin.users_add_credits_error' : 'admin.users_remove_credits_error')
-    setBusy(sign > 0 ? 'addCredits' : 'removeCredits')
-    try {
-      const res = await post('/api/admin/users/credits', {
-        user_id: user.id,
-        amount: sign * amount,
-        reason: creditReason || storedMessage(sign > 0 ? 'admin.users_reason_added' : 'admin.users_reason_removed'),
-      })
-      const data = await res.json()
-      if (!res.ok) { toast.error(data.error || failed); return }
-      toast.success(t(sign > 0 ? 'admin.users_credits_added' : 'admin.users_credits_removed', { count: amount }))
-      patchUser(user.id, { credits: Math.max(0, user.credits + sign * amount) })
-      if (sign > 0) { setCreditAmount('10'); setCreditReason('') }
-    } catch { toast.error(failed) } finally { setBusy('') }
-  }
-
-  const changePlan = async (user: User, plan: string) => {
-    setBusy(`plan-${plan}`)
-    try {
-      const res = await post('/api/admin/users/plan', { user_id: user.id, plan })
-      const data = await res.json()
-      if (!res.ok) { toast.error(data.error || t('admin.users_change_plan_error')); return }
-      toast.success(t('admin.users_plan_changed', { plan: planLabel(plan) }))
-      patchUser(user.id, { plan })
-    } catch { toast.error(t('admin.users_change_plan_error')) } finally { setBusy('') }
   }
 
   const changeRole = async (user: User, role: string) => {
@@ -215,12 +173,6 @@ export default function AdminUsersPage() {
     }
   }
 
-  // Ce primește fiecare plan pe lună, din lib/billing/catalog.ts
-  const planNote = (plan: string) => {
-    const q = paidPlan(plan)
-    return q ? t('admin.users_plan_quota', { credits: q.credits, price: q.priceUsd }) : t('admin.users_plan_free_quota', { count: 20 })
-  }
-
   return (
     <FadeIn className="space-y-6">
       <PageHeader title={t('admin.nav_users')} description={t('admin.users_registered_count', { count: users.length })}
@@ -228,10 +180,6 @@ export default function AdminUsersPage() {
 
       <div className="flex flex-col gap-2 sm:flex-row">
         <Input icon={<Search />} wrapperClassName="flex-1" value={search} onChange={e => setSearch(e.target.value)} placeholder={t('admin.users_search_placeholder')} />
-        <Select value={planFilter} onChange={e => setPlanFilter(e.target.value)} wrapperClassName="sm:w-44" aria-label={t('common.plan')}>
-          <option value="all">{t('common.plan')}: {t('common.all')}</option>
-          {PLANS.map(p => <option key={p} value={p}>{planLabel(p)}</option>)}
-        </Select>
         <Select value={roleFilter} onChange={e => setRoleFilter(e.target.value)} wrapperClassName="sm:w-40" aria-label={t('admin.users_role')}>
           <option value="all">{t('admin.users_role')}: {t('common.all')}</option>
           {ROLES.map(r => <option key={r} value={r}>{roleLabel(r)}</option>)}
@@ -248,8 +196,6 @@ export default function AdminUsersPage() {
             <thead>
               <tr>
                 <Th>{t('admin.users_role_user')}</Th>
-                <Th>{t('common.plan')}</Th>
-                <Th align="right">{t('common.credits_label')}</Th>
                 <Th className="hidden md:table-cell">{t('admin.users_registered')}</Th>
                 <Th><span className="sr-only">{t('admin.actions')}</span></Th>
               </tr>
@@ -269,8 +215,6 @@ export default function AdminUsersPage() {
                       </div>
                     </div>
                   </Td>
-                  <Td><PlanBadge plan={user.plan} /></Td>
-                  <Td align="right" className="text-neutral-700">{user.credits}</Td>
                   <Td className="hidden whitespace-nowrap text-neutral-500 md:table-cell">{f.date.format(new Date(user.created_at))}</Td>
                   <Td align="right">
                     <Button size="icon" variant="ghost" title={t('admin.send_notification')} aria-label={t('admin.send_notification')}
@@ -292,61 +236,6 @@ export default function AdminUsersPage() {
             <SheetHeader title={selected.name || t('admin.users_no_name')} description={selected.email} onClose={() => setSheetOpen(false)}
               icon={<span className="text-[15px] font-semibold">{(selected.name?.[0] ?? selected.email[0]).toUpperCase()}</span>} />
             <div className="flex-1 space-y-6 overflow-y-auto px-6 py-5">
-              <div className="grid grid-cols-3 gap-2">
-                <div className="rounded-xl bg-neutral-50 p-3 text-center ring-1 ring-neutral-200/60">
-                  <p className="text-[18px] font-semibold tabular-nums text-neutral-950">{selected.credits}</p>
-                  <p className="mt-0.5 text-[12px] text-neutral-500">{t('common.credits_label')}</p>
-                </div>
-                <div className="rounded-xl bg-neutral-50 p-3 text-center ring-1 ring-neutral-200/60">
-                  <PlanBadge plan={selected.plan} />
-                  <p className="mt-1 text-[12px] text-neutral-500">{t('common.plan')}</p>
-                </div>
-                <div className="rounded-xl bg-neutral-50 p-3 text-center ring-1 ring-neutral-200/60">
-                  <Badge tone={selected.role === 'admin' ? 'brand' : 'neutral'}>{roleLabel(selected.role)}</Badge>
-                  <p className="mt-1 text-[12px] text-neutral-500">{t('admin.users_role')}</p>
-                </div>
-              </div>
-
-              <section>
-                <Heading>{t('admin.users_manage_credits')}</Heading>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label htmlFor="credit-amount" className="mb-1.5 block text-[12px] text-neutral-500">{t('admin.users_amount')}</label>
-                    <Input id="credit-amount" type="number" min="1" value={creditAmount} onChange={e => setCreditAmount(e.target.value)} />
-                  </div>
-                  <div>
-                    <label htmlFor="credit-reason" className="mb-1.5 block text-[12px] text-neutral-500">{t('admin.users_reason_optional')}</label>
-                    <Input id="credit-reason" value={creditReason} onChange={e => setCreditReason(e.target.value)} placeholder={t('admin.users_reason_placeholder')} />
-                  </div>
-                </div>
-                <div className="mt-2 flex gap-1">
-                  {CREDIT_STEPS.map(n => (
-                    <button key={n} onClick={() => setCreditAmount(String(n))}
-                      className={cn('h-7 flex-1 rounded-md text-[12px] font-medium tabular-nums transition-colors', creditAmount === String(n) ? 'bg-neutral-900 text-white' : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200')}>
-                      {n}
-                    </button>
-                  ))}
-                </div>
-                <div className="mt-3 flex gap-2">
-                  <Button variant="primary" className="flex-1" loading={busy === 'addCredits'} disabled={!creditAmount} onClick={() => changeCredits(selected, 1)}>
-                    {busy !== 'addCredits' && <Plus />}{t('common.add')}
-                  </Button>
-                  <Button variant="danger" className="flex-1" loading={busy === 'removeCredits'} disabled={!creditAmount} onClick={() => changeCredits(selected, -1)}>
-                    {busy !== 'removeCredits' && <Minus />}{t('admin.users_remove')}
-                  </Button>
-                </div>
-              </section>
-
-              <section>
-                <Heading>{t('admin.users_change_plan')}</Heading>
-                <div className="grid grid-cols-2 gap-2">
-                  {PLANS.map(plan => (
-                    <ChoiceCard key={plan} active={selected.plan === plan} disabled={busy === `plan-${plan}`} onClick={() => { if (selected.plan !== plan) changePlan(selected, plan) }}
-                      title={planLabel(plan)} description={planNote(plan)} />
-                  ))}
-                </div>
-              </section>
-
               <section>
                 <Heading>{t('admin.users_change_role')}</Heading>
                 <div className="grid grid-cols-2 gap-2">
@@ -404,7 +293,6 @@ export default function AdminUsersPage() {
           <ul className="list-inside list-disc">
             <li>{t('admin.users_delete_item_account')}</li>
             <li>{t('admin.users_delete_item_products')}</li>
-            <li>{t('admin.users_delete_item_history')}</li>
             <li>{t('admin.users_delete_item_stores')}</li>
             <li>{t('admin.users_delete_item_notifications')}</li>
           </ul>

@@ -60,7 +60,7 @@ export default function HealthPage() {
       )}
 
       {loading && !data ? (
-        <Card className="space-y-3 p-5">{[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-12" />)}</Card>
+        <Card className="space-y-3 p-5">{[1, 2].map(i => <Skeleton key={i} className="h-12" />)}</Card>
       ) : (
         <Card className="divide-y divide-neutral-100 overflow-hidden">
           {checks.map(check => (

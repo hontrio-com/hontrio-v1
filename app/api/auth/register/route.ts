@@ -65,7 +65,8 @@ export async function POST(request: Request) {
       email: authData.user.email!,
       name,
       role: 'user',
-      credits: 20,
+      // Creditele erau pentru imaginile AI, scoase din Hontrio: contul nou pornește cu 0
+      credits: 0,
       plan: 'free',
       onboarding_completed: false,
     })

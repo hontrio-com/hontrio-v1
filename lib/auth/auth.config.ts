@@ -19,7 +19,7 @@ async function ensureUserProfile(params: {
 
   const { data: existing } = await supabase
     .from('users')
-    .select('id, name, role, plan, credits, onboarding_completed, ui_locale')
+    .select('id, name, role, onboarding_completed, ui_locale')
     .eq('id', params.id)
     .maybeSingle()
 
@@ -35,7 +35,8 @@ async function ensureUserProfile(params: {
       name: params.name || params.email.split('@')[0],
       avatar_url: params.avatar_url || null,
       role: 'user',
-      credits: 20,
+      // Creditele erau pentru imaginile AI, scoase din Hontrio: contul nou pornește cu 0
+      credits: 0,
       plan: 'free',
       onboarding_completed: false,
     })
@@ -91,8 +92,6 @@ export const authOptions: NextAuthOptions = {
           email: data.user.email!,
           name: profile?.name || null,
           role: profile?.role || 'user',
-          plan: profile?.plan || 'free',
-          credits: profile?.credits || 20,
           onboarding_completed: profile?.onboarding_completed || false,
           ui_locale: profile?.ui_locale ?? null,
         }
@@ -159,8 +158,6 @@ export const authOptions: NextAuthOptions = {
             token.id = profile.id
             token.name = profile.name || user.name || 'User'
             token.role = profile.role || 'user'
-            token.plan = profile.plan || 'free'
-            token.credits = profile.credits || 20
             token.onboardingCompleted = profile.onboarding_completed || false
             token.locale = profile.ui_locale ?? null
           }
@@ -168,8 +165,6 @@ export const authOptions: NextAuthOptions = {
           token.id = user.id
           token.name = (user as any).name || 'User'
           token.role = (user as any).role
-          token.plan = (user as any).plan
-          token.credits = (user as any).credits
           token.onboardingCompleted = (user as any).onboarding_completed || false
           token.locale = (user as any).ui_locale ?? null
         }
@@ -188,15 +183,13 @@ export const authOptions: NextAuthOptions = {
             const supabase = createAdminClient()
             const { data: profile } = await supabase
               .from('users')
-              .select('name, role, plan, credits, onboarding_completed, ui_locale')
+              .select('name, role, onboarding_completed, ui_locale')
               .eq('id', token.id as string)
               .maybeSingle()
 
             if (profile) {
               token.name = profile.name || token.name || 'User'
               token.role = profile.role || 'user'
-              token.plan = profile.plan || 'free'
-              token.credits = profile.credits ?? token.credits
               token.onboardingCompleted = profile.onboarding_completed ?? token.onboardingCompleted
               // Limba aleasă în cont (o folosește interfața pe dispozitivele fără alegere)
               token.locale = profile.ui_locale ?? null
@@ -216,8 +209,6 @@ export const authOptions: NextAuthOptions = {
         session.user.name = (token.name as string) || 'User'
         ;(session.user as any).id = token.id
         ;(session.user as any).role = token.role
-        ;(session.user as any).plan = token.plan
-        ;(session.user as any).credits = token.credits
         ;(session.user as any).onboardingCompleted = token.onboardingCompleted
         ;(session.user as any).locale = token.locale ?? null
       }

@@ -12,8 +12,6 @@ import auth from './auth.json'
 import onboarding from './onboarding.json'
 import dashboard from './dashboard.json'
 import products from './products.json'
-import images from './images.json'
-import credits from './credits.json'
 import settings from './settings.json'
 import support from './support.json'
 import notifications from './notifications.json'
@@ -27,6 +25,6 @@ import wizard from './wizard.json'
 import home from './home.json'
 import site from './site.json'
 
-const messages = { common, google_ads, edinio, catalog, overview, recs, campaigns, sidebar, auth, onboarding, dashboard, products, images, credits, settings, support, notifications, admin, api, sync, email, marketing, reports, wizard, home, site }
+const messages = { common, google_ads, edinio, catalog, overview, recs, campaigns, sidebar, auth, onboarding, dashboard, products, settings, support, notifications, admin, api, sync, email, marketing, reports, wizard, home, site }
 
 export default messages

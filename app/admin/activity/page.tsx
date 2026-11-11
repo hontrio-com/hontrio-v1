@@ -1,6 +1,6 @@
 'use client'
 
-import { Activity, CreditCard, FileText, ImageIcon, RefreshCw, Send, Store, UserPlus, type LucideIcon } from 'lucide-react'
+import { Activity, RefreshCw, Store, UserPlus, type LucideIcon } from 'lucide-react'
 import { useT } from '@/lib/i18n/context'
 import { PageHeader } from '@/components/app/page-header'
 import { Card, Section } from '@/components/app/surface'
@@ -23,10 +23,6 @@ const ICONS: Record<string, LucideIcon> = {
   user_registered: UserPlus,
   store_connected: Store,
   products_synced: RefreshCw,
-  text_generated: FileText,
-  image_generated: ImageIcon,
-  product_published: Send,
-  credits_added: CreditCard,
 }
 
 export default function AdminActivityPage() {

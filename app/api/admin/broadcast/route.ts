@@ -5,7 +5,6 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { getT } from '@/lib/i18n/server'
 
 const VALID_TYPES = ['info', 'warning', 'success', 'error']
-const VALID_TARGETS = ['all', 'plan', 'paid', 'free']
 
 export async function POST(req: Request) {
   const t = await getT()
@@ -14,19 +13,14 @@ export async function POST(req: Request) {
     if (!session?.user || (session.user as any).role !== 'admin') {
       return NextResponse.json({ error: t('api.forbidden') }, { status: 403 })
     }
-    const { title, message, type = 'info', target = 'all', plan } = await req.json()
+    const { title, message, type = 'info' } = await req.json()
     if (!title || !message) return NextResponse.json({ error: t('api.title_message_required') }, { status: 400 })
 
     if (!VALID_TYPES.includes(type)) return NextResponse.json({ error: t('api.invalid_type') }, { status: 400 })
-    if (!VALID_TARGETS.includes(target)) return NextResponse.json({ error: t('api.invalid_target') }, { status: 400 })
 
+    // Anunțul merge la toți (planurile vechi, după care se putea alege, nu mai există)
     const supabase = createAdminClient()
-    let query = supabase.from('users').select('id')
-    if (target === 'plan' && plan) query = query.eq('plan', plan)
-    else if (target === 'paid') query = query.neq('plan', 'free')
-    else if (target === 'free') query = query.eq('plan', 'free')
-
-    const { data: users } = await query
+    const { data: users } = await supabase.from('users').select('id')
     if (!users?.length) return NextResponse.json({ error: t('api.no_users_found') }, { status: 400 })
 
     // Insert notification for each user

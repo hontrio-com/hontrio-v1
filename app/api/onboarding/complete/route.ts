@@ -3,13 +3,11 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/auth.config'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { rateLimitExpensive } from '@/lib/security/rate-limit'
-import { sanitizeText } from '@/lib/security/validate-url'
 import { getT } from '@/lib/i18n/server'
 
 // =============================================
-// POST /api/onboarding/complete — marchează onboarding-ul ca terminat.
-// Planul și creditele nu se ating aici: contul le primește la înregistrare,
-// iar planurile plătite vin doar prin Stripe.
+// POST /api/onboarding/complete — marchează onboarding-ul ca terminat și
+// păstrează când și-a dat omul acordul (GDPR).
 // =============================================
 
 export async function POST(request: Request) {
@@ -42,37 +40,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: t('api.onboarding_already_done') }, { status: 400 })
     }
 
-    // Sanitize & validate business info
     const updateData: Record<string, unknown> = {
       onboarding_completed: true,
       updated_at: new Date().toISOString(),
     }
 
-    if (body.businessName) {
-      updateData.business_name = sanitizeText(body.businessName, 100)
-    }
-    if (body.website) {
-      updateData.website = sanitizeText(body.website, 200)
-    }
-    if (body.niche) {
-      updateData.niche = sanitizeText(body.niche, 100)
-    }
-    if (body.tone && ['professional', 'friendly', 'luxury', 'casual'].includes(body.tone)) {
-      updateData.brand_tone = body.tone
-    }
-    if (body.language && ['ro', 'en', 'de', 'fr', 'hu', 'bg'].includes(body.language)) {
-      updateData.brand_language = body.language
-    }
-    if (body.country) {
-      updateData.preferences = { country: sanitizeText(body.country, 50) }
-    }
-
-    // GDPR consent timestamp
+    // Momentul acordului GDPR
     if (body.gdprConsent) {
-      updateData.preferences = {
-        ...(updateData.preferences || {}),
-        gdpr_consent_at: new Date().toISOString(),
-      }
+      updateData.preferences = { gdpr_consent_at: new Date().toISOString() }
     }
 
     const { error } = await supabase

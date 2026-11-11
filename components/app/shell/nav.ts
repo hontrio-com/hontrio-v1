@@ -1,5 +1,5 @@
 import {
-  BarChart3, CreditCard, LayoutDashboard, LifeBuoy, Lightbulb, Megaphone, Package, Settings, Shield, BookOpen, ImageIcon, Sparkles,
+  BarChart3, LayoutDashboard, LifeBuoy, Lightbulb, Megaphone, Package, Settings, Shield, BookOpen,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -31,7 +31,6 @@ export const NAV: NavGroup[] = [
     label: 'sidebar.section_account',
     items: [
       { label: 'sidebar.settings', href: '/settings', icon: Settings, keywords: ['setari', 'settings', 'profil', 'integrari', 'google ads', 'merchant'] },
-      { label: 'sidebar.subscription', href: '/credits', icon: CreditCard, keywords: ['credite', 'abonament', 'plan', 'upgrade', 'factura'] },
       { label: 'sidebar.support', href: '/support', icon: LifeBuoy, keywords: ['suport', 'support', 'ajutor', 'tichet'] },
     ],
   },
@@ -43,12 +42,6 @@ export const NAV: NavGroup[] = [
       { label: 'sidebar.blog', href: '/admin/blog', icon: BookOpen },
     ],
   },
-]
-
-/** Pagini care nu sunt în meniu, dar se găsesc din căutare. */
-export const EXTRA_PAGES: NavItem[] = [
-  { label: 'sidebar.ai_images', href: '/images', icon: ImageIcon, keywords: ['imagini', 'images', 'foto'] },
-  { label: 'sidebar.brand_settings', href: '/settings?tab=brand', icon: Sparkles, keywords: ['brand', 'ton', 'nisa'] },
 ]
 
 /** Pagina din meniu în care e omul acum (cea mai lungă potrivire de adresă). */

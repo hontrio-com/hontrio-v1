@@ -4,7 +4,7 @@ import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
 
 // =============================================
-// Cât s-a făcut dintr-un drum (pașii de pregătire, creditele): un inel cu
+// Cât s-a făcut dintr-un drum (de exemplu pașii de pregătire): un inel cu
 // procentul în mijloc sau o bară subțire. Se umplu cu o animație scurtă.
 // =============================================
 

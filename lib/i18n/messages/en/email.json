@@ -1,13 +1,9 @@
 {
-  "footer_tagline": "AI Growth Engine for eCommerce",
+  "footer_tagline": "Google Shopping campaigns, built and looked after every day",
   "welcome_subject": "Welcome to Hontrio!",
   "welcome_title": "Welcome, {{name}}!",
-  "welcome_intro": "Your account has been created. You've received 20 free credits to try every feature of the platform.",
+  "welcome_intro": "Your account is ready. In a few minutes you can set up your first Google Shopping campaign.",
   "welcome_next_title": "What you can do now:",
-  "welcome_step_connect": "Connect your WooCommerce store",
-  "welcome_step_sync": "Sync your products automatically",
-  "welcome_step_generate": "Generate text and images with AI",
-  "welcome_step_publish": "Publish optimized products back to your store",
   "welcome_cta": "Go to your dashboard",
   "reset_subject": "Reset your password — Hontrio",
   "reset_title": "Reset your password",
@@ -27,5 +23,9 @@
   "escalation_footer": "Automated notification from Hontrio",
   "roadmap_subject": "Roadmap suggestion — {{email}}",
   "roadmap_email_label": "Email:",
-  "roadmap_suggestion_label": "Suggestion:"
+  "roadmap_suggestion_label": "Suggestion:",
+  "welcome_step_store": "Connect your store: Edinio, WooCommerce or Shopify",
+  "welcome_step_google": "Connect your Google Ads account",
+  "welcome_step_tracking": "Check your products in Merchant Center and sales tracking",
+  "welcome_step_launch": "Choose a daily budget and launch the campaign"
 }

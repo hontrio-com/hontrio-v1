@@ -24,7 +24,7 @@ export async function GET() {
     const supabase = createAdminClient()
     const { data: user, error } = await supabase
       .from('users')
-      .select('id, email, name, role, plan, credits, onboarding_completed, avatar_url, created_at')
+      .select('id, email, name, role, onboarding_completed, avatar_url, created_at')
       .eq('id', userId)
       .maybeSingle()
 
@@ -43,11 +43,12 @@ export async function GET() {
           email: (session.user as any).email || '',
           name: session.user.name || t('api.default_user_name'),
           role: 'user',
-          credits: 20,
+          // Creditele erau pentru imaginile AI, scoase din Hontrio: contul nou pornește cu 0
+          credits: 0,
           plan: 'free',
           onboarding_completed: false,
         })
-        .select('id, email, name, role, plan, credits, onboarding_completed, avatar_url, created_at')
+        .select('id, email, name, role, onboarding_completed, avatar_url, created_at')
         .single()
 
       if (createErr || !newUser) {
@@ -56,8 +57,6 @@ export async function GET() {
 
       return NextResponse.json({
         user: newUser,
-        credits: newUser.credits,
-        plan: newUser.plan,
         role: newUser.role,
         name: newUser.name,
         email: newUser.email,
@@ -67,8 +66,6 @@ export async function GET() {
 
     return NextResponse.json({
       user,
-      credits: user.credits,
-      plan: user.plan,
       role: user.role,
       name: user.name,
       email: user.email,

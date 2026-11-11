@@ -1,5 +1,5 @@
 import {
-  Activity, AlertTriangle, BarChart3, BookOpen, DollarSign, Hash, MessageSquare, Send, Tag, TrendingUp, Users, Wifi,
+  Activity, BarChart3, BookOpen, Hash, MessageSquare, Send, Tag, TrendingUp, Users, Wifi,
 } from 'lucide-react'
 import type { NavItem } from '@/components/app/shell/nav'
 
@@ -14,7 +14,6 @@ export const ADMIN_NAV: { label: string; items: NavItem[] }[] = [
     items: [
       { label: 'admin.nav_stats', href: '/admin/stats', icon: BarChart3 },
       { label: 'admin.nav_financial', href: '/admin/financial', icon: TrendingUp },
-      { label: 'admin.nav_costs', href: '/admin/costs', icon: DollarSign },
     ],
   },
   {
@@ -38,7 +37,6 @@ export const ADMIN_NAV: { label: string; items: NavItem[] }[] = [
     items: [
       { label: 'admin.nav_activity', href: '/admin/activity', icon: Activity },
       { label: 'admin.nav_health', href: '/admin/health', icon: Wifi },
-      { label: 'admin.nav_errors', href: '/admin/errors', icon: AlertTriangle },
     ],
   },
 ]

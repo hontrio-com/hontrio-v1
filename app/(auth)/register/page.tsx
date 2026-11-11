@@ -5,7 +5,7 @@ import { useT } from '@/lib/i18n/context'
 import { signIn } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Mail, Lock, User, ArrowRight, Zap } from 'lucide-react'
+import { Mail, Lock, User, ArrowRight } from 'lucide-react'
 import { AuthCard, AuthField, AuthToast, GoogleButton, OrDivider, PasswordField, SubmitButton, type AuthNotice } from '@/components/auth/ui'
 
 export default function RegisterPage() {
@@ -49,10 +49,6 @@ export default function RegisterPage() {
       <AuthCard title={t('auth.create_account')} description={t('auth.create_desc')}
         footer={<>{t('auth.have_account')}{' '}<Link href="/login" className="font-semibold text-black hover:underline underline-offset-4">{t('auth.sign_in_link')}</Link></>}
         note={<>{t('auth.terms_agree')}{' '}<Link href="#" className="underline hover:text-neutral-600">{t('auth.terms')}</Link>{' '}{t('auth.and')}{' '}<Link href="#" className="underline hover:text-neutral-600">{t('auth.privacy')}</Link></>}>
-        <p className="-mt-2 mb-5 inline-flex items-center gap-1.5 rounded-full border border-line bg-neutral-50 px-3 py-1 text-[12px] font-medium text-neutral-600">
-          <Zap className="size-3.5 text-black" />{t('auth.free_credits')}
-        </p>
-
         <GoogleButton onClick={handleGoogle} loading={gLoading}>{t('auth.continue_google')}</GoogleButton>
         <OrDivider>{t('auth.or')}</OrDivider>
 

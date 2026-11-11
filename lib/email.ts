@@ -87,10 +87,10 @@ export function buildWelcomeEmail(name: string, locale: Locale): EmailContent {
     <p style="font-size:14px;color:#737373;text-align:center;margin:0 0 24px;line-height:1.6">${t('email.welcome_intro')}</p>
     <div style="background:#fafafa;border-radius:8px;padding:16px;margin-bottom:24px">
       <p style="font-size:13px;color:#525252;margin:0 0 12px;font-weight:600">${t('email.welcome_next_title')}</p>
-      <p style="font-size:13px;color:#737373;margin:0 0 6px">1. ${t('email.welcome_step_connect')}</p>
-      <p style="font-size:13px;color:#737373;margin:0 0 6px">2. ${t('email.welcome_step_sync')}</p>
-      <p style="font-size:13px;color:#737373;margin:0 0 6px">3. ${t('email.welcome_step_generate')}</p>
-      <p style="font-size:13px;color:#737373;margin:0">4. ${t('email.welcome_step_publish')}</p>
+      <p style="font-size:13px;color:#737373;margin:0 0 6px">1. ${t('email.welcome_step_store')}</p>
+      <p style="font-size:13px;color:#737373;margin:0 0 6px">2. ${t('email.welcome_step_google')}</p>
+      <p style="font-size:13px;color:#737373;margin:0 0 6px">3. ${t('email.welcome_step_tracking')}</p>
+      <p style="font-size:13px;color:#737373;margin:0">4. ${t('email.welcome_step_launch')}</p>
     </div>
     <div style="text-align:center">
       <a href="${APP_URL}/dashboard" style="display:inline-block;background:#171717;color:#ffffff;font-size:14px;font-weight:500;padding:12px 32px;border-radius:8px;text-decoration:none">${t('email.welcome_cta')}</a>

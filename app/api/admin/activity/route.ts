@@ -3,7 +3,11 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/auth.config'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getT } from '@/lib/i18n/server'
-import { translateStored } from '@/lib/i18n/stored'
+
+// =============================================
+// GET /api/admin/activity — ce s-a întâmplat ultima oară pe platformă:
+// conturi noi, magazine conectate și sincronizările lor.
+// =============================================
 
 export async function GET() {
   const t = await getT()
@@ -15,31 +19,10 @@ export async function GET() {
 
     const supabase = createAdminClient()
 
-    // Fetch recent data from multiple tables in parallel
-    const [usersRes, transactionsRes, imagesRes, productsRes, jobsRes, storesRes] = await Promise.all([
+    const [usersRes, storesRes] = await Promise.all([
       supabase
         .from('users')
         .select('id, email, name, created_at')
-        .order('created_at', { ascending: false })
-        .limit(20),
-      supabase
-        .from('credit_transactions')
-        .select('id, user_id, type, amount, description, reference_type, created_at')
-        .order('created_at', { ascending: false })
-        .limit(30),
-      supabase
-        .from('generated_images')
-        .select('id, user_id, style, status, created_at')
-        .order('created_at', { ascending: false })
-        .limit(20),
-      supabase
-        .from('products')
-        .select('id, user_id, original_title, optimized_title, status, created_at, updated_at, published_at')
-        .order('updated_at', { ascending: false })
-        .limit(20),
-      supabase
-        .from('generation_jobs')
-        .select('id, user_id, type, status, created_at, completed_at')
         .order('created_at', { ascending: false })
         .limit(20),
       supabase
@@ -49,22 +32,14 @@ export async function GET() {
         .limit(10),
     ])
 
-    // Build user lookup
+    // Cine e fiecare om
     const userMap: Record<string, { email: string; name: string | null }> = {}
     const allUsers = usersRes.data || []
     allUsers.forEach(u => {
       userMap[u.id] = { email: u.email, name: u.name }
     })
 
-    // Fetch missing user info
-    const allUserIds = new Set<string>()
-    ;(transactionsRes.data || []).forEach(tx => allUserIds.add(tx.user_id))
-    ;(imagesRes.data || []).forEach(i => allUserIds.add(i.user_id))
-    ;(productsRes.data || []).forEach(p => allUserIds.add(p.user_id))
-    ;(jobsRes.data || []).forEach(j => allUserIds.add(j.user_id))
-    ;(storesRes.data || []).forEach(s => allUserIds.add(s.user_id))
-
-    const missingUserIds = [...allUserIds].filter(id => !userMap[id])
+    const missingUserIds = [...new Set((storesRes.data || []).map(s => s.user_id))].filter(id => !userMap[id])
     if (missingUserIds.length > 0) {
       const { data: missingUsers } = await supabase
         .from('users')
@@ -75,10 +50,9 @@ export async function GET() {
       })
     }
 
-    // Build activity feed
     const activities: any[] = []
 
-    // User registrations
+    // Conturile noi
     allUsers.forEach(u => {
       activities.push({
         id: `user-${u.id}`,
@@ -91,7 +65,7 @@ export async function GET() {
       })
     })
 
-    // Store connections
+    // Magazinele conectate și ultima lor sincronizare
     ;(storesRes.data || []).forEach(s => {
       const user = userMap[s.user_id]
       activities.push({
@@ -104,7 +78,6 @@ export async function GET() {
         metadata: { platform: s.platform },
       })
 
-      // Store syncs
       if (s.last_sync_at) {
         activities.push({
           id: `sync-${s.id}`,
@@ -118,70 +91,7 @@ export async function GET() {
       }
     })
 
-    // Generation jobs
-    ;(jobsRes.data || []).forEach(j => {
-      const user = userMap[j.user_id]
-      const typeLabel = j.type === 'image' ? t('api.activity_job_image') :
-                        j.type === 'text' ? t('api.activity_job_text') :
-                        j.type === 'full_product' ? t('api.activity_job_full_product') : t('api.activity_job_generic')
-      const statusLabel = j.status === 'completed' ? t('api.activity_status_completed')
-        : j.status === 'failed' ? t('api.activity_status_failed') : t('api.activity_status_running')
-      activities.push({
-        id: `job-${j.id}`,
-        type: j.type === 'image' ? 'image_generated' : 'text_generated',
-        description: `${typeLabel} (${statusLabel})`,
-        user_email: user?.email || t('api.unknown_user'),
-        user_name: user?.name || null,
-        created_at: j.created_at,
-        metadata: { status: j.status, type: j.type },
-      })
-    })
-
-    // Credit transactions (purchases and admin actions)
-    ;(transactionsRes.data || []).forEach(tx => {
-      const user = userMap[tx.user_id]
-
-      // Descrierile salvate ca chei de traducere se arată în limba celui care se uită
-      if (tx.type === 'purchase') {
-        activities.push({
-          id: `purchase-${tx.id}`,
-          type: 'credits_added',
-          description: translateStored(t, tx.description) || t('api.activity_credits_purchased', { count: Number(tx.amount) }),
-          user_email: user?.email || t('api.unknown_user'),
-          user_name: user?.name || null,
-          created_at: tx.created_at,
-          metadata: { amount: tx.amount },
-        })
-      } else if (tx.reference_type === 'admin_action') {
-        activities.push({
-          id: `admin-${tx.id}`,
-          type: 'credits_added',
-          description: translateStored(t, tx.description) || (tx.amount > 0 ? t('api.activity_admin_credits_added') : t('api.activity_admin_credits_removed')),
-          user_email: user?.email || t('api.unknown_user'),
-          user_name: user?.name || null,
-          created_at: tx.created_at,
-          metadata: { amount: tx.amount },
-        })
-      }
-    })
-
-    // Published products
-    ;(productsRes.data || []).forEach(p => {
-      if (p.published_at) {
-        const user = userMap[p.user_id]
-        activities.push({
-          id: `publish-${p.id}`,
-          type: 'product_published',
-          description: t('api.activity_product_published', { title: p.optimized_title || p.original_title || t('api.untitled') }),
-          user_email: user?.email || t('api.unknown_user'),
-          user_name: user?.name || null,
-          created_at: p.published_at,
-          metadata: {},
-        })
-      }
-    })
-
-    // Sort by date descending and limit
+    // Cele mai noi întâi
     activities.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
 
     return NextResponse.json({

@@ -7,7 +7,7 @@ import { ArrowRight, CornerDownLeft, Languages, Package, Plus, Search, Store } f
 import { useLocale } from '@/lib/i18n/context'
 import { LOCALES, LOCALE_NAMES } from '@/lib/i18n/config'
 import { Kbd } from '@/components/app/badge'
-import { EXTRA_PAGES, NAV } from '@/components/app/shell/nav'
+import { NAV } from '@/components/app/shell/nav'
 import { PLATFORM_NAME, storeLabel, type StoreItem } from '@/components/app/shell/stores'
 
 // =============================================
@@ -56,7 +56,7 @@ export function CommandMenu({ open, onOpenChange, admin, stores, activeStoreId, 
   }
 
   const go = (href: string) => { onOpenChange(false); router.push(href) }
-  const pages = [...NAV.filter(g => !g.admin || admin).flatMap(g => g.items), ...EXTRA_PAGES]
+  const pages = NAV.filter(g => !g.admin || admin).flatMap(g => g.items)
 
   return (
     <Command.Dialog open={open} onOpenChange={onOpenChange} label={t('sidebar.search')} loop

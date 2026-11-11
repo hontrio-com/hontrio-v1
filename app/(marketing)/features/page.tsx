@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import { motion, useReducedMotion, type MotionProps } from 'framer-motion'
 import {
-  Sparkles, Check, ArrowDown, ArrowRight,
+  Sparkles, Check, ArrowDown,
   ImageIcon, TrendingUp, Bot, ShieldCheck,
   CheckCircle,
 } from 'lucide-react'
@@ -32,7 +32,7 @@ const en = {
     'Direct publishing to your online store with a single click',
     'Compatible with marketplace technical requirements',
   ],
-  ai1Cta: 'Try for free', ai1CtaAlt: 'See all details',
+  ai1Cta: 'Try for free',
   ai1Styles: ['White BG', 'Lifestyle', 'Premium Dark', 'Industrial', 'Seasonal', 'Auto'],
   ai1BadgeV: 'Auto verified', ai1BadgeT: 'Generated in 8s',
   ai1Before: 'Before', ai1After: 'After',
@@ -78,7 +78,7 @@ const ro = {
     'Publicare directa in magazinul tau online cu un singur click',
     'Compatibil cu cerintele tehnice ale marketplace-urilor',
   ],
-  ai1Cta: 'Incearca gratuit', ai1CtaAlt: 'Vezi toate detaliile',
+  ai1Cta: 'Incearca gratuit',
   ai1Styles: ['Fundal Alb', 'Lifestyle', 'Premium Dark', 'Industrial', 'Seasonal', 'Auto'],
   ai1BadgeV: 'Verificat automat', ai1BadgeT: 'Generat in 8s',
   ai1Before: 'Inainte', ai1After: 'Dupa',
@@ -173,10 +173,10 @@ function BeforeAfterSlider({ before, after }: { before: string; after: string })
 // ─── Feature Text Column ──────────────────────────────────────────────────────
 
 function FeatureText({
-  num, pill, PillIcon, h2, p, benefits, cta, ctaAlt, ctaHref, slideFrom, skip,
+  num, pill, PillIcon, h2, p, benefits, cta, slideFrom, skip,
 }: {
   num: string; pill: string; PillIcon: React.ElementType; h2: string; p: string
-  benefits: string[]; cta: string; ctaAlt: string; ctaHref: string
+  benefits: string[]; cta: string
   slideFrom: 'left' | 'right'; skip: boolean
 }) {
   const x = slideFrom === 'left' ? -40 : 40
@@ -215,13 +215,6 @@ function FeatureText({
           className="inline-flex items-center px-5 py-2.5 rounded-[10px] bg-neutral-900 text-white text-[13.5px] font-semibold hover:bg-neutral-800 active:scale-[0.97] transition-all"
         >
           {cta}
-        </Link>
-        <Link
-          href={ctaHref}
-          className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-[10px] border border-neutral-200 text-neutral-700 text-[13.5px] font-semibold hover:border-neutral-400 hover:bg-neutral-50 transition-all group"
-        >
-          {ctaAlt}
-          <ArrowRight className="h-3.5 w-3.5 group-hover:translate-x-1 transition-transform duration-200" />
         </Link>
       </div>
     </motion.div>
@@ -334,7 +327,7 @@ export default function FeaturesPage() {
           <FeatureText
             num="01" pill={t.ai1Pill} PillIcon={ImageIcon}
             h2={t.ai1H2} p={t.ai1P} benefits={t.ai1Benefits}
-            cta={t.ai1Cta} ctaAlt={t.ai1CtaAlt} ctaHref="/features/ai-images"
+            cta={t.ai1Cta}
             slideFrom="left" skip={shouldReduce}
           />
 

@@ -8,7 +8,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { Menu, Plus, X } from 'lucide-react'
 import { useT } from '@/lib/i18n/context'
 import { TooltipProvider } from '@/components/ui/tooltip'
-import { useCredits } from '@/hooks/use-credits'
+import { useAvatar } from '@/hooks/use-avatar'
 import { Sidebar } from '@/components/app/shell/sidebar'
 import { CommandMenu } from '@/components/app/shell/command-menu'
 import { Toaster } from '@/components/app/toaster'
@@ -29,7 +29,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const mobileOpen = menuAt === pathname
   const setMobileOpen = (open: boolean) => setMenuAt(open ? pathname : null)
   const [searchOpen, setSearchOpen] = useState(false)
-  const { credits, plan, avatarUrl } = useCredits()
+  const avatarUrl = useAvatar()
   const { stores, active, switching, choose } = useStores()
 
   const userName = session?.user?.name || t('settings.default_user')
@@ -56,7 +56,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     <Sidebar pathname={pathname} admin={admin} layoutId={layoutId} onNavigate={onNavigate}
       onSearch={() => { setMobileOpen(false); setSearchOpen(true) }}
       stores={stores} activeStore={active} switching={switching} onChooseStore={choose}
-      user={{ name: userName, email: userEmail, avatarUrl }} credits={credits} plan={plan}
+      user={{ name: userName, email: userEmail, avatarUrl }}
       onLogout={() => signOut({ callbackUrl: '/login' })} />
   )
 

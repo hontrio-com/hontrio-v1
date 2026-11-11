@@ -23,33 +23,16 @@ export async function GET() {
       return NextResponse.json({ error: t('api.forbidden') }, { status: 403 })
     }
 
-    const [supabaseCheck, openaiCheck, kieCheck] = await Promise.all([
-      checkWithTimeout(async () => {
-        const supabase = createAdminClient()
-        const { error } = await supabase.from('users').select('id').limit(1)
-        if (error) throw new Error(error.message)
-      }),
-      checkWithTimeout(async () => {
-        const res = await fetch('https://api.openai.com/v1/models', {
-          headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
-        })
-        if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      }),
-      checkWithTimeout(async () => {
-        const res = await fetch('https://api.kie.ai/api/v1/jobs/recordInfo?taskId=health_check', {
-          headers: { Authorization: `Bearer ${process.env.KIE_API_KEY}` },
-        })
-        // 404 is ok — means API is up but task not found
-        if (res.status >= 500) throw new Error(`HTTP ${res.status}`)
-      }),
-    ])
+    const supabaseCheck = await checkWithTimeout(async () => {
+      const supabase = createAdminClient()
+      const { error } = await supabase.from('users').select('id').limit(1)
+      if (error) throw new Error(error.message)
+    })
 
     // Numele serviciilor externe (mărci), la fel în orice limbă
     // i18n-ignore-start
     const checks = [
       { name: 'Supabase DB', ...supabaseCheck },
-      { name: 'OpenAI API', ...openaiCheck },
-      { name: 'KIE.ai API', ...kieCheck },
       { name: 'Vercel Edge', ok: true, latency: 0 },
     ]
     // i18n-ignore-end

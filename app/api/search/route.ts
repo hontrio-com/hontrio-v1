@@ -9,9 +9,9 @@ import { getT } from '@/lib/i18n/server'
 
 // =============================================
 // GET /api/search?q=
-// Căutarea din antet: produsele magazinului activ și imaginile generate.
-// Magazinele de pe modelul comun (Edinio, WooCommerce) caută în oferte;
-// celelalte, deocamdată, în tabelul vechi `products`.
+// Căutarea din antet: produsele magazinului activ. Magazinele de pe modelul
+// comun (Edinio, WooCommerce, Shopify) caută în oferte; celelalte,
+// deocamdată, în tabelul vechi `products`.
 // =============================================
 
 const ROUTE = '/api/search'
@@ -55,25 +55,6 @@ async function legacyProducts(supabase: Supabase, userId: string, storeId: strin
   }))
 }
 
-/** Imaginile generate, după titlul produsului sau stil (dintre cele mai noi). */
-async function generatedImages(supabase: Supabase, userId: string, q: string) {
-  const { data, error } = await supabase.from('generated_images')
-    .select('id, product_id, generated_image_url, style, created_at, products:product_id(original_title, optimized_title)')
-    .eq('user_id', userId)
-    .in('status', ['completed', 'published'])
-    .order('created_at', { ascending: false })
-    .limit(20)
-  if (error) throw error
-  const needle = q.toLowerCase()
-  return (data ?? [])
-    .map(img => {
-      const product = (Array.isArray(img.products) ? img.products[0] : img.products) as { original_title: string | null; optimized_title: string | null } | null
-      return { id: img.id, product_id: img.product_id, image_url: img.generated_image_url, style: img.style, created_at: img.created_at, product_title: product?.optimized_title || product?.original_title || '' }
-    })
-    .filter(img => img.product_title.toLowerCase().includes(needle) || (img.style || '').toLowerCase().includes(needle))
-    .slice(0, 5)
-}
-
 export async function GET(request: Request) {
   const t = await getT()
   const session = await getServerSession(authOptions)
@@ -84,18 +65,15 @@ export async function GET(request: Request) {
   // În filtrul PostgREST valoarea stă între ghilimele; ghilimelele, backslash-ul și
   // wildcard-urile omului ar strica filtrul, deci devin spații
   const term = q.replace(/["\\%*]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 100)
-  if (term.length < 2) return NextResponse.json({ products: [], images: [] })
+  if (term.length < 2) return NextResponse.json({ products: [] })
   const like = `"%${term}%"`
 
   const supabase = createAdminClient()
   try {
     const { data: store, error: eStore } = await getActiveStore<ActiveStore>(supabase, userId, 'id, platform, store_url, country, language, platform_data')
     if (eStore) throw eStore
-    const [products, images] = await Promise.all([
-      !store ? [] : storeSetup(store) ? offerProducts(supabase, store.id, like) : legacyProducts(supabase, userId, store.id, like),
-      generatedImages(supabase, userId, term),
-    ])
-    return NextResponse.json({ products, images })
+    const products = !store ? [] : storeSetup(store) ? await offerProducts(supabase, store.id, like) : await legacyProducts(supabase, userId, store.id, like)
+    return NextResponse.json({ products })
   } catch (e) {
     logApiError(ROUTE, 500, 'Eroare la căutare', { userId, error: (e as Error).message })
     return NextResponse.json({ error: t('api.internal_error') }, { status: 500 })

@@ -1,13 +1,9 @@
 {
-  "footer_tagline": "Motorul AI de creștere pentru eCommerce",
+  "footer_tagline": "Campaniile Google Shopping, făcute și îngrijite zilnic",
   "welcome_subject": "Bun venit în Hontrio!",
   "welcome_title": "Bun venit, {{name}}!",
-  "welcome_intro": "Contul tău a fost creat. Ai primit 20 de credite gratuite ca să încerci toate funcțiile platformei.",
+  "welcome_intro": "Contul tău e gata. În câteva minute îți pregătești prima campanie Google Shopping.",
   "welcome_next_title": "Ce poți face acum:",
-  "welcome_step_connect": "Conectează magazinul WooCommerce",
-  "welcome_step_sync": "Sincronizează automat produsele",
-  "welcome_step_generate": "Generează texte și imagini cu AI",
-  "welcome_step_publish": "Publică produsele optimizate înapoi în magazin",
   "welcome_cta": "Intră în cont",
   "reset_subject": "Resetează-ți parola — Hontrio",
   "reset_title": "Resetează-ți parola",
@@ -27,5 +23,9 @@
   "escalation_footer": "Notificare automată de la Hontrio",
   "roadmap_subject": "Sugestie pentru roadmap — {{email}}",
   "roadmap_email_label": "Email:",
-  "roadmap_suggestion_label": "Sugestie:"
+  "roadmap_suggestion_label": "Sugestie:",
+  "welcome_step_store": "Conectează magazinul: Edinio, WooCommerce sau Shopify",
+  "welcome_step_google": "Conectează contul Google Ads",
+  "welcome_step_tracking": "Verifică produsele din Merchant Center și măsurarea vânzărilor",
+  "welcome_step_launch": "Alege bugetul pe zi și lansează campania"
 }

@@ -4,9 +4,13 @@ import { authOptions } from '@/lib/auth/auth.config'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getLocale, tFor } from '@/lib/i18n/server'
 import { INTL_LOCALE } from '@/lib/i18n/config'
-import { planPriceUsd } from '@/lib/billing/catalog'
-import { revenueTotals } from '@/lib/billing/revenue'
-import { COST_PER_IMAGE_GENERATION, COST_PER_TEXT_GENERATION } from '@/lib/billing/api-costs'
+
+// =============================================
+// GET /api/admin/financial — încasările și conturile noi, pe ultimele 12 luni.
+// Hontrio nu încasează încă nimic: creditele vechi (imaginile AI) au fost doar
+// teste și nu se mai socotesc, iar abonamentul în funcție de vânzări nu există
+// încă. Până atunci, veniturile sunt 0.
+// =============================================
 
 export async function GET() {
   const locale = await getLocale()
@@ -28,75 +32,15 @@ export async function GET() {
       }
     })
 
-    const [{ data: allTx }, { data: allUsers }] = await Promise.all([
-      supabase.from('credit_transactions').select('amount,type,reference_type,created_at,user_id').order('created_at', { ascending: true }).not('type', 'in', '("manual","bonus")'),
-      supabase.from('users').select('id,plan,stripe_subscription_id,created_at'),
-    ])
+    const { data: users, error } = await supabase.from('users').select('created_at').gte('created_at', months[0].start)
+    if (error) throw error
 
-    const monthlyData = months.map(m => {
-      const txInMonth = (allTx || []).filter(t => t.created_at >= m.start && t.created_at < m.end)
+    const monthly = months.map(m => ({
+      label: m.label,
+      newUsers: (users || []).filter(u => u.created_at >= m.start && u.created_at < m.end).length,
+    }))
 
-      // Prețurile din catalog (baza păstrează doar creditele primite)
-      const { subscriptions: subRevenue, packs: packRevenue } = revenueTotals(txInMonth)
-
-      const imgCount = txInMonth.filter(t => t.type === 'usage' && t.reference_type === 'image_generation').length
-      const txtCount = txInMonth.filter(t => t.type === 'usage' && t.reference_type === 'text_generation').length
-      const apiCostUsd = imgCount * COST_PER_IMAGE_GENERATION + txtCount * COST_PER_TEXT_GENERATION
-      const newUsers = (allUsers || []).filter(u => u.created_at >= m.start && u.created_at < m.end).length
-      const totalRevenue = subRevenue + packRevenue
-      const profit = totalRevenue - apiCostUsd
-
-      return {
-        label: m.label,
-        revenue: Math.round(totalRevenue),
-        subRevenue: Math.round(subRevenue),
-        packRevenue: Math.round(packRevenue),
-        apiCost: Math.round(apiCostUsd * 100) / 100,
-        profit: Math.round(profit),
-        margin: totalRevenue > 0 ? Math.round((profit / totalRevenue) * 100) : 0,
-        images: imgCount,
-        texts: txtCount,
-        newUsers,
-      }
-    })
-
-    const current = monthlyData[11]
-    const prev = monthlyData[10]
-
-    const mrr = (allUsers || [])
-      .filter(u => u.stripe_subscription_id)
-      .reduce((sum, u) => sum + planPriceUsd(u.plan), 0)
-
-    const planDist: Record<string, number> = { free: 0, starter: 0, professional: 0, enterprise: 0 }
-    ;(allUsers || []).forEach(u => { const p = u.plan || 'free'; if (planDist[p] !== undefined) planDist[p]++ })
-
-    const paidNow = (allUsers || []).filter(u => u.plan !== 'free').length
-    // Customers who were paid at the start of the current month (created before this month)
-    const paidAtStartOfMonth = (allUsers || []).filter(u => u.plan !== 'free' && u.created_at < months[11].start).length
-    // New paid users who joined this month
-    const newPaidThisMonth = (allUsers || []).filter(u => u.plan !== 'free' && u.created_at >= months[11].start).length
-    // Cancelled = customers at start - (current paid - new paid this month)
-    const cancelledThisMonth = Math.max(0, paidAtStartOfMonth - (paidNow - newPaidThisMonth))
-    const churnRate = paidAtStartOfMonth > 0 ? Math.round((cancelledThisMonth / paidAtStartOfMonth) * 1000) / 10 : 0
-    const arpu = paidNow > 0 ? Math.round((mrr / paidNow) * 100) / 100 : 0
-    const ltv = churnRate > 0 ? Math.round(arpu / (churnRate / 100)) : arpu * 24
-
-    const last3rev = monthlyData.slice(9, 12).map(m => m.revenue)
-    const avgGrowth = last3rev.length > 1 ? (last3rev[2] - last3rev[0]) / 2 : 0
-    const forecastRevenue = Math.max(0, Math.round(current.revenue + avgGrowth))
-    const forecastMargin = current.margin
-    const forecastProfit = Math.round(forecastRevenue * (forecastMargin / 100))
-
-    return NextResponse.json({
-      monthly: monthlyData,
-      current, prev, mrr, arpu, ltv, churnRate,
-      forecastRevenue, forecastProfit, forecastMargin,
-      planDist, totalPaid: paidNow,
-      totalUsers: (allUsers || []).length,
-      allTimeRevenue: monthlyData.reduce((s, m) => s + m.revenue, 0),
-      allTimeProfit: monthlyData.reduce((s, m) => s + m.profit, 0),
-      allTimeApiCost: Math.round(monthlyData.reduce((s, m) => s + m.apiCost, 0) * 100) / 100,
-    })
+    return NextResponse.json({ monthly, revenue: { thisMonth: 0, allTime: 0 } })
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 })
   }

@@ -18,7 +18,7 @@ export async function GET() {
 
     const { data: user, error } = await supabase
       .from('users')
-      .select('id, name, email, avatar_url, credits, plan, role, business_name, website, brand_tone, brand_language, niche, preferences, created_at')
+      .select('id, name, email, avatar_url, role, preferences, created_at')
       .eq('id', userId)
       .single()
 
@@ -47,7 +47,7 @@ export async function PUT(request: Request) {
 
     // Only allow updating these fields
     const allowedFields: Record<string, any> = {}
-    const allowed = ['name', 'avatar_url', 'business_name', 'website', 'brand_tone', 'brand_language', 'niche', 'preferences']
+    const allowed = ['name', 'avatar_url', 'preferences']
 
     for (const key of allowed) {
       if (body[key] !== undefined) {
@@ -65,7 +65,7 @@ export async function PUT(request: Request) {
       .from('users')
       .update(allowedFields)
       .eq('id', userId)
-      .select('id, name, email, avatar_url, credits, plan, role, business_name, website, brand_tone, brand_language, niche, preferences')
+      .select('id, name, email, avatar_url, role, preferences')
       .single()
 
     if (error) {
