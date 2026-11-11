@@ -47,7 +47,7 @@ const CATEGORIES: { id: string; icon: LucideIcon; label: string }[] = [
   { id: 'billing', icon: CreditCard, label: 'support.billing' },
   { id: 'integration', icon: Link2, label: 'settings.tab_integrations' },
 ]
-const FAQ = ['connect', 'credits', 'sync', 'image', 'publish', 'cms']
+const FAQ = ['needs', 'cms', 'connect', 'sync', 'ads_cost']
 
 const categoryOf = (id: string) => CATEGORIES.find(c => c.id === id) ?? CATEGORIES[0]
 

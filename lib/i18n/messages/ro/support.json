@@ -6,9 +6,7 @@
   "no_tickets": "Niciun tichet",
   "faq": "Întrebări frecvente",
   "faq_connect_a": "Mergi la Setări → Integrări și introdu URL-ul magazinului împreună cu Consumer Key și Consumer Secret din WooCommerce → Setări → Avansat → REST API.",
-  "faq_credits_a": "Fiecare acțiune AI consumă credite: generarea textului SEO costă 5 credite, regenerarea unei secțiuni 2 credite, iar generarea unei imagini 2–4 credite, în funcție de stil.",
   "faq_sync_a": "Verifică dacă cheia API WooCommerce are permisiunea de citire (Read). Dacă folosești Cloudflare, asigură-te că IP-urile noastre nu sunt blocate. Poți porni din nou sincronizarea din pagina Produse.",
-  "faq_image_a": "De obicei 20–60 de secunde pe imagine, în funcție de stilul ales. Imaginile pe fundal alb sunt cele mai rapide.",
   "response_time": "Timp de răspuns: maximum 24 de ore",
   "work_hours": "Luni–vineri, 9:00–18:00",
   "online": "Online",
@@ -24,11 +22,7 @@
   "status_in_progress": "În lucru",
   "status_closed": "Închis",
   "faq_connect_q": "Cum conectez magazinul WooCommerce?",
-  "faq_credits_q": "Cum funcționează creditele?",
   "faq_sync_q": "De ce sincronizarea nu aduce toate produsele?",
-  "faq_image_q": "Cât durează generarea unei imagini AI?",
-  "faq_publish_q": "Cum public produsele înapoi în WooCommerce?",
-  "faq_publish_a": "Din pagina SEO a unui produs, după ce ai salvat conținutul, apasă „Publică în magazin”. Produsul se actualizează direct în WooCommerce.",
   "faq_cms_q": "Cu ce platforme de magazin funcționează Hontrio?",
   "faq_cms_a": "Cu Edinio, WooCommerce și Shopify. Alte platforme urmează.",
   "network_error": "Eroare de rețea",
@@ -60,5 +54,9 @@
   "unread_count_one": "{{count}} nou",
   "unread_count_few": "{{count}} noi",
   "unread_count_other": "{{count}} noi",
-  "ticket_sent": "Tichetul a fost trimis. Îți răspundem în cel mult 24 de ore."
+  "ticket_sent": "Tichetul a fost trimis. Îți răspundem în cel mult 24 de ore.",
+  "faq_needs_q": "Ce îmi trebuie ca să lansez o campanie?",
+  "faq_needs_a": "Un magazin conectat (Edinio, WooCommerce sau Shopify), un cont Google Ads, produsele trimise în Google Merchant Center și cumpărările măsurate în Google Ads. Hontrio le verifică înainte de lansare și îți spune ce lipsește.",
+  "faq_ads_cost_q": "Cine plătește reclamele?",
+  "faq_ads_cost_a": "Tu, direct la Google, cu cardul din contul tău Google Ads. Banii pentru reclame nu trec prin Hontrio, iar bugetul pe zi îl alegi tu."
 }
