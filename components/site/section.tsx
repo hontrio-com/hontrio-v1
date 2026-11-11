@@ -26,7 +26,7 @@ export function SectionHeader({ badge, icon, titleA, titleB, desc, align = 'cent
         <span className="text-neutral-400">{titleA}</span>{' '}
         <span className="whitespace-normal">{titleB}</span>
       </h2>
-      {desc && <p className={cn('mt-5 text-[16px] leading-relaxed text-neutral-500 sm:text-[17px]', align === 'center' && 'mx-auto max-w-xl')}>{desc}</p>}
+      {desc && <p className={cn('mt-5 text-pretty text-[16px] leading-relaxed text-neutral-500 sm:text-[17px]', align === 'center' && 'mx-auto max-w-xl')}>{desc}</p>}
     </Reveal>
   )
 }

@@ -116,10 +116,10 @@ function PilotModes() {
           </li>
         ))}
       </ul>
-      {/* Pilotul rulează din oră în oră: bara arată cum trece ora până la verificarea următoare */}
+      {/* Pilotul trece pe la fiecare magazin o dată pe zi: bara arată cum trece timpul până la verificarea următoare */}
       <div className="mt-auto pt-5">
         <div className="flex items-center gap-2 text-[12px] font-medium text-neutral-500">
-          <Clock className="size-3.5" />{t('site.feat_hourly')}
+          <Clock className="size-3.5" />{t('site.feat_daily')}
         </div>
         <div className="mt-2 h-1 overflow-hidden rounded-full bg-neutral-100">
           <motion.span className="block h-full rounded-full bg-black" initial={{ width: '8%' }}

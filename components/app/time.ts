@@ -42,15 +42,18 @@ export function useDebounced<T>(value: T, ms = 300): T {
   return settled
 }
 
+/** Cât trecuse de la o dată ISO până la momentul `now`: „acum 3 ore", „ieri" (săptămâna demonstrativă de pe site o folosește cu ora ei). */
+export function timeAgoAt(relative: Intl.RelativeTimeFormat, iso: string, now: number): string {
+  const mins = Math.round((Date.parse(iso) - now) / 60_000)
+  if (Math.abs(mins) < 60) return relative.format(mins, 'minute')
+  const hours = Math.round(mins / 60)
+  return Math.abs(hours) < 24 ? relative.format(hours, 'hour') : relative.format(Math.round(hours / 24), 'day')
+}
+
 /** Cât timp a trecut de la o dată ISO, în limba omului: „acum 5 minute", „acum 3 ore", „ieri". */
 export function useTimeAgo(): (iso: string) => string {
   const { intlLocale } = useT()
   const current = useNow()
   const relative = new Intl.RelativeTimeFormat(intlLocale, { numeric: 'auto' })
-  return (iso: string) => {
-    const mins = Math.round((Date.parse(iso) - current) / 60_000)
-    if (Math.abs(mins) < 60) return relative.format(mins, 'minute')
-    const hours = Math.round(mins / 60)
-    return Math.abs(hours) < 24 ? relative.format(hours, 'hour') : relative.format(Math.round(hours / 24), 'day')
-  }
+  return (iso: string) => timeAgoAt(relative, iso, current)
 }
