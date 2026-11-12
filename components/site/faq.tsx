@@ -3,11 +3,11 @@
 import Link from 'next/link'
 import { useId, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { ArrowRight, MessageCircleQuestion, Plus } from 'lucide-react'
+import { ArrowRight, Plus } from 'lucide-react'
 import { useT } from '@/lib/i18n/context'
 import { cn } from '@/lib/utils'
 import { Reveal } from './fx'
-import { Badge } from './section'
+import { TITLE, TwoTone } from './section'
 
 // =============================================
 // Întrebările frecvente, ca în CLIPPING: în stânga titlul (lipit la derulare)
@@ -26,9 +26,9 @@ export function Faq() {
       <div className="mx-auto grid max-w-6xl grid-cols-1 gap-12 lg:grid-cols-[0.8fr_1.2fr] lg:gap-16">
         <div className="lg:sticky lg:top-28 lg:self-start">
           <Reveal>
-            <Badge icon={<MessageCircleQuestion />}>{t('site.faq_badge')}</Badge>
-            <h2 className="mt-5 text-[2.1rem] font-bold leading-[1.06] tracking-[-0.04em] text-neutral-950 sm:text-5xl">
-              {t('site.faq_title_a')}<br /><span className="text-neutral-400">{t('site.faq_title_b')}</span>
+            {/* În coloana îngustă, un pas mai mic: „Avem răspunsuri.” rămâne pe un rând */}
+            <h2 className={cn('text-[2.3rem] sm:text-5xl', TITLE)}>
+              <TwoTone a={t('site.faq_title_a')} b={t('site.faq_title_b')} lineBreak />
             </h2>
             <p className="mt-4 max-w-sm text-[16px] leading-relaxed text-neutral-500">{t('site.faq_desc')}</p>
           </Reveal>

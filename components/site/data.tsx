@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { ArrowUpRight, Eye, Lock, Megaphone, PenLine, ShoppingBag, Store } from 'lucide-react'
+import { ArrowUpRight, Eye, Megaphone, PenLine, ShoppingBag, Store } from 'lucide-react'
 import { useT } from '@/lib/i18n/context'
 import { Reveal } from './fx'
 import { SectionHeader } from './section'
@@ -25,7 +25,7 @@ export function DataUse() {
   return (
     <section id="data" className="scroll-mt-24 px-5 py-24 md:py-32">
       <div className="mx-auto max-w-6xl">
-        <SectionHeader badge={t('site.data_badge')} icon={<Lock />} titleA={t('site.data_title_a')} titleB={t('site.data_title_b')} desc={t('site.data_desc')} />
+        <SectionHeader titleA={t('site.data_title_a')} titleB={t('site.data_title_b')} desc={t('site.data_desc')} />
 
         <div className="mt-14 grid grid-cols-1 gap-4 md:grid-cols-3">
           {SOURCES.map((s, i) => (

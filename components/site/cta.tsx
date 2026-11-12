@@ -2,10 +2,11 @@
 
 import Link from 'next/link'
 import { motion, useReducedMotion } from 'framer-motion'
-import { ArrowRight, Zap } from 'lucide-react'
+import { ArrowRight } from 'lucide-react'
 import { useT } from '@/lib/i18n/context'
 import { FlickeringGrid } from './fx'
-import { Badge } from './section'
+import { cn } from '@/lib/utils'
+import { TITLE, TITLE_SIZE, TwoTone } from './section'
 
 // =============================================
 // Îndemnul de la final: un panou negru cu pătrățele care pâlpâie (Magic UI ·
@@ -25,10 +26,8 @@ export function FinalCta() {
         <div aria-hidden className="pointer-events-none absolute inset-0 rounded-[2.5rem] shadow-[inset_0_1px_0_rgba(255,255,255,0.25),inset_0_0_0_1px_rgba(255,255,255,0.06)]" />
 
         <div className="relative flex flex-col items-center px-6 py-20 text-center text-white md:py-28">
-          <Badge dark icon={<Zap />}>{t('site.cta_badge')}</Badge>
-          <h2 className="mt-6 max-w-3xl text-[2.3rem] font-bold leading-[1.05] tracking-[-0.04em] md:text-6xl">
-            {t('site.cta_title_a')}<br />
-            <span className="bg-gradient-to-b from-white via-neutral-200 to-neutral-500 bg-clip-text text-transparent">{t('site.cta_title_b')}</span>
+          <h2 className={cn('max-w-4xl text-balance', TITLE, TITLE_SIZE)}>
+            <TwoTone dark a={t('site.cta_title_a')} b={t('site.cta_title_b')} lineBreak />
           </h2>
           <p className="mt-5 max-w-md text-[16px] leading-relaxed text-white/65">{t('site.cta_desc')}</p>
           <div className="mt-9 flex flex-col items-center gap-3 sm:flex-row">

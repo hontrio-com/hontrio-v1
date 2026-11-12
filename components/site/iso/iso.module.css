@@ -1,0 +1,231 @@
+/* =============================================
+   Ilustrațiile izometrice din „Cum funcționează" (în stilul celor de pe
+   opteo.com): plăci aproape negre, cu o margine subțire deschisă și puțină
+   grosime. Planul e rotit (rotateX + rotateZ), plăcile se ridică din el cu
+   translateZ, iar grosimea e o umbră plină trasă spre față, cu marginea ei.
+   Totul e desenat pe o ramă de 380 × 340 de unități și se micșorează cu ea.
+   Animațiile merg doar cât rama e pe ecran ([data-play]); cu „reduce motion"
+   lipsesc și rămâne starea finală (stilurile de bază).
+   ============================================= */
+
+.frame {
+  container-type: inline-size;
+  position: relative;
+  width: 100%;
+  aspect-ratio: 380 / 340;
+  /* Podeaua (liniile, lumina) e mai mare decât desenul: rotită, ar lărgi pagina pe telefon */
+  overflow: hidden;
+  overflow: clip;
+}
+
+.scene {
+  /* O unitate de desen: 1/380 din lățimea ramei (1px pe calculator) */
+  --u: calc(100cqi / 380);
+  --edge: rgba(255, 255, 255, 0.7);
+  --edge-dim: rgba(255, 255, 255, 0.14);
+  --rim: rgba(255, 255, 255, 0.5);
+  --side: #070707;
+  --lit: #fff;
+  --lit-dim: rgba(255, 255, 255, 0.34);
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Planul: un pătrat culcat; (0, 0) e mijlocul lui, x merge în sus-dreapta, y în jos-dreapta.
+   Înclinarea (46°) e și în primitives.tsx (TILT), pentru așezarea pe ecran. */
+.plane {
+  position: relative;
+  width: 0;
+  height: 0;
+  transform-style: preserve-3d;
+  transform: translateY(var(--dy, 0px)) rotateX(46deg) rotateZ(-45deg);
+}
+
+/* O placă: fața de sus (margini luminoase în spate, stinse în față) și, dedesubt, grosimea */
+.tile {
+  --t: calc(5 * var(--u));
+  --nt: calc(-1 * var(--t));
+  position: absolute;
+  box-sizing: border-box;
+  border: 1px solid;
+  border-color: var(--edge) var(--edge) var(--edge-dim) var(--edge-dim);
+  border-radius: calc(9 * var(--u));
+  background: linear-gradient(225deg, #171717, #0b0b0b 72%);
+  box-shadow:
+    var(--nt) var(--t) 0 0 var(--side),
+    var(--nt) var(--t) 0 1px var(--rim);
+}
+
+/* Plăci groase, din mai multe straturi (ca un teanc) */
+.plates2 {
+  box-shadow:
+    var(--nt) var(--t) 0 0 var(--side),
+    var(--nt) var(--t) 0 1px var(--rim),
+    calc(2 * var(--nt)) calc(2 * var(--t)) 0 0 var(--side),
+    calc(2 * var(--nt)) calc(2 * var(--t)) 0 1px var(--rim);
+}
+.plates3 {
+  box-shadow:
+    var(--nt) var(--t) 0 0 var(--side),
+    var(--nt) var(--t) 0 1px var(--rim),
+    calc(2 * var(--nt)) calc(2 * var(--t)) 0 0 var(--side),
+    calc(2 * var(--nt)) calc(2 * var(--t)) 0 1px var(--rim),
+    calc(3 * var(--nt)) calc(3 * var(--t)) 0 0 var(--side),
+    calc(3 * var(--nt)) calc(3 * var(--t)) 0 1px var(--rim);
+}
+
+/* Liniile de pe podea, cu liniuțe */
+.floor {
+  position: absolute;
+  overflow: visible;
+}
+
+/* ── 1. Conectezi ─────────────────────────────────────────────────────────── */
+
+/* Liniuțele curg spre Hontrio (liniile sunt trase de la logo spre mijloc) */
+.flow {
+  stroke-dasharray: 2.6 4.4;
+  animation: flow 0.9s linear infinite;
+}
+@keyframes flow {
+  to { stroke-dashoffset: -7; }
+}
+
+/* Plăcile plutesc ușor, fiecare în ritmul ei */
+.float {
+  animation: float 5.6s ease-in-out infinite alternate;
+  animation-delay: var(--delay, 0s);
+}
+@keyframes float {
+  from { translate: 0 0 calc(-3 * var(--u)); }
+  to { translate: 0 0 calc(4 * var(--u)); }
+}
+
+/* ── 2. Lansezi ───────────────────────────────────────────────────────────── */
+
+/* Produsele cad pe rând pe campanie, stau, apoi se sting; bugetul apare după ele */
+.drop {
+  animation: drop 8.4s linear infinite;
+  animation-delay: var(--delay, 0s);
+}
+@keyframes drop {
+  0% { translate: 0 0 calc(96 * var(--u)); opacity: 0; animation-timing-function: cubic-bezier(0.3, 0.7, 0.4, 1); }
+  3% { opacity: 1; }
+  9% { translate: 0 0 calc(-1.5 * var(--u)); animation-timing-function: ease-out; }
+  11.5% { translate: 0 0 0; }
+  80% { translate: 0 0 0; opacity: 1; }
+  87%, 100% { translate: 0 0 0; opacity: 0; }
+}
+
+.pop {
+  animation: pop 8.4s linear infinite;
+  animation-delay: var(--delay, 0s);
+}
+@keyframes pop {
+  0% { translate: 0 0 calc(-16 * var(--u)); opacity: 0; animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1); }
+  9% { translate: 0 0 0; opacity: 1; }
+  60% { translate: 0 0 0; opacity: 1; }
+  67%, 100% { translate: 0 0 0; opacity: 0; }
+}
+
+/* ── 3. Pilotul are grijă ─────────────────────────────────────────────────── */
+
+/* Acțiunile zilei se aprind pe rând: marginea se luminează și placa se ridică puțin */
+.check {
+  animation: check 7s ease-in-out infinite;
+  animation-delay: var(--delay, 0s);
+}
+@keyframes check {
+  0%, 24%, 100% {
+    translate: 0 0 0;
+    border-color: var(--edge) var(--edge) var(--edge-dim) var(--edge-dim);
+    box-shadow:
+      var(--nt) var(--t) 0 0 var(--side),
+      var(--nt) var(--t) 0 1px var(--rim),
+      0 0 0 0 rgba(255, 255, 255, 0);
+  }
+  6%, 16% {
+    translate: 0 0 calc(10 * var(--u));
+    border-color: var(--lit) var(--lit) var(--lit-dim) var(--lit-dim);
+    box-shadow:
+      var(--nt) var(--t) 0 0 var(--side),
+      var(--nt) var(--t) 0 1px rgba(255, 255, 255, 0.8),
+      0 0 calc(26 * var(--u)) 0 rgba(255, 255, 255, 0.13);
+  }
+}
+
+/* Bugetul rămâne aprins mai mult: așteaptă aprobarea omului */
+.hold {
+  animation: hold 7s ease-in-out infinite;
+  animation-delay: var(--delay, 0s);
+}
+@keyframes hold {
+  0%, 40%, 100% {
+    translate: 0 0 0;
+    border-color: var(--edge) var(--edge) var(--edge-dim) var(--edge-dim);
+    box-shadow:
+      var(--nt) var(--t) 0 0 var(--side),
+      var(--nt) var(--t) 0 1px var(--rim),
+      0 0 0 0 rgba(255, 255, 255, 0);
+  }
+  6%, 32% {
+    translate: 0 0 calc(10 * var(--u));
+    border-color: var(--lit) var(--lit) var(--lit-dim) var(--lit-dim);
+    box-shadow:
+      var(--nt) var(--t) 0 0 var(--side),
+      var(--nt) var(--t) 0 1px rgba(255, 255, 255, 0.8),
+      0 0 calc(26 * var(--u)) 0 rgba(255, 255, 255, 0.13);
+  }
+}
+
+/* Starea aprinsă fără animație (cu „reduce motion"): bugetul care așteaptă */
+.lit {
+  translate: 0 0 calc(10 * var(--u));
+  border-color: var(--lit) var(--lit) var(--lit-dim) var(--lit-dim);
+  box-shadow:
+    var(--nt) var(--t) 0 0 var(--side),
+    var(--nt) var(--t) 0 1px rgba(255, 255, 255, 0.8),
+    0 0 calc(26 * var(--u)) 0 rgba(255, 255, 255, 0.13);
+}
+
+/* Punctul care clipește cât bugetul așteaptă aprobarea */
+.wait {
+  animation: wait 1.4s ease-in-out infinite alternate;
+}
+@keyframes wait {
+  from { opacity: 0.25; }
+  to { opacity: 1; }
+}
+
+/* Zilele săptămânii: se aprinde ziua în curs, câte una la fiecare tură a pilotului (7 × 7s) */
+.day {
+  color: rgba(255, 255, 255, 0.45);
+  animation: day 49s linear infinite;
+  animation-delay: var(--delay, 0s);
+}
+@keyframes day {
+  0%, 100% { border-color: var(--edge) var(--edge) var(--edge-dim) var(--edge-dim); color: rgba(255, 255, 255, 0.45); }
+  0.8%, 13.4% { border-color: var(--lit) var(--lit) var(--lit-dim) var(--lit-dim); color: #fff; }
+  14.3% { border-color: var(--edge) var(--edge) var(--edge-dim) var(--edge-dim); color: rgba(255, 255, 255, 0.45); }
+}
+.today {
+  border-color: var(--lit) var(--lit) var(--lit-dim) var(--lit-dim);
+  color: #fff;
+}
+
+/* ── Pe ecran / în afara lui; „reduce motion" ─────────────────────────────── */
+
+.frame:not([data-play]) * {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .frame * {
+    animation: none !important;
+  }
+}

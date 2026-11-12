@@ -7,7 +7,6 @@ import { ArrowRight } from 'lucide-react'
 import { useT } from '@/lib/i18n/context'
 import { cn } from '@/lib/utils'
 import { DotField } from './fx'
-import { Badge } from './section'
 import { primaryPill, Shine } from './header'
 import { GoogleSim, SimSteps } from './google-sim'
 
@@ -63,16 +62,41 @@ function AutopilotSwitch() {
   )
 }
 
-/** Platformele cu care se conectează Hontrio, cu logo-urile lor oficiale (Edinio are logo cu nume). */
+type Brand = { name: string; src: string; wordmark?: boolean; height?: string }
+
+/**
+ * Cu ce se conectează Hontrio, cu logo-urile oficiale (cele cu nume în logo n-au text alături):
+ * pe un rând platformele de magazin, pe al doilea Google. Gomag, MerchantPro și OpenCart
+ * se fac înainte de lansare (hotărârea proprietarului, 12.11.2026).
+ */
 // i18n-ignore-start (nume de produse)
-const BRANDS = [
+const STORES: Brand[] = [
   { name: 'Edinio', src: '/site/logos/edinio.svg', wordmark: true },
   { name: 'WooCommerce', src: '/site/logos/woocommerce.svg' },
   { name: 'Shopify', src: '/site/logos/shopify.svg' },
+  { name: 'Gomag', src: '/site/logos/gomag.png', wordmark: true, height: 'h-[30px]' },
+  { name: 'MerchantPro', src: '/site/logos/merchantpro.png', wordmark: true, height: 'h-[20px]' },
+  { name: 'OpenCart', src: '/site/logos/opencart.png' },
+]
+const GOOGLE: Brand[] = [
   { name: 'Google Ads', src: '/site/logos/google-ads.svg' },
   { name: 'Merchant Center', src: '/site/logos/google-merchant-center.svg' },
 ]
 // i18n-ignore-end
+
+function BrandList({ brands, className }: { brands: Brand[]; className?: string }) {
+  return (
+    <ul className={cn('mx-auto flex max-w-5xl flex-wrap items-center justify-center gap-x-9 gap-y-5', className)}>
+      {brands.map(b => (
+        <li key={b.name} className="flex items-center gap-2.5">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={b.src} alt={b.wordmark ? b.name : ''} className={cn('w-auto', b.height ?? (b.wordmark ? 'h-[26px]' : 'h-7'))} />
+          {!b.wordmark && <span className="text-[17px] font-semibold tracking-tight text-neutral-800">{b.name}</span>}
+        </li>
+      ))}
+    </ul>
+  )
+}
 
 export function Hero() {
   const { t } = useT()
@@ -87,19 +111,13 @@ export function Hero() {
 
   return (
     // Fără overflow-hidden pe secțiune: ar opri fixarea ferestrei (sticky)
-    <section className="relative px-5 pb-20 pt-32 sm:pt-36 md:pb-28">
+    <section className="relative px-5 pb-20 pt-40 sm:pt-44 md:pb-28">
       <div className="absolute inset-x-0 top-0 h-[760px] overflow-hidden opacity-80 [mask-image:radial-gradient(ellipse_70%_60%_at_50%_30%,black_30%,transparent_75%)]">
         <DotField />
       </div>
 
       <div className="relative mx-auto max-w-6xl text-center">
-        <motion.div initial={reduce ? false : { opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
-          <Badge icon={<span className="relative flex size-2"><span className="absolute inline-flex size-full animate-ping rounded-full bg-black/40 motion-reduce:hidden" /><span className="relative inline-flex size-2 rounded-full bg-black" /></span>}>
-            {t('site.hero_badge')}
-          </Badge>
-        </motion.div>
-
-        <h1 className="mx-auto mt-7 max-w-5xl text-balance text-[2.55rem] font-bold leading-[1.06] tracking-[-0.045em] text-neutral-950 sm:text-6xl md:text-[4.6rem] lg:text-[5.1rem]">
+        <h1 className="mx-auto max-w-5xl text-balance text-[2.55rem] font-bold leading-[1.06] tracking-[-0.045em] text-neutral-950 sm:text-6xl md:text-[4.6rem] lg:text-[5.1rem]">
           <Words text={t('site.hero_title_a')} />
           <br className="hidden sm:block" />{' '}
           <AutopilotSwitch />
@@ -134,15 +152,8 @@ export function Hero() {
 
         <div className="mt-16">
           <p className="text-sm text-neutral-500">{t('site.logos_label')}</p>
-          <ul className="mx-auto mt-6 flex max-w-4xl flex-wrap items-center justify-center gap-x-10 gap-y-5">
-            {BRANDS.map(b => (
-              <li key={b.name} className="flex items-center gap-2.5">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={b.src} alt={b.wordmark ? b.name : ''} className={b.wordmark ? 'h-[26px] w-auto' : 'h-7 w-auto'} />
-                {!b.wordmark && <span className="text-[17px] font-semibold tracking-tight text-neutral-800">{b.name}</span>}
-              </li>
-            ))}
-          </ul>
+          <BrandList brands={STORES} className="mt-6" />
+          <BrandList brands={GOOGLE} className="mt-5" />
         </div>
       </div>
     </section>

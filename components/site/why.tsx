@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion, useInView, useReducedMotion } from 'framer-motion'
-import { CalendarDays, History, Inbox, Sparkles } from 'lucide-react'
+import { History, Inbox, Sparkles } from 'lucide-react'
 import { useT } from '@/lib/i18n/context'
 import { storedMessage } from '@/lib/i18n/stored'
 import { cn } from '@/lib/utils'
@@ -89,7 +89,7 @@ export function Why() {
   return (
     <section id="why" className="scroll-mt-24 px-5 py-24 md:py-32">
       <div className="mx-auto max-w-[1240px]">
-        <SectionHeader badge={t('site.why_badge')} icon={<CalendarDays />} titleA={t('site.why_title_a')} titleB={t('site.why_title_b')} desc={t('site.why_desc')} />
+        <SectionHeader titleA={t('site.why_title_a')} titleB={t('site.why_title_b')} desc={t('site.why_desc')} />
         <Week />
       </div>
     </section>

@@ -2,12 +2,12 @@
 
 import Link from 'next/link'
 import { useId, useState, type CSSProperties, type ReactNode } from 'react'
-import { CalendarClock, Minus, Plus, Receipt } from 'lucide-react'
+import { CalendarClock, Minus, Plus } from 'lucide-react'
 import { useT } from '@/lib/i18n/context'
 import { cn } from '@/lib/utils'
 import { feeShare, monthlyFee, pricingTier, PRICING, type PricingCurrency } from '@/lib/pricing'
 import { Reveal } from './fx'
-import { Badge } from './section'
+import { TITLE, TITLE_SIZE, TwoTone } from './section'
 
 // =============================================
 // Pagina de prețuri: mesajul (2% din vânzările aduse de Hontrio) cu treptele
@@ -55,8 +55,8 @@ function useMoney() {
 function Heading({ a, b, desc, as: Tag = 'h2', className }: { a: ReactNode; b: ReactNode; desc?: ReactNode; as?: 'h1' | 'h2'; className?: string }) {
   return (
     <div className={className}>
-      <Tag className={cn('text-balance font-bold tracking-[-0.04em] text-neutral-950', Tag === 'h1' ? 'text-[2.5rem] leading-[1.04] sm:text-6xl' : 'text-[2.1rem] leading-[1.06] sm:text-5xl')}>
-        {a}{Tag === 'h1' && <br className="hidden sm:block" />} <span className="text-neutral-400">{b}</span>
+      <Tag className={cn('text-balance', TITLE, Tag === 'h1' ? 'text-[2.55rem] sm:text-6xl lg:text-[4.2rem]' : TITLE_SIZE)}>
+        <TwoTone a={a} b={b} lineBreak={Tag === 'h1' ? 'sm' : false} />
       </Tag>
       {desc && <p className="mt-5 max-w-2xl text-pretty text-[16px] leading-relaxed text-neutral-500 sm:text-[17px]">{desc}</p>}
     </div>
@@ -92,8 +92,7 @@ function Intro({ currency, onCurrency }: { currency: PricingCurrency; onCurrency
     <section className="px-5 pb-20 pt-12 md:pb-24 md:pt-20">
       <div className="mx-auto max-w-6xl">
         <Reveal className="max-w-3xl">
-          <Badge icon={<Receipt />}>{t('site.pricing_badge')}</Badge>
-          <Heading as="h1" className="mt-5" a={t('site.pricing_title_a')} b={t('site.pricing_title_b')} desc={t('site.pricing_desc')} />
+          <Heading as="h1" a={t('site.pricing_title_a')} b={t('site.pricing_title_b')} desc={t('site.pricing_desc')} />
         </Reveal>
 
         <Reveal delay={0.08} className="mt-10 max-w-3xl">
