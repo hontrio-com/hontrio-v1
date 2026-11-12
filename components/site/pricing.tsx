@@ -55,7 +55,7 @@ function useMoney() {
 function Heading({ a, b, desc, as: Tag = 'h2', className }: { a: ReactNode; b: ReactNode; desc?: ReactNode; as?: 'h1' | 'h2'; className?: string }) {
   return (
     <div className={className}>
-      <Tag className={cn('text-balance', TITLE, Tag === 'h1' ? 'text-[2.55rem] sm:text-6xl lg:text-[4.2rem]' : TITLE_SIZE)}>
+      <Tag className={cn('text-balance', Tag === 'h1' ? 'text-[2.55rem] sm:text-6xl lg:text-[4.2rem]' : TITLE_SIZE, TITLE)}>
         <TwoTone a={a} b={b} lineBreak={Tag === 'h1' ? 'sm' : false} />
       </Tag>
       {desc && <p className="mt-5 max-w-2xl text-pretty text-[16px] leading-relaxed text-neutral-500 sm:text-[17px]">{desc}</p>}

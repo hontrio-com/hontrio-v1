@@ -26,7 +26,7 @@ export function FinalCta() {
         <div aria-hidden className="pointer-events-none absolute inset-0 rounded-[2.5rem] shadow-[inset_0_1px_0_rgba(255,255,255,0.25),inset_0_0_0_1px_rgba(255,255,255,0.06)]" />
 
         <div className="relative flex flex-col items-center px-6 py-20 text-center text-white md:py-28">
-          <h2 className={cn('max-w-4xl text-balance', TITLE, TITLE_SIZE)}>
+          <h2 className={cn('max-w-4xl text-balance', TITLE_SIZE, TITLE)}>
             <TwoTone dark a={t('site.cta_title_a')} b={t('site.cta_title_b')} lineBreak />
           </h2>
           <p className="mt-5 max-w-md text-[16px] leading-relaxed text-white/65">{t('site.cta_desc')}</p>

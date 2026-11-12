@@ -34,7 +34,7 @@ export function HowItWorks() {
       <IsoFilters />
       <div className="mx-auto max-w-[1440px] rounded-[1.75rem] bg-black px-5 py-20 text-white sm:rounded-[2.5rem] sm:px-8 md:py-28 lg:px-12">
         <Reveal className="mx-auto max-w-3xl text-center">
-          <h2 className={cn('text-balance', TITLE, TITLE_SIZE)}>
+          <h2 className={cn('text-balance', TITLE_SIZE, TITLE)}>
             <TwoTone dark a={t('site.how_title_a')} b={t('site.how_title_b')} lineBreak="sm" />
           </h2>
           <p className="mx-auto mt-5 max-w-xl text-pretty text-[16px] leading-relaxed text-white/60 sm:text-[17px]">{t('site.how_desc')}</p>

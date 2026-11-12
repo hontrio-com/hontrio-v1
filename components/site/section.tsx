@@ -8,7 +8,12 @@ import { Reveal } from './fx'
 // alb la gri). Fără etichete mici deasupra (cerut de proprietar, 12.11.2026).
 // =============================================
 
-/** Litera titlurilor, aceeași ca la titlul din capul paginii. */
+/**
+ * Litera titlurilor, aceeași ca la titlul din capul paginii.
+ * În cn(), TITLE vine DUPĂ mărime: tailwind-merge scoate un leading-* pus înaintea unei
+ * clase text-{mărime} (în Tailwind 4 mărimea are și înălțimea rândului), iar titlul ar
+ * rămâne cu rândurile prea rare.
+ */
 export const TITLE = 'font-bold leading-[1.06] tracking-[-0.045em]'
 /** Mărimea titlurilor de secțiune (titlul din capul paginii e mai mare). */
 export const TITLE_SIZE = 'text-[2.3rem] sm:text-5xl lg:text-[3.6rem]'
@@ -37,7 +42,7 @@ export function SectionHeader({ titleA, titleB, desc, align = 'center', classNam
 }) {
   return (
     <Reveal className={cn(align === 'center' ? 'mx-auto max-w-4xl text-center' : 'max-w-3xl', className)}>
-      <h2 className={cn('text-balance', TITLE, TITLE_SIZE)}>
+      <h2 className={cn('text-balance', TITLE_SIZE, TITLE)}>
         <TwoTone a={titleA} b={titleB} />
       </h2>
       {desc && <p className={cn('mt-5 text-pretty text-[16px] leading-relaxed text-neutral-500 sm:text-[17px]', align === 'center' && 'mx-auto max-w-xl')}>{desc}</p>}
