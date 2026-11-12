@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { clientIp, rateLimitAll } from '@/lib/security/rate-limit'
 import { accountLocale, sendEmailVerification } from '@/lib/auth/account'
 import { checkEmail } from '@/lib/auth/validation'
+import { verifyPassword } from '@/lib/auth/password'
 import { logError } from '@/lib/logger'
 import { getLocale, tFor } from '@/lib/i18n/server'
 
@@ -31,10 +32,10 @@ export async function POST(request: Request) {
 
   after(async () => {
     try {
+      const check = await verifyPassword(email.email, password)
+      if (!check.ok) return
       const supabase = createAdminClient()
-      const { data, error } = await supabase.auth.signInWithPassword({ email: email.email, password })
-      if (error || !data.user) return
-      const { data: user } = await supabase.from('users').select('id, email, email_verified_at, ui_locale').eq('id', data.user.id).maybeSingle()
+      const { data: user } = await supabase.from('users').select('id, email, email_verified_at, ui_locale').eq('id', check.userId).maybeSingle()
       if (!user || user.email_verified_at) return
       await sendEmailVerification(supabase, user.id, user.email, accountLocale(user.ui_locale, locale))
     } catch (err) {

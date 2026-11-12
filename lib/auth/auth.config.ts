@@ -9,6 +9,7 @@ import { tFor } from '@/lib/i18n/server'
 import { isLocale } from '@/lib/i18n/config'
 import { logError, logWarn } from '@/lib/logger'
 import { bumpSessionVersion } from './account'
+import { verifyPassword } from './password'
 import { checkName, TERMS_VERSION } from './validation'
 
 if (!process.env.NEXTAUTH_SECRET) {
@@ -91,11 +92,10 @@ export const authOptions: NextAuthOptions = {
         ])
         if (!allowed) throw new Error('rate_limited')
 
-        const supabase = createAdminClient()
-        const { data, error } = await supabase.auth.signInWithPassword({ email, password })
-        if (error || !data.user) return null
+        const check = await verifyPassword(email, password)
+        if (!check.ok) return null
 
-        const profile = await loadProfile(data.user.id, data.user.email ?? email)
+        const profile = await loadProfile(check.userId, check.email)
         if (!profile) throw new Error('unavailable')
         // Abia după parola corectă: altfel s-ar afla ce adrese au cont
         if (!profile.email_verified_at) throw new Error('email_not_verified')

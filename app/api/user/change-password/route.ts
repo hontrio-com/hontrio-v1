@@ -6,6 +6,7 @@ import { clientIp, rateLimitAll } from '@/lib/security/rate-limit'
 import { bumpSessionVersion } from '@/lib/auth/account'
 import { reissueSession } from '@/lib/auth/session-cookie'
 import { checkPassword } from '@/lib/auth/validation'
+import { verifyPassword } from '@/lib/auth/password'
 import { logError } from '@/lib/logger'
 import { getT } from '@/lib/i18n/server'
 
@@ -40,8 +41,7 @@ export async function POST(request: NextRequest) {
     const { data: user } = await supabase.from('users').select('email').eq('id', userId).maybeSingle()
     if (!user) return NextResponse.json({ error: t('api.user_not_found') }, { status: 404 })
 
-    const { error: signInError } = await supabase.auth.signInWithPassword({ email: user.email, password: current })
-    if (signInError) return NextResponse.json({ error: t('api.current_password_wrong') }, { status: 400 })
+    if (!(await verifyPassword(user.email, current)).ok) return NextResponse.json({ error: t('api.current_password_wrong') }, { status: 400 })
 
     const { error: updateError } = await supabase.auth.admin.updateUserById(userId, { password: next.password })
     if (updateError) {

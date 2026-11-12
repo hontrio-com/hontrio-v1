@@ -5,6 +5,7 @@ import { authOptions } from '@/lib/auth/auth.config'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { rateLimitAsync } from '@/lib/security/rate-limit'
 import { deleteAccount } from '@/lib/auth/delete-account'
+import { verifyPassword } from '@/lib/auth/password'
 import { logApiError, logWarn } from '@/lib/logger'
 import { getT } from '@/lib/i18n/server'
 
@@ -40,8 +41,7 @@ export async function POST(request: NextRequest) {
 
     // Dovada că e chiar omul: parola, sau o intrare cu Google de curând
     if (password) {
-      const { error } = await supabase.auth.signInWithPassword({ email: user.email, password })
-      if (error) return NextResponse.json({ error: t('api.current_password_wrong') }, { status: 400 })
+      if (!(await verifyPassword(user.email, password)).ok) return NextResponse.json({ error: t('api.current_password_wrong') }, { status: 400 })
     } else {
       const cookie = authOptions.cookies?.sessionToken
       const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET, cookieName: cookie?.name })

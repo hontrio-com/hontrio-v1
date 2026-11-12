@@ -34,6 +34,13 @@ export type EmailContent = {
 
 export async function sendEmail({ to, subject, html }: EmailPayload): Promise<boolean> {
   if (!RESEND_API_KEY) {
+    if (process.env.NODE_ENV !== 'production') {
+      // Local, fără furnizor de e-mail: linkurile (confirmare, resetare) apar în consola
+      // serverului, ca fluxurile de cont să poată fi încercate cap-coadă
+      const links = [...html.matchAll(/href="([^"]+)"/g)].map(m => m[1].replace(/&amp;/g, '&')).filter(h => h.startsWith('http'))
+      console.info(`[Email · dev] către ${to} · „${subject}”${links.length ? `\n  ${[...new Set(links)].join('\n  ')}` : ''}`)
+      return true
+    }
     console.warn('[Email] RESEND_API_KEY not set — email not sent')
     return false
   }

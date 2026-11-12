@@ -5,6 +5,7 @@ import { clientIp, rateLimitAll } from '@/lib/security/rate-limit'
 import { buildWelcomeEmail, sendEmail } from '@/lib/email'
 import { accountLocale } from '@/lib/auth/account'
 import { hashToken, isTokenShape } from '@/lib/auth/tokens'
+import { verifyPassword } from '@/lib/auth/password'
 import { logError } from '@/lib/logger'
 import { getLocale, tFor } from '@/lib/i18n/server'
 
@@ -80,9 +81,10 @@ export async function POST(request: Request) {
     return response
   }
 
+  const check = await verifyPassword(pending.email, password)
+  if (!check.ok) return NextResponse.json({ error: t('auth.verify_password_wrong') }, { status: 400 })
+
   const supabase = createAdminClient()
-  const { error: eSign } = await supabase.auth.signInWithPassword({ email: pending.email, password })
-  if (eSign) return NextResponse.json({ error: t('auth.verify_password_wrong') }, { status: 400 })
 
   const { error } = await supabase.from('users').update({
     email_verified_at: pending.email_verified_at ?? new Date().toISOString(),
