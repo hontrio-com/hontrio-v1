@@ -52,7 +52,7 @@ export function SiteFooter() {
       title: t('site.footer_product'),
       links: [
         { label: t('site.nav_how'), href: '/#how' },
-        { label: t('site.nav_features'), href: '/#features' },
+        { label: t('site.nav_autopilot'), href: '/#optimize' },
         { label: t('site.nav_faq'), href: '/#faq' },
         { label: t('site.nav_pricing'), href: '/pricing' },
       ],

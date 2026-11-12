@@ -2,17 +2,14 @@ import type { Metadata } from 'next'
 import { getT } from '@/lib/i18n/server'
 import { Hero } from '@/components/site/hero'
 import { HowItWorks } from '@/components/site/how'
-import { Why } from '@/components/site/why'
-import { Features } from '@/components/site/features'
 import { OptimizeAds } from '@/components/site/optimize-ads'
-import { DataUse } from '@/components/site/data'
 import { Faq } from '@/components/site/faq'
 import { FinalCta } from '@/components/site/cta'
 
 // Pagina principală: ce face Hontrio, cum (trei pași, imediat după început),
-// de ce (o săptămână din jurnalul pilotului), funcțiile, pilotul la lucru direct în
-// contul Google Ads, ce face cu datele (cerut și de Google pentru accesul la
-// reclame), întrebările și îndemnul de la final.
+// pilotul automat la lucru direct în contul Google Ads, întrebările și îndemnul
+// de la final. Ce face Hontrio cu datele (cu declarația Limited Use cerută de
+// Google) e în /legal/privacy, legată din subsol.
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getT()
   return {
@@ -27,10 +24,7 @@ export default function HomePage() {
     <>
       <Hero />
       <HowItWorks />
-      <Why />
-      <Features />
       <OptimizeAds />
-      <DataUse />
       <Faq />
       <FinalCta />
     </>

@@ -18,7 +18,7 @@ import { cn } from '@/lib/utils'
 
 const NAV = [
   { id: 'how', href: '/#how', key: 'site.nav_how' },
-  { id: 'features', href: '/#features', key: 'site.nav_features' },
+  { id: 'optimize', href: '/#optimize', key: 'site.nav_autopilot' },
   { id: 'faq', href: '/#faq', key: 'site.nav_faq' },
   { id: 'pricing', href: '/pricing', key: 'site.nav_pricing' },
 ] as const
@@ -132,10 +132,8 @@ export function SiteHeader() {
               className="overflow-hidden bg-[#0a0a0a] text-white">
               <div className="relative mx-auto flex h-9 max-w-6xl items-center justify-center gap-2.5 px-12 text-[12.5px]">
                 <span className="shrink-0 rounded-full bg-white px-2 py-px text-[10px] font-bold uppercase tracking-[0.12em] text-black">{t('site.announce_tag')}</span>
-                <Link href="/#features" className="group flex min-w-0 items-center gap-1 text-white/80 transition hover:text-white">
-                  <span className="truncate">{t('site.announce_text')}</span>
-                  <ArrowRight className="size-3.5 shrink-0 transition group-hover:translate-x-0.5" />
-                </Link>
+                {/* Fără legătură: secțiunea cu campaniile pe grupe nu mai e pe pagina principală */}
+                <span className="min-w-0 truncate text-white/80">{t('site.announce_text')}</span>
                 <button type="button" onClick={dismissAnnouncement} aria-label={t('site.announce_close')}
                   className="absolute right-3 grid size-6 place-items-center rounded-full text-white/50 transition hover:bg-white/10 hover:text-white">
                   <X className="size-3.5" />
