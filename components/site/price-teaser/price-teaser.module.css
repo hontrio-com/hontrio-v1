@@ -1,0 +1,16 @@
+/* =============================================
+   Prețul pe scurt: teancurile din desen cresc și scad cu exemplul ales.
+   Cu „reduce motion”, fără tranziții.
+   ============================================= */
+
+.grow {
+  transition:
+    transform 0.9s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.9s cubic-bezier(0.22, 1, 0.36, 1),
+    background-color 0.4s ease,
+    border-color 0.4s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .grow { transition: none; }
+}
