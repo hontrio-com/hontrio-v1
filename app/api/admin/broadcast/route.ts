@@ -3,14 +3,16 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/auth.config'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getT } from '@/lib/i18n/server'
+import { logApiError } from '@/lib/logger'
 
+const ROUTE = '/api/admin/broadcast'
 const VALID_TYPES = ['info', 'warning', 'success', 'error']
 
 export async function POST(req: Request) {
   const t = await getT()
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user || (session.user as any).role !== 'admin') {
+    if (!session?.user || session.user.role !== 'admin') {
       return NextResponse.json({ error: t('api.forbidden') }, { status: 403 })
     }
     const { title, message, type = 'info' } = await req.json()
@@ -35,13 +37,14 @@ export async function POST(req: Request) {
 
     const { error } = await supabase.from('notifications').insert(notifications)
     if (error) {
-      console.error('[Admin Broadcast] Insert error:', error.message)
-      return NextResponse.json({ error: error.message || t('api.notifications_send_failed') }, { status: 500 })
+      logApiError(ROUTE, 500, 'Notificările nu s-au putut salva', { error: error.message })
+      return NextResponse.json({ error: t('api.notifications_send_failed') }, { status: 500 })
     }
 
     return NextResponse.json({ sent: users.length })
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 })
+  } catch (err) {
+    logApiError(ROUTE, 500, 'Eroare la trimiterea anunțului', { error: err instanceof Error ? err.message : String(err) })
+    return NextResponse.json({ error: t('api.internal_error') }, { status: 500 })
   }
 }
 
@@ -49,7 +52,7 @@ export async function GET() {
   const t = await getT()
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user || (session.user as any).role !== 'admin') {
+    if (!session?.user || session.user.role !== 'admin') {
       return NextResponse.json({ error: t('api.forbidden') }, { status: 403 })
     }
     const supabase = createAdminClient()

@@ -91,32 +91,20 @@ export default function DashboardPage() {
   const hour = useSyncExternalStore(subscribe, () => new Date().getHours(), () => 12)
   const today = useSyncExternalStore(subscribe, () => new Date().toLocaleDateString(intlLocale, { weekday: 'long', day: 'numeric', month: 'long' }), () => '')
 
-  const load = useCallback(async (period: Period) => {
-    setFailed(false)
-    try {
-      const r = await fetch(`/api/overview?days=${period}`)
-      if (!r.ok) throw new Error()
-      setData(await r.json())
-    } catch {
-      setFailed(true)
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+  // Starea se schimbă doar în callback-urile răspunsului, nu în efectele care pornesc încărcarea
+  const load = useCallback((period: Period) =>
+    fetch(`/api/overview?days=${period}`)
+      .then(r => { if (!r.ok) throw new Error(); return r.json() as Promise<OverviewData> })
+      .then(body => { setData(body); setFailed(false) })
+      .catch(() => setFailed(true))
+      .finally(() => setLoading(false)), [])
 
-  const loadPlan = useCallback(async (): Promise<Plan | null> => {
-    try {
-      const r = await fetch('/api/campaigns/plan')
-      if (!r.ok) throw new Error()
-      const body = (await r.json()) as CampaignsData
-      setCampaigns(body)
-      return body.plan
-    } catch {
-      return null
-    } finally {
-      setPlanLoading(false)
-    }
-  }, [])
+  const loadPlan = useCallback((): Promise<Plan | null> =>
+    fetch('/api/campaigns/plan')
+      .then(r => { if (!r.ok) throw new Error(); return r.json() as Promise<CampaignsData> })
+      .then(body => { setCampaigns(body); return body.plan })
+      .catch(() => null)
+      .finally(() => setPlanLoading(false)), [])
 
   useEffect(() => { load(days) }, [days, load])
   useEffect(() => { loadPlan() }, [loadPlan])

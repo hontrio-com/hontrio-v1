@@ -1,11 +1,12 @@
 'use client'
 
 import { Suspense, useEffect, useRef, useState, type ReactNode } from 'react'
+import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
-import { useSession } from 'next-auth/react'
+import { signOut, useSession } from 'next-auth/react'
 import { toast } from 'sonner'
 import {
-  Camera, Check, ExternalLink, Eye, EyeOff, Globe, KeyRound,
+  Camera, Check, Download, ExternalLink, Eye, EyeOff, Globe, KeyRound,
   Loader2, Lock, Mail, Package, Plug, RefreshCw, Shield, SlidersHorizontal, Store, Trash2,
   Unplug, User, Wifi, X, Zap,
 } from 'lucide-react'
@@ -13,6 +14,7 @@ import { useT, useLocale } from '@/lib/i18n/context'
 import { LOCALES, LOCALE_NAMES, type Locale } from '@/lib/i18n/config'
 import { translateStored } from '@/lib/i18n/stored'
 import { cn } from '@/lib/utils'
+import { checkPassword } from '@/lib/auth/validation'
 import { AVATAR_UPDATED } from '@/hooks/use-avatar'
 import { PageHeader } from '@/components/app/page-header'
 import { PageTabs } from '@/components/app/tabs'
@@ -21,6 +23,7 @@ import { Badge } from '@/components/app/badge'
 import { Button, linkStyles } from '@/components/app/button'
 import { Input, Select, Switch } from '@/components/app/input'
 import { Callout, Skeleton } from '@/components/app/feedback'
+import { ConfirmDialog } from '@/components/app/dialog'
 import { FadeIn } from '@/components/app/motion'
 import GoogleAdsCard from '@/components/integrations/google-ads-card'
 import MerchantCard from '@/components/integrations/merchant-card'
@@ -134,6 +137,13 @@ function SettingsView() {
   const [profileForm, setProfileForm] = useState({ name: '' })
   const [pwForm, setPwForm] = useState({ current: '', new: '', confirm: '' })
   const [prefs, setPrefs] = useState({ emailNotifications: true })
+  // Ce n-a putut fi încărcat: arătăm eroarea, nu o pagină goală care ar părea „nimic legat"
+  const [loadError, setLoadError] = useState({ profile: false, stores: false })
+  const [exporting, setExporting] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
+  const [deletePw, setDeletePw] = useState('')
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState('')
 
   useEffect(() => {
     fetchProfile(); fetchStore()
@@ -158,21 +168,49 @@ function SettingsView() {
 
   async function fetchProfile() {
     try {
-      const r = await fetch('/api/user/profile'); const d = await r.json()
-      if (d.user) {
-        setProfile(d.user)
-        setProfileForm({ name: d.user.name || '' })
-        if (d.user.preferences) setPrefs({ emailNotifications: d.user.preferences.emailNotifications ?? true })
-      }
-    } catch {} finally { setLoading(false) }
+      const r = await fetch('/api/user/profile'); const d = await r.json().catch(() => ({}))
+      if (!r.ok || !d.user) { setLoadError(e => ({ ...e, profile: true })); return }
+      setLoadError(e => ({ ...e, profile: false }))
+      setProfile(d.user)
+      setProfileForm({ name: d.user.name || '' })
+      if (d.user.preferences) setPrefs({ emailNotifications: d.user.preferences.emailNotifications ?? true })
+    } catch { setLoadError(e => ({ ...e, profile: true })) } finally { setLoading(false) }
   }
   async function fetchStore() {
     try {
-      const r = await fetch('/api/stores'); const d = await r.json()
-      if (!r.ok) return
+      const r = await fetch('/api/stores'); const d = await r.json().catch(() => ({}))
+      if (!r.ok) { setLoadError(e => ({ ...e, stores: true })); return }
+      setLoadError(e => ({ ...e, stores: false }))
       setStores(d.stores ?? (d.store ? [d.store] : []))
       setActiveStoreId(d.active_store_id ?? d.store?.id ?? null)
-    } catch {}
+    } catch { setLoadError(e => ({ ...e, stores: true })) }
+  }
+
+  /** Datele contului, într-un fișier JSON (descărcarea pornește din pagină, ca o eroare să apară aici). */
+  async function handleExport() {
+    setExporting(true)
+    try {
+      const r = await fetch('/api/user/export')
+      if (!r.ok) { const d = await r.json().catch(() => ({})); toast.error(d.error || t('settings.export_failed')); return }
+      const blob = await r.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `hontrio-export-${new Date().toISOString().slice(0, 10)}.json`
+      a.click()
+      setTimeout(() => URL.revokeObjectURL(url), 10_000)
+    } catch { toast.error(t('settings.export_failed')) } finally { setExporting(false) }
+  }
+
+  async function handleDeleteAccount() {
+    setDeleting(true); setDeleteError('')
+    try {
+      const r = await fetch('/api/user/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: deletePw }) })
+      const d = await r.json().catch(() => ({}))
+      if (!r.ok) { setDeleteError(d.error || t('settings.delete_failed')); return }
+      toast.success(t('settings.delete_done'))
+      await signOut({ callbackUrl: '/' })
+    } catch { setDeleteError(t('settings.error_network')) } finally { setDeleting(false) }
   }
   async function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]; if (!file) return
@@ -200,7 +238,8 @@ function SettingsView() {
 
   async function handleChangePw() {
     if (!pwForm.current || !pwForm.new || !pwForm.confirm) { toast.error(t('settings.pw_fill_all')); return }
-    if (pwForm.new.length < 6) { toast.error(t('settings.pw_min_6')); return }
+    const pwCheck = checkPassword(pwForm.new)
+    if (!pwCheck.ok) { toast.error(t(pwCheck.error)); return }
     if (pwForm.new !== pwForm.confirm) { toast.error(t('settings.pw_mismatch')); return }
     setSavingPw(true)
     try {
@@ -215,8 +254,8 @@ function SettingsView() {
     setSavingPrefs(true)
     try {
       const r = await fetch('/api/user/profile', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ preferences: prefs }) })
-      const d = await r.json()
-      if (!r.ok) { toast.error(d.error); return }
+      const d = await r.json().catch(() => ({}))
+      if (!r.ok) { toast.error(d.error || t('settings.error_save')); return }
       toast.success(t('settings.prefs_saved'))
     } catch { toast.error(t('settings.error_save')) } finally { setSavingPrefs(false) }
   }
@@ -274,6 +313,8 @@ function SettingsView() {
     const shop = raw.replace(/^https?:\/\//, '').replace(/\/$/, '')
     if (!shop.includes('.myshopify.com')) { toast.error(t('onboarding.shopify_url_invalid')); return }
     setConnectingShopify(true)
+    // Navigare completă: ruta API trimite mai departe la aprobarea din Shopify (OAuth), nu e o pagină
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination
     window.location.href = `/api/shopify/install?shop=${encodeURIComponent(shop)}`
   }
 
@@ -319,6 +360,11 @@ function SettingsView() {
         {/* ═══════ GENERAL ═══════ */}
         {tab === 'general' && (
           <div>
+            {loadError.profile && (
+              <Callout tone="danger" className="mb-2" action={<Button size="xs" onClick={fetchProfile}><RefreshCw />{t('settings.retry')}</Button>}>
+                {t('settings.load_error_profile')}
+              </Callout>
+            )}
             <Section title={t('settings.profile_info')} description={t('settings.profile_info_desc')}>
               <Card>
                 <div className="space-y-5 p-5">
@@ -375,6 +421,15 @@ function SettingsView() {
               </Section>
             )}
 
+            <Section title={t('settings.export_title')} description={t('settings.export_desc')}>
+              <Card>
+                <div className="flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-[13px] leading-relaxed text-neutral-600">{t('settings.export_contents')}</p>
+                  <Button loading={exporting} onClick={handleExport} className="shrink-0">{!exporting && <Download />}{t('settings.export_btn')}</Button>
+                </div>
+              </Card>
+            </Section>
+
             <Section title={<span className="text-red-600">{t('settings.danger_zone')}</span>} description={t('settings.danger_zone_desc')}>
               <Card className="border-red-200/80">
                 <div className="flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
@@ -382,16 +437,39 @@ function SettingsView() {
                     <p className="text-[14px] font-semibold text-neutral-900">{t('settings.delete_account')}</p>
                     <p className="mt-0.5 text-[13px] text-neutral-500">{t('settings.delete_account_desc')}</p>
                   </div>
-                  <Button variant="danger" className="shrink-0"><Trash2 />{t('settings.delete_account')}</Button>
+                  <Button variant="danger" className="shrink-0" onClick={() => { setDeletePw(''); setDeleteError(''); setDeleteOpen(true) }}>
+                    <Trash2 />{t('settings.delete_account')}
+                  </Button>
                 </div>
               </Card>
             </Section>
+
+            <ConfirmDialog open={deleteOpen} onOpenChange={open => { if (!deleting) setDeleteOpen(open) }}
+              title={t('settings.delete_title')} description={t('settings.delete_account_desc')}
+              confirmLabel={<><Trash2 />{t('settings.delete_confirm_btn')}</>} onConfirm={handleDeleteAccount} loading={deleting}>
+              <div className="space-y-4">
+                {/* Campaniile rulează în contul Google Ads al omului: ștergerea contului Hontrio nu le oprește */}
+                <Callout tone="warning">
+                  {t('settings.delete_campaigns_warning')}{' '}
+                  <Link href="/campaigns" className={linkStyles}>{t('settings.delete_go_campaigns')}</Link>
+                </Callout>
+                <Label text={t('settings.delete_password_label')} hint={t('settings.delete_google_hint')}>
+                  <PasswordInput value={deletePw} onChange={setDeletePw} autoComplete="current-password" />
+                </Label>
+                {deleteError && <Callout tone="danger">{deleteError}</Callout>}
+              </div>
+            </ConfirmDialog>
           </div>
         )}
 
         {/* ═══════ INTEGRĂRI ═══════ */}
         {tab === 'integrations' && (
           <div>
+            {loadError.stores && (
+              <Callout tone="danger" className="mb-2" action={<Button size="xs" onClick={fetchStore}><RefreshCw />{t('settings.retry')}</Button>}>
+                {t('settings.load_error_stores')}
+              </Callout>
+            )}
             {stores.length > 0 && (
               <Section title={t('settings.section_stores')} description={t('settings.add_store_hint')}>
                 {stores.map(s => {

@@ -194,10 +194,10 @@ export async function syncEdinioStore(
     const message = err instanceof DeadlineReached
       ? 'Sincronizarea nu s-a terminat în timpul alocat; continuă la următoarea rulare' // i18n-ignore: pentru jurnal; omul vede sync.deadline_reached
       : (err as Error).message
-    // Omul vede mesajul tradus; o eroare din afara Edinio (ex. a bazei) intră ca detaliu tehnic
+    // Omul vede mesajul tradus; o eroare din afara Edinio (ex. a bazei) rămâne în jurnal
     const lastError = err instanceof DeadlineReached ? storedMessage('sync.deadline_reached')
       : err instanceof EdinioError ? err.stored
-      : storedMessage('sync.failed', { detail: message.slice(0, 500) })
+      : storedMessage('sync.failed_internal')
     await supabase.from('stores').update({ sync_status: 'error', last_error: lastError }).eq('id', storeId)
     logError('edinio/sync', 'Sincronizare Edinio eșuată', { storeId, mode, error: message })
     return { ok: false, reason: 'failed', message }

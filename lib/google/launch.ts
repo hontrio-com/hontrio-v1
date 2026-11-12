@@ -7,13 +7,14 @@ import {
 } from '@/lib/google/ads'
 import { getAccessTokenForUser, GoogleAuthError } from '@/lib/google/oauth'
 import {
-  buildLaunchOperations, campaignStatusOp, endOfDay, euDeclarationOps, normalizeItemId, startOfDay, FINAL_URL_SUFFIX, MAX_LISTING_ITEMS,
+  buildLaunchOperations, campaignStatusOp, endOfDay, euDeclarationOps, normalizeItemId, startOfDay, EXCLUDE_LABEL, FINAL_URL_SUFFIX, MAX_LISTING_ITEMS,
   type LaunchIds, type LaunchSpec, type ListingSpec,
 } from '@/lib/google/operations'
 import { logAction, notify } from '@/lib/ads/journal'
+import { CAMPAIGN_COLUMNS, merchantLabels, parseCampaign } from '@/lib/ads/listing'
 import { syncMerchant } from '@/lib/merchant/sync'
 import type { PlanContext, PlanStore } from '@/lib/campaigns/context'
-import { CAMPAIGN_EXCLUSIONS, type Plan } from '@/lib/campaigns/plan'
+import type { Plan } from '@/lib/campaigns/plan'
 import { accountBlockers } from '@/lib/campaigns/groups'
 import type { AuditResult } from '@/lib/google/audit'
 
@@ -27,8 +28,8 @@ type Supabase = ReturnType<typeof createAdminClient>
 
 export type Account = { customer_id: string; login_customer_id: string | null }
 
-/** Eticheta Hontrio pentru ofertele scoase din campanie, la cataloagele prea mari pentru lista de ID-uri. */
-export const EXCLUDE_LABEL = 'hontrio_exclude'
+/** Eticheta Hontrio (definită lângă arborii de produse); rămâne și aici pentru cei care o importau de aici. */
+export { EXCLUDE_LABEL }
 
 const geoCache = new Map<string, string>()
 const langCache = new Map<string, string | null>()
@@ -228,9 +229,11 @@ export async function launchFromPlan(supabase: Supabase, userId: string, store: 
     // 1. Declarația UE pe campaniile omului
     await declareEu(s, a.eu_undeclared)
 
-    // 2. Eticheta Hontrio în Merchant Center, dacă arborele filtrează după ea
+    // 2. Eticheta Hontrio în Merchant Center, dacă arborele filtrează după ea (aceeași regulă ca pilotul)
     if (listing.kind === 'exclude_label') {
-      const labels = new Map(plan.offers.filter(o => o.reason && CAMPAIGN_EXCLUSIONS.includes(o.reason)).map(o => [o.offer_id, EXCLUDE_LABEL]))
+      const { data: rows } = await supabase.from('ad_campaigns').select(CAMPAIGN_COLUMNS)
+        .eq('store_id', store.id).in('status', ['active', 'paused']).not('google_campaign_id', 'is', null)
+      const labels = merchantLabels(plan, (rows ?? []).map(r => parseCampaign(r as Record<string, unknown>)), store.merchant_label_index, listing)
       const r = await syncMerchant(store.id, { auditMerchantId: a.merchant_id, labels })
       if (!r.ok) return failWith('merchant_labels', storedMessage('sync.launch_labels_failed'))
     }
@@ -321,7 +324,7 @@ export async function launchGroup(supabase: Supabase, userId: string, store: Pla
   if (group.status === 'live') return failWith('already_active', storedMessage('sync.launch_group_live'))
 
   const noValue = !!audit?.result?.checks.some(c => c.id === 'purchase_no_value')
-  if (accountBlockers(plan, gp.type, noValue).length) return failWith('blocked', storedMessage('sync.launch_blocked'))
+  if (accountBlockers(plan, noValue).length) return failWith('blocked', storedMessage('sync.launch_blocked'))
   if (gp.blockers.length) return failWith('group_blocked', storedMessage('sync.launch_group_blocked'))
   if (!account) return failWith('audit_missing', storedMessage('sync.launch_audit_missing'))
   const missing = choicesMissing(audit?.result ?? null, opts)

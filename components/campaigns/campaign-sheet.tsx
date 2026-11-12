@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, type ReactNode } from 'react'
+import { createElement, useState, type ReactNode } from 'react'
 import { ArrowRight, CalendarRange, Pencil, Rocket, Square, Trash2 } from 'lucide-react'
 import { useT } from '@/lib/i18n/context'
 import { cn } from '@/lib/utils'
@@ -14,7 +14,7 @@ import { STATUS, iconOf, useViewLabels } from '@/components/campaigns/campaign-t
 import { noteParams, type Step } from '@/components/campaigns/group-editor'
 import { day, type Formats } from '@/components/app/formats'
 import type { CampaignView } from '@/components/campaigns/views'
-import type { GroupPlan } from '@/lib/campaigns/groups'
+import type { GroupPlan, GroupRules } from '@/lib/campaigns/groups'
 import type { Plan } from '@/lib/campaigns/plan'
 
 // =============================================
@@ -36,6 +36,9 @@ type Props = {
   onChanged: () => Promise<unknown>
 }
 
+/** Iconița campaniei, ca element: iconOf alege una dintre iconițele fixe, nu creează o componentă la randare. */
+const viewIcon = (rules: GroupRules | null) => createElement(iconOf(rules))
+
 export function CampaignSheet({ view, open, onOpenChange, ...rest }: Props) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange} width={760}>
@@ -54,7 +57,6 @@ function SheetBody({ view: v, onClose, plan, f, onEdit, onPlan, onChanged }: Omi
   const [error, setError] = useState<string | null>(null)
   const onError = (text: string) => setError(text)
   const g = v.group
-  const Icon = iconOf(g?.group.rules ?? null)
   const s = STATUS[v.status]
   const live = v.google.filter(c => c.status !== 'ended')
   const hasNumbers = v.google.length > 0 && (v.last30.cost > 0 || live.length > 0)
@@ -119,7 +121,7 @@ function SheetBody({ view: v, onClose, plan, f, onEdit, onPlan, onChanged }: Omi
 
   return (
     <>
-      <SheetHeader icon={<Icon />} title={labels.name(v)} description={labels.subtitle(v)} onClose={onClose}>
+      <SheetHeader icon={viewIcon(g?.group.rules ?? null)} title={labels.name(v)} description={labels.subtitle(v)} onClose={onClose}>
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-1.5">
             <Badge tone={s.tone} dot live={s.live}>{t(s.key)}</Badge>

@@ -1,11 +1,10 @@
 import {
-  Activity, BarChart3, BookOpen, Hash, MessageSquare, Send, Tag, TrendingUp, Users, Wifi,
+  Activity, BarChart3, MessageSquare, Send, TrendingUp, Users, Wifi,
 } from 'lucide-react'
 import type { NavItem } from '@/components/app/shell/nav'
 
 // =============================================
-// Harta panoului de administrare: paginile lui, pe grupe. Blogul stă tot aici,
-// ca tot ce ține de administrare să fie într-un singur loc.
+// Harta panoului de administrare: paginile lui, pe grupe.
 // =============================================
 
 export const ADMIN_NAV: { label: string; items: NavItem[] }[] = [
@@ -22,14 +21,6 @@ export const ADMIN_NAV: { label: string; items: NavItem[] }[] = [
       { label: 'admin.nav_users', href: '/admin/users', icon: Users },
       { label: 'admin.nav_tickets', href: '/admin/tickets', icon: MessageSquare },
       { label: 'admin.nav_broadcast', href: '/admin/broadcast', icon: Send },
-    ],
-  },
-  {
-    label: 'admin.group_content',
-    items: [
-      { label: 'admin.blog_title', href: '/admin/blog', icon: BookOpen },
-      { label: 'admin.blog_categories', href: '/admin/blog/categories', icon: Tag },
-      { label: 'admin.blog_tags_title', href: '/admin/blog/tags', icon: Hash },
     ],
   },
   {

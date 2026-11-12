@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useSyncExternalStore } from 'react'
 import { ExternalLink, Loader2, RefreshCw, Unplug } from 'lucide-react'
 import { useT } from '@/lib/i18n/context'
 import { cn } from '@/lib/utils'
@@ -32,6 +32,10 @@ function formatCustomerId(id: string) {
 
 const storeName = (s: StoreRef) => s.store_name || s.store_url.replace(/^https?:\/\//, '').replace(/\/+$/, '')
 
+// Adresa paginii nu se schimbă de la sine: n-are la ce să se aboneze
+const noSubscribe = () => () => {}
+const OAUTH_PARAMS = ['google', 'google_error', 'google_warning']
+
 export function GoogleLogo({ className = 'size-4' }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" className={className} aria-hidden>
@@ -56,23 +60,6 @@ export default function GoogleAdsCard() {
   const [selecting, setSelecting] = useState<string | null>(null)
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null)
 
-  useEffect(() => {
-    load()
-    // Rezultatul redirect-ului din fluxul OAuth
-    const params = new URLSearchParams(window.location.search)
-    const error = params.get('google_error')
-    const warning = params.get('google_warning')
-    if (error) setNotice({ ok: false, text: t(`google_ads.error_${KNOWN_ERRORS.includes(error) ? error : 'generic'}`) })
-    else if (warning) setNotice({ ok: false, text: warningText(warning) })
-    else if (params.get('google') === 'connected') setNotice({ ok: true, text: t('google_ads.connected_success') })
-    if (error || warning || params.get('google')) {
-      ['google', 'google_error', 'google_warning'].forEach(k => params.delete(k))
-      const qs = params.toString()
-      window.history.replaceState(null, '', window.location.pathname + (qs ? `?${qs}` : ''))
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
   function warningText(code: string) {
     // Accesul de test: codul vechi (tokenul de dezvoltator) și cel nou, al proiectului Google Cloud
     if (code.endsWith('DEVELOPER_TOKEN_NOT_APPROVED') || code.endsWith('CLOUD_PROJECT_NOT_APPROVED_FOR_PRODUCTION')) return t('google_ads.warning_test_token')
@@ -80,16 +67,45 @@ export default function GoogleAdsCard() {
     return t('google_ads.warning_generic', { code })
   }
 
-  async function load() {
-    try {
-      const r = await fetch('/api/integrations/google')
-      const d = await r.json()
-      setConnection(d.connection || null)
-      setAccounts(d.accounts || [])
-      setStores(d.stores || [])
-      setStoreId(id => id ?? d.active_store_id ?? null)
-    } catch {} finally { setLoading(false) }
+  // Rezultatul redirect-ului din fluxul OAuth vine în adresă: se citește în browser (pe
+  // server adresa nu se știe) și se arată o singură dată, la randare
+  const query = useSyncExternalStore(noSubscribe, () => window.location.search, () => '')
+  const [readQuery, setReadQuery] = useState('')
+  if (query && query !== readQuery) {
+    setReadQuery(query)
+    const params = new URLSearchParams(query)
+    const error = params.get('google_error')
+    const warning = params.get('google_warning')
+    if (error) setNotice({ ok: false, text: t(`google_ads.error_${KNOWN_ERRORS.includes(error) ? error : 'generic'}`) })
+    else if (warning) setNotice({ ok: false, text: warningText(warning) })
+    else if (params.get('google') === 'connected') setNotice({ ok: true, text: t('google_ads.connected_success') })
   }
+
+  // După ce rezultatul a fost citit, adresa rămâne curată (fila din Setări, ?tab=, rămâne)
+  useEffect(() => {
+    if (!readQuery) return
+    const params = new URLSearchParams(window.location.search)
+    if (!OAUTH_PARAMS.some(k => params.has(k))) return
+    OAUTH_PARAMS.forEach(k => params.delete(k))
+    const qs = params.toString()
+    window.history.replaceState(null, '', window.location.pathname + (qs ? `?${qs}` : ''))
+  }, [readQuery])
+
+  // Starea se schimbă doar în callback-urile răspunsului, nu în efectul care pornește încărcarea
+  function load() {
+    return fetch('/api/integrations/google')
+      .then(r => r.json())
+      .then(d => {
+        setConnection(d.connection || null)
+        setAccounts(d.accounts || [])
+        setStores(d.stores || [])
+        setStoreId(id => id ?? d.active_store_id ?? null)
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }
+
+  useEffect(() => { load() }, [])
 
   async function handleRefresh() {
     setRefreshing(true); setNotice(null)
@@ -145,7 +161,11 @@ export default function GoogleAdsCard() {
           <Skeleton className="h-16 rounded-xl" />
         ) : !connection || revoked ? (
           <div className="space-y-3">
-            <p className="text-[13px] leading-relaxed text-neutral-500">{revoked ? t('google_ads.revoked_desc') : t('google_ads.connect_desc')}</p>
+            <p className="text-[13px] leading-relaxed text-neutral-500">
+              {revoked ? t('google_ads.revoked_desc') : t('google_ads.connect_desc')}{' '}
+              {/* Ce face Hontrio cu datele Google, înainte de ecranul Google (cerut la verificarea OAuth) */}
+              <a href="/legal/privacy#google" target="_blank" rel="noopener" className="font-medium text-neutral-800 underline decoration-neutral-300 underline-offset-2 hover:decoration-neutral-800">{t('site.data_privacy')}</a>
+            </p>
             <Button asChild variant="primary" className="w-full">
               <a href="/api/integrations/google/connect"><GoogleLogo />{revoked ? t('google_ads.reconnect') : t('google_ads.connect')}</a>
             </Button>

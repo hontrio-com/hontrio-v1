@@ -120,15 +120,27 @@ test('WooCommerce: excluderea merge pe ID-ul din feed (gla_…); ofertele nepotr
   assert.equal(p.exclusions.unmatched, 1)
 })
 
-test('auditul blochează lansarea: Merchant nelegat, conversie fără valoare doar la creștere', () => {
+test('auditul blochează lansarea: Merchant nelegat, conversie fără valoare la ambele trepte', () => {
   const noLink = evaluateAudit(auditRaw({ productLinks: [] }), ctx)
   assert.ok(buildPlan(input({ audit: noLink })).blockers.some(b => b.id === 'merchant_not_linked'))
   const noValueRaw = auditRaw()
   noValueRaw.conversionActions[0].conversionAction!.valueSettings = { alwaysUseDefaultValue: true }
   const noValue = evaluateAudit(noValueRaw, ctx)
-  assert.ok(!buildPlan(input({ audit: noValue })).blockers.some(b => b.id === 'purchase_no_value'), 'la pornire („Maximizează clicurile") valoarea nu contează')
+  // Și la pornire: oprirea de siguranță și produsele se judecă după valoarea vânzărilor
+  assert.ok(buildPlan(input({ audit: noValue })).blockers.some(b => b.id === 'purchase_no_value'), 'la pornire')
   const noValueGrowth = { ...noValue, history: growthAudit.history }
-  assert.ok(buildPlan(input({ audit: noValueGrowth })).blockers.some(b => b.id === 'purchase_no_value'))
+  assert.ok(buildPlan(input({ audit: noValueGrowth })).blockers.some(b => b.id === 'purchase_no_value'), 'la creștere')
+  // Un audit salvat înainte (conversia fără valoare era doar avertisment) blochează la fel
+  const oldAudit = { ...noValue, checks: noValue.checks.map(c => ({ ...c, level: 'warning' as const })) }
+  assert.equal(buildPlan(input({ audit: oldAudit })).blockers.filter(b => b.id === 'purchase_no_value').length, 1)
+})
+
+test('treapta numără cumpărările: un cont cu multe conversii „adaugă în coș" rămâne la pornire', () => {
+  const carts = { ...growthAudit, history: { ...growthAudit.history, purchase_conversions30: 9 } }
+  const p = buildPlan(input({ audit: carts }))
+  assert.equal(p.stage.id, 'starter')
+  assert.equal(p.stage.conversions30, 9)
+  assert.equal(buildPlan(input({ audit: { ...carts, history: { ...carts.history, purchase_conversions30: 15 } } })).stage.id, 'growth')
 })
 
 test('prea multe excluderi pentru lista din PMax: eticheta Hontrio sau pas de făcut', () => {

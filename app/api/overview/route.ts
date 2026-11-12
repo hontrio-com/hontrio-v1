@@ -59,7 +59,8 @@ export async function GET(request: Request) {
     const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString()
     const [ovRes, salesRes] = await Promise.all([
       supabase.rpc('commerce_overview', { p_store_id: store.id, p_days: days, p_tz: store.timezone || 'Europe/Bucharest' }),
-      supabase.rpc('commerce_offer_sales', { p_store_id: store.id, p_since: since }),
+      // Doar primele după vânzări, ordonate de bază (un catalog mare are mai mult de o pagină de oferte vândute)
+      supabase.rpc('commerce_offer_sales', { p_store_id: store.id, p_since: since }).order('revenue', { ascending: false }).limit(TOP_PRODUSE),
     ])
     if (ovRes.error) logApiError(ROUTE, 500, 'Eroare la commerce_overview', { userId, error: ovRes.error.message })
     if (salesRes.error) logApiError(ROUTE, 500, 'Eroare la commerce_offer_sales', { userId, error: salesRes.error.message })
@@ -69,8 +70,9 @@ export async function GET(request: Request) {
     const sinceDay = since.slice(0, 10)
     const sums = { cost: 0, value: 0, conversions: 0 }
     for (let from = 0; ; from += 1000) {
+      // Ordinea întreagă (zi, campanie) ține paginile stabile: niciun rând numărat de două ori sau sărit
       const { data: rows } = await supabase.from('ad_metrics_daily').select('cost, conversions, conversions_value')
-        .eq('store_id', store.id).gte('date', sinceDay).range(from, from + 999)
+        .eq('store_id', store.id).gte('date', sinceDay).order('date').order('google_campaign_id').range(from, from + 999)
       for (const r of rows ?? []) {
         sums.cost += Number(r.cost) || 0; sums.value += Number(r.conversions_value) || 0; sums.conversions += Number(r.conversions) || 0
       }

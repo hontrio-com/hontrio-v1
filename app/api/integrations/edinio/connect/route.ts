@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/auth.config'
-import { rateLimit } from '@/lib/security/rate-limit'
+import { clientIp, rateLimitAll } from '@/lib/security/rate-limit'
 import { logApiError } from '@/lib/logger'
 import { getEdinioRedirectUri, isEdinioConfigured } from '@/lib/edinio/config'
 import { rememberReturn, startFailureUrl } from '@/lib/integrations/return-to'
@@ -22,13 +22,16 @@ function back(request: Request, error: string) {
 
 export async function GET(request: Request) {
   const session = await getServerSession(authOptions)
-  if (!session?.user) {
+  if (!session?.user?.id) {
     return NextResponse.redirect(new URL('/login?callbackUrl=/settings?tab=integrations', request.url))
   }
   const userId = session.user.id
 
-  const rl = rateLimit(`edinio-connect:${userId}`, 10, 60 * 1000)
-  if (!rl.success) return back(request, 'rate_limited')
+  const allowed = await rateLimitAll([
+    [`edinio-connect:${userId}`, 10, 10 * 60 * 1000],
+    [`edinio-connect-ip:${clientIp(request.headers)}`, 30, 10 * 60 * 1000],
+  ])
+  if (!allowed) return back(request, 'rate_limited')
   if (!isEdinioConfigured()) return back(request, 'not_configured')
 
   // Un cont poate avea mai multe magazine: magazinul Edinio se adaugă lângă celelalte

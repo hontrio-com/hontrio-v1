@@ -6,7 +6,8 @@ import { logApiError } from '@/lib/logger'
 import { isCommercePlatform } from '@/lib/commerce/sync'
 import { getActiveStore } from '@/lib/stores/active'
 import { loadPlanContext, STORE_PLAN_COLUMNS, type PlanStore } from '@/lib/campaigns/context'
-import { CAMPAIGN_COLUMNS, parseCampaign } from '@/lib/ads/apply'
+import { CAMPAIGN_COLUMNS, parseCampaign } from '@/lib/ads/listing'
+import { readAll } from '@/lib/ads/read-all'
 import { getT } from '@/lib/i18n/server'
 
 // =============================================
@@ -34,16 +35,6 @@ const add = (a: Sum, r: { cost: unknown; clicks: unknown; impressions?: unknown;
 const round2 = (n: number) => Math.round(n * 100) / 100
 const roasOf = (s: Sum) => (s.cost > 0 ? Math.round((s.value / s.cost) * 100) / 100 : null)
 
-async function readAll<T>(fetchPage: (from: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>): Promise<T[]> {
-  const out: T[] = []
-  for (let from = 0; ; from += 1000) {
-    const { data, error } = await fetchPage(from)
-    if (error) throw new Error(error.message)
-    out.push(...(data ?? []))
-    if (!data || data.length < 1000) return out
-  }
-}
-
 export async function GET(request: Request) {
   const t = await getT()
   const session = await getServerSession(authOptions)
@@ -53,7 +44,7 @@ export async function GET(request: Request) {
   const days = PERIODS.includes(daysParam) ? daysParam : 30
 
   const supabase = createAdminClient()
-  const { data: store, error } = await getActiveStore<PlanStore & { ads_synced_at: string | null }>(supabase, userId, `${STORE_PLAN_COLUMNS}, ads_synced_at`)
+  const { data: store, error } = await getActiveStore<PlanStore & { ads_synced_at: string | null; ads_sync_error: string | null }>(supabase, userId, `${STORE_PLAN_COLUMNS}, ads_synced_at, ads_sync_error`)
   if (error) {
     logApiError(ROUTE, 500, 'Eroare la citirea magazinului', { userId, error: error.message })
     return NextResponse.json({ error: t('sync.store_read_failed') }, { status: 500 })
@@ -65,20 +56,30 @@ export async function GET(request: Request) {
   const to = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10)
   const from = new Date(Date.parse(`${to}T00:00:00Z`) - (days - 1) * 86_400_000).toISOString().slice(0, 10)
 
+  // Cifrele contului ales acum (un cont ales înainte își păstrează rândurile, dar nu se mai arată)
+  const customerId = store.google_ads_customer_id
+
   try {
-    const [{ context }, salesRes, campaignsRes, metrics, productRows, termsRes] = await Promise.all([
+    const [{ context }, salesRes, campaignsRes, metrics, allProductRows, termsRes] = await Promise.all([
       loadPlanContext(supabase, userId, store),
       supabase.rpc('commerce_sales_report', { p_store_id: store.id, p_days: days, p_tz: store.timezone || 'Europe/Bucharest' }),
       supabase.from('ad_campaigns').select(CAMPAIGN_COLUMNS).eq('store_id', store.id).not('google_campaign_id', 'is', null),
-      readAll<{ google_campaign_id: string; date: string; campaign_name: string | null; channel_type: string | null; cost: number; clicks: number; impressions: number; conversions: number; conversions_value: number }>(
-        f => supabase.from('ad_metrics_daily').select('google_campaign_id, date, campaign_name, channel_type, cost, clicks, impressions, conversions, conversions_value')
-          .eq('store_id', store.id).gte('date', from).lte('date', to).order('date').range(f, f + 999)),
-      readAll<{ item_id: string; cost: number; clicks: number; impressions: number; conversions: number; conversions_value: number }>(
-        f => supabase.from('ad_product_metrics_daily').select('item_id, cost, clicks, impressions, conversions, conversions_value')
-          .eq('store_id', store.id).gte('date', from).lte('date', to).order('date').range(f, f + 999)),
+      readAll<{ google_campaign_id: string; date: string; campaign_name: string | null; channel_type: string | null; cost: number; clicks: number; impressions: number; conversions: number; conversions_value: number }>((a, b) => {
+        let q = supabase.from('ad_metrics_daily').select('google_campaign_id, date, campaign_name, channel_type, cost, clicks, impressions, conversions, conversions_value')
+          .eq('store_id', store.id).gte('date', from).lte('date', to)
+        if (customerId) q = q.eq('customer_id', customerId)
+        // O ordine întreagă (zi, campanie): altfel paginile pot repeta sau sări rânduri
+        return q.order('date').order('google_campaign_id').range(a, b)
+      }),
+      readAll<{ google_campaign_id: string; item_id: string; cost: number; clicks: number; impressions: number; conversions: number; conversions_value: number }>((a, b) =>
+        supabase.from('ad_product_metrics_daily').select('google_campaign_id, item_id, cost, clicks, impressions, conversions, conversions_value')
+          .eq('store_id', store.id).gte('date', from).lte('date', to).order('date').order('google_campaign_id').order('item_id').range(a, b)),
       supabase.from('ad_search_terms').select('search_term, google_campaign_id, cost, clicks, conversions, conversions_value').eq('store_id', store.id).order('cost', { ascending: false }).limit(TOP_TERMS),
     ])
     if (salesRes.error) logApiError(ROUTE, 500, 'Eroare la commerce_sales_report', { userId, error: salesRes.error.message })
+    // Produsele: doar ale campaniilor din contul de acum
+    const accountCampaigns = new Set(metrics.map(m => m.google_campaign_id))
+    const productRows = customerId ? allProductRows.filter(r => accountCampaigns.has(r.google_campaign_id)) : allProductRows
 
     const plan = context?.plan ?? null
     const campaignRows = (campaignsRes.data ?? []).map(r => parseCampaign(r as Record<string, unknown>))
@@ -125,7 +126,9 @@ export async function GET(request: Request) {
       google: {
         connected: !!context?.googleConnected,
         account: context?.account ? { id: context.account.customer_id, name: context.account.descriptive_name } : null,
+        // Prima citire a contului nu s-a încheiat încă (null) sau ultima n-a reușit (sync_error): cifrele vin
         synced_at: store.ads_synced_at,
+        sync_error: store.ads_sync_error,
       },
       ads: hasAds ? {
         total: { ...total, cost: round2(total.cost), value: round2(total.value), roas: roasOf(total) },

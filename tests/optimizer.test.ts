@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { optimize, windowOf, type OptCampaign, type OptimizerInput, type OptProduct, type Window } from '@/lib/ads/optimizer'
+import { budgetRoom, lossStops, optimize, squash, windowOf, type OptCampaign, type OptimizerInput, type OptProduct, type Window } from '@/lib/ads/optimizer'
 
 // Bucla de optimizare, fără marje: oprirea de siguranță (ROAS sub 1), trecerea
 // la Performance Max, bugetul (doar propus), produsele și termenii de căutare,
@@ -163,4 +163,54 @@ test('bugetul maxim e pentru toate campaniile Hontrio, la un loc', () => {
   assert.deepEqual(optimize(input({ campaigns: [limited, other(95)] })).find(x => x.kind === 'set_budget' && x.campaign_id === 'c1')!.params, { from: 50, to: 55 })
   // Nu mai e loc: nimic
   assert.ok(!optimize(input({ campaigns: [limited, other(100)] })).some(x => x.kind === 'set_budget' && x.campaign_id === 'c1'))
+})
+
+test('oprirea de siguranță a unei grupe vine din comanda medie a grupei, nu a magazinului (§13)', () => {
+  // Magazinul: comanda medie 300 → 300 / 900. Grupa de accesorii: comanda medie 40 → 40 / 120
+  const cheap = campaign({ id: 'g1', group: true, loss_limit: { no_conversions: 40, low_roas: 120 }, since_loss_check: w(60, 0, 0) })
+  assert.deepEqual(optimize(input({ campaigns: [cheap] })).map(p => p.kind), ['pause_loss_limit'])
+  // Grupa scumpă (comanda medie 1.200): 400 cheltuiți fără vânzări nu o opresc încă, deși ar opri magazinul
+  const premium = campaign({ id: 'g2', group: true, loss_limit: { no_conversions: 1200, low_roas: 3600 }, since_loss_check: w(400, 0, 0) })
+  assert.ok(!kinds(input({ campaigns: [premium] })).includes('pause_loss_limit'))
+  // Fără limită proprie: a magazinului
+  assert.ok(kinds(input({ campaigns: [campaign({ since_loss_check: w(400, 0, 0) })] })).includes('pause_loss_limit'))
+  // Limita grupei null (nicio comandă medie): nu se oprește
+  assert.ok(!kinds(input({ campaigns: [campaign({ loss_limit: null, since_loss_check: w(5000, 0, 0) })] })).includes('pause_loss_limit'))
+  // lossStops e aceeași regulă, folosită de pilot înaintea a orice altceva
+  assert.equal(lossStops([cheap, premium], { no_conversions: 300, low_roas: 900 }).length, 1)
+})
+
+test('campaniile judecate deja de oprirea de siguranță (skip) nu mai primesc nimic în trecerea asta', () => {
+  const limited = campaign({ google: { reasons: ['BUDGET_CONSTRAINED'], recommended_budget: null }, since_loss_check: w(950, 3, 700) })
+  assert.deepEqual(optimize(input({ campaigns: [limited], skip: new Set(['c1']) })), [])
+})
+
+test('pornirea nu trece la PMax când arborele ar depăși limita Google, iar o respingere ține doar pentru campania ei', () => {
+  const starter = campaign({ type: 'shopping', stage: 'starter', days_live: 20, eval30: w(500, 16, 2600) })
+  assert.ok(!kinds(input({ campaigns: [{ ...starter, can_graduate: false }], account: { conversions30: 16 } })).includes('graduate'))
+  const rejected = (k: string) => ({ items: new Set<string>(), terms: new Set<string>(), kinds: new Set([k]) })
+  assert.ok(!kinds(input({ campaigns: [starter], account: { conversions30: 16 }, rejected: rejected('graduate:c1') })).includes('graduate'))
+  // A fost respinsă trecerea altei campanii (o grupă): pornirea principală trece
+  assert.ok(kinds(input({ campaigns: [starter], account: { conversions30: 16 }, rejected: rejected('graduate:g9') })).includes('graduate'))
+})
+
+test('bugetul maxim: propunerile din aceeași trecere nu trec împreună de el', () => {
+  const limited = (id: string) => campaign({ id, google_campaign_id: id, daily_budget: 60, google: { reasons: ['BUDGET_CONSTRAINED'], recommended_budget: null } })
+  // Maxim 130, două campanii de 60: prima urcă la 70, a doua nu mai are loc
+  const p = optimize(input({ campaigns: [limited('a'), limited('b')], max_daily_budget: 130 })).filter(x => x.kind === 'set_budget')
+  assert.deepEqual(p.map(x => x.params), [{ from: 60, to: 70 }])
+  // budgetRoom: ce încape sub maxim, pentru aprobarea de mai târziu
+  const rows = [{ id: 'a', status: 'active', daily_budget: 70 }, { id: 'b', status: 'active', daily_budget: 60 }, { id: 'c', status: 'paused', daily_budget: 500 }]
+  assert.equal(budgetRoom(130, 'b', rows), 60)
+  assert.equal(budgetRoom(null, 'b', rows), null)
+})
+
+test('numele magazinului nu devine negativ nici fără diacritice, legat sau cu cratimă', () => {
+  const terms = (list: string[]) => optimize(input({
+    brand: ['lumină design'],
+    searchTerms: list.map(term => ({ campaign_id: 'c1', term, cost: 400, conversions: 0, clicks: 30 })),
+  })).find(x => x.kind === 'add_negatives')?.params.terms as { term: string }[] | undefined
+  assert.equal(terms(['lumina design', 'luminadesign.ro', 'Lumina-Design lustre']), undefined)
+  assert.deepEqual(terms(['lustra ieftina'])!.map(t => t.term), ['lustra ieftina'])
+  assert.equal(squash('Lumină-Design'), 'luminadesign')
 })

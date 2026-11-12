@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { evaluateAudit, type AuditRaw } from '@/lib/google/audit'
+import { evaluateAudit, purchaseConversions30, type AuditRaw } from '@/lib/google/audit'
 
 // Auditul contului: rândurile vin cum le dă API-ul REST (camelCase, int64 ca text,
 // valorile implicite lipsesc).
@@ -58,7 +58,8 @@ test('conversia de cumpărare: lipsă, secundară, fără valoare', () => {
   const noValue = raw()
   noValue.conversionActions[0].conversionAction!.valueSettings = { defaultValue: 1, alwaysUseDefaultValue: true }
   const r = evaluateAudit(noValue, ctx)
-  assert.deepEqual(r.checks, [{ id: 'purchase_no_value', level: 'warning' }])
+  // Fără valoarea comenzii pilotul n-are ROAS (oprirea de siguranță, produsele): oprește lansarea la ambele trepte
+  assert.deepEqual(r.checks, [{ id: 'purchase_no_value', level: 'blocker' }])
   // O conversie de alt fel (ex. abonare) nu e cumpărare
   assert.deepEqual(ids(evaluateAudit(raw({ conversionActions: [{ conversionAction: { id: '1', status: 'ENABLED', category: 'SIGNUP', primaryForGoal: true } }] }), ctx)), ['purchase_missing'])
 })
@@ -82,7 +83,22 @@ test('declarația UE, suprapunerile și campania Search', () => {
   assert.deepEqual(r.eu_undeclared, ['1'])
   assert.deepEqual(r.overlap, ['1'], 'doar campaniile active, pe același Merchant, care nu sunt ale noastre')
   assert.equal(r.search_active, true)
-  assert.deepEqual(r.history, { conversions30: 17, value30: 840, cost30: 125, shopping_conversions30: 11, shopping_value30: 540, shopping_cost30: 105 })
+  // Fără interogarea cumpărărilor (sau dacă Google n-a primit-o): null, iar treapta folosește toate conversiile
+  assert.deepEqual(r.history, { conversions30: 17, value30: 840, cost30: 125, shopping_conversions30: 11, shopping_value30: 540, shopping_cost30: 105, purchase_conversions30: null })
   assert.equal(r.campaigns.find(c => c.id === '1')!.daily_budget, 50)
   assert.deepEqual(r.checks.map(c => [c.id, c.level]), [['eu_undeclared', 'choice'], ['overlap', 'choice'], ['search_active', 'info']])
+})
+
+test('treapta numără doar cumpărările (un „adaugă în coș" principal nu contează); un audit vechi folosește toate conversiile', () => {
+  const r = evaluateAudit(raw({
+    metrics30: [{ campaign: { id: '50', advertisingChannelType: 'SEARCH' }, metrics: { costMicros: '1000000', conversions: 20, conversionsValue: 800 } }],
+    purchase30: [{ metrics: { conversions: 6 } }, { metrics: { conversions: 3.5 } }],
+  }), ctx)
+  assert.equal(r.history.conversions30, 20)
+  assert.equal(r.history.purchase_conversions30, 9.5)
+  assert.equal(purchaseConversions30(r), 9.5)
+  // Interogarea cumpărărilor n-a mers: totul, ca înainte
+  assert.equal(purchaseConversions30(evaluateAudit(raw({ purchase30: null }), ctx)), 2)
+  // Un audit salvat înainte de câmpul nou
+  assert.equal(purchaseConversions30({ history: { conversions30: 12, value30: 0, cost30: 0, shopping_conversions30: 0, shopping_value30: 0, shopping_cost30: 0 } }), 12)
 })

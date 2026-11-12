@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { AlertCircle, Bot, Layers, LayoutDashboard, Megaphone, Plus, Store } from 'lucide-react'
 import { useT } from '@/lib/i18n/context'
+import { translateStored } from '@/lib/i18n/stored'
 import { PageHeader } from '@/components/app/page-header'
 import { PageTabs } from '@/components/app/tabs'
 import { Badge } from '@/components/app/badge'
@@ -31,8 +32,9 @@ import type { Mode } from '@/lib/campaigns/plan'
 // Campanii — patru file, de la ce contează cel mai des la detalii:
 // Prezentarea (ce aduc campaniile, ce așteaptă pilotul de la tine), Campaniile
 // (toate, cu fișa fiecăreia), Pilotul (propunerile, jurnalul, cum lucrează)
-// și Planul campaniei principale (lansarea, obiectivul, produsele). Fila
+// și Planul campaniei principale (lansarea, bugetul, produsele). Fila
 // aleasă stă în adresă (?tab=), ca un link sau „înapoi" să ducă tot acolo.
+// Deasupra filelor: de ce n-a putut lucra pilotul la ultima trecere, dacă e cazul.
 // =============================================
 
 type Tab = 'overview' | 'campaigns' | 'pilot' | 'plan'
@@ -66,21 +68,13 @@ function CampaignsView() {
   const [handledNew, setHandledNew] = useState(false)
   const scrollTarget = useRef<string | null>(null)
 
-  const load = useCallback(async (): Promise<CampaignsData | null> => {
-    setFailed(false)
-    try {
-      const r = await fetch('/api/campaigns/plan')
-      if (!r.ok) throw new Error()
-      const body = (await r.json()) as CampaignsData
-      setData(body)
-      return body
-    } catch {
-      setFailed(true)
-      return null
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+  // Starea se schimbă doar în callback-urile răspunsului, nu în efectul care pornește încărcarea
+  const load = useCallback((): Promise<CampaignsData | null> =>
+    fetch('/api/campaigns/plan')
+      .then(r => { if (!r.ok) throw new Error(); return r.json() as Promise<CampaignsData> })
+      .then(body => { setData(body); setFailed(false); return body })
+      .catch(() => { setFailed(true); return null })
+      .finally(() => setLoading(false)), [])
 
   useEffect(() => { load() }, [load])
 
@@ -132,7 +126,7 @@ function CampaignsView() {
     try {
       const r = await fetch('/api/campaigns/plan', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
       if (!r.ok) throw new Error()
-      // Obiectivul și bugetul schimbă ținta, bugetul propus și estimarea: le socotește serverul
+      // Bugetul și modul pilotului schimbă planul: îl socotește serverul
       return !!(await load())
     } catch {
       setNotice(t('campaigns.save_error'))
@@ -207,9 +201,18 @@ function CampaignsView() {
     ]} />
   )
 
+  const pilotError = data.store.pilot?.error ?? null
+
   return (
     <div className="space-y-6">
       {header(tabs, { meta, actions })}
+
+      {/* Pilotul n-a putut lucra (cont necitit, acces pierdut): oprirea de siguranță așteaptă */}
+      {pilotError && (
+        <Callout tone="danger" title={t('campaigns.pilot_error_title')}>
+          {translateStored(t, pilotError)} {t('campaigns.pilot_error_hint')}
+        </Callout>
+      )}
 
       {(notice || success) && (
         <div className="space-y-2">

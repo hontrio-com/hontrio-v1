@@ -134,7 +134,8 @@ export async function refreshAccessToken(refreshToken: string): Promise<{ access
 
 /**
  * Access token valid pentru conexiunea Google a utilizatorului.
- * Dacă Google a revocat accesul, marchează conexiunea ca 'revoked'.
+ * Dacă Google a revocat accesul, marchează conexiunea ca 'revoked' și, o singură dată (la trecerea din
+ * activă în retrasă), îi spune omului că pilotul nu-i mai poate proteja campaniile care rulează.
  */
 export async function getAccessTokenForUser(userId: string): Promise<string> {
   const cached = tokenCache.get(userId)
@@ -156,10 +157,20 @@ export async function getAccessTokenForUser(userId: string): Promise<string> {
     return accessToken
   } catch (err) {
     if (err instanceof GoogleAuthError && err.code === 'invalid_grant') {
-      await supabase
+      // Doar cine o trece din activă în retrasă anunță omul (două cereri deodată nu-l anunță de două ori)
+      const { data: flipped } = await supabase
         .from('google_connections')
         .update({ status: 'revoked', last_error: storedMessage('sync.google_access_revoked'), updated_at: new Date().toISOString() })
-        .eq('id', conn.id)
+        .eq('id', conn.id).neq('status', 'revoked')
+        .select('id')
+      if (flipped?.length) {
+        try {
+          const { alertAccessLost } = await import('@/lib/ads/alerts')
+          await alertAccessLost(supabase, userId)
+        } catch (alertErr) {
+          console.error('[google-oauth] Anunțul despre accesul pierdut n-a plecat:', alertErr instanceof Error ? alertErr.message : alertErr)
+        }
+      }
     }
     throw err
   }

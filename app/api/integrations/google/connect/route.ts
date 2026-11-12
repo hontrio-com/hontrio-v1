@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/auth.config'
 import { buildAuthUrl, getRedirectUri, GOOGLE_OAUTH_STATE_COOKIE } from '@/lib/google/oauth'
-import { rateLimit } from '@/lib/security/rate-limit'
+import { rateLimitAsync } from '@/lib/security/rate-limit'
 import { logApiError } from '@/lib/logger'
 import { rememberReturn, startFailureUrl } from '@/lib/integrations/return-to'
 
@@ -18,7 +18,7 @@ export async function GET(request: Request) {
   }
   const userId = session.user.id
 
-  const rl = rateLimit(`google-connect:${userId}`, 10, 60 * 1000)
+  const rl = await rateLimitAsync(`google-connect:${userId}`, 10, 60 * 1000)
   if (!rl.success) {
     return NextResponse.redirect(startFailureUrl(request, { google_error: 'rate_limited' }))
   }

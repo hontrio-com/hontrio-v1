@@ -51,8 +51,31 @@ export function orderState(status: string): OrderState {
   }
 }
 
+// Din sursa comenzii se păstrează doar ce trebuie reclamelor. Acordul de marketing al
+// cumpărătorului (consimtamant_marketing) și orice alt câmp nou de la Edinio rămân acolo.
+const SOURCE_KEYS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'gclid', 'gbraid', 'wbraid', 'captured_at'] as const
+
+/** Lista albă a sursei: UTM-urile, id-urile de clic, pagina de intrare (fără parametri) și originea. */
+export function attributionOf(src: Record<string, unknown> | null | undefined): Record<string, string> {
+  const out: Record<string, string> = {}
+  if (!src) return out
+  for (const k of SOURCE_KEYS) {
+    const v = str(src[k])
+    if (v) out[k] = v.slice(0, 300)
+  }
+  const landing = str(src.landing)
+  if (landing) {
+    try { out.landing_path = new URL(landing, 'https://magazin.invalid').pathname.slice(0, 300) } catch { /* adresă stricată: o lăsăm */ }
+  }
+  const referrer = str(src.referrer)
+  if (referrer) {
+    try { out.referrer = new URL(referrer).origin } catch { /* adresă stricată: o lăsăm */ }
+  }
+  return out
+}
+
 export function orderRow(ctx: Ctx, o: EdinioOrder, syncedAt: string): OrderRow {
-  const src = o.sursa || {}
+  const src = attributionOf(o.sursa)
   return {
     store_id: ctx.storeId,
     user_id: ctx.userId,

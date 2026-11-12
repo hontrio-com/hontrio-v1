@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useId } from 'react'
+import { useState, useEffect, useCallback, useId, useSyncExternalStore } from 'react'
 import { useT } from '@/lib/i18n/context'
 import LanguageSwitcher from '@/components/language-switcher'
 import { Callout } from '@/components/app/feedback'
@@ -43,6 +43,9 @@ const slide = {
 }
 
 const labelStyles = 'block text-[12px] font-semibold tracking-[0.02em] text-neutral-500'
+
+// Adresa paginii nu se schimbă de la sine: n-are la ce să se aboneze
+const noSubscribe = () => () => {}
 
 /** Un câmp al formularelor de conectare (CLIPPING): etichetă mică, iconiță, inel la focus. */
 function InputField({ label, value, onChange, placeholder, type = 'text', mono = false, icon: Icon, name, autoComplete }: {
@@ -103,31 +106,35 @@ export default function OnboardingPage() {
 
   useEffect(() => { if ((session?.user as { onboardingCompleted?: boolean } | undefined)?.onboardingCompleted) router.push('/dashboard') }, [session, router])
 
-  const loadStore = useCallback(async () => {
-    try {
-      const d = await (await fetch('/api/stores')).json()
-      setStore(d.store ?? null)
-      return (d.store ?? null) as StoreInfo | null
-    } catch { return null }
-  }, [])
+  // Starea se schimbă doar în callback-urile răspunsului, nu în efectul care pornește încărcarea
+  const loadStore = useCallback((): Promise<StoreInfo | null> =>
+    fetch('/api/stores')
+      .then(r => r.json())
+      .then(d => { const s = (d.store ?? null) as StoreInfo | null; setStore(s); return s })
+      .catch(() => null), [])
 
-  const loadGoogle = useCallback(async () => {
-    try {
-      const d = await (await fetch('/api/integrations/google')).json()
-      const active = (d.stores ?? []).find((s: { id: string }) => s.id === d.active_store_id)
-      const account = (d.accounts ?? []).find((a: { customer_id: string }) => a.customer_id === active?.google_ads_customer_id)
-      setGoogle({
-        connected: d.connection?.status === 'active',
-        email: d.connection?.google_email ?? null,
-        accounts: (d.accounts ?? []).filter((a: { is_manager: boolean }) => !a.is_manager).length,
-        storeAccount: account ? (account.descriptive_name || account.customer_id) : null,
+  const loadGoogle = useCallback(() =>
+    fetch('/api/integrations/google')
+      .then(r => r.json())
+      .then(d => {
+        const active = (d.stores ?? []).find((s: { id: string }) => s.id === d.active_store_id)
+        const account = (d.accounts ?? []).find((a: { customer_id: string }) => a.customer_id === active?.google_ads_customer_id)
+        setGoogle({
+          connected: d.connection?.status === 'active',
+          email: d.connection?.google_email ?? null,
+          accounts: (d.accounts ?? []).filter((a: { is_manager: boolean }) => !a.is_manager).length,
+          storeAccount: account ? (account.descriptive_name || account.customer_id) : null,
+        })
       })
-    } catch {}
-  }, [])
+      .catch(() => {}), [])
 
-  // Întoarcerea din Edinio, Shopify sau Google: rezultatul vine în adresă
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
+  // Întoarcerea din Edinio, Shopify sau Google: rezultatul vine în adresă. Se citește
+  // în browser (pe server adresa nu se știe) și se aplică o singură dată, la randare.
+  const returnQuery = useSyncExternalStore(noSubscribe, () => window.location.search, () => '')
+  const [readQuery, setReadQuery] = useState('')
+  if (returnQuery && returnQuery !== readQuery) {
+    setReadQuery(returnQuery)
+    const params = new URLSearchParams(returnQuery)
     const go = (s: number) => { setDir(1); setStep(s) }
     if (params.get('google') === 'connected') {
       const warning = params.get('google_warning')
@@ -151,11 +158,17 @@ export default function OnboardingPage() {
       setError({ key: `edinio.error_${EDINIO_ERRORS.includes(code) ? code : 'generic'}` })
       go(1)
     }
-    if ([...params.keys()].length) window.history.replaceState(null, '', window.location.pathname)
+  }
+
+  // După ce rezultatul a fost citit, adresa rămâne curată
+  useEffect(() => {
+    if (readQuery) window.history.replaceState(null, '', window.location.pathname)
+  }, [readQuery])
+
+  useEffect(() => {
     loadStore()
     loadGoogle()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [loadStore, loadGoogle])
 
   // Prima sincronizare rulează în fundal: arătăm cum avansează
   const syncing = !!store && (store.sync_status === 'syncing' || !store.last_sync_at)
@@ -183,6 +196,8 @@ export default function OnboardingPage() {
     const shop = shopifyUrl.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/+$/, '')
     if (!/^[a-z0-9][a-z0-9-]*\.myshopify\.com$/.test(shop)) { setError({ key: 'onboarding.shopify_url_invalid' }); return }
     setBusy('redirect'); setError(null)
+    // Navigare completă: ruta API trimite mai departe la aprobarea din Shopify (OAuth), nu e o pagină
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination
     window.location.href = `/api/shopify/install?shop=${encodeURIComponent(shop)}&redirect_onboarding=true`
   }
 
@@ -196,6 +211,8 @@ export default function OnboardingPage() {
     try {
       await fetch('/api/onboarding/complete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ gdprConsent: true }) })
     } catch {}
+    // Reîncărcare completă: sesiunea se schimbă (pașii de pornire sunt gata) și platforma pornește de la zero
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination
     window.location.href = '/dashboard'
   }
 
@@ -411,6 +428,11 @@ export default function OnboardingPage() {
                   ) : (
                     <div className="space-y-3.5">
                       {error && <ErrorBox text={say(error)} />}
+                      {/* Înainte de Google: ce citește și ce face Hontrio în cont, ca în Setări */}
+                      <p className="rounded-2xl bg-neutral-50 p-4 text-[13px] leading-relaxed text-neutral-600 ring-1 ring-black/5">
+                        {t('google_ads.connect_desc')}{' '}
+                        <a href="/legal/privacy#google" target="_blank" rel="noopener" className="font-medium text-neutral-800 underline decoration-neutral-300 underline-offset-2 hover:decoration-neutral-800">{t('site.data_privacy')}</a>
+                      </p>
                       <Button variant="primary" onClick={() => redirectTo('/api/integrations/google/connect?from=onboarding')} disabled={!!busy} loading={busy === 'redirect'} className="h-11 w-full text-[14px]">
                         {busy !== 'redirect' && t('google_ads.connect')}
                       </Button>

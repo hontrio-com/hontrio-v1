@@ -1,8 +1,21 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useEffect, useSyncExternalStore } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { X } from 'lucide-react'
 import { useT } from '@/lib/i18n/context'
+
+// =============================================
+// Acordul pentru cookie-uri (Legea nr. 506/2004, art. 4 alin. (5)).
+// Google Analytics e în modul „basic” al Consent Mode: fără „Accept”, scriptul
+// Google nu se încarcă deloc și nimic nu pleacă la Google. Cu acord, doar
+// analytics_storage (reclamele rămân refuzate, semnalele Google oprite).
+// Alegerea stă 12 luni în cookie-ul strict necesar `hontrio_consent`, comun
+// pentru hontrio.com și app.hontrio.com, și se schimbă oricând din „Setări
+// cookie” (subsolul site-ului, Politica de cookies): la retragere, măsurarea
+// se oprește și cookie-urile _ga se șterg. Lista cookie-urilor e în
+// app/(marketing)/legal/cookies: ce se schimbă aici se schimbă și acolo.
+// =============================================
 
 declare global {
   interface Window {
@@ -11,72 +24,151 @@ declare global {
   }
 }
 
-function updateConsent(granted: boolean) {
-  if (typeof window === 'undefined' || !window.gtag) return
-  window.gtag('consent', 'update', {
-    analytics_storage: granted ? 'granted' : 'denied',
-    ad_storage: granted ? 'granted' : 'denied',
-    ad_user_data: granted ? 'granted' : 'denied',
-    ad_personalization: granted ? 'granted' : 'denied',
-  })
+const GA_ID = 'G-5T68NF431T' // i18n-ignore: ID-ul de măsurare Google Analytics
+const COOKIE = 'hontrio_consent'
+// Alt număr = altă întrebare: alegerile vechi (bannerul de dinainte, în localStorage) nu mai contează
+const VERSION = '2'
+const MAX_AGE = 365 * 24 * 60 * 60
+
+type Choice = 'granted' | 'denied'
+
+// ─── Alegerea, ca sursă externă pentru React ────────────────────────────────
+const listeners = new Set<() => void>()
+let settingsOpen = false
+const emit = () => listeners.forEach(l => l())
+
+function subscribe(listener: () => void) {
+  listeners.add(listener)
+  return () => { listeners.delete(listener) }
+}
+
+function readChoice(): Choice | null {
+  const raw = document.cookie.split('; ').find(c => c.startsWith(`${COOKIE}=`))?.slice(COOKIE.length + 1)
+  if (!raw) return null
+  const [version, choice] = decodeURIComponent(raw).split('.')
+  return version === VERSION && (choice === 'granted' || choice === 'denied') ? choice : null
+}
+
+/** Pe hontrio.com cookie-ul e comun cu subdomeniile; în rest (localhost), al gazdei. */
+function domainAttr(): string {
+  const host = window.location.hostname
+  return host === 'hontrio.com' || host.endsWith('.hontrio.com') ? '; domain=.hontrio.com' : ''
+}
+
+function saveChoice(choice: Choice) {
+  const secure = window.location.protocol === 'https:' ? '; secure' : ''
+  document.cookie = `${COOKIE}=${VERSION}.${choice}.${Date.now()}; path=/; max-age=${MAX_AGE}; samesite=lax${domainAttr()}${secure}`
+  try { localStorage.removeItem('hontrio_cookie_consent') } catch { /* fără stocare, n-avem ce curăța */ }
+  settingsOpen = false
+  emit()
+}
+
+/** Redeschide bannerul („Setări cookie”), ca alegerea să se poată schimba oricând. */
+export function openCookieSettings() {
+  settingsOpen = true
+  emit()
+}
+
+function closeCookieSettings() {
+  settingsOpen = false
+  emit()
+}
+
+// ─── Google Analytics ────────────────────────────────────────────────────────
+const gaDisable = `ga-disable-${GA_ID}`
+
+/** Încarcă GA4 doar după acord (și doar în producție). */
+function loadAnalytics() {
+  if (process.env.NODE_ENV !== 'production') return
+  const flags = window as unknown as Record<string, unknown>
+  flags[gaDisable] = false
+  if (window.gtag) {
+    window.gtag('consent', 'update', { analytics_storage: 'granted' })
+    return
+  }
+  const queue = (window.dataLayer ??= [])
+  // gtag.js așteaptă obiectul `arguments`, nu un tablou
+  window.gtag = function gtag() {
+    // eslint-disable-next-line prefer-rest-params
+    queue.push(arguments)
+  }
+  window.gtag('consent', 'default', { analytics_storage: 'granted', ad_storage: 'denied', ad_user_data: 'denied', ad_personalization: 'denied' })
+  window.gtag('js', new Date())
+  window.gtag('config', GA_ID, { allow_google_signals: false, allow_ad_personalization_signals: false })
+  const script = document.createElement('script')
+  script.async = true
+  script.src = `https://www.googletagmanager.com/gtag/js?id=${GA_ID}`
+  document.head.appendChild(script)
+}
+
+/** La retragerea acordului: GA nu mai trimite nimic, iar cookie-urile _ga se șterg. */
+function stopAnalytics() {
+  const flags = window as unknown as Record<string, unknown>
+  flags[gaDisable] = true
+  window.gtag?.('consent', 'update', { analytics_storage: 'denied' })
+  const host = window.location.hostname
+  const domains = ['', `; domain=${host}`, `; domain=.${host}`, '; domain=.hontrio.com']
+  for (const part of document.cookie.split('; ')) {
+    const name = part.split('=')[0]
+    if (name !== '_ga' && !name.startsWith('_ga_')) continue
+    for (const domain of domains) document.cookie = `${name}=; path=/; max-age=0${domain}`
+  }
 }
 
 export function CookieConsent() {
   const { t } = useT()
-  const [show, setShow] = useState(false)
+  // Pe server și la hidratare: nimic (alegerea e doar în browser)
+  const state = useSyncExternalStore(subscribe, () => `${readChoice() ?? 'none'}|${settingsOpen ? 'open' : 'closed'}`, () => 'server')
+  const [choice, panel] = state.split('|')
 
   useEffect(() => {
-    try {
-      const consent = localStorage.getItem('hontrio_cookie_consent')
-      if (!consent) setShow(true)
-    } catch {
-      setShow(true)
-    }
-  }, [])
+    if (choice === 'granted') loadAnalytics()
+  }, [choice])
+
+  const show = state !== 'server' && (choice === 'none' || panel === 'open')
+  const decided = choice === 'granted' || choice === 'denied'
 
   function accept() {
-    try { localStorage.setItem('hontrio_cookie_consent', 'granted') } catch {}
-    updateConsent(true)
-    setShow(false)
+    saveChoice('granted')
   }
 
   function decline() {
-    try { localStorage.setItem('hontrio_cookie_consent', 'denied') } catch {}
-    updateConsent(false)
-    setShow(false)
+    saveChoice('denied')
+    stopAnalytics()
   }
+
+  const button = 'flex-1 rounded-xl bg-neutral-900 py-2 text-[12px] font-semibold text-white transition-colors hover:bg-neutral-800'
 
   return (
     <AnimatePresence>
       {show && (
         <motion.div
+          role="dialog"
+          aria-label={t('common.cookie_title')}
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: 20 }}
           transition={{ duration: 0.3, ease: 'easeOut' }}
-          className="fixed bottom-4 left-4 right-4 sm:left-auto sm:right-6 sm:bottom-6 sm:max-w-sm z-50"
+          className="fixed bottom-4 left-4 right-4 z-50 sm:bottom-6 sm:left-auto sm:right-6 sm:max-w-sm"
         >
-          <div className="bg-white border border-neutral-200 rounded-2xl shadow-[0_8px_40px_rgba(0,0,0,0.12)] p-5">
-            <p className="text-[13px] font-semibold text-neutral-900 mb-1">🍪 {t('common.cookie_title')}</p>
-            <p className="text-[12px] text-neutral-500 leading-relaxed mb-4">
-              {t('common.cookie_text')}{' '}
-              <a href="/legal/cookies" className="underline hover:text-neutral-700 transition-colors">
-                {t('common.cookie_policy')}
-              </a>
+          <div className="relative rounded-2xl border border-neutral-200 bg-white p-5 shadow-[0_8px_40px_rgba(0,0,0,0.12)]">
+            {decided && (
+              <button type="button" onClick={closeCookieSettings} aria-label={t('site.cookie_close')}
+                className="absolute right-3 top-3 grid size-7 place-items-center rounded-full text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-900">
+                <X className="size-4" />
+              </button>
+            )}
+            <p className="mb-1 pr-6 text-[13px] font-semibold text-neutral-900">{t('common.cookie_title')}</p>
+            <p className="text-[12px] leading-relaxed text-neutral-500">
+              {t('site.cookie_text')}{' '}
+              <a href="/legal/cookies" className="underline transition-colors hover:text-neutral-700">{t('common.cookie_policy')}</a>
+            </p>
+            <p className="mb-4 mt-2 text-[12px] leading-relaxed text-neutral-500">
+              {decided ? t(choice === 'granted' ? 'site.cookie_now_on' : 'site.cookie_now_off') : t('site.cookie_hint')}
             </p>
             <div className="flex gap-2">
-              <button
-                onClick={decline}
-                className="flex-1 py-2 text-[12px] font-medium text-neutral-600 border border-neutral-200 rounded-xl hover:bg-neutral-50 transition-colors"
-              >
-                {t('common.cookie_decline')}
-              </button>
-              <button
-                onClick={accept}
-                className="flex-1 py-2 text-[12px] font-semibold text-white bg-neutral-900 rounded-xl hover:bg-neutral-800 transition-colors"
-              >
-                {t('common.cookie_accept')}
-              </button>
+              <button type="button" onClick={decline} className={button}>{t('common.cookie_decline')}</button>
+              <button type="button" onClick={accept} className={button}>{t('common.cookie_accept')}</button>
             </div>
           </div>
         </motion.div>

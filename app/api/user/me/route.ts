@@ -5,21 +5,19 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { logApiError } from '@/lib/logger'
 import { getT } from '@/lib/i18n/server'
 
+// =============================================
+// GET /api/user/me — profilul contului din sesiune.
+// Un cont fără rând în users nu se mai „repară" de aici: un cont șters rămâne șters.
+// =============================================
+
+const ROUTE = '/api/user/me'
+
 export async function GET() {
-  const ROUTE = '/api/user/me'
   const t = await getT()
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user) {
-      logApiError(ROUTE, 401, 'Sesiune lipsă')
-      return NextResponse.json({ error: t('api.unauthorized') }, { status: 401 })
-    }
-
-    const userId = (session.user as any).id
-    if (!userId) {
-      logApiError(ROUTE, 400, 'userId lipsă din token', { sessionUser: JSON.stringify(session.user) })
-      return NextResponse.json({ error: t('api.session_invalid') }, { status: 400 })
-    }
+    if (!session?.user?.id) return NextResponse.json({ error: t('api.unauthorized') }, { status: 401 })
+    const userId = session.user.id
 
     const supabase = createAdminClient()
     const { data: user, error } = await supabase
@@ -29,40 +27,10 @@ export async function GET() {
       .maybeSingle()
 
     if (error) {
-      logApiError(ROUTE, 500, 'DB error la user/me', { userId, dbError: error.message })
+      logApiError(ROUTE, 500, 'Profilul n-a putut fi citit', { userId, error: error.message })
       return NextResponse.json({ error: t('api.profile_load_failed') }, { status: 500 })
     }
-
-    if (!user) {
-      // Auto-repair: creăm profilul dacă lipsește
-      logApiError(ROUTE, 404, 'User negăsit — se repară automat', { userId })
-      const { data: newUser, error: createErr } = await supabase
-        .from('users')
-        .insert({
-          id: userId,
-          email: (session.user as any).email || '',
-          name: session.user.name || t('api.default_user_name'),
-          role: 'user',
-          // Creditele erau pentru imaginile AI, scoase din Hontrio: contul nou pornește cu 0
-          credits: 0,
-          plan: 'free',
-          onboarding_completed: false,
-        })
-        .select('id, email, name, role, onboarding_completed, avatar_url, created_at')
-        .single()
-
-      if (createErr || !newUser) {
-        return NextResponse.json({ error: t('api.profile_missing') }, { status: 404 })
-      }
-
-      return NextResponse.json({
-        user: newUser,
-        role: newUser.role,
-        name: newUser.name,
-        email: newUser.email,
-        avatar_url: newUser.avatar_url,
-      })
-    }
+    if (!user) return NextResponse.json({ error: t('api.session_invalid') }, { status: 401 })
 
     return NextResponse.json({
       user,
@@ -72,7 +40,7 @@ export async function GET() {
       avatar_url: user.avatar_url,
     })
   } catch (err) {
-    logApiError(ROUTE, 500, 'Eroare neașteptată', { error: String(err) })
+    logApiError(ROUTE, 500, 'Eroare neașteptată', { error: (err as Error).message })
     return NextResponse.json({ error: t('api.internal_error') }, { status: 500 })
   }
 }

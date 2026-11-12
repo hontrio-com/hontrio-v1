@@ -3,7 +3,6 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/auth.config'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { logApiError } from '@/lib/logger'
-import { isCommercePlatform } from '@/lib/commerce/sync'
 import { getT } from '@/lib/i18n/server'
 
 // =============================================
@@ -18,16 +17,8 @@ export async function GET() {
   const t = await getT()
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user) {
-      logApiError(ROUTE, 401, 'Sesiune lipsă')
-      return NextResponse.json({ error: t('api.unauthorized') }, { status: 401 })
-    }
-
-    const userId = (session.user as any).id
-    if (!userId) {
-      logApiError(ROUTE, 400, 'userId lipsă din token', { sessionUser: JSON.stringify(session.user) })
-      return NextResponse.json({ error: t('sync.session_invalid') }, { status: 400 })
-    }
+    if (!session?.user?.id) return NextResponse.json({ error: t('api.unauthorized') }, { status: 401 })
+    const userId = session.user.id
 
     const supabase = createAdminClient()
     const [{ data: stores, error }, { data: user }] = await Promise.all([
@@ -42,24 +33,11 @@ export async function GET() {
 
     const list = stores ?? []
     for (const store of list) {
-      // Dacă store.products_count e 0 dar avem produse, actualizăm din DB.
-      // Nu și pe modelul de reclame: acolo numărul e al ofertelor, nu al tabelului vechi
-      if (store.products_count === 0 && !isCommercePlatform(store.platform)) {
-        const { count } = await supabase
-          .from('products')
-          .select('id', { count: 'exact', head: true })
-          .eq('store_id', store.id)
-        if (count && count > 0) {
-          store.products_count = count
-          // Actualizăm și în DB
-          await supabase.from('stores').update({ products_count: count }).eq('id', store.id)
-        }
-      }
-
-      // Credențialele (chiar criptate) nu au ce căuta în browser
+      // Credențialele (chiar criptate) și starea internă a sincronizării nu au ce căuta în browser
       delete store.api_key
       delete store.api_secret
       delete store.webhook_secret
+      delete store.sync_cursor
     }
 
     // Fără alegere (sau magazinul ales a dispărut): cel mai nou

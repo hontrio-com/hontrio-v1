@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { buildPlan, type PlanInput } from '@/lib/campaigns/plan'
 import {
-  assignGroups, buildGroupPlan, buildGroupPlans, EMPTY_RULES, groupOfferOf, matchesFilters, parseRules,
+  accountBlockers, assignGroups, buildGroupPlan, buildGroupPlans, EMPTY_RULES, groupOfferOf, matchesFilters, parseRules,
   type GroupRules, type ProductGroup,
 } from '@/lib/campaigns/groups'
 import { parseGroupFields } from '@/lib/campaigns/group-input'
@@ -200,4 +200,15 @@ test('o grupă încheiată nu mai ține produse, dar planul ei arată ce ar prin
   const alone = buildGroupPlans([ended], plan, assignGroups(groupOffers, [ended]), [], TODAY)[0]
   assert.deepEqual(alone.members.sort(), ['b1', 'b2'])
   assert.deepEqual(alone.blockers, [])
+})
+
+test('conversia fără valoarea comenzii oprește și grupele, la ambele tipuri de campanie', () => {
+  const plan = buildPlan(input())
+  assert.deepEqual(accountBlockers(plan, false), [])
+  // Planul n-o are încă (audit vechi), dar auditul o semnalează: o adăugăm o singură dată
+  assert.deepEqual(accountBlockers(plan, true).map(b => b.id), ['purchase_no_value'])
+  const noValueRaw = auditRaw()
+  noValueRaw.conversionActions[0].conversionAction!.valueSettings = { alwaysUseDefaultValue: true }
+  const withNoValue = buildPlan(input({ audit: evaluateAudit(noValueRaw, ctx) }))
+  assert.deepEqual(accountBlockers(withNoValue, true).map(b => b.id), ['purchase_no_value'])
 })

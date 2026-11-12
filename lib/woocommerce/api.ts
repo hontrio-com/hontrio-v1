@@ -1,14 +1,19 @@
 import { storedMessage } from '@/lib/i18n/stored'
 import type { Params as MessageParams } from '@/lib/i18n/translate'
+import { fetchPublic, PublicFetchError } from '@/lib/security/validate-url'
 import type { GlaConnection, WooOrder, WooProduct, WooSetting, WooSiteInfo, WooSystemStatus, WooVariation } from './types'
 
 // =============================================
 // WooCommerce — clientul API-ului REST pentru modelul de reclame (numai
 // citire). Cheia comerciantului merge în antetul Basic, niciodată în adresă:
 // adresele ajung în jurnalele serverelor.
+//
+// Cererile trec prin fetchPublic: numai adrese publice, fără redirecționări spre
+// alt site. Cu `deadline`, nicio cerere nu trece de timpul dat magazinului: un
+// magazin care tace nu ține pe loc sincronizarea celorlalte.
 // =============================================
 
-export type WooErrorCode = 'unauthorized' | 'blocked' | 'not_found' | 'unavailable' | 'network' | 'bad_response'
+export type WooErrorCode = 'unauthorized' | 'blocked' | 'not_found' | 'unavailable' | 'network' | 'bad_response' | 'deadline'
 
 export class WooError extends Error {
   /** Ce vede omul (în stores.last_error): cheia de traducere, cu parametri. `message` e pentru jurnal. */
@@ -23,7 +28,18 @@ export type WooPage<T> = { items: T[]; total: number; totalPages: number }
 
 const TIMEOUT_MS = 30_000
 const RETRIES = 2
+// Sub atât timp rămas, o cerere nouă nu mai pornește (trecerea continuă la rularea următoare)
+const MIN_LEFT_MS = 5_000
 export const PAGE_SIZE = 100
+
+// Din comenzi cerem doar ce folosește maparea: niciun nume, email, telefon, adresă
+// (în afară de țară), IP, user agent sau notă a cumpărătorului. `meta_data` aduce
+// atribuirea (_wc_order_attribution_*), din care se păstrează doar sursa.
+const ORDER_FIELDS = [
+  'id', 'number', 'status', 'currency', 'created_via', 'date_created_gmt', 'date_modified_gmt', 'date_paid_gmt',
+  'prices_include_tax', 'discount_total', 'discount_tax', 'shipping_total', 'shipping_tax', 'total', 'total_tax',
+  'payment_method', 'billing.country', 'shipping.country', 'line_items', 'fee_lines', 'coupon_lines', 'meta_data',
+].join(',')
 
 type Params = Record<string, string | number | undefined>
 
@@ -35,10 +51,12 @@ export function wooDate(iso: string): string {
 export class WooApi {
   private base: string
   private auth: string
+  private deadline: number
 
-  constructor(storeUrl: string, consumerKey: string, consumerSecret: string) {
+  constructor(storeUrl: string, consumerKey: string, consumerSecret: string, opts: { deadline?: number } = {}) {
     this.base = storeUrl.replace(/\/+$/, '')
     this.auth = 'Basic ' + Buffer.from(`${consumerKey}:${consumerSecret}`).toString('base64')
+    this.deadline = opts.deadline ?? Number.POSITIVE_INFINITY
   }
 
   private async request<T>(path: string, params: Params = {}, auth = true): Promise<{ data: T; total: number; totalPages: number }> {
@@ -48,14 +66,24 @@ export class WooApi {
     let last: WooError | null = null
     for (let attempt = 0; attempt <= RETRIES; attempt++) {
       if (attempt) await new Promise(r => setTimeout(r, 1500 * attempt))
+      const left = this.deadline - Date.now()
+      if (left < MIN_LEFT_MS) {
+        // Fără timp pentru încă o încercare: o pană de până acum rămâne pană; altfel trecerea continuă data viitoare
+        if (last) throw last
+        throw new WooError(`Timpul magazinului s-a terminat (${path})`, 'deadline', undefined, 'sync.deadline_reached')
+      }
       let res: Response
       try {
-        res = await fetch(url, {
+        res = await fetchPublic(url, {
           headers: { ...(auth ? { Authorization: this.auth } : {}), Accept: 'application/json' },
-          signal: AbortSignal.timeout(TIMEOUT_MS),
+          signal: AbortSignal.timeout(Math.min(TIMEOUT_MS, left)),
           cache: 'no-store',
         })
       } catch (err) {
+        // Adresă privată sau redirecționare spre alt site: reîncercarea n-ar schimba nimic
+        if (err instanceof PublicFetchError) {
+          throw new WooError(err.message, err.code === 'redirect' ? 'bad_response' : 'blocked', undefined, err.key, err.params)
+        }
         const code = String((err as { cause?: { code?: string } }).cause?.code ?? '')
         last = new WooError(`Magazinul nu a răspuns (${path}): ${code || (err as Error).message}`, 'network', undefined, 'sync.woo_no_response')
         // Domeniul nu mai există: reîncercarea n-ar schimba nimic acum
@@ -148,6 +176,7 @@ export class WooApi {
       after: opts.createdAfter ? wooDate(opts.createdAfter) : undefined,
       modified_after: opts.modifiedAfter ? wooDate(opts.modifiedAfter) : undefined,
       dates_are_gmt: opts.createdAfter || opts.modifiedAfter ? 'true' : undefined,
+      _fields: ORDER_FIELDS,
     })
   }
 

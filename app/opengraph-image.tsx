@@ -1,133 +1,95 @@
+import { readFile } from 'node:fs/promises'
+import { join } from 'node:path'
 import { ImageResponse } from 'next/og'
+import { getT } from '@/lib/i18n/server'
+import marketingRo from '@/lib/i18n/messages/ro/marketing.json'
 
-export const runtime = 'edge'
-export const alt = 'Hontrio — Platforma AI pentru magazine online'
+// =============================================
+// Imaginea de previzualizare a site-ului (Open Graph și Twitter, vezi
+// app/layout.tsx): alb-negru, ca logoul. Sloganul de pe prima pagină și fraza
+// din metadate, în limba cererii, ca titlul și descrierea.
+// Fontul e Geist, ca pe site, luat de la Google Fonts doar pentru literele de
+// aici (fontul implicit n-are ă, ș, ț); fără rețea, iese cu fontul implicit.
+// =============================================
+
+// Textul alternativ e fix (nu depinde de cerere), deci în limba-sursă
+export const alt = marketingRo.meta_og_alt
 export const size = { width: 1200, height: 630 }
 export const contentType = 'image/png'
 
+type Font = { name: string; data: ArrayBuffer; weight: 400 | 700; style: 'normal' }
+
+/** Geist 400 și 700, doar cu literele din `text` (exemplul din documentația Next.js). */
+async function geist(text: string): Promise<Font[]> {
+  try {
+    const url = `https://fonts.googleapis.com/css2?family=Geist:wght@400;700&text=${encodeURIComponent(text)}`
+    const css = await (await fetch(url, { signal: AbortSignal.timeout(3000) })).text()
+    const faces = [...css.matchAll(/font-weight:\s*(\d+);[\s\S]*?src:\s*url\((.+?)\)\s*format\('(?:opentype|truetype)'\)/g)]
+    return await Promise.all(faces.map(async ([, weight, src]) => {
+      const res = await fetch(src, { signal: AbortSignal.timeout(3000) })
+      if (!res.ok) throw new Error(`font ${res.status}`)
+      return { name: 'Geist', data: await res.arrayBuffer(), weight: (weight === '700' ? 700 : 400) as 400 | 700, style: 'normal' as const }
+    }))
+  } catch {
+    return []
+  }
+}
+
 export default async function Image() {
+  const t = await getT()
+  const titleA = t('site.hero_title_a')
+  const titleB = t('site.hero_title_b')
+  const description = t('marketing.meta_og_description')
+  const footer = 'Edinio · WooCommerce · Shopify'
+  const [logo, fonts] = await Promise.all([
+    readFile(join(process.cwd(), 'public/logo-black.png')),
+    geist(`${titleA}${titleB}${description}${footer}hontrio.com`),
+  ])
+
   return new ImageResponse(
     (
       <div
         style={{
-          background: '#0a0a0a',
           width: '100%',
           height: '100%',
           display: 'flex',
           flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontFamily: 'sans-serif',
-          position: 'relative',
-          overflow: 'hidden',
+          justifyContent: 'space-between',
+          background: '#ffffff',
+          color: '#0a0a0a',
+          padding: '72px 80px 64px',
+          fontFamily: fonts.length ? 'Geist' : 'sans-serif',
         }}
       >
-        {/* Subtle grid */}
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            backgroundImage:
-              'linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px)',
-            backgroundSize: '48px 48px',
-          }}
-        />
+        {/* Logoul (772 × 106), la 40 px înălțime */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={`data:image/png;base64,${logo.toString('base64')}`} width={291} height={40} alt="" />
 
-        {/* Top accent line */}
-        <div
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: '20%',
-            right: '20%',
-            height: 2,
-            background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent)',
-          }}
-        />
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', fontSize: 68, fontWeight: 700, lineHeight: 1.05, letterSpacing: -2.5 }}>
+            <span>{titleA}</span>
+            <span style={{ color: '#525252' }}>{titleB}</span>
+          </div>
+          <div style={{ marginTop: 28, maxWidth: 920, fontSize: 28, lineHeight: 1.4, color: '#525252' }}>{description}</div>
+        </div>
 
-        {/* Badge */}
         <div
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: 8,
-            background: 'rgba(255,255,255,0.06)',
-            border: '1px solid rgba(255,255,255,0.12)',
-            borderRadius: 100,
-            padding: '6px 20px',
-            marginBottom: 36,
-          }}
-        >
-          <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#22c55e' }} />
-          <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: 15, fontWeight: 500 }}>
-            AI Growth Platform pentru eCommerce
-          </span>
-        </div>
-
-        {/* Brand name */}
-        <div
-          style={{
-            fontSize: 96,
-            fontWeight: 800,
-            color: '#ffffff',
-            letterSpacing: -4,
-            lineHeight: 1,
-            marginBottom: 20,
-          }}
-        >
-          HONTRIO
-        </div>
-
-        {/* Tagline */}
-        <div
-          style={{
+            justifyContent: 'space-between',
+            borderTop: '1px solid #e7e7e7',
+            paddingTop: 26,
             fontSize: 22,
-            color: 'rgba(255,255,255,0.4)',
-            textAlign: 'center',
-            maxWidth: 700,
-            lineHeight: 1.5,
-            marginBottom: 56,
+            color: '#737373',
           }}
         >
-          Imagini AI · SEO automat · Agent de vanzari · Protectie comenzi
-        </div>
-
-        {/* Feature pills */}
-        <div style={{ display: 'flex', gap: 12 }}>
-          {['AI Images', 'SEO Optimizer', 'AI Agent', 'Risk Shield'].map((f) => (
-            <div
-              key={f}
-              style={{
-                background: 'rgba(255,255,255,0.07)',
-                border: '1px solid rgba(255,255,255,0.1)',
-                borderRadius: 10,
-                padding: '10px 20px',
-                color: 'rgba(255,255,255,0.65)',
-                fontSize: 14,
-                fontWeight: 500,
-              }}
-            >
-              {f}
-            </div>
-          ))}
-        </div>
-
-        {/* Bottom: hontrio.com */}
-        <div
-          style={{
-            position: 'absolute',
-            bottom: 32,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6,
-          }}
-        >
-          <div style={{ width: 5, height: 5, borderRadius: '50%', background: 'rgba(255,255,255,0.2)' }} />
-          <span style={{ color: 'rgba(255,255,255,0.25)', fontSize: 13 }}>hontrio.com</span>
-          <div style={{ width: 5, height: 5, borderRadius: '50%', background: 'rgba(255,255,255,0.2)' }} />
+          <span style={{ color: '#0a0a0a', fontWeight: 700 }}>hontrio.com</span>
+          <span>{footer}</span>
         </div>
       </div>
     ),
-    { ...size }
+    // Fără fonturi proprii (o listă goală nu e voie), rămâne fontul implicit al next/og
+    { ...size, ...(fonts.length ? { fonts } : {}) },
   )
 }

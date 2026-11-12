@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { toMicros, idFromResourceName } from '@/lib/google/ads'
 import {
-  buildLaunchOperations, budgetOp, endDateOp, endOfDay, euDeclarationOps, pmaxListingOps, removeNodesOps, shoppingListingOps, startOfDay,
+  addNegativesOps, buildLaunchOperations, budgetOp, cleanKeyword, endDateOp, endOfDay, euDeclarationOps, pmaxListingOps, removeNodesOps, shoppingListingOps, startOfDay,
   FINAL_URL_SUFFIX, type GrowthSpec, type StarterSpec,
 } from '@/lib/google/operations'
 
@@ -196,4 +196,26 @@ test('perioada campaniei: începutul și sfârșitul ca dată-oră Google, schim
   })
   // Golit = fără sfârșit
   assert.deepEqual(endDateOp('1', '22', null), { campaignOperation: { update: { resourceName: 'customers/1/campaigns/22' }, updateMask: 'endDateTime' } })
+})
+
+test('cuvintele negative: fără semne nepermise, cel mult 10 cuvinte și 80 de caractere; un termen gol se sare', () => {
+  assert.equal(cleanKeyword('Lustră LED 50% reducere!'), 'lustră led 50 reducere')
+  assert.equal(cleanKeyword('bec e27 (rgb) {smart} ; 12v'), 'bec e27 rgb smart 12v')
+  // Unsprezece cuvinte → primele zece
+  assert.equal(cleanKeyword('a1 b2 c3 d4 e5 f6 g7 h8 i9 j10 k11'), 'a1 b2 c3 d4 e5 f6 g7 h8 i9 j10')
+  // Peste 80 de caractere: tăiat la un cuvânt întreg
+  const long = cleanKeyword(`${'x'.repeat(40)} ${'y'.repeat(30)} ${'z'.repeat(20)}`)
+  assert.equal(long, `${'x'.repeat(40)} ${'y'.repeat(30)}`)
+  assert.ok(long.length <= 80)
+  // Semnele permise rămân în cuvânt, nu la capete
+  assert.equal(cleanKeyword("-led- 1.5w men's"), "led 1.5w men's")
+  assert.equal(cleanKeyword('!!! %%%'), '')
+  const ops = addNegativesOps('1', '22', [
+    { text: '%%%', match: 'EXACT' },
+    { text: 'Lampă  Ieftină', match: 'EXACT' },
+    { text: 'lampă ieftină!', match: 'EXACT' },
+  ])
+  // Golul a sărit, dublura (aceeași după curățare) la fel
+  assert.equal(ops.length, 1)
+  assert.deepEqual(body(ops[0]).create.keyword, { text: 'lampă ieftină', matchType: 'EXACT' })
 })

@@ -9,11 +9,21 @@ import { getT } from '@/lib/i18n/server'
 // conturi noi, magazine conectate și sincronizările lor.
 // =============================================
 
+type Activity = {
+  id: string
+  type: string
+  description: string
+  user_email: string
+  user_name: string | null
+  created_at: string
+  metadata: Record<string, unknown>
+}
+
 export async function GET() {
   const t = await getT()
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user || (session.user as any).role !== 'admin') {
+    if (!session?.user || session.user.role !== 'admin') {
       return NextResponse.json({ error: t('api.forbidden') }, { status: 403 })
     }
 
@@ -50,7 +60,7 @@ export async function GET() {
       })
     }
 
-    const activities: any[] = []
+    const activities: Activity[] = []
 
     // Conturile noi
     allUsers.forEach(u => {

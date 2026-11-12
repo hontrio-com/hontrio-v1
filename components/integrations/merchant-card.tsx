@@ -33,16 +33,13 @@ export default function MerchantCard() {
   const [manual, setManual] = useState('')
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null)
 
-  async function load() {
-    try {
-      const r = await fetch('/api/integrations/google/merchant')
-      const body = await r.json()
-      setState(body.store ?? null)
-    } catch {
-      setState(null)
-    } finally {
-      setLoading(false)
-    }
+  // Starea se schimbă doar în callback-urile răspunsului, nu în efectul care pornește încărcarea
+  function load() {
+    return fetch('/api/integrations/google/merchant')
+      .then(r => r.json())
+      .then(body => setState(body.store ?? null))
+      .catch(() => setState(null))
+      .finally(() => setLoading(false))
   }
 
   useEffect(() => { load() }, [])

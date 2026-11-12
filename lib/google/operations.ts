@@ -82,6 +82,35 @@ export const FINAL_URL_SUFFIX = 'utm_source=google&utm_medium=cpc&utm_campaign=h
 /** Google compară ID-urile produselor fără să țină cont de litere mari (le raportează cu mici). */
 export const normalizeItemId = (id: string) => id.trim().toLowerCase()
 
+/** Eticheta Hontrio pentru ofertele scoase din campanie, la cataloagele prea mari pentru lista de ID-uri. */
+export const EXCLUDE_LABEL = 'hontrio_exclude'
+
+/** Limitele Google pentru textul unui cuvânt cheie (KEYWORD_TEXT_TOO_LONG, KEYWORD_HAS_TOO_MANY_WORDS). */
+export const KEYWORD_MAX_CHARS = 80
+export const KEYWORD_MAX_WORDS = 10
+
+/**
+ * Un termen de căutare, ca text de cuvânt cheie pe care Google îl primește: doar litere, cifre și
+ * câteva semne permise (& ' . -), cel mult 10 cuvinte și 80 de caractere, tăiat la un cuvânt întreg.
+ * Un singur termen invalid ar strica toată cererea (e atomică); unul care rămâne gol se sare.
+ */
+export function cleanKeyword(raw: string): string {
+  const words = raw.normalize('NFC').toLowerCase()
+    .replace(/[^\p{L}\p{M}\p{N}&'.\-\s]/gu, ' ')
+    .split(/\s+/)
+    // Semnele de la capete nu țin de cuvânt („led-", „.5")
+    .map(w => w.replace(/^[&'.-]+|[&'.-]+$/g, ''))
+    .filter(Boolean)
+    .slice(0, KEYWORD_MAX_WORDS)
+  let text = ''
+  for (const w of words) {
+    const next = text ? `${text} ${w}` : w
+    if (next.length > KEYWORD_MAX_CHARS) break
+    text = next
+  }
+  return text
+}
+
 const customAttribute = (index: number, value?: string) => ({ index: `INDEX${index}`, ...(value !== undefined ? { value } : {}) })
 
 // ─── Arborele de produse ──────────────────────────────────────────────────────
@@ -165,7 +194,7 @@ export function shoppingListingOps(cid: string, adGroupId: string, listing: List
 function negativeOps(cid: string, campaign: string, negatives: NegativeKeyword[]): MutateOperation[] {
   const seen = new Set<string>()
   return negatives.flatMap(k => {
-    const text = k.text.trim().toLowerCase().replace(/\s+/g, ' ').slice(0, 80)
+    const text = cleanKeyword(k.text)
     const key = `${k.match}:${text}`
     if (!text || seen.has(key)) return []
     seen.add(key)

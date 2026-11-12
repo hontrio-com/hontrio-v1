@@ -26,7 +26,6 @@ import ts from 'typescript'
 const ROOT = process.cwd()
 const MESSAGES = join(ROOT, 'lib/i18n/messages')
 const LOCALES = ['ro', 'en']
-const SOURCE = 'ro'
 const PLURAL_FORMS = { ro: ['one', 'few', 'other'], en: ['one', 'other'] }
 const filter = process.argv.slice(2).find(a => !a.startsWith('--'))?.replace(/\\/g, '/')
 const verbose = process.argv.includes('--verbose')

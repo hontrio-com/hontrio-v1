@@ -26,7 +26,7 @@ export type EdinioStore = {
     tag_id: string | null
     conversie_id: string | null
     conversie_eticheta: string | null
-    /** Conversia trimite și coșul (produsele, fără TVA): cu costul din Merchant Center, Google arată profitul brut. */
+    /** Conversia trimite și coșul (produsele vândute, fără TVA). */
     cos?: boolean
   } | null
   google_analytics: { masurare_id: string } | null

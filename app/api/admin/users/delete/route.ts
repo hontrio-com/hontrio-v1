@@ -2,93 +2,43 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/auth.config'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { deleteAccount } from '@/lib/auth/delete-account'
+import { logApiError, logWarn } from '@/lib/logger'
 import { getT } from '@/lib/i18n/server'
+
+// =============================================
+// POST /api/admin/users/delete — { user_id }: un admin șterge contul unui om
+// (nu pe al lui, nu al altui admin). Aceeași ștergere ca din Setări: accesurile
+// retrase, fișierele și datele șterse, contul din Supabase Auth.
+// =============================================
+
+const ROUTE = '/api/admin/users/delete'
 
 export async function POST(request: Request) {
   const t = await getT()
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user || (session.user as any).role !== 'admin') {
-      return NextResponse.json({ error: t('api.forbidden') }, { status: 403 })
-    }
+    if (!session?.user?.id || session.user.role !== 'admin') return NextResponse.json({ error: t('api.forbidden') }, { status: 403 })
+    const adminId = session.user.id
 
-    const { user_id } = await request.json()
-    const adminId = (session.user as any).id
+    const body = await request.json().catch(() => null) as { user_id?: unknown } | null
+    const userId = typeof body?.user_id === 'string' ? body.user_id : ''
+    if (!userId) return NextResponse.json({ error: t('api.user_id_missing') }, { status: 400 })
+    if (userId === adminId) return NextResponse.json({ error: t('api.cannot_delete_self') }, { status: 400 })
 
-    if (!user_id) {
-      return NextResponse.json({ error: t('api.user_id_missing') }, { status: 400 })
-    }
+    const { data: user } = await createAdminClient().from('users').select('id, email, role').eq('id', userId).maybeSingle()
+    if (!user) return NextResponse.json({ error: t('api.user_not_found') }, { status: 404 })
+    if (user.role === 'admin') return NextResponse.json({ error: t('api.cannot_delete_admin') }, { status: 400 })
 
-    // Prevent self-deletion
-    if (user_id === adminId) {
-      return NextResponse.json({ error: t('api.cannot_delete_self') }, { status: 400 })
-    }
-
-    const supabase = createAdminClient()
-
-    // Check user exists
-    const { data: user } = await supabase
-      .from('users')
-      .select('id, email, name, role')
-      .eq('id', user_id)
-      .single()
-
-    if (!user) {
-      return NextResponse.json({ error: t('api.user_not_found') }, { status: 404 })
-    }
-
-    // Prevent deleting other admins
-    if (user.role === 'admin') {
-      return NextResponse.json({ error: t('api.cannot_delete_admin') }, { status: 400 })
-    }
-
-    // Delete in order (respect foreign keys):
-    // 1. generated_images (references products)
-    // 2. generation_jobs (references products)
-    // 3. credit_transactions
-    // 4. products (references stores)
-    // 5. stores
-    // 6. notifications
-    // 7. user from users table
-    // 8. user from Supabase Auth
-
-    await supabase.from('generated_images').delete().eq('user_id', user_id)
-    await supabase.from('generation_jobs').delete().eq('user_id', user_id)
-    await supabase.from('credit_transactions').delete().eq('user_id', user_id)
-    await supabase.from('products').delete().eq('user_id', user_id)
-    await supabase.from('stores').delete().eq('user_id', user_id)
-
-    // Delete notifications if table exists
-    try {
-      await supabase.from('notifications').delete().eq('user_id', user_id)
-    } catch {
-      // Table might not exist yet, that's ok
-    }
-
-    // Delete from users table
-    const { error: deleteError } = await supabase
-      .from('users')
-      .delete()
-      .eq('id', user_id)
-
-    if (deleteError) {
-      console.error('User delete error:', deleteError)
+    const result = await deleteAccount(userId)
+    if (!result.ok) {
+      logApiError(ROUTE, 500, 'Ștergerea contului s-a oprit', { userId, step: result.step })
       return NextResponse.json({ error: t('api.user_delete_failed') }, { status: 500 })
     }
-
-    // Delete from Supabase Auth
-    try {
-      await supabase.auth.admin.deleteUser(user_id)
-    } catch {
-      console.error('Auth user delete failed (may already be deleted)')
-    }
-
-    return NextResponse.json({
-      success: true,
-      message: t('api.user_deleted', { email: user.email }),
-    })
+    logWarn(ROUTE, 'Cont șters de un admin', { userId, adminId })
+    return NextResponse.json({ success: true, message: t('api.user_deleted', { email: user.email }) })
   } catch (err) {
-    console.error('Delete user error:', err)
+    logApiError(ROUTE, 500, 'Eroare neașteptată', { error: (err as Error).message })
     return NextResponse.json({ error: t('api.internal_error') }, { status: 500 })
   }
 }

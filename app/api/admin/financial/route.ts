@@ -4,20 +4,22 @@ import { authOptions } from '@/lib/auth/auth.config'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getLocale, tFor } from '@/lib/i18n/server'
 import { INTL_LOCALE } from '@/lib/i18n/config'
+import { logApiError } from '@/lib/logger'
 
 // =============================================
 // GET /api/admin/financial — încasările și conturile noi, pe ultimele 12 luni.
-// Hontrio nu încasează încă nimic: creditele vechi (imaginile AI) au fost doar
-// teste și nu se mai socotesc, iar abonamentul în funcție de vânzări nu există
-// încă. Până atunci, veniturile sunt 0.
+// Hontrio nu încasează încă nimic: abonamentul în funcție de vânzări nu există
+// încă, deci veniturile sunt 0 până atunci.
 // =============================================
+
+const ROUTE = '/api/admin/financial'
 
 export async function GET() {
   const locale = await getLocale()
   const t = tFor(locale)
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user || (session.user as any).role !== 'admin') {
+    if (!session?.user || session.user.role !== 'admin') {
       return NextResponse.json({ error: t('api.forbidden') }, { status: 403 })
     }
     const supabase = createAdminClient()
@@ -41,7 +43,9 @@ export async function GET() {
     }))
 
     return NextResponse.json({ monthly, revenue: { thisMonth: 0, allTime: 0 } })
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 })
+  } catch (err) {
+    // Detaliul tehnic rămâne în jurnal; omul primește un mesaj în limba lui
+    logApiError(ROUTE, 500, 'Eroare la raportul financiar', { error: err instanceof Error ? err.message : String(err) })
+    return NextResponse.json({ error: t('api.internal_error') }, { status: 500 })
   }
 }

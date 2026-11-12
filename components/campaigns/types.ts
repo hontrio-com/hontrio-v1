@@ -25,7 +25,11 @@ export type ActionItem = {
 export type SeriesPoint = { date: string; cost: number; value: number; conversions: number }
 
 export type CampaignsData = {
-  store: { platform: string; supported: boolean; store_name?: string | null; currency?: string } | null
+  store: {
+    platform: string; supported: boolean; store_name?: string | null; currency?: string
+    /** Ultima trecere a pilotului și, dacă n-a putut lucra (cont necitit, acces pierdut), de ce: cheie salvată. */
+    pilot?: { synced_at: string | null; error: string | null }
+  } | null
   plan: Plan | null
   audit?: AuditData | null
   campaigns?: LiveCampaign[]

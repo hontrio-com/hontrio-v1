@@ -1,5 +1,5 @@
 import {
-  BarChart3, LayoutDashboard, LifeBuoy, Lightbulb, Megaphone, Package, Settings, Shield, BookOpen,
+  BarChart3, LayoutDashboard, LifeBuoy, Lightbulb, Megaphone, Package, Settings, Shield,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -24,7 +24,7 @@ export const NAV: NavGroup[] = [
     label: 'sidebar.section_store',
     items: [
       { label: 'sidebar.products', href: '/products', icon: Package, keywords: ['produse', 'products', 'catalog', 'stoc'] },
-      { label: 'sidebar.ai_recommendations', href: '/recommendations', icon: Lightbulb, keywords: ['recomandari', 'recommendations', 'sugestii'] },
+      { label: 'sidebar.recommendations', href: '/recommendations', icon: Lightbulb, keywords: ['recomandari', 'recommendations', 'sugestii'] },
     ],
   },
   {
@@ -39,7 +39,6 @@ export const NAV: NavGroup[] = [
     admin: true,
     items: [
       { label: 'dashboard.admin_panel', href: '/admin/stats', icon: Shield },
-      { label: 'sidebar.blog', href: '/admin/blog', icon: BookOpen },
     ],
   },
 ]

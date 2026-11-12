@@ -45,7 +45,10 @@ export function decrypt(encryptedText: string): string {
   const authTag = Buffer.from(parts[1], 'base64')
   const encrypted = parts[2]
 
-  const decipher = crypto.createDecipheriv(ALGORITHM, key, iv)
+  // Eticheta întreagă (16 octeți): una scurtată ar face falsificarea mai ușoară
+  // (contează la cookie-urile sigilate, pe care le trimite browserul)
+  if (authTag.length !== AUTH_TAG_LENGTH) throw new Error('Invalid auth tag')
+  const decipher = crypto.createDecipheriv(ALGORITHM, key, iv, { authTagLength: AUTH_TAG_LENGTH })
   decipher.setAuthTag(authTag)
 
   let decrypted = decipher.update(encrypted, 'base64', 'utf8')

@@ -32,7 +32,7 @@ export async function POST(request: Request) {
     // Check if already completed
     const { data: user } = await supabase
       .from('users')
-      .select('onboarding_completed')
+      .select('onboarding_completed, preferences')
       .eq('id', userId)
       .single()
 
@@ -45,9 +45,10 @@ export async function POST(request: Request) {
       updated_at: new Date().toISOString(),
     }
 
-    // Momentul acordului GDPR
+    // Momentul acordului GDPR, adăugat la preferințele existente (ex. emailurile pilotului)
     if (body.gdprConsent) {
-      updateData.preferences = { gdpr_consent_at: new Date().toISOString() }
+      const current = user?.preferences && typeof user.preferences === 'object' ? user.preferences as Record<string, unknown> : {}
+      updateData.preferences = { ...current, gdpr_consent_at: new Date().toISOString() }
     }
 
     const { error } = await supabase

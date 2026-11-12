@@ -321,8 +321,8 @@ export async function syncShopifyStore(
     const message = (err as Error).message
     await supabase.from('stores').update({
       sync_status: 'error',
-      // Omul vede mesajul tradus al erorii; altfel (ex. o eroare a bazei), detaliul tehnic
-      last_error: err instanceof ShopifyError ? err.stored : storedMessage('sync.failed', { detail: message.slice(0, 500) }),
+      // Omul vede mesajul tradus al erorii Shopify; o eroare de-a noastră (ex. a bazei) rămâne în jurnal
+      last_error: err instanceof ShopifyError ? err.stored : storedMessage('sync.failed_internal'),
       // Magazinul nu răspunde sau e închis: îl arătăm ca problemă, dar continuăm să încercăm
       ...(err instanceof ShopifyError && ['network', 'unavailable', 'not_found'].includes(err.code) ? { connection_status: 'error' } : {}),
     }).eq('id', storeId)

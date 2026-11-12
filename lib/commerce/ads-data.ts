@@ -1,4 +1,5 @@
 import { createAdminClient } from '@/lib/supabase/admin'
+import { readAllSoft } from '@/lib/ads/read-all'
 import type { OrderTotals } from '@/lib/ads/economics'
 import type { MerchantIssue } from '@/lib/merchant/match'
 
@@ -93,19 +94,20 @@ export async function loadAdsData(supabase: Supabase, storeId: string): Promise<
 
   const since = new Date(Date.now() - SALES_DAYS * 24 * 60 * 60 * 1000).toISOString()
   const since30 = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
+  // Câte un rând pe ofertă sau pe produs: la un catalog mare trec de o pagină (1.000), deci se citesc toate
   const [offers, salesRes, econRes, econ30Res, google30Res, productsRes] = await Promise.all([
     readOffers(),
-    supabase.rpc('commerce_offer_sales', { p_store_id: storeId, p_since: since }),
+    readAllSoft((a, b) => supabase.rpc('commerce_offer_sales', { p_store_id: storeId, p_since: since }).order('offer_id').range(a, b)),
     supabase.rpc('commerce_order_economics', { p_store_id: storeId, p_since: since }),
     supabase.rpc('commerce_order_economics', { p_store_id: storeId, p_since: since30 }),
-    supabase.rpc('commerce_offer_google_sales', { p_store_id: storeId, p_since: since30 }),
-    supabase.rpc('ad_product_totals', { p_store_id: storeId, p_since: since30.slice(0, 10) }),
+    readAllSoft((a, b) => supabase.rpc('commerce_offer_google_sales', { p_store_id: storeId, p_since: since30 }).order('offer_id').range(a, b)),
+    readAllSoft((a, b) => supabase.rpc('ad_product_totals', { p_store_id: storeId, p_since: since30.slice(0, 10) }).order('item_id').range(a, b)),
   ])
-  if (salesRes.error) errors.push(`commerce_offer_sales: ${salesRes.error.message}`)
+  if (salesRes.error) errors.push(`commerce_offer_sales: ${salesRes.error}`)
   if (econRes.error) errors.push(`commerce_order_economics: ${econRes.error.message}`)
   if (econ30Res.error) errors.push(`commerce_order_economics (30): ${econ30Res.error.message}`)
-  if (google30Res.error) errors.push(`commerce_offer_google_sales: ${google30Res.error.message}`)
-  if (productsRes.error) errors.push(`ad_product_totals: ${productsRes.error.message}`)
+  if (google30Res.error) errors.push(`commerce_offer_google_sales: ${google30Res.error}`)
+  if (productsRes.error) errors.push(`ad_product_totals: ${productsRes.error}`)
   if (!offers) return { data: null, errors }
 
   type SalesRow = { offer_id: string; units: number; revenue: number; orders: number }

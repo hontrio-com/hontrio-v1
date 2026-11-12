@@ -22,7 +22,8 @@ export async function generateMetadata(): Promise<Metadata> {
       description: t('auth.meta_register_description'),
       url: `${siteUrl}/register`,
     },
-    robots: { index: true, follow: true },
+    // Ca în robots.ts: paginile de cont nu se indexează
+    robots: { index: false, follow: false },
   }
 }
 

@@ -7,12 +7,16 @@ import { ArrowUp, ArrowUpRight, Globe } from 'lucide-react'
 import { useLocale } from '@/lib/i18n/context'
 import { LOCALES, LOCALE_NAMES } from '@/lib/i18n/config'
 import { cn } from '@/lib/utils'
+import { openCookieSettings } from '@/components/cookie-consent'
 
 // =============================================
 // Subsolul site-ului (ca în CLIPPING): negru, coloanele de linkuri și, jos,
 // logo-ul mare, aprins de o lumină care urmărește cursorul. Tot aici se
-// schimbă limba (antetul rămâne curat).
+// schimbă limba (antetul rămâne curat), se redeschide alegerea despre
+// cookie-uri și stau datele firmei (Legea nr. 365/2002, art. 5).
 // =============================================
+
+type FooterLink = { label: string; href: string } | { label: string; onClick: () => void }
 
 const BRANDS = ['Edinio', 'WooCommerce', 'Shopify', 'Google Ads', 'Merchant Center'] // i18n-ignore: nume de produse
 const LOGO_MASK = '[mask-image:url(/logo-black.png)] [mask-position:center] [mask-repeat:no-repeat] [mask-size:contain]'
@@ -43,14 +47,13 @@ export function SiteFooter() {
   const my = useSpring(useMotionValue(40), { stiffness: 120, damping: 20 })
   const glow = useMotionTemplate`radial-gradient(380px circle at ${mx}% ${my}%, rgba(255,255,255,0.95), rgba(255,255,255,0.28) 40%, rgba(255,255,255,0.06) 70%)`
 
-  const columns = [
+  const columns: { title: string; links: FooterLink[] }[] = [
     {
       title: t('site.footer_product'),
       links: [
         { label: t('site.nav_how'), href: '/#how' },
         { label: t('site.nav_features'), href: '/#features' },
         { label: t('site.nav_faq'), href: '/#faq' },
-        { label: t('site.footer_blog'), href: '/blog' },
       ],
     },
     {
@@ -58,7 +61,6 @@ export function SiteFooter() {
       links: [
         { label: t('site.nav_signup'), href: '/register' },
         { label: t('site.nav_login'), href: '/login' },
-        { label: t('site.footer_contact'), href: '/contact' },
       ],
     },
     {
@@ -67,9 +69,12 @@ export function SiteFooter() {
         { label: t('site.footer_terms'), href: '/legal/terms' },
         { label: t('site.footer_privacy'), href: '/legal/privacy' },
         { label: t('site.footer_cookies'), href: '/legal/cookies' },
+        { label: t('site.footer_dpa'), href: '/legal/dpa' },
+        { label: t('site.footer_cookie_settings'), onClick: openCookieSettings },
       ],
     },
   ]
+  const linkStyle = 'group inline-flex items-center gap-1 text-left text-sm text-white/70 transition hover:text-white'
 
   return (
     <footer className="relative overflow-hidden bg-[#070707] text-white">
@@ -92,11 +97,15 @@ export function SiteFooter() {
               <p className="text-xs font-semibold uppercase tracking-[0.14em] text-white/40">{col.title}</p>
               <ul className="mt-5 space-y-3">
                 {col.links.map(l => (
-                  <li key={l.href}>
-                    <Link href={l.href} className="group inline-flex items-center gap-1 text-sm text-white/70 transition hover:text-white">
-                      {l.label}
-                      <ArrowUpRight className="size-3 -translate-x-1 opacity-0 transition group-hover:translate-x-0 group-hover:opacity-100" />
-                    </Link>
+                  <li key={l.label}>
+                    {'href' in l ? (
+                      <Link href={l.href} className={linkStyle}>
+                        {l.label}
+                        <ArrowUpRight className="size-3 -translate-x-1 opacity-0 transition group-hover:translate-x-0 group-hover:opacity-100" />
+                      </Link>
+                    ) : (
+                      <button type="button" onClick={l.onClick} className={linkStyle}>{l.label}</button>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -112,6 +121,8 @@ export function SiteFooter() {
             ))}
           </ul>
         </div>
+
+        <p className="pt-6 text-[11.5px] leading-relaxed text-white/45">{t('site.footer_company')}</p>
 
         <div className="flex flex-col items-center justify-between gap-4 py-6 text-xs text-white/40 md:flex-row">
           <span>{t('site.footer_rights', { year: YEAR })}</span>

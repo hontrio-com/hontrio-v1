@@ -162,10 +162,11 @@ export function buildRecommendations(input: EngineInput): Recommendation[] {
         impact_revenue: null, items: [], total_items: 0, action: planPage,
       })
     }
+    // Toate trei opresc lansarea: fără valoarea comenzii, pilotul n-ar avea ROAS-ul oprirea de siguranță
     const purchase = has('purchase_missing') ?? has('purchase_not_primary') ?? has('purchase_no_value')
     if (purchase && setup.conversion.status !== 'missing') {
       recs.push({
-        id: 'purchase_conversion', severity: purchase.id === 'purchase_no_value' ? 'medium' : 'high',
+        id: 'purchase_conversion', severity: 'high',
         title: { key: PURCHASE_TEXT[purchase.id as keyof typeof PURCHASE_TEXT][0] }, body: { key: PURCHASE_TEXT[purchase.id as keyof typeof PURCHASE_TEXT][1] },
         impact_revenue: null, items: [], total_items: 0, action: planPage,
       })

@@ -118,18 +118,13 @@ export default function RecommendationsPage() {
   const [failed, setFailed] = useState(false)
   const [filter, setFilter] = useState<Filter>('all')
 
-  const load = useCallback(async () => {
-    setFailed(false)
-    try {
-      const r = await fetch('/api/recommendations')
-      if (!r.ok) throw new Error()
-      setData(await r.json())
-    } catch {
-      setFailed(true)
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+  // Starea se schimbă doar în callback-urile răspunsului, nu în efectul care pornește încărcarea
+  const load = useCallback(() =>
+    fetch('/api/recommendations')
+      .then(r => { if (!r.ok) throw new Error(); return r.json() as Promise<Data> })
+      .then(body => { setData(body); setFailed(false) })
+      .catch(() => setFailed(true))
+      .finally(() => setLoading(false)), [])
 
   useEffect(() => { load() }, [load])
 

@@ -3,9 +3,9 @@ import { getServerSession } from 'next-auth'
 import { cookies } from 'next/headers'
 import { authOptions } from '@/lib/auth/auth.config'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { encrypt } from '@/lib/security/encryption'
+import { decrypt, encrypt } from '@/lib/security/encryption'
 import {
-  exchangeCode, getRedirectUri, clearCachedAccessToken,
+  exchangeCode, getRedirectUri, clearCachedAccessToken, revokeToken,
   GOOGLE_ADS_SCOPE, GOOGLE_OAUTH_STATE_COOKIE,
 } from '@/lib/google/oauth'
 import { syncGoogleAdsAccounts } from '@/lib/google/accounts'
@@ -62,13 +62,19 @@ export async function GET(request: Request) {
     const supabase = createAdminClient()
     const now = new Date().toISOString()
 
-    // Alt cont Google decât cel conectat anterior → conturile Ads vechi nu mai sunt valabile
+    // Alt cont Google decât cel conectat anterior → conturile Ads vechi nu mai sunt valabile. Accesul vechi
+    // se retrage întâi și la Google (altfel tokenul ar rămâne valabil acolo, fără să-l mai folosească nimeni)
     const { data: previous } = await supabase
       .from('google_connections')
-      .select('id, google_user_id')
+      .select('id, google_user_id, refresh_token_encrypted')
       .eq('user_id', userId)
       .maybeSingle()
     if (previous && previous.google_user_id !== tokens.googleUserId) {
+      try {
+        await revokeToken(decrypt(previous.refresh_token_encrypted))
+      } catch (err) {
+        logApiError('/api/integrations/google/callback', 500, 'Tokenul vechi nu s-a putut retrage la Google', { userId, error: (err as Error).message })
+      }
       await supabase.from('google_connections').delete().eq('id', previous.id)
     }
 

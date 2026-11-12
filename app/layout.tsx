@@ -2,7 +2,6 @@ import type { Metadata } from 'next'
 import { Geist, Geist_Mono, Inter, Outfit } from 'next/font/google'
 import './globals.css'
 import { Providers } from '@/components/providers'
-import Script from 'next/script'
 import { CookieConsent } from '@/components/cookie-consent'
 import { getLocale, tFor } from '@/lib/i18n/server'
 import { clientMessages } from '@/lib/i18n/dictionaries'
@@ -13,8 +12,6 @@ const inter = Inter({ subsets: ['latin', 'latin-ext'], variable: '--font-inter',
 // Platforma (după autentificare) folosește Geist, ca în designul ales (Bezeno); Geist Mono pentru cifrele mici
 const geist = Geist({ subsets: ['latin', 'latin-ext'], variable: '--font-geist-sans', display: 'swap' })
 const geistMono = Geist_Mono({ subsets: ['latin'], variable: '--font-geist-mono', display: 'swap' })
-
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://hontrio.com'
 
 // Titlul și descrierile se scriu în limba vizitatorului
 export async function generateMetadata(): Promise<Metadata> {
@@ -127,11 +124,6 @@ const jsonLd = {
       description: 'Google Shopping campaigns for online stores, built and looked after every day.',
       publisher: { '@id': 'https://hontrio.com/#organization' },
       inLanguage: ['en', 'ro'],
-      potentialAction: {
-        '@type': 'SearchAction',
-        target: 'https://hontrio.com/blog?q={search_term_string}',
-        'query-input': 'required name=search_term_string',
-      },
     },
     {
       '@type': 'SoftwareApplication',
@@ -171,57 +163,7 @@ export default async function RootLayout({
   return (
     <html lang={locale}>
       <head>
-        {/* Google Consent Mode v2 — must be before GA4 */}
-        <Script
-          id="consent-mode-init"
-          strategy="beforeInteractive"
-          dangerouslySetInnerHTML={{
-            __html: `
-              window.dataLayer = window.dataLayer || [];
-              function gtag(){dataLayer.push(arguments);}
-              gtag('consent', 'default', {
-                'ad_storage': 'denied',
-                'analytics_storage': 'denied',
-                'ad_user_data': 'denied',
-                'ad_personalization': 'denied',
-                'wait_for_update': 500
-              });
-              try {
-                var c = localStorage.getItem('hontrio_cookie_consent');
-                if (c === 'granted') {
-                  gtag('consent', 'update', {
-                    'analytics_storage': 'granted',
-                    'ad_storage': 'granted',
-                    'ad_user_data': 'granted',
-                    'ad_personalization': 'granted'
-                  });
-                }
-              } catch(e) {}
-            `,
-          }}
-        />
-        {/* GA4 */}
-        {process.env.NODE_ENV === 'production' && (
-          <>
-            <Script
-              id="ga4-script"
-              strategy="afterInteractive"
-              src="https://www.googletagmanager.com/gtag/js?id=G-5T68NF431T"
-            />
-            <Script
-              id="ga4-config"
-              strategy="afterInteractive"
-              dangerouslySetInnerHTML={{
-                __html: `
-                  window.dataLayer = window.dataLayer || [];
-                  function gtag(){dataLayer.push(arguments);}
-                  gtag('js', new Date());
-                  gtag('config', 'G-5T68NF431T', { send_page_view: true });
-                `,
-              }}
-            />
-          </>
-        )}
+        {/* Google Analytics nu se încarcă de aici: îl încarcă bannerul de cookie-uri, doar după „Accept” */}
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}

@@ -263,6 +263,17 @@ export class ShopifyApi {
     return this.page(QUERIES.orderIds, 'orders', { first: IDS_PAGE, after: opts.after, query: opts.query })
   }
 
+  /**
+   * Retrage accesul aplicației (dezinstalarea din magazin), la ștergerea contului Hontrio.
+   * Best effort: un magazin deja dezinstalat răspunde 401, ceea ce e tot „fără acces".
+   */
+  async revokeAccess(): Promise<void> {
+    const url = this.endpoint.replace(/\/admin\/api\/[^/]+\/graphql\.json$/, '/admin/api_permissions/current.json')
+    try {
+      await fetch(url, { method: 'DELETE', headers: { 'X-Shopify-Access-Token': this.token }, signal: AbortSignal.timeout(10_000), redirect: 'error' })
+    } catch { /* fără răspuns: legătura se șterge oricum din Hontrio */ }
+  }
+
   /** Shopify anunță adresa dată când aplicația e dezinstalată. Abonarea existentă e în regulă. */
   async subscribeUninstalled(uri: string): Promise<void> {
     // Adresa intră ca literal (JSON e un șir GraphQL valid): tipul variabilei diferă între versiuni

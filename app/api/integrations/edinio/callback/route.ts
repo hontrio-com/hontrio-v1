@@ -43,7 +43,7 @@ export async function GET(request: Request) {
   if (!code || !state) return back(request, { edinio_error: 'oauth' })
 
   const session = await getServerSession(authOptions)
-  if (!session?.user) {
+  if (!session?.user?.id) {
     return NextResponse.redirect(new URL('/login?callbackUrl=/settings?tab=integrations', request.url))
   }
   const userId = session.user.id
@@ -97,6 +97,9 @@ export async function GET(request: Request) {
     api_secret: null,
     connection_status: 'active',
     last_error: null,
+    // Legătura nouă pornește fără pauzele de după eșecurile celei vechi
+    sync_failures: 0,
+    next_sync_at: null,
   }
 
   let storeId: string

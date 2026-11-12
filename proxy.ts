@@ -1,11 +1,17 @@
 import { getToken } from 'next-auth/jwt'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
+import { LOCALE_COOKIE, SOURCE_LOCALE, detectLocale, isLocale } from '@/lib/i18n/config'
+import { MESSAGES } from '@/lib/i18n/dictionaries'
+import { createT } from '@/lib/i18n/translate'
 
 // ─── Hostname detection ──────────────────────────────────────────────────────
 // hontrio.com (no subdomain) → landing/marketing pages
 // app.hontrio.com → platform (dashboard, auth, API)
 // localhost → both (for development)
+//
+// Antetele de securitate (CSP, HSTS, X-Frame-Options...) vin din next.config.ts,
+// pentru toate rutele.
 
 const APP_SUBDOMAIN = 'app'
 const MAIN_DOMAIN = 'hontrio.com'
@@ -17,6 +23,17 @@ function getHostType(request: NextRequest): 'landing' | 'app' {
   if (host.startsWith(`${APP_SUBDOMAIN}.`)) return 'app'
   return 'landing'
 }
+
+/** Mesajul de refuz, în limba cererii (alegerea din cookie, altfel țara și browserul). */
+function forbidden(request: NextRequest) {
+  const chosen = request.cookies.get(LOCALE_COOKIE)?.value
+  const locale = isLocale(chosen) ? chosen : detectLocale(request.headers.get('x-vercel-ip-country'), request.headers.get('accept-language'))
+  const t = createT(locale, MESSAGES[locale], locale === SOURCE_LOCALE ? undefined : MESSAGES[SOURCE_LOCALE])
+  return NextResponse.json({ error: t('api.forbidden') }, { status: 403 })
+}
+
+// Paginile de cont: deschise fără sesiune
+const AUTH_PAGES = ['/login', '/register', '/forgot-password', '/reset-password', '/verify-email']
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
@@ -44,13 +61,9 @@ export async function proxy(request: NextRequest) {
   // APP DOMAIN (app.hontrio.com) — full platform with auth
   // ═══════════════════════════════════════════════════════════════════════════
   const token = await getToken({ req: request })
+  // O sesiune retrasă (parolă schimbată, cont șters) rămâne în cookie fără `id`
+  const authed = typeof token?.id === 'string' && token.id.length > 0
   const response = NextResponse.next()
-
-  // ===== SECURITY HEADERS =====
-  response.headers.set('X-Content-Type-Options', 'nosniff')
-  response.headers.set('X-Frame-Options', 'DENY')
-  response.headers.set('X-XSS-Protection', '1; mode=block')
-  response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin')
 
   // ===== CORS for API routes =====
   if (pathname.startsWith('/api/')) {
@@ -64,8 +77,9 @@ export async function proxy(request: NextRequest) {
 
     if (allowedOrigins.includes(origin)) {
       response.headers.set('Access-Control-Allow-Origin', origin)
+      response.headers.set('Vary', 'Origin')
     }
-    response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
+    response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS')
     response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization')
     response.headers.set('Access-Control-Allow-Credentials', 'true')
 
@@ -73,13 +87,11 @@ export async function proxy(request: NextRequest) {
       return new NextResponse(null, { status: 204, headers: response.headers })
     }
 
-    // Skip auth check for public API routes
+    // Rutele publice: autentificarea, cronurile (secretul lor) și întoarcerea din Shopify
+    // (callback-ul verifică singur sesiunea; webhook-urile, semnătura)
     if (
       pathname.startsWith('/api/auth') ||
-      pathname.startsWith('/api/stripe/webhook') ||
       pathname.startsWith('/api/cron/') ||
-      // Shopify OAuth + webhooks — publice (callback verifică sesiunea manual)
-      pathname.startsWith('/api/shopify/install') ||
       pathname.startsWith('/api/shopify/callback') ||
       pathname.startsWith('/api/shopify/webhooks')
     ) {
@@ -93,21 +105,15 @@ export async function proxy(request: NextRequest) {
   }
 
   // ===== Public routes =====
-  if (
-    pathname.startsWith('/login') ||
-    pathname.startsWith('/register') ||
-    pathname.startsWith('/forgot-password') ||
-    pathname.startsWith('/reset-password') ||
-    pathname.startsWith('/api/auth')
-  ) {
-    if (token && (pathname === '/login' || pathname === '/register')) {
+  if (AUTH_PAGES.some(p => pathname.startsWith(p)) || pathname.startsWith('/api/auth')) {
+    if (authed && (pathname === '/login' || pathname === '/register')) {
       return NextResponse.redirect(new URL('/dashboard', request.url))
     }
     return response
   }
 
   // ===== Protected routes =====
-  if (!token) {
+  if (!authed) {
     const loginUrl = new URL('/login', request.url)
     loginUrl.searchParams.set('callbackUrl', pathname)
     return NextResponse.redirect(loginUrl)
@@ -115,17 +121,15 @@ export async function proxy(request: NextRequest) {
 
   // ===== Onboarding route protection =====
   if (pathname === '/onboarding') {
-    if (token.onboardingCompleted === true) {
+    if (token?.onboardingCompleted === true) {
       return NextResponse.redirect(new URL('/dashboard', request.url))
     }
   }
 
   // ===== Admin routes =====
   if (pathname.startsWith('/admin') || pathname.startsWith('/api/admin')) {
-    if (token.role !== 'admin') {
-      if (pathname.startsWith('/api/')) {
-        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-      }
+    if (token?.role !== 'admin') {
+      if (pathname.startsWith('/api/')) return forbidden(request)
       return NextResponse.redirect(new URL('/dashboard', request.url))
     }
   }
@@ -147,7 +151,6 @@ export const config = {
     '/products/:path*',
     '/recommendations/:path*',
     '/reports/:path*',
-    '/videos/:path*',
     '/settings/:path*',
     '/support/:path*',
     '/admin/:path*',
@@ -168,5 +171,6 @@ export const config = {
     '/register',
     '/forgot-password',
     '/reset-password',
+    '/verify-email',
   ],
 }

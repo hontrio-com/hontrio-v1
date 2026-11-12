@@ -210,10 +210,20 @@ async function fetchInsights(token: string, merchantId: string, country: string)
 // ─── Sincronizarea ──────────────────────────────────────────────────────────
 
 /**
- * `labels`: ofertele care trebuie să poarte eticheta Hontrio (doar campaniile care
- * filtrează după etichetă, la cataloage prea mari pentru lista de ID-uri).
+ * Etichetele Hontrio de pus în Merchant Center: ofertă → etichetă; null = niciuna (se scot cele puse);
+ * 'keep' = cum sunt (cine sincronizează nu știe ce campanii rulează). Le hotărăște `merchantLabels`
+ * (lib/ads/listing.ts), după arborii campaniilor care rulează: un arbore care filtrează după etichetă
+ * n-o pierde la o reîmprospătare oarecare.
  */
-export async function syncMerchant(storeId: string, opts: { auditMerchantId?: string | null; labels?: Map<string, string> | null; deadline?: number } = {}): Promise<MerchantSyncResult> {
+export type MerchantLabels = Map<string, string> | null | 'keep'
+
+/** Eticheta pe care trebuie s-o poarte o ofertă în sursa suplimentară Hontrio. */
+export function wantedLabel(labels: MerchantLabels, labelIndex: number | null, offerId: string, pushed: string | null): string | null {
+  if (labels === 'keep') return pushed
+  return labels && labelIndex !== null ? labels.get(offerId) ?? null : null
+}
+
+export async function syncMerchant(storeId: string, opts: { auditMerchantId?: string | null; labels: MerchantLabels; deadline?: number }): Promise<MerchantSyncResult> {
   const supabase = createAdminClient()
   const { data: store } = await supabase.from('stores').select(STORE_COLUMNS).eq('id', storeId).maybeSingle<StoreRow>()
   if (!store) return { ok: false, reason: 'no_store' }
@@ -270,10 +280,9 @@ export async function syncMerchant(storeId: string, opts: { auditMerchantId?: st
     let pushed = 0
     let removed = 0
     let dataSource = store.merchant_data_source
-    const labels = opts.labels ?? null
     const wanted = (o: OfferRow) => ({
       cogs: null as number | null,
-      label: labels && labelIndex !== null ? labels.get(o.offer_id) ?? null : null,
+      label: wantedLabel(opts.labels, labelIndex, o.offer_id, o.merchant_label_pushed),
     })
     const sendList = offers.filter(o => {
       if (!matches.has(o.offer_id)) return false

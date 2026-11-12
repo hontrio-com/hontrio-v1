@@ -7,7 +7,9 @@ import { isCommercePlatform } from '@/lib/commerce/sync'
 import { getActiveStore } from '@/lib/stores/active'
 import { MODES, type Mode } from '@/lib/campaigns/plan'
 import { loadPlanContext, STORE_PLAN_COLUMNS, type PlanStore } from '@/lib/campaigns/context'
-import { CAMPAIGN_COLUMNS, parseCampaign } from '@/lib/ads/apply'
+import { CAMPAIGN_COLUMNS, parseCampaign } from '@/lib/ads/listing'
+import { readAllSoft } from '@/lib/ads/read-all'
+import { isExpired } from '@/lib/ads/schedule'
 import { AUDIT_FRESH_MS } from '@/lib/google/audit'
 import { getT } from '@/lib/i18n/server'
 
@@ -26,9 +28,12 @@ const SERIES_DAYS = 60
 
 type Supabase = ReturnType<typeof createAdminClient>
 
-/** Planul e al magazinului activ al contului; ultima citire a contului Google spune până când sunt cifrele. */
+/**
+ * Planul e al magazinului activ al contului; ultima citire a contului Google spune până când sunt cifrele,
+ * iar eroarea ei, de ce pilotul n-a putut lucra.
+ */
 function readStore(supabase: Supabase, userId: string) {
-  return getActiveStore<PlanStore & { ads_synced_at: string | null }>(supabase, userId, `${STORE_PLAN_COLUMNS}, ads_synced_at`)
+  return getActiveStore<PlanStore & { ads_synced_at: string | null; ads_sync_error: string | null }>(supabase, userId, `${STORE_PLAN_COLUMNS}, ads_synced_at, ads_sync_error`)
 }
 
 const DAY_MS = 86_400_000
@@ -75,11 +80,14 @@ export async function GET() {
   const lastDay = syncedDay && syncedDay < yesterday ? syncedDay : yesterday
   const days = Array.from({ length: SERIES_DAYS }, (_, i) => shiftDay(lastDay, i - SERIES_DAYS + 1))
   const since = days[SERIES_DAYS - 30]
-  const { data: metrics } = ids.length
-    ? await supabase.from('ad_metrics_daily').select('google_campaign_id, date, cost, clicks, conversions, conversions_value').eq('store_id', store.id).in('google_campaign_id', ids)
-      .gte('date', days[0]).lte('date', lastDay)
-    : { data: [] }
-  const rows = (metrics ?? []).map(m => ({
+  // Toate rândurile (campaniile încheiate se adună în timp: pot trece de o pagină)
+  const { data: metrics, error: metricsError } = ids.length
+    ? await readAllSoft<{ google_campaign_id: string; date: string; cost: unknown; clicks: unknown; conversions: unknown; conversions_value: unknown }>((a, b) =>
+      supabase.from('ad_metrics_daily').select('google_campaign_id, date, cost, clicks, conversions, conversions_value').eq('store_id', store.id).in('google_campaign_id', ids)
+        .gte('date', days[0]).lte('date', lastDay).order('google_campaign_id').order('date').range(a, b))
+    : { data: [], error: null }
+  if (metricsError) logApiError(ROUTE, 500, 'Eroare la citirea cifrelor campaniilor', { userId, error: metricsError })
+  const rows = metrics.map(m => ({
     google_campaign_id: m.google_campaign_id as string, date: m.date as string,
     cost: Number(m.cost) || 0, clicks: Number(m.clicks) || 0, conversions: Number(m.conversions) || 0, value: Number(m.conversions_value) || 0,
   }))
@@ -123,6 +131,8 @@ export async function GET() {
       currency: store.currency || 'RON',
       connection_status: store.connection_status,
       last_sync_at: store.last_sync_at,
+      // Ultima trecere a pilotului și, dacă n-a putut lucra, de ce (cheie de traducere salvată)
+      pilot: { synced_at: store.ads_synced_at, error: store.ads_sync_error },
     },
     plan: context.plan,
     audit: audit ? {
@@ -143,7 +153,8 @@ export async function GET() {
     })),
     // Pe zi, ultimele 60 de zile, toate campaniile Hontrio la un loc
     series,
-    proposals: actions.filter(a => a.status === 'proposed'),
+    // O propunere mai veche de 7 zile a expirat, chiar dacă pilotul n-a apucat s-o treacă așa
+    proposals: actions.filter(a => a.status === 'proposed' && !isExpired(a.created_at)),
     journal: actions.filter(a => a.status !== 'proposed').slice(0, JOURNAL),
     // Grupele omului, cu planul fiecăreia; ziua de azi a magazinului, pentru perioadele lor
     groups: context.groupPlans,

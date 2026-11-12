@@ -8,7 +8,7 @@ export async function GET(request: Request) {
   const t = await getT()
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user || (session.user as any).role !== 'admin') {
+    if (!session?.user?.id || session.user.role !== 'admin') {
       return NextResponse.json({ error: t('api.forbidden') }, { status: 403 })
     }
 

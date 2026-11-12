@@ -26,14 +26,15 @@ type FinancialData = {
 
 export default function FinancialPage() {
   const { t, intlLocale } = useT()
-  const f = useFormats('USD')
+  // Încasările Hontrio se arată în euro
+  const f = useFormats('EUR')
   const now = useNow()
   const { data, loading, refresh } = useAdminData<FinancialData>('/api/admin/financial')
 
   if (loading && !data) return <PageSkeleton tiles={3} />
   if (!data?.monthly) return <LoadError />
 
-  const usd = (n: number) => f.money.format(n)
+  const eur = (n: number) => f.money.format(n)
   const month = now ? new Date(now).toLocaleDateString(intlLocale, { month: 'long', year: 'numeric' }) : ''
   const newThisMonth = data.monthly[data.monthly.length - 1]?.newUsers ?? 0
 
@@ -44,8 +45,8 @@ export default function FinancialPage() {
       <Callout>{t('admin.financial_no_billing')}</Callout>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <StatCard label={t('admin.financial_revenue_this_month')} value={usd(data.revenue.thisMonth)} icon={<Wallet />} />
-        <StatCard label={t('admin.financial_total_revenue')} value={usd(data.revenue.allTime)} icon={<Wallet />} />
+        <StatCard label={t('admin.financial_revenue_this_month')} value={eur(data.revenue.thisMonth)} icon={<Wallet />} />
+        <StatCard label={t('admin.financial_total_revenue')} value={eur(data.revenue.allTime)} icon={<Wallet />} />
         <StatCard label={t('admin.financial_new_users_this_month')} value={f.int.format(newThisMonth)} icon={<UserPlus />} />
       </div>
 

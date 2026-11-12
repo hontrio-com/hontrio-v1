@@ -4,12 +4,15 @@ import { authOptions } from '@/lib/auth/auth.config'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getActiveStore } from '@/lib/stores/active'
 import { syncMerchant } from '@/lib/merchant/sync'
+import { labelsForStore } from '@/lib/ads/autopilot'
+import { STORE_PLAN_COLUMNS, type PlanStore } from '@/lib/campaigns/context'
 import { getT } from '@/lib/i18n/server'
 
 // =============================================
 // POST /api/merchant/sync — reîmprospătează acum datele din Merchant Center
-// pentru magazinul activ: stările produselor, costurile trimise, rapoartele
-// de piață. Cronul o face zilnic.
+// pentru magazinul activ: stările produselor, eticheta Hontrio (după aceeași
+// regulă ca pilotul: cât timp un arbore de produse filtrează după ea),
+// rapoartele de piață. Cronul o face zilnic.
 // =============================================
 
 export const maxDuration = 300
@@ -23,13 +26,15 @@ export async function POST() {
   const userId = session.user.id
 
   const supabase = createAdminClient()
-  const { data: store } = await getActiveStore<{ id: string; merchant_synced_at: string | null }>(supabase, userId, 'id, merchant_synced_at')
+  const { data: store } = await getActiveStore<PlanStore>(supabase, userId, STORE_PLAN_COLUMNS)
   if (!store) return NextResponse.json({ error: t('sync.platform_unsupported') }, { status: 400 })
   if (store.merchant_synced_at && Date.now() - Date.parse(store.merchant_synced_at) < MIN_GAP_MS) {
     return NextResponse.json({ error: t('campaigns.audit_too_soon') }, { status: 429 })
   }
 
-  const result = await syncMerchant(store.id, { deadline: Date.now() + 250_000 })
+  // Etichetele rămân pe ofertele scoase cât timp o campanie care rulează filtrează după ele
+  const labels = await labelsForStore(supabase, store)
+  const result = await syncMerchant(store.id, { labels, deadline: Date.now() + 250_000 })
   if (!result.ok) {
     const key = result.reason === 'no_merchant' ? 'settings.merchant_none' : result.reason === 'google_not_connected' ? 'settings.merchant_google_missing' : 'settings.merchant_sync_failed'
     return NextResponse.json({ error: t(key), reason: result.reason }, { status: result.reason === 'no_merchant' || result.reason === 'google_not_connected' ? 409 : 502 })

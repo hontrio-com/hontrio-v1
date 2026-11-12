@@ -5,7 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { getAccessTokenForUser, GoogleAuthError } from '@/lib/google/oauth'
 import { syncGoogleAdsAccounts } from '@/lib/google/accounts'
 import { normalizeCustomerId } from '@/lib/google/ads'
-import { rateLimit } from '@/lib/security/rate-limit'
+import { rateLimitAsync } from '@/lib/security/rate-limit'
 import { logApiError } from '@/lib/logger'
 import { getActiveStore } from '@/lib/stores/active'
 import { getT } from '@/lib/i18n/server'
@@ -22,7 +22,7 @@ export async function POST() {
   if (!session?.user) return NextResponse.json({ error: t('api.unauthorized') }, { status: 401 })
   const userId = session.user.id
 
-  const rl = rateLimit(`google-accounts-refresh:${userId}`, 5, 60 * 1000)
+  const rl = await rateLimitAsync(`google-accounts-refresh:${userId}`, 5, 60 * 1000)
   if (!rl.success) return NextResponse.json({ error: t('api.rate_limited') }, { status: 429 })
 
   const supabase = createAdminClient()
@@ -79,7 +79,8 @@ export async function PATCH(request: Request) {
     }
   }
 
-  const { error } = await supabase.from('stores').update({ google_ads_customer_id: customerId }).eq('id', store.id)
+  // Alt cont: pilotul îl citește la următoarea oră a cronului (un magazin netrecut e primul la rând), cu tot istoricul
+  const { error } = await supabase.from('stores').update({ google_ads_customer_id: customerId, ads_synced_at: null }).eq('id', store.id)
   if (error) {
     // Detaliul tehnic merge în jurnal, nu la om
     logApiError('/api/integrations/google/accounts', 500, 'Eroare la alegerea contului Google Ads', { error: error.message })

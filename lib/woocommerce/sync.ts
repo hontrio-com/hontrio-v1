@@ -190,7 +190,7 @@ export async function syncWooStore(
   let orders = 0
   try {
     const plain = (v: string) => (v.includes(':') ? decrypt(v) : v)
-    const api = new WooApi(store.store_url, plain(store.api_key), plain(store.api_secret))
+    const api = new WooApi(store.store_url, plain(store.api_key), plain(store.api_secret), { deadline })
     let pd = (store.platform_data ?? {}) as Record<string, unknown>
     let currency = store.currency || 'RON'
 
@@ -311,7 +311,8 @@ export async function syncWooStore(
     check(error)
     return { ok: true, mode, complete: true, offers, orders, offersTotal, ordersTotal }
   } catch (err) {
-    if (err instanceof DeadlineReached) {
+    // Timpul magazinului s-a terminat între cereri (nu o pană a lui): trecerea continuă data viitoare
+    if (err instanceof DeadlineReached || (err instanceof WooError && err.code === 'deadline')) {
       // Poziția e deja salvată: rularea următoare continuă de acolo
       await supabase.from('stores').update({ sync_status: 'active', last_error: null }).eq('id', storeId)
       const [offersTotal, ordersTotal] = await Promise.all([
@@ -332,8 +333,8 @@ export async function syncWooStore(
     const message = (err as Error).message
     await supabase.from('stores').update({
       sync_status: 'error',
-      // Omul vede mesajul tradus al erorii; altfel (ex. o eroare a bazei), detaliul tehnic
-      last_error: err instanceof WooError ? err.stored : storedMessage('sync.failed', { detail: message.slice(0, 500) }),
+      // Omul vede mesajul tradus al erorii magazinului; o eroare de-a noastră (ex. a bazei) rămâne în jurnal
+      last_error: err instanceof WooError ? err.stored : storedMessage('sync.failed_internal'),
       // Magazinul nu răspunde sau ne blochează: îl arătăm ca problemă, dar continuăm să încercăm
       ...(err instanceof WooError ? { connection_status: 'error' } : {}),
     }).eq('id', storeId)

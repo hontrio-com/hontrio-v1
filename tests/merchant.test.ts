@@ -2,6 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import type { McProduct } from '@/lib/merchant/api'
 import { dominantFeed, freeLabelIndex, matchProducts, normalizeLink, shoppingIssues, shoppingStatus, type OfferRef } from '@/lib/merchant/match'
+import { wantedLabel } from '@/lib/merchant/sync'
 
 // Potrivirea produselor din Merchant Center cu ofertele magazinului, pe
 // formatele de ID ale aplicațiilor de feed, și starea lor la Shopping.
@@ -78,4 +79,15 @@ test('eticheta liberă pentru Hontrio și feedul dominant', () => {
   assert.equal(freeLabelIndex([mc('a', { productAttributes: { customLabel0: 'x', customLabel1: 'y' } }), mc('b')]), 2)
   assert.equal(freeLabelIndex([mc('a', { productAttributes: { customLabel0: '1', customLabel1: '1', customLabel2: '1', customLabel3: '1', customLabel4: '1' } })]), null)
   assert.deepEqual(dominantFeed([mc('a'), mc('b'), mc('c', { feedLabel: 'MD' })]), { feedLabel: 'RO', contentLanguage: 'ro' })
+})
+
+test('eticheta din sursa suplimentară: pusă, scoasă, sau lăsată cum e de cine nu știe ce rulează', () => {
+  const labels = new Map([['a', 'hontrio_exclude']])
+  assert.equal(wantedLabel(labels, 2, 'a', null), 'hontrio_exclude')
+  assert.equal(wantedLabel(labels, 2, 'b', 'hontrio_exclude'), null, 'o ofertă care nu mai e exclusă își pierde eticheta')
+  assert.equal(wantedLabel(null, 2, 'a', 'hontrio_exclude'), null, 'niciun arbore n-o mai folosește: se scoate')
+  assert.equal(wantedLabel(labels, null, 'a', null), null, 'fără custom_label liber nu se pune nimic')
+  // 'keep': o reîmprospătare care nu știe ce campanii rulează nu atinge etichetele
+  assert.equal(wantedLabel('keep', 2, 'a', 'hontrio_exclude'), 'hontrio_exclude')
+  assert.equal(wantedLabel('keep', 2, 'b', null), null)
 })

@@ -9,8 +9,6 @@ export function setup(over: Partial<StoreSetup> = {}): StoreSetup {
   return {
     platform: 'edinio',
     platformName: 'Edinio',
-    pricesIncludeVat: true,
-    assumedVatRate: 0.21,
     merchant: { status: 'ok', via: 'Edinio', href: 'https://edinio.test/merchant' },
     conversion: { status: 'ok', via: 'Edinio', href: 'https://edinio.test/ads' },
     feed: { country: 'RO', language: 'ro' },

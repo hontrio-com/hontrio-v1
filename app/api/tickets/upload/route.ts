@@ -2,77 +2,55 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/auth.config'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { rateLimitAsync } from '@/lib/security/rate-limit'
+import { ATTACHMENT_TYPES, cleanFileName, contentMatchesType } from '@/lib/security/upload'
+import { ATTACHMENTS_BUCKET, MAX_ATTACHMENT_SIZE, showAttachments } from '@/lib/tickets/attachments'
+import { logApiError } from '@/lib/logger'
 import { getT } from '@/lib/i18n/server'
 
-const ALLOWED_TYPES: Record<string, string> = {
-  'image/jpeg':      'jpg',
-  'image/png':       'png',
-  'image/webp':      'webp',
-  'image/gif':       'gif',
-  'application/pdf': 'pdf',
-  'text/plain':      'txt',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
-  'application/msword': 'doc',
-}
+// =============================================
+// POST /api/tickets/upload — un atașament pentru un tichet (al omului sau
+// răspunsul echipei). Fișierul intră în bucketul privat `ticket-attachments`,
+// la <cont>/<uuid>.<ext>; răspunsul are calea (de pus în tichet) și un link
+// semnat, de previzualizare. Tipul se verifică după conținut.
+// =============================================
 
-const MAX_SIZE = 10 * 1024 * 1024 // 10MB
+const ROUTE = '/api/tickets/upload'
 
 export async function POST(request: Request) {
   const t = await getT()
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user) {
-      return NextResponse.json({ error: t('api.unauthorized') }, { status: 401 })
-    }
+    if (!session?.user?.id) return NextResponse.json({ error: t('api.unauthorized') }, { status: 401 })
+    const userId = session.user.id
 
-    const userId = (session.user as any).id
-    const formData = await request.formData()
-    const file = formData.get('file') as File | null
+    const rl = await rateLimitAsync(`ticket-upload:${userId}`, 20, 60 * 60 * 1000)
+    if (!rl.success) return NextResponse.json({ error: t('api.rate_limited') }, { status: 429 })
 
-    if (!file) {
-      return NextResponse.json({ error: t('api.no_file') }, { status: 400 })
-    }
+    const formData = await request.formData().catch(() => null)
+    const file = formData?.get('file') as File | null
+    if (!file || typeof file === 'string') return NextResponse.json({ error: t('api.no_file') }, { status: 400 })
 
-    if (!ALLOWED_TYPES[file.type]) {
-      return NextResponse.json({
-        error: t('api.file_type_attachments')
-      }, { status: 400 })
-    }
+    const ext = ATTACHMENT_TYPES[file.type]
+    if (!ext) return NextResponse.json({ error: t('api.file_type_attachments') }, { status: 400 })
+    if (file.size > MAX_ATTACHMENT_SIZE) return NextResponse.json({ error: t('api.file_too_large', { size: 4 }) }, { status: 400 })
 
-    if (file.size > MAX_SIZE) {
-      return NextResponse.json({ error: t('api.file_too_large', { size: 10 }) }, { status: 400 })
-    }
+    const buffer = Buffer.from(await file.arrayBuffer())
+    if (!contentMatchesType(buffer, file.type)) return NextResponse.json({ error: t('api.file_type_attachments') }, { status: 400 })
 
     const supabase = createAdminClient()
-    const ext = ALLOWED_TYPES[file.type]
-    const fileName = `ticket-attachments/${userId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
-
-    const arrayBuffer = await file.arrayBuffer()
-    const buffer = Buffer.from(arrayBuffer)
-
-    const { data, error } = await supabase.storage
-      .from('uploads')
-      .upload(fileName, buffer, {
-        contentType: file.type,
-        upsert: false,
-      })
-
+    const path = `${userId}/${crypto.randomUUID()}.${ext}`
+    const { error } = await supabase.storage.from(ATTACHMENTS_BUCKET).upload(path, buffer, { contentType: file.type, upsert: false })
     if (error) {
-      return NextResponse.json({ error: t('api.upload_failed_detail', { detail: error.message }) }, { status: 500 })
+      logApiError(ROUTE, 500, 'Atașamentul n-a putut fi încărcat', { userId, error: error.message })
+      return NextResponse.json({ error: t('api.upload_failed') }, { status: 500 })
     }
 
-    const { data: urlData } = supabase.storage
-      .from('uploads')
-      .getPublicUrl(data.path)
-
-    return NextResponse.json({
-      url: urlData.publicUrl,
-      name: file.name,
-      size: file.size,
-      type: file.type,
-      path: data.path,
-    })
+    const attachment = { path, name: cleanFileName(file.name), size: file.size, type: file.type }
+    const [[shown]] = await showAttachments(supabase, [[attachment]])
+    return NextResponse.json({ ...attachment, url: shown?.url ?? null })
   } catch (err) {
+    logApiError(ROUTE, 500, 'Eroare neașteptată', { error: (err as Error).message })
     return NextResponse.json({ error: t('api.upload_failed') }, { status: 500 })
   }
 }

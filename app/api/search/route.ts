@@ -9,9 +9,8 @@ import { getT } from '@/lib/i18n/server'
 
 // =============================================
 // GET /api/search?q=
-// Căutarea din antet: produsele magazinului activ. Magazinele de pe modelul
-// comun (Edinio, WooCommerce, Shopify) caută în oferte; celelalte,
-// deocamdată, în tabelul vechi `products`.
+// Căutarea din antet: produsele magazinului activ, din ofertele modelului
+// comun (Edinio, WooCommerce, Shopify).
 // =============================================
 
 const ROUTE = '/api/search'
@@ -40,21 +39,6 @@ async function offerProducts(supabase: Supabase, storeId: string, like: string):
   return [...found.values()]
 }
 
-async function legacyProducts(supabase: Supabase, userId: string, storeId: string, like: string): Promise<FoundProduct[]> {
-  const { data, error } = await supabase.from('products')
-    .select('id, original_title, optimized_title, category, original_images')
-    .eq('user_id', userId).eq('store_id', storeId)
-    .or(['original_title', 'optimized_title', 'category'].map(c => `${c}.ilike.${like}`).join(','))
-    .limit(MAX_PRODUCTS)
-  if (error) throw error
-  return (data ?? []).map(p => ({
-    id: p.id,
-    title: p.optimized_title || p.original_title,
-    category: p.category,
-    thumbnail_url: Array.isArray(p.original_images) && typeof p.original_images[0] === 'string' ? p.original_images[0] : null,
-  }))
-}
-
 export async function GET(request: Request) {
   const t = await getT()
   const session = await getServerSession(authOptions)
@@ -72,7 +56,7 @@ export async function GET(request: Request) {
   try {
     const { data: store, error: eStore } = await getActiveStore<ActiveStore>(supabase, userId, 'id, platform, store_url, country, language, platform_data')
     if (eStore) throw eStore
-    const products = !store ? [] : storeSetup(store) ? await offerProducts(supabase, store.id, like) : await legacyProducts(supabase, userId, store.id, like)
+    const products = store && storeSetup(store) ? await offerProducts(supabase, store.id, like) : []
     return NextResponse.json({ products })
   } catch (e) {
     logApiError(ROUTE, 500, 'Eroare la căutare', { userId, error: (e as Error).message })

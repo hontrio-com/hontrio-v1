@@ -74,6 +74,8 @@ export async function PATCH(request: Request) {
     patch.merchant_data_source = null
     patch.merchant_label_index = null
     patch.merchant_error = null
+    // Merchant Center se citește în trecerea pilotului: la următoarea oră a cronului, nu peste o zi
+    patch.ads_synced_at = null
   }
   if (!Object.keys(patch).length) return NextResponse.json({ error: t('sync.nothing_to_save') }, { status: 400 })
 

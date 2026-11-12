@@ -179,7 +179,7 @@ function EditorBody({ group, initialStep = 1, plan, groups, campaigns, audit, to
     today,
   })
   const noValue = !!audit?.result?.checks.some(c => c.id === 'purchase_no_value')
-  const account = accountBlockers(plan, preview.type, noValue)
+  const account = accountBlockers(plan, noValue)
   const ownerName = new Map(others.map(g => [g.group.id, g.group.name]))
 
   // ── Ce poate face omul la fiecare pas ─────────────────────────────────────

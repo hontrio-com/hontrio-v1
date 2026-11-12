@@ -45,24 +45,24 @@ export default function NotificationBell() {
   const [markingAll, setMarkingAll] = useState(false)
 
   useEffect(() => {
+    // Starea se schimbă doar în callback-urile răspunsului, nu în efect
+    const fetchNotifications = () =>
+      fetch('/api/notifications')
+        .then(res => (res.ok ? res.json() : null))
+        .then(data => {
+          if (!data) return
+          setNotifications(data.notifications || [])
+          setUnreadCount(data.unreadCount || 0)
+        })
+        .catch(() => {
+          // Clopoțelul tace: încearcă din nou la următorul minut
+        })
     fetchNotifications()
     const interval = setInterval(() => {
       if (document.visibilityState === 'visible') fetchNotifications()
     }, 60000)
     return () => clearInterval(interval)
   }, [])
-
-  const fetchNotifications = async () => {
-    try {
-      const res = await fetch('/api/notifications')
-      if (!res.ok) return
-      const data = await res.json()
-      setNotifications(data.notifications || [])
-      setUnreadCount(data.unreadCount || 0)
-    } catch {
-      // Clopoțelul tace: încearcă din nou la următorul minut
-    }
-  }
 
   const markAsRead = async (notificationId: string) => {
     try {

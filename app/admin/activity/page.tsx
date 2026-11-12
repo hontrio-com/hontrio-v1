@@ -8,7 +8,7 @@ import { Badge } from '@/components/app/badge'
 import { EmptyState, Skeleton } from '@/components/app/feedback'
 import { FadeIn } from '@/components/app/motion'
 import { useAdminData } from '@/components/admin/use-admin-data'
-import { RefreshButton } from '@/components/admin/parts'
+import { LoadError, RefreshButton } from '@/components/admin/parts'
 
 // =============================================
 // Activitatea: tot ce s-a întâmplat pe platformă, pe zile.
@@ -43,6 +43,9 @@ export default function AdminActivityPage() {
 
       {loading && !data ? (
         <Card className="space-y-3 p-5">{[1, 2, 3, 4, 5].map(i => <Skeleton key={i} className="h-11" />)}</Card>
+      ) : !data?.activities ? (
+        // Răspunsul cu eroare nu e „nicio activitate”: spunem că nu s-a putut citi
+        <LoadError />
       ) : activities.length === 0 ? (
         <Card><EmptyState icon={<Activity />} title={t('admin.activity_empty')} description={t('admin.activity_empty_desc')} /></Card>
       ) : (

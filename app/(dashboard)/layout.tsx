@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { useSession, signOut } from 'next-auth/react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Menu, Plus, X } from 'lucide-react'
@@ -24,6 +24,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const { data: session } = useSession()
   const { t } = useT()
   const pathname = usePathname()
+  const router = useRouter()
   // Meniul de pe telefon e deschis doar pe pagina pe care l-ai deschis: o navigare îl închide
   const [menuAt, setMenuAt] = useState<string | null>(null)
   const mobileOpen = menuAt === pathname
@@ -40,8 +41,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   // Un cont nou își face întâi pașii de pornire (adminii nu)
   useEffect(() => {
     if (!session?.user || admin) return
-    fetch('/api/user/me').then(r => r.json()).then(d => { if (d.user?.onboarding_completed === false) window.location.href = '/onboarding' }).catch(() => {})
-  }, [session, admin])
+    fetch('/api/user/me').then(r => r.json()).then(d => { if (d.user?.onboarding_completed === false) router.push('/onboarding') }).catch(() => {})
+  }, [session, admin, router])
 
   // ⌘K / Ctrl+K, de oriunde
   useEffect(() => {

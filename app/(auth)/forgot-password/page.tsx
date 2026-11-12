@@ -6,10 +6,14 @@ import Link from 'next/link'
 import { Mail, ArrowLeft, CheckCircle, KeyRound } from 'lucide-react'
 import { Button } from '@/components/app/button'
 import { AuthCard, AuthField, AuthToast, SubmitButton, type AuthNotice } from '@/components/auth/ui'
+import { checkEmail } from '@/lib/auth/validation'
+import { Turnstile, turnstileOn } from '../_components/turnstile'
 
 export default function ForgotPasswordPage() {
   const { t } = useT()
   const [email, setEmail] = useState('')
+  const [captcha, setCaptcha] = useState('')
+  const [captchaKey, setCaptchaKey] = useState(0)
   const [loading, setLoading] = useState(false)
   const [sent, setSent] = useState(false)
   const [toast, setToast] = useState<AuthNotice>(null)
@@ -18,12 +22,18 @@ export default function ForgotPasswordPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!email.trim()) { showToast(t('auth.email_required'), 'error'); return }
+    const em = checkEmail(email)
+    if (!em.ok) { showToast(t(em.error), 'error'); return }
+    if (turnstileOn && !captcha) { showToast(t('auth.captcha_wait'), 'error'); return }
     setLoading(true)
     try {
-      const res = await fetch('/api/auth/forgot-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: email.trim().toLowerCase() }) })
-      const data = await res.json()
-      if (!res.ok) { showToast(data.error || t('common.error_generic'), 'error'); setLoading(false); return }
+      const res = await fetch('/api/auth/forgot-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: em.email, turnstile: captcha }) })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        showToast(data.error || t('common.error_generic'), 'error')
+        setCaptcha(''); setCaptchaKey(k => k + 1)
+        return
+      }
       setSent(true)
     } catch { showToast(t('auth.connection_error'), 'error') } finally { setLoading(false) }
   }
@@ -51,6 +61,7 @@ export default function ForgotPasswordPage() {
         <form onSubmit={handleSubmit} className="space-y-4">
           <AuthField label={t('auth.email')} icon={<Mail />} type="email" value={email} onChange={e => setEmail(e.target.value)}
             placeholder={t('auth.email_placeholder')} required autoComplete="email" />
+          <Turnstile key={captchaKey} onToken={setCaptcha} />
           <SubmitButton loading={loading}>{t('auth.send_reset')}</SubmitButton>
         </form>
       </AuthCard>

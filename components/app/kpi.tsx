@@ -3,6 +3,7 @@
 import type { ReactNode } from 'react'
 import { ArrowDownRight, ArrowUpRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useT } from '@/lib/i18n/context'
 import { Card } from '@/components/app/surface'
 import { NumberTicker } from '@/components/app/motion'
 import { Sparkline, CHART, type Point } from '@/components/app/charts'
@@ -15,15 +16,18 @@ import { InfoTip } from '@/components/app/info-tip'
 
 /** Schimbarea în procente; `good` = în ce direcție e de bine (la cheltuială, în jos). */
 export function Delta({ value, good = 'up', className }: { value: number | null; good?: 'up' | 'down'; className?: string }) {
+  const { intlLocale } = useT()
   if (value === null || !Number.isFinite(value)) return null
   const up = value >= 0
   const positive = Math.abs(value) < 0.005 ? null : (up ? good === 'up' : good === 'down')
   const Icon = up ? ArrowUpRight : ArrowDownRight
+  // Procentul în felul limbii omului (5,3 % în română, 5.3% în engleză); sub 10%, cu o zecimală
+  const pct = new Intl.NumberFormat(intlLocale, { style: 'percent', maximumFractionDigits: Math.abs(value) < 0.1 ? 1 : 0 })
   return (
     <span className={cn('inline-flex items-center gap-0.5 rounded-md px-1 py-px text-[12px] font-semibold tabular-nums',
       positive === null ? 'text-neutral-500' : positive ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600', className)}>
       <Icon className="size-3" strokeWidth={2.5} />
-      {Math.abs(value * 100).toFixed(Math.abs(value) < 0.1 ? 1 : 0)}%
+      {pct.format(Math.abs(value))}
     </span>
   )
 }
@@ -50,17 +54,6 @@ export function StatCard({ label, value, footnote, icon, delta, good, className 
       </div>
       {footnote && <p className="mt-1.5 text-[12px] leading-snug text-neutral-400">{footnote}</p>}
     </Card>
-  )
-}
-
-/** O celulă dintr-un tablou de cifre (mai multe la un loc, în același card). */
-export function Metric({ label, value, note }: { label: ReactNode; value: ReactNode; note?: ReactNode }) {
-  return (
-    <div className="bg-white px-5 py-4">
-      <p className="text-[13px] text-neutral-500">{label}</p>
-      <p className="mt-1 text-[18px] font-semibold leading-tight tracking-[-0.015em] text-neutral-950 tabular-nums">{value}</p>
-      {note && <p className="mt-0.5 text-[12px] leading-snug text-neutral-400">{note}</p>}
-    </div>
   )
 }
 

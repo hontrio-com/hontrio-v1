@@ -49,10 +49,6 @@ export function CardHeader({ title, description, action, icon, className }: {
   )
 }
 
-export function CardBody({ className, ...props }: React.ComponentProps<'div'>) {
-  return <div className={cn('px-5 py-5', className)} {...props} />
-}
-
 export function CardFooter({ className, ...props }: React.ComponentProps<'div'>) {
   return <div className={cn('flex items-center justify-between gap-3 rounded-b-[1.25rem] border-t border-line bg-neutral-50/60 px-5 py-3', className)} {...props} />
 }

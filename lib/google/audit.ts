@@ -1,4 +1,4 @@
-import { fromMicros, search } from '@/lib/google/ads'
+import { fromMicros, GoogleAdsApiError, search } from '@/lib/google/ads'
 
 // =============================================
 // Auditul contului Google Ads înainte de lansare (și zilnic, în cron).
@@ -26,6 +26,7 @@ type CampaignRow = {
   campaignBudget?: { amountMicros?: string }
 }
 type MetricsRow = { campaign?: { id?: string; advertisingChannelType?: string }; metrics?: { costMicros?: string; conversions?: number; conversionsValue?: number } }
+type PurchaseRow = { metrics?: { conversions?: number } }
 
 export type AuditRaw = {
   customer: CustomerRow[]
@@ -34,6 +35,8 @@ export type AuditRaw = {
   goals: GoalRow[]
   campaigns: CampaignRow[]
   metrics30: MetricsRow[]
+  /** Conversiile de cumpărare din 30 de zile (segments.conversion_action_category); null = nu s-au putut citi. */
+  purchase30?: PurchaseRow[] | null
 }
 
 export type AuditCheckId =
@@ -73,8 +76,14 @@ export type AuditResult = {
   merchant_id: string | null
   purchase: { actions: { id: string; name: string; primary: boolean; has_value: boolean; origin: string | null }[] }
   goals: { category: string; origin: string; biddable: boolean }[]
-  /** Ultimele 30 de zile: tot contul și doar campaniile Shopping/PMax. */
-  history: { conversions30: number; value30: number; cost30: number; shopping_conversions30: number; shopping_value30: number; shopping_cost30: number }
+  /**
+   * Ultimele 30 de zile: tot contul și doar campaniile Shopping/PMax. `purchase_conversions30` = doar
+   * cumpărările (treapta); lipsește în auditurile mai vechi sau când Google n-a răspuns la interogare.
+   */
+  history: {
+    conversions30: number; value30: number; cost30: number; shopping_conversions30: number; shopping_value30: number; shopping_cost30: number
+    purchase_conversions30?: number | null
+  }
   campaigns: AuditCampaign[]
   /** Campaniile omului (Shopping/PMax active, pe același Merchant) care ar concura cu ale noastre. */
   overlap: string[]
@@ -96,7 +105,14 @@ const round2 = (n: number) => Math.round(n * 100) / 100
 
 export async function fetchAuditRaw(accessToken: string, customerId: string, loginCustomerId?: string | null): Promise<AuditRaw> {
   const q = <T>(query: string) => search<T>(accessToken, customerId, query, loginCustomerId)
-  const [customer, productLinks, conversionActions, goals, campaigns, metrics30] = await Promise.all([
+  // Doar cumpărările, pentru treaptă. Fără să oprească auditul: dacă Google n-o primește, treapta se
+  // socotește din toate conversiile, ca înainte
+  const purchases = q<PurchaseRow>(`
+    SELECT segments.conversion_action_category, metrics.conversions
+    FROM customer
+    WHERE segments.date DURING LAST_30_DAYS AND segments.conversion_action_category = 'PURCHASE'`)
+    .catch((err: unknown) => { if (err instanceof GoogleAdsApiError) return null; throw err })
+  const [customer, productLinks, conversionActions, goals, campaigns, metrics30, purchase30] = await Promise.all([
     q<CustomerRow>(`
       SELECT customer.id, customer.descriptive_name, customer.currency_code, customer.time_zone,
              customer.auto_tagging_enabled, customer.manager, customer.test_account
@@ -126,8 +142,15 @@ export async function fetchAuditRaw(accessToken: string, customerId: string, log
              metrics.cost_micros, metrics.conversions, metrics.conversions_value
       FROM campaign
       WHERE segments.date DURING LAST_30_DAYS`),
+    purchases,
   ])
-  return { customer, productLinks, conversionActions, goals, campaigns, metrics30 }
+  return { customer, productLinks, conversionActions, goals, campaigns, metrics30, purchase30 }
+}
+
+/** Conversiile de cumpărare din 30 de zile (treapta); un audit fără ele folosește toate conversiile. */
+export function purchaseConversions30(audit: Pick<AuditResult, 'history'>): number {
+  const p = audit.history.purchase_conversions30
+  return typeof p === 'number' ? p : audit.history.conversions30
 }
 
 export function evaluateAudit(raw: AuditRaw, ctx: AuditContext): AuditResult {
@@ -162,6 +185,10 @@ export function evaluateAudit(raw: AuditRaw, ctx: AuditContext): AuditResult {
     }
   }
   for (const k of Object.keys(history) as (keyof typeof history)[]) history[k] = round2(history[k])
+  // Cumpărările (treapta): null când interogarea lor n-a mers
+  const purchaseConversions = raw.purchase30
+    ? round2(raw.purchase30.reduce((s, r) => s + (Number(r.metrics?.conversions) || 0), 0))
+    : null
 
   const campaigns: AuditCampaign[] = raw.campaigns.filter(r => r.campaign?.id).map(r => {
     const x = r.campaign!
@@ -215,7 +242,8 @@ export function evaluateAudit(raw: AuditRaw, ctx: AuditContext): AuditResult {
     }))
   if (!purchases.length) checks.push({ id: 'purchase_missing', level: 'blocker' })
   else if (!purchases.some(p => p.primary)) checks.push({ id: 'purchase_not_primary', level: 'blocker' })
-  else if (!purchases.some(p => p.primary && p.has_value)) checks.push({ id: 'purchase_no_value', level: 'warning' })
+  // Fără valoarea comenzii, pilotul n-are ROAS: oprirea de siguranță și produsele s-ar judeca greșit
+  else if (!purchases.some(p => p.primary && p.has_value)) checks.push({ id: 'purchase_no_value', level: 'blocker' })
   if (purchases.length && history.conversions30 === 0) checks.push({ id: 'no_recent_conversions', level: 'info' })
 
   // ── Campaniile existente ────────────────────────────────────────────────
@@ -240,7 +268,7 @@ export function evaluateAudit(raw: AuditRaw, ctx: AuditContext): AuditResult {
       .map(r => r.customerConversionGoal)
       .filter((g): g is NonNullable<typeof g> => !!g?.category && !!g.origin)
       .map(g => ({ category: g.category!, origin: g.origin!, biddable: !!g.biddable })),
-    history,
+    history: { ...history, purchase_conversions30: purchaseConversions },
     campaigns,
     overlap,
     eu_undeclared: euUndeclared,

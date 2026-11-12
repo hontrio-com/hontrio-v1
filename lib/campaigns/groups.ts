@@ -377,14 +377,15 @@ export function groupOfferOf(o: { offer_id: string; category: string | null; bra
 export const ACCOUNT_BLOCKERS = new Set([
   'store', 'google_ads', 'ads_account', 'currency', 'merchant', 'conversion', 'audit',
   'account_manager', 'merchant_not_linked', 'merchant_other', 'merchant_choose', 'purchase_missing', 'purchase_not_primary',
+  'purchase_no_value',
 ])
 
 /**
- * Pașii de la nivelul contului care opresc lansarea unei grupe. Valoarea conversiei contează doar la
- * Performance Max (licitarea pe valoare): `noValue` = auditul a găsit conversia fără valoarea comenzii.
+ * Pașii de la nivelul contului care opresc lansarea unei grupe, la ambele tipuri de campanie. Fără valoarea
+ * comenzii în conversie (`noValue`), pilotul n-ar avea ROAS-ul pe care se sprijină oprirea de siguranță.
  */
-export function accountBlockers(plan: Plan, type: 'shopping' | 'performance_max', noValue: boolean): Plan['blockers'] {
+export function accountBlockers(plan: Plan, noValue: boolean): Plan['blockers'] {
   const out = plan.blockers.filter(b => ACCOUNT_BLOCKERS.has(b.id))
-  if (type === 'performance_max' && noValue) out.push({ id: 'purchase_no_value', href: '/campaigns?tab=plan#audit', external: false })
+  if (noValue && !out.some(b => b.id === 'purchase_no_value')) out.push({ id: 'purchase_no_value', href: '/campaigns?tab=plan#audit', external: false })
   return out
 }

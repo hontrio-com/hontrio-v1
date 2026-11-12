@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import Link from 'next/link'
 import { AlertCircle, ArrowRight, ImageIcon, Info, Store } from 'lucide-react'
 import { useT } from '@/lib/i18n/context'
+import { translateStored } from '@/lib/i18n/stored'
 import { PageHeader } from '@/components/app/page-header'
 import { Card, CardHeader } from '@/components/app/surface'
 import { Badge, type Tone } from '@/components/app/badge'
@@ -28,7 +29,8 @@ type Kpi = { cost: number; clicks: number; impressions: number; conversions: num
 type Data = {
   store: { platform: string; supported: boolean; store_name?: string | null; currency?: string } | null
   period?: { days: number; from: string; to: string }
-  google?: { connected: boolean; account: { id: string; name: string | null } | null; synced_at: string | null }
+  /** `synced_at` = ultima citire a contului de către pilot; `sync_error` = de ce n-a mers ultima (cheie salvată). */
+  google?: { connected: boolean; account: { id: string; name: string | null } | null; synced_at: string | null; sync_error?: string | null }
   ads?: {
     total: Kpi
     hontrio: Kpi | null
@@ -62,18 +64,13 @@ export default function ReportsPage() {
   const [loading, setLoading] = useState(true)
   const [failed, setFailed] = useState(false)
 
-  const load = useCallback(async (d: number) => {
-    setFailed(false)
-    try {
-      const r = await fetch(`/api/reports?days=${d}`)
-      if (!r.ok) throw new Error()
-      setData(await r.json())
-    } catch {
-      setFailed(true)
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+  // Starea se schimbă doar în callback-urile răspunsului, nu în efectul care pornește încărcarea
+  const load = useCallback((d: number) =>
+    fetch(`/api/reports?days=${d}`)
+      .then(r => { if (!r.ok) throw new Error(); return r.json() as Promise<Data> })
+      .then(body => { setData(body); setFailed(false) })
+      .catch(() => setFailed(true))
+      .finally(() => setLoading(false)), [])
 
   useEffect(() => { load(days) }, [load, days])
 
@@ -124,7 +121,10 @@ export default function ReportsPage() {
 
   const ads = data.ads ?? null
   const sales = data.sales ?? null
-  const noAdsReason = !data.google?.connected ? 'reports.no_ads_google' : !data.google.account ? 'reports.no_ads_account' : data.google.synced_at ? 'reports.no_ads_empty' : 'reports.no_ads_waiting'
+  // „Fără cheltuieli" doar după o citire reușită a contului; până atunci (sau cât timp nu reușește), cifrele vin
+  const syncError = data.google?.sync_error ?? null
+  const noAdsReason = !data.google?.connected ? 'reports.no_ads_google' : !data.google.account ? 'reports.no_ads_account'
+    : data.google.synced_at && !syncError ? 'reports.no_ads_empty' : 'reports.no_ads_waiting'
   const daily = ads?.daily ?? []
   const spark = (pick: (d: { cost: number; value: number }) => number | null) =>
     daily.length > 1 ? daily.flatMap(d => { const v = pick(d); return v === null ? [] : [{ label: label(d.date), value: v }] }) : undefined
@@ -133,7 +133,10 @@ export default function ReportsPage() {
     <div className="space-y-6">
       {header}
 
-      {/* Google Ads */}
+      {/* Google Ads: de ce n-a putut citi pilotul contul, la ultima trecere */}
+      {syncError && data.google?.account && (
+        <Callout tone="warning" title={t('reports.sync_error_title')}>{translateStored(t, syncError)}</Callout>
+      )}
       {!ads ? (
         <Callout tone="info"
           action={noAdsReason !== 'reports.no_ads_empty' && noAdsReason !== 'reports.no_ads_waiting' && (

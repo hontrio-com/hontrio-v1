@@ -10,13 +10,15 @@ import { cn } from '@/lib/utils'
 // Atașamentele unei conversații de suport, de ambele părți (omul și
 // administratorul): se încarcă pe loc, se văd ca niște etichete mici, iar în
 // conversație imaginile apar ca miniaturi.
+// Fișierele stau într-un spațiu privat: serverul dă la fiecare citire un link
+// semnat (`url`, valabil o oră); în tichet se trimite doar `path`.
 // =============================================
 
-export type Attachment = { url: string; name: string; size: number; type: string }
+export type Attachment = { url: string | null; name: string; size: number; type: string; path?: string }
 type PendingFile = Attachment & { uploading: boolean; error?: string; localId: string }
 
 export const MAX_FILES = 5
-const MAX_SIZE = 10 * 1024 * 1024
+const MAX_SIZE = 4 * 1024 * 1024
 /** Ce primește omul în fereastra de alegere; serverul mai acceptă și documente Word. */
 export const ACCEPTED_FILES = 'image/jpeg,image/png,image/webp,image/gif,application/pdf,text/plain'
 
@@ -36,8 +38,12 @@ export function useAttachments() {
       const fd = new FormData(); fd.append('file', file)
       try {
         const res = await fetch('/api/tickets/upload', { method: 'POST', body: fd })
-        const data = await res.json()
-        setPending(p => p.map(f => f.localId === localId ? { ...f, url: res.ok ? data.url : f.url, uploading: false, error: res.ok ? undefined : data.error } : f))
+        const data = await res.json().catch(() => ({}))
+        setPending(p => p.map(f => f.localId === localId
+          ? res.ok && data.path
+            ? { ...f, path: data.path, name: data.name ?? f.name, url: f.url || data.url || null, uploading: false, error: undefined }
+            : { ...f, uploading: false, error: data.error || t('common.error_upload') }
+          : f))
       } catch {
         setPending(p => p.map(f => f.localId === localId ? { ...f, uploading: false, error: t('common.error_upload') } : f))
       }
@@ -46,7 +52,8 @@ export function useAttachments() {
 
   function remove(id: string) { setPending(p => p.filter(f => f.localId !== id)) }
   function clear() { setPending([]) }
-  const ready = pending.filter(f => !f.uploading && !f.error).map(({ url, name, size, type }) => ({ url, name, size, type }))
+  // Ce pleacă în tichet: calea fișierului încărcat, nu linkul
+  const ready = pending.filter(f => !f.uploading && !f.error && f.path).map(({ path, name, size, type }) => ({ path, name, size, type }))
 
   return { pending, addFiles, remove, clear, ready, uploading: pending.some(f => f.uploading) }
 }
@@ -55,7 +62,7 @@ export function AttachChip({ att, onRemove }: { att: PendingFile; onRemove?: () 
   const { t } = useT()
   return (
     <div className={cn('flex max-w-[220px] items-center gap-2 rounded-lg px-2.5 py-1.5 text-[12px] ring-1 ring-inset', att.error ? 'bg-red-50 ring-red-200' : 'bg-white ring-neutral-200')}>
-      {isImage(att.type)
+      {isImage(att.type) && att.url
         // eslint-disable-next-line @next/next/no-img-element
         ? <img src={att.url} alt="" className="size-5 shrink-0 rounded object-cover" />
         : <FileText className="size-3.5 shrink-0 text-neutral-400" />}
@@ -70,23 +77,24 @@ export function AttachChip({ att, onRemove }: { att: PendingFile; onRemove?: () 
 
 export function AttachGallery({ attachments }: { attachments: Attachment[] }) {
   if (!attachments?.length) return null
-  const imgs = attachments.filter(a => isImage(a.type))
-  const files = attachments.filter(a => !isImage(a.type))
+  // Miniaturi doar pentru imaginile care au link; restul (și imaginile fără link) ca etichete
+  const imgs = attachments.filter(a => isImage(a.type) && a.url)
+  const files = attachments.filter(a => !(isImage(a.type) && a.url))
   return (
     <div className="mt-3 space-y-2">
       {imgs.length > 0 && (
         <div className="flex flex-wrap gap-2">
-          {imgs.map(a => (
-            <a key={a.url} href={a.url} target="_blank" rel="noopener">
+          {imgs.map((a, i) => (
+            <a key={a.path ?? `${a.name}-${i}`} href={a.url!} target="_blank" rel="noopener noreferrer">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={a.url} alt={a.name} className="size-20 rounded-lg object-cover ring-1 ring-neutral-200 transition-opacity hover:opacity-90" />
+              <img src={a.url!} alt={a.name} className="size-20 rounded-lg object-cover ring-1 ring-neutral-200 transition-opacity hover:opacity-90" />
             </a>
           ))}
         </div>
       )}
       {files.length > 0 && (
         <div className="flex flex-wrap gap-2">
-          {files.map((a, i) => <AttachChip key={a.url} att={{ ...a, uploading: false, localId: String(i) }} />)}
+          {files.map((a, i) => <AttachChip key={a.path ?? `${a.name}-${i}`} att={{ ...a, uploading: false, localId: String(i) }} />)}
         </div>
       )}
     </div>

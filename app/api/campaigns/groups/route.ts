@@ -13,7 +13,7 @@ import { getT } from '@/lib/i18n/server'
 // =============================================
 // POST /api/campaigns/groups — o grupă nouă (ciornă) a magazinului activ:
 // numele, regulile (categorii, branduri, preț, reduceri, produse alese de
-// mână), obiectivul, bugetul, tipul campaniei și perioada. Lansarea e separată
+// mână), bugetul, tipul campaniei și perioada. Lansarea e separată
 // (POST /api/campaigns/launch cu group_id).
 // =============================================
 

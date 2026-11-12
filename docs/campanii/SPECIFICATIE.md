@@ -35,11 +35,19 @@ paginii: accesul Explorer are 2.880 de operații pe zi.
 | Contul nu e manager, moneda = moneda magazinului | `customer.manager`, `customer.currency_code` | da |
 | Etichetarea automată (gclid) pornită | `customer.auto_tagging_enabled` | nu, avertisment |
 | Merchant Center legat de cont | `product_link.merchant_center.merchant_center_id` (`type = MERCHANT_CENTER`) | da |
-| Conversie de cumpărare activă, principală, cu valoare | `conversion_action.category = PURCHASE`, `status = ENABLED`, `primary_for_goal`, `value_settings` | da, dacă lipsește |
-| Conversii în ultimele 30 de zile | `metrics.conversions`, `metrics.conversions_value`, `metrics.cost_micros` din `customer` | nu; alege treapta |
+| Conversie de cumpărare activă, principală, cu valoare | `conversion_action.category = PURCHASE`, `status = ENABLED`, `primary_for_goal`, `value_settings` | da, la ambele trepte; și când are mereu aceeași valoare (`always_use_default_value`) |
+| Conversii în ultimele 30 de zile | `metrics.conversions`, `metrics.conversions_value`, `metrics.cost_micros` pe campanii; cumpărările separat (`segments.conversion_action_category = PURCHASE`, din `customer`) | nu; cumpărările aleg treapta |
 | Campanii fără declarația UE | `campaign.missing_eu_political_advertising_declaration = true` | **da**: din 1.04.2026 o singură campanie nedeclarată blochează orice modificare prin API |
 | Campanii Shopping/PMax active pe același Merchant | `campaign.advertising_channel_type IN (SHOPPING, PERFORMANCE_MAX)`, `campaign.shopping_setting.merchant_id` | nu blochează, dar cere o alegere |
 | Campanie Search activă | `advertising_channel_type = SEARCH` | nu; decide excluderea brandului |
+
+**Conversia fără valoarea comenzii** oprește lansarea la ambele trepte, nu doar la creștere:
+oprirea de siguranță, produsele și bugetul se judecă după ROAS, iar cu o valoare fixă (de
+exemplu 1 leu pe comandă) o campanie care vinde ar arăta ROAS aproape zero și ar fi oprită.
+Un audit salvat înainte, care o avea doar ca avertisment, blochează la fel.
+
+**Cumpărările din 30 de zile** se citesc cu o interogare separată, care nu oprește auditul:
+dacă Google n-o primește, treapta folosește toate conversiile contului, ca înainte.
 
 Când există **campanii nedeclarate**, Hontrio le poate declara „nu conține publicitate
 politică UE”. Doar după ce omul bifează explicit că așa e, fiindcă declarația e a lui.
@@ -57,14 +65,17 @@ licita singuri prețul în sus. La lansare omul alege:
 
 | Treaptă | Când | Ce campanie |
 |---|---|---|
-| **Pornire** (`starter`) | contul are sub 15 conversii în 30 de zile, minimul Google pentru licitarea pe valoare la Shopping | **Shopping standard**, „Maximizează clicurile” cu plafon pe click, oprire de siguranță |
-| **Creștere** (`growth`) | ≥ 15 conversii în 30 de zile | **Performance Max doar pe feed**, „Maximizează valoarea conversiilor” fără ROAS țintă |
+| **Pornire** (`starter`) | contul are sub 15 cumpărări în 30 de zile, minimul Google pentru licitarea pe valoare la Shopping | **Shopping standard**, „Maximizează clicurile” cu plafon pe click, oprire de siguranță |
+| **Creștere** (`growth`) | ≥ 15 cumpărări în 30 de zile | **Performance Max doar pe feed**, „Maximizează valoarea conversiilor” fără ROAS țintă |
 
 Treapta „segmentare” (două PMax, pe marjă mare și mică) a existat până la 10.11.2026;
 campaniile vechi `stage = segment` rulează mai departe ca PMax obișnuite.
 
-Conversiile din 30 de zile vin din audit. Până la primul audit se folosesc comenzile
-aduse de Google Ads din magazin (gclid/UTM): mai puțin precis, dar în aceeași direcție.
+Conversiile din 30 de zile vin din audit și sunt doar cumpărările: PMax licitează numai pe
+`PURCHASE~WEBSITE`, deci un „adaugă în coș” marcat principal nu contează. Dacă interogarea
+cumpărărilor n-a mers (sau auditul e mai vechi), se folosesc toate conversiile contului (§1).
+Până la primul audit se folosesc comenzile aduse de Google Ads din magazin (gclid/UTM): mai
+puțin precis, dar în aceeași direcție.
 
 Trecerea **pornire → creștere** e o acțiune propusă (vezi §6): Hontrio creează PMax fără
 țintă, cu același buget, apoi o oprește pe cea de pornire.
@@ -114,9 +125,11 @@ O singură cerere atomică, după exemplul oficial `add_performance_max_retail_c
 6. `campaignConversionGoalOperation.update` pe fiecare obiectiv al contului (`customer_conversion_goal`): `biddable` true doar pentru `PURCHASE~WEBSITE`, `updateMask: biddable`. Numele resursei folosește ID-ul temporar al campaniei.
 7. Cuvinte negative (`keyword { text, matchType: EXACT|PHRASE }`, `negative: true`):
    - numele magazinului, doar când contul are o campanie Search activă (atunci căutările pe brand sunt ale ei);
-   - termenii aprobați de bucla de optimizare.
+   - termenii aprobați de bucla de optimizare; la trecerea pornire → creștere, cei puși deja pe
+     campania de pornire trec în PMax.
 
-   PMax acceptă până la 10.000 de cuvinte negative, aplicate doar pe Search și Shopping.
+   PMax acceptă până la 10.000 de cuvinte negative, aplicate doar pe Search și Shopping. Textul
+   fiecăruia trece întâi prin `cleanKeyword` (§6, regula 5).
 
 Fără materiale proprii („doar feed”). Google generează ce-i trebuie din feed, iar
 bugetul rămâne în principal pe Shopping. Materialele se pot adăuga mai târziu; atunci
@@ -148,6 +161,11 @@ scos de om, scos de pilot (§6).
 - **Peste 990 de excluderi**: eticheta `custom_label_N` pusă de Hontrio
   în sursa suplimentară. N e primul index pe care feedul omului nu-l folosește. Arborele
   filtrează apoi după `productCustomAttribute { index: INDEXn, value }`.
+- **Când stă eticheta pe oferte** îl hotărăște o singură regulă, `merchantLabels`
+  (`lib/ads/listing.ts`): pe ofertele scoase, cât timp arborele unei campanii care rulează (sau
+  al celei care se lansează acum) filtrează după ea, oricum s-ar schimba treapta planului;
+  altfel se scoate. O folosesc toți cei care sincronizează Merchant Center: lansarea, pilotul și
+  butonul din Setări. Fără plan (citirea lui a eșuat), etichetele rămân cum sunt (`'keep'`).
 
 ## 5. Licitarea și bugetul
 
@@ -161,16 +179,27 @@ Unitatea de măsură e **comanda medie** (`economics.aov`): totalul comenzilor d
 - **Plafonul pe click la pornire** = 1% din comanda medie: la o vânzare din 100 de clicuri,
   vânzarea își acoperă reclama. Sub 0,05 în moneda contului avertizăm: campania va avea foarte
   puțin trafic.
-- **Oprirea de siguranță (pornire și creștere)**, de la lansare sau de la ultima repornire:
+- **Oprirea de siguranță (pornire și creștere)**, de la lansare sau de la ultima repornire
+  (`loss_check_from`), oricât de demult ar fi: fereastra nu se taie la 30 sau 45 de zile, ca o
+  campanie care pierde încet să ajungă totuși la limită:
   - campania a cheltuit ≥ 1 × comanda medie fără nicio vânzare;
   - sau ≥ 3 × comanda medie, cu vânzări sub costul reclamei (ROAS sub 1).
 
+  La campania unei grupe, comanda medie (deci și limita) e a grupei (§13), nu a magazinului.
   Oprirea se face și în modul cu aprobare, fiindcă e protecție, iar omul primește
-  notificare. Dacă o repornește, socoteala începe de la zero.
+  notificare și e-mail (§6, „Ce află omul”). Dacă o repornește, socoteala începe de la zero.
 - **Performance Max** pornește și rămâne fără ROAS țintă. Ținta unei campanii vechi (făcută
   înainte de 10.11.2026) rămâne cea din Google; Hontrio n-o mai schimbă.
 
 ## 6. Bucla de optimizare (cron zilnic)
+
+**O trecere pe magazin**, în ordinea asta, ca nimic să nu poată întârzia protecția:
+1. **Protecția întâi:** metricile pe campanie, starea campaniilor din Google, apoi oprirea de
+   siguranță (§5).
+2. **Restul datelor:** auditul (dacă e mai vechi de o zi), metricile pe produs, termenii de
+   căutare, Merchant Center.
+3. **Bucla** (regulile de mai jos, fără oprirea făcută deja la pasul 1), apoi arborii de produse
+   puși la zi cu planul.
 
 Date:
 - metrici pe zi, pe campanie (`campaign` + `segments.date`);
@@ -178,7 +207,25 @@ Date:
 - termeni de căutare (`search_term_view` la Shopping, `campaign_search_term_view` la PMax), pe 30 de zile;
 - starea campaniei (`campaign.primary_status_reasons`, `campaign_budget.has_recommended_budget`).
 
+Metricile se recitesc la fiecare trecere pe **cel puțin ultimele 33 de zile** (90 la prima
+citire a unui cont). Google trece conversiile pe ziua clicului, chiar dacă sosesc zile mai
+târziu: altfel o vânzare raportată târziu n-ar mai ajunge în cifre, iar ROAS-ul ar ieși mai mic.
+Citirile din bază se fac pagină cu pagină (API-ul întoarce cel mult 1.000 de rânduri pe cerere).
+
 Ferestre: 30 de zile fără ultimele 2, ca evaluare; 14 zile, ca semnal recent.
+
+**Când se socotește trecerea făcută.** `stores.ads_synced_at` (ora de început a trecerii) se
+scrie doar când trecerea a ajuns la capăt, sau s-a oprit într-o eroare care nu trece singură (un
+drept lipsă, o interogare refuzată, accesul retras); următoarea vine atunci peste ~20 de ore.
+Timpul cronului și erorile trecătoare (limită de cereri, cotă, 5xx, un token care nu s-a putut
+reîmprospăta) nu o scriu: magazinul revine la ora următoare, primul la rând. Excepție: un magazin
+care a fost primul în rularea cronului și tot n-a încăput se socotește trecut (`deadline_full`),
+ca să nu se reia la nesfârșit; oprirea lui de siguranță a rulat oricum. Eroarea rămâne în
+`stores.ads_sync_error` și se vede în Campanii și în Rapoarte; o trecere reușită o șterge.
+
+`ads_synced_at` redevine null când omul alege alt cont Google Ads sau alt Merchant Center (și
+când contul magazinului se alege singur sau dispare): pilotul îl citește la următoarea oră, cu
+tot istoricul de 90 de zile.
 
 **Protecții:**
 - **Învățarea.** Google cere ca o campanie nouă să ruleze cel puțin 6 săptămâni fără
@@ -186,33 +233,70 @@ Ferestre: 30 de zile fără ultimele 2, ca evaluare; 14 zile, ca semnal recent.
   propune buget nou.
 - **Ritmul schimbărilor:** bugetul, cel mult o dată la 7 zile, cu cel mult +20%.
 - **Bugetul maxim** ales de om e pentru toate campaniile Hontrio care rulează, la un loc
-  (campania principală și grupele): propunerile nu trec de el.
+  (campania principală și grupele): propunerile nu trec de el, nici împreună (creșterile propuse
+  în aceeași trecere se adună). La aprobare se verifică din nou, cu bugetele de atunci: noul buget
+  se micșorează până încape, iar dacă nu mai încape nimic peste cel de acum, propunerea nu se aplică.
 
 **Reguli (în ordine):**
 1. **Oprirea de siguranță** (§5): oprește campania.
-2. **Trecerea la creștere**: campania de pornire are ≥ 14 zile și contul ≥ 15 conversii în 30
-   de zile → PMax fără țintă, cu același buget. Campania unei grupe trece după conversiile ei
-   (§13), nu ale contului.
+2. **Trecerea la creștere**: campania de pornire are ≥ 14 zile și contul ≥ 15 cumpărări în 30
+   de zile (§2) → PMax fără țintă, cu bugetul de acum al pornirii și cu negativele puse deja pe
+   ea. Campania unei grupe trece după conversiile ei (§13), nu ale contului.
+   - Se poate relua: dacă o trecere de mai înainte a creat deja PMax-ul, dar n-a apucat să oprească
+     pornirea, acum doar o oprește (nu mai creează altul).
+   - PMax-ul creat în Google, dar nesalvat în Hontrio, se pune pe pauză și se scrie în jurnal:
+     fără rândul lui n-ar avea oprire de siguranță.
+   - Dacă arborele PMax-ului ar trece de 990 de produse, pornirea rămâne pornire: pilotul nici nu
+     propune trecerea.
 3. **Bugetul**: campania e limitată de buget (`BUDGET_CONSTRAINED` sau buget recomandat peste
    cel actual), are vânzări și ROAS ≥ 1 în fereastra de evaluare → propune +20%, până la bugetul
    maxim. **Mereu cu aprobarea omului**, și în modul automat.
-4. **Produsele** (≥ 21 de zile de date):
+4. **Produsele** (≥ 21 de zile de date ale produsului: de la prima lui zi cu cifre în campaniile
+   Hontrio, nu de la lansarea campaniei; un produs nou n-are cum să fie judecat după o zi):
    - produsul a cheltuit ≥ prețul lui fără nicio vânzare → exclude;
    - produsul are vânzări, dar ROAS sub 1 → exclude.
 
    Fără preț, unitatea e comanda medie. Omul îl poate include la loc.
 5. **Termenii de căutare**: termenii cu cost ≥ comanda medie și nicio conversie în 30 de zile
-   devin cuvânt negativ exact. Numele magazinului nu devine niciodată negativ.
+   devin cuvânt negativ exact.
+   - Numele magazinului nu devine niciodată negativ, scris oricum: comparația e fără diacritice,
+     spații și semne („Lumină Design” = „lumina design” = „luminadesign.ro”).
+   - Textul trimis la Google trece prin `cleanKeyword`: doar litere, cifre și `& ' . -`, cel mult
+     10 cuvinte și 80 de caractere, tăiat la un cuvânt întreg; un termen care rămâne gol se sare.
+     Cererea e atomică: un singur termen invalid ar strica toată propunerea.
 
 Propunerile vechi de schimbare a țintei (`set_target`) și de împărțire pe marje (`segment`)
 expiră la prima trecere și nu se mai aplică.
 
 **Modurile:**
 - **Cu aprobare** (implicit): acțiunile apar în Campanii ca propuneri, iar omul le aprobă
-  sau le respinge. O propunere nedecisă expiră după 7 zile.
+  sau le respinge. Singur, pilotul face doar oprirea de siguranță, ține la zi lista de produse a
+  campaniilor (arborii, după alegerile omului, stoc și grupe) și oprește campaniile programate la
+  data lor de final.
+  - O propunere nedecisă expiră după 7 zile. Cronul o trece expirată, iar aprobarea verifică și
+    ea vârsta: una mai veche nu se mai aplică, chiar dacă cronul n-a apucat s-o treacă așa.
+  - O singură hotărâre pe propunere: cererea care o ia (`decided_at`) o duce la capăt, iar un
+    dublu clic sau două file deschise nu o aplică de două ori. O cerere căzută o eliberează (cel
+    târziu după 10 minute).
 - **Automat:** acțiunile se aplică singure și se trec în jurnal, iar omul primește notificare.
   Bugetul rămâne propunere.
 - În ambele moduri, protecția (oprirea de siguranță) se aplică singură.
+
+**Ce află omul**, în clopoțel (`notifications`) și pe e-mail, în limba lui (`users.ui_locale`).
+E-mailurile pleacă doar dacă n-a oprit notificările pe e-mail (`users.preferences.emailNotifications`,
+implicit pornite):
+1. **Oprirea de siguranță a pus o campanie pe pauză:** notificare și e-mail, de fiecare dată.
+2. **Campaniile rulează fără protecție:** notificare și e-mail.
+   - Oprirea n-a reușit (Google a refuzat-o): cel mult o dată pe zi pentru aceeași campanie; pilotul
+     o reîncearcă la fiecare trecere.
+   - Pilotul n-a putut citi contul: o dată pe întâmplare (de la ultima trecere reușită); la o eroare
+     trecătoare, abia după o zi întreagă fără trecere.
+   - Hontrio a pierdut accesul la Google: o dată, când conexiunea trece din activă în retrasă, și
+     doar dacă rulează campanii Hontrio.
+3. **Propuneri noi:** notificare la fiecare trecere care le aduce; e-mail cel mult o dată pe zi
+   pe magazin.
+
+În modul automat, omul mai primește o notificare cu câte schimbări s-au aplicat.
 
 Fiecare acțiune se scrie în `ad_actions`: tipul, parametrii, motivul (cheie de
 traducere), starea (`proposed`, `applied`, `rejected`, `failed`, `expired`) și cine a decis.
@@ -260,6 +344,7 @@ SEE, cu linkul către pagina Google despre CSS.
   - `merchant_data_source`: sursa suplimentară Hontrio;
   - `merchant_label_index`;
   - `merchant_synced_at`, `merchant_error`;
+  - `ads_synced_at`, `ads_sync_error`: ultima trecere a pilotului și de ce n-a putut lucra (§6);
   - `send_costs_to_google` (nefolosită din 10.11.2026).
 - `commerce_offers`: `merchant_offer_id`, `merchant_issues`, `merchant_cogs_pushed`, `merchant_label_pushed`.
 - `ad_campaigns`:
@@ -277,17 +362,19 @@ Toate au RLS pornit și le citește doar serverul, ca `commerce_*`.
 
 ## 11. API intern
 
-- `GET /api/campaigns/plan`: planul, auditul salvat, campaniile lansate, propunerile, ultimele metrici.
+- `GET /api/campaigns/plan`: planul, auditul salvat, campaniile lansate, propunerile (fără cele mai vechi de 7 zile), ultimele metrici, ultima trecere a pilotului și eroarea ei.
 - `PATCH /api/campaigns/plan`: bugetul, modul, bugetul maxim.
 - `POST /api/campaigns/audit`: rulează auditul acum.
 - `POST /api/campaigns/launch`: lansează treapta din plan (sau campania unei grupe, cu `group_id`), cu alegerea pentru campaniile existente și confirmarea declarației UE.
 - `POST /api/campaigns/groups`, `PATCH/DELETE /api/campaigns/groups/{id}`: grupele de produse ale omului (§13).
-- `POST /api/campaigns/actions`: aprobă sau respinge o propunere.
+- `POST /api/campaigns/actions`: aprobă sau respinge o propunere (verifică vârsta ei, o ia o singură cerere, iar bugetul se verifică din nou față de bugetul maxim, §6).
 - `PATCH /api/campaigns/{id}`: pauză sau repornire, cerute de om.
 - `GET /api/reports`: Rapoartele.
-- `POST /api/merchant/sync`: reîmprospătează datele din Merchant Center.
-- `GET/PATCH /api/integrations/google/merchant`: contul Merchant al magazinului.
-- Cron `/api/cron/ads-sync`, zilnic: auditul, metricile, Merchant Center și bucla.
+- `POST /api/merchant/sync`: reîmprospătează datele din Merchant Center (etichetele, după `merchantLabels`, §4).
+- `GET/PATCH /api/integrations/google/merchant`: contul Merchant al magazinului; alegerea lui, ca și
+  a contului Google Ads (`PATCH /api/integrations/google/accounts`), pune pilotul la rând la ora următoare (§6).
+- Cron `/api/cron/ads-sync`, din oră în oră, o trecere pe zi pe magazin: oprirea de siguranță întâi,
+  apoi auditul, metricile, Merchant Center și bucla (§6). Secretul cronului se compară în timp constant.
 
 ## 12. Ce rămâne de verificat pe primul cont real
 
@@ -384,6 +471,17 @@ perioada, ordinea, starea `draft`/`live`/`ended`, `launched_at`), `ad_campaigns.
 **API:** `POST /api/campaigns/groups` (o ciornă nouă), `PATCH /api/campaigns/groups/{id}`
 (schimbări; `{ status: 'ended' }` o încheie), `DELETE /api/campaigns/groups/{id}`; grupele, cu
 planul fiecăreia, vin în `GET /api/campaigns/plan`.
+
+## 14. Mai târziu
+
+- **Fusul orar.** Zilele ferestrelor se socotesc acum în UTC, iar `segments.date` vine de la Google
+  în fusul contului; perioadele grupelor folosesc fusul magazinului, deși §13 cere fusul contului.
+  La conturile din România diferența e de câteva ore; la cele din alte fusuri, „ieri” în UTC poate
+  fi încă ziua în curs a contului. De trecut totul pe `customer.time_zone`.
+- **Arborele, pe diferență.** Orice schimbare de produse reface acum arborele întreg (scoate toate
+  nodurile, pune altele): la un PMax cu 990 de produse, ~2.000 de operații, iar accesul Basic are
+  15.000 pe zi pentru toate magazinele. Un arbore Shopping de peste ~5.000 de noduri trece și de
+  limita de 10.000 de operații pe cerere. De schimbat doar nodurile care diferă.
 
 ## Surse
 

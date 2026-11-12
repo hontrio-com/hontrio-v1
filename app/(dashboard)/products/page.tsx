@@ -53,6 +53,8 @@ const GOOGLE_PROBLEMS = ['disapproved', 'error', 'expirat', 'exclus']
 const GOOGLE_TONE: Record<string, Tone> = {
   active: 'green', pending: 'amber', expirat: 'amber', disapproved: 'red', error: 'red', exclus: 'neutral',
 }
+/** Filtrul rapid cerut în adresă (?view=), dacă e unul cunoscut. */
+const viewOf = (v: string | null): Quick | null => (v && QUICKS.includes(v as Quick) ? (v as Quick) : null)
 
 function ProductsView() {
   const { t, intlLocale } = useT()
@@ -60,7 +62,6 @@ function ProductsView() {
   const params = useSearchParams()
   const urlSearch = params.get('search')
   const urlView = params.get('view')
-  const viewOf = (v: string | null): Quick | null => (v && QUICKS.includes(v as Quick) ? (v as Quick) : null)
 
   const [days, setDays] = useState<Period>(30)
   const [store, setStore] = useState<StoreInfo | null>(null)
@@ -69,7 +70,7 @@ function ProductsView() {
   const [hasData, setHasData] = useState(false)
   const [loadError, setLoadError] = useState(false)
   const [search, setSearchState] = useState(urlSearch ?? '')
-  const [quick, setQuickState] = useState<Quick>(viewOf(urlView) ?? 'all')
+  const [quick, setQuickState] = useState<Quick>(() => viewOf(urlView) ?? 'all')
   const [sort, setSortState] = useState<Sort>('sales')
   const [page, setPage] = useState(1)
   const [syncing, setSyncing] = useState(false)
@@ -89,21 +90,13 @@ function ProductsView() {
     if (view) { setQuickState(view); setPage(1) }
   }
 
-  const load = useCallback(async (period: Period) => {
-    setLoadError(false)
-    try {
-      const r = await fetch(`/api/catalog?days=${period}`)
-      if (!r.ok) throw new Error()
-      const d = await r.json()
-      setStore(d.store)
-      setOffers(d.offers || [])
-      setHasData(true)
-    } catch {
-      setLoadError(true)
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+  // Starea se schimbă doar în callback-urile răspunsului, nu în efectul care pornește încărcarea
+  const load = useCallback((period: Period) =>
+    fetch(`/api/catalog?days=${period}`)
+      .then(r => { if (!r.ok) throw new Error(); return r.json() })
+      .then(d => { setStore(d.store); setOffers(d.offers || []); setHasData(true); setLoadError(false) })
+      .catch(() => setLoadError(true))
+      .finally(() => setLoading(false)), [])
 
   useEffect(() => { load(days) }, [days, load])
 

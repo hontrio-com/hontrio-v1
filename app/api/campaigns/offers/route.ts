@@ -10,8 +10,9 @@ import { getT } from '@/lib/i18n/server'
 
 // =============================================
 // PATCH /api/campaigns/offers
-// Omul scoate oferte din campanie, le include deși au marjă mică, sau le
-// lasă din nou pe mâna Hontrio. Scrie numai în ofertele magazinului lui.
+// Omul scoate oferte din campanie, le include la loc (și pe cele scoase de
+// pilot), sau le lasă din nou pe mâna Hontrio. Scrie numai în ofertele
+// magazinului lui.
 // =============================================
 
 const ROUTE = '/api/campaigns/offers'

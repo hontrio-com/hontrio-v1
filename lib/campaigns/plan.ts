@@ -1,8 +1,8 @@
 import { economicsOf, type OrderTotals } from '@/lib/ads/economics'
 import type { AdsMode, Offer, ProductTotals, Sales } from '@/lib/commerce/ads-data'
 import type { SetupStatus, StoreSetup } from '@/lib/commerce/setup'
-import type { AuditResult } from '@/lib/google/audit'
-import { MAX_LISTING_ITEMS } from '@/lib/google/operations'
+import { purchaseConversions30, type AuditResult } from '@/lib/google/audit'
+import { EXCLUDE_LABEL, MAX_LISTING_ITEMS } from '@/lib/google/operations'
 
 // =============================================
 // Planul de campanie — ce va crea Hontrio în contul Google Ads al omului,
@@ -55,6 +55,11 @@ export type Reason =
 
 /** Motivele pentru care o ofertă care ar putea rula e scoasă din campanie (în arborele de produse). */
 export const CAMPAIGN_EXCLUSIONS: Reason[] = ['manual', 'ads_no_sales', 'ads_unprofitable']
+
+/** Eticheta Hontrio pe ofertele scoase din campanie (ID-ul ofertei → eticheta), pentru sursa suplimentară. */
+export function exclusionLabelMap(plan: Pick<Plan, 'offers'>): Map<string, string> {
+  return new Map(plan.offers.filter(o => o.reason && CAMPAIGN_EXCLUSIONS.includes(o.reason)).map(o => [o.offer_id, EXCLUDE_LABEL]))
+}
 
 export type PlanOffer = {
   offer_id: string
@@ -275,7 +280,8 @@ export function buildPlan(input: PlanInput): Plan {
   const aov = econ.aov ?? (eligible.length ? eligible.reduce((s, o) => s + o.price, 0) / eligible.length : null)
 
   // ── Treapta: Google cere 15 conversii în 30 de zile pentru licitarea pe valoare la Shopping ──
-  const conversions30 = audit ? audit.history.conversions30 : input.googleAds30.orders
+  // Doar cumpărările: Performance Max licitează numai pe PURCHASE~WEBSITE (un „adaugă în coș" principal nu contează)
+  const conversions30 = audit ? purchaseConversions30(audit) : input.googleAds30.orders
   const stageId: Stage = conversions30 >= GROWTH_MIN_CONVERSIONS ? 'growth' : 'starter'
 
   // ROAS-ul pe care contul îl face acum (Shopping/PMax, altfel tot contul), doar ca informație
@@ -323,12 +329,12 @@ export function buildPlan(input: PlanInput): Plan {
     if (!audit) blockers.push({ id: 'audit', href: '/campaigns?tab=plan#audit', external: false })
     else {
       for (const c of audit.checks) {
-        // Moneda o spune deja pasul contului; valoarea conversiei contează doar la licitarea pe valoare
-        if (c.level !== 'blocker' || c.id === 'currency_mismatch') continue
+        // Moneda o spune deja pasul contului. Conversia fără valoarea comenzii oprește ambele trepte:
+        // pilotul judecă ROAS-ul (oprirea de siguranță, produsele, bugetul) din valoarea ei
+        // (un audit salvat înainte o are încă drept avertisment)
+        const blocks = c.level === 'blocker' || c.id === 'purchase_no_value'
+        if (!blocks || c.id === 'currency_mismatch') continue
         blockers.push({ id: c.id as BlockerId, href: '/campaigns?tab=plan#audit', external: false, params: c.params })
-      }
-      if (stageId === 'growth' && audit.checks.some(c => c.id === 'purchase_no_value')) {
-        blockers.push({ id: 'purchase_no_value', href: '/campaigns?tab=plan#audit', external: false })
       }
     }
   }

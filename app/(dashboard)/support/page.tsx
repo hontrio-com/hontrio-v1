@@ -166,6 +166,8 @@ export default function SupportPage() {
     try {
       const r = await fetch('/api/tickets/' + ticket.id)
       const d = await r.json()
+      // Linkurile atașamentelor expiră: le luăm proaspete, odată cu tichetul
+      if (d.ticket) setSelected(s => (s?.id === ticket.id ? { ...s, ...d.ticket } : s))
       setReplies(d.replies || [])
       setTickets(prev => prev.map(x => x.id === ticket.id ? { ...x, has_unread: false } : x))
     } catch {}

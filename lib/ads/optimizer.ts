@@ -30,6 +30,9 @@ export const MAX_TERMS_PER_PROPOSAL = 20
 export type Window = { cost: number; conversions: number; value: number; clicks: number }
 export const EMPTY: Window = { cost: 0, conversions: 0, value: 0, clicks: 0 }
 
+/** Cheltuiala la care se oprește o campanie: fără nicio vânzare / cu vânzări sub costul reclamei. */
+export type LossLimit = { no_conversions: number; low_roas: number }
+
 export type OptCampaign = {
   id: string
   google_campaign_id: string
@@ -49,6 +52,13 @@ export type OptCampaign = {
   /** Ultimele 30 de zile, fără ultimele 2 (conversiile întârziate). */
   eval30: Window
   recent14: Window
+  /**
+   * Limita de pierdere a campaniei: a grupei (din comanda medie a produselor ei, §13); lipsă = a magazinului
+   * (`OptimizerInput.loss_limit`); null = fără limită (fără comandă medie).
+   */
+  loss_limit?: LossLimit | null
+  /** Pornirea poate trece la Performance Max (arborele ar încăpea în limita Google); lipsă = da. */
+  can_graduate?: boolean
 }
 
 export type OptProduct = {
@@ -60,6 +70,7 @@ export type OptProduct = {
   included_by_user: boolean
   excluded: boolean
   window: Window
+  /** De câte zile are produsul cifre în campaniile Hontrio (de la primul clic sau prima afișare). */
   days: number
 }
 
@@ -68,9 +79,11 @@ export type OptSearchTerm = { campaign_id: string; term: string; cost: number; c
 export type OptimizerInput = {
   /** Comanda medie: unitatea de măsură pentru căutări (și, prin `loss_limit`, pentru oprire). */
   economics: { aov: number | null }
+  /** Conversiile de cumpărare ale contului în 30 de zile (treapta campaniei principale). */
   account: { conversions30: number }
   max_daily_budget: number | null
-  loss_limit: { no_conversions: number; low_roas: number } | null
+  /** Limita de pierdere a magazinului (comanda medie); o campanie de grupă are limita ei. */
+  loss_limit: LossLimit | null
   campaigns: OptCampaign[]
   products: OptProduct[]
   searchTerms: OptSearchTerm[]
@@ -78,8 +91,13 @@ export type OptimizerInput = {
   negatives: Map<string, Set<string>>
   /** Numele magazinului: căutările pe el nu se exclud niciodată. */
   brand: string[]
-  /** Ce a respins omul în ultimele 30 de zile (să nu-i propunem la nesfârșit). */
+  /**
+   * Ce a respins omul în ultimele 30 de zile (să nu-i propunem la nesfârșit). `kinds`: felul propunerii,
+   * pe tot magazinul („graduate") sau pe o campanie („graduate:<id campanie>").
+   */
   rejected: { items: Set<string>; terms: Set<string>; kinds: Set<string> }
+  /** Campaniile deja judecate de oprirea de siguranță în trecerea asta (oprite sau cu oprirea eșuată): nimic altceva. */
+  skip?: Set<string>
 }
 
 export type ProposalKind = 'pause_loss_limit' | 'graduate' | 'set_budget' | 'exclude_products' | 'add_negatives'
@@ -106,34 +124,69 @@ export function windowOf(days: { date: string; cost: number; conversions: number
   return sumWindows(days.filter(d => d.date >= from && d.date <= to))
 }
 
+/** Limita de pierdere a unei campanii: a ei (grupa) sau, dacă n-are, a magazinului. */
+const limitOf = (c: OptCampaign, store: LossLimit | null): LossLimit | null => (c.loss_limit === undefined ? store : c.loss_limit)
+
+/**
+ * 1. Oprirea de siguranță (§5): de la lansare sau de la ultima repornire, campania a cheltuit cât o comandă
+ * medie fără nicio vânzare, sau de trei ori cât o comandă medie cu vânzări sub costul reclamei. Protecție:
+ * se aplică în ambele moduri. Pilotul o rulează înaintea a orice altceva.
+ */
+export function lossStops(campaigns: OptCampaign[], storeLimit: LossLimit | null): Proposal[] {
+  const out: Proposal[] = []
+  for (const c of campaigns) {
+    const limit = limitOf(c, storeLimit)
+    if (c.status !== 'active' || !limit) continue
+    const s = c.since_loss_check
+    const noConv = s.cost >= limit.no_conversions && s.conversions === 0
+    const belowCost = s.cost >= limit.low_roas && (roas(s) ?? 0) < 1
+    if (!noConv && !belowCost) continue
+    out.push({
+      kind: 'pause_loss_limit', campaign_id: c.id, protective: true,
+      params: { spend: round1(s.cost), conversions: s.conversions, roas: roas(s) === null ? null : round1(roas(s)!) },
+      reason: noConv
+        ? { key: 'campaigns.reason_loss_no_conversions', params: { spend: round1(s.cost), limit: limit.no_conversions } }
+        : { key: 'campaigns.reason_loss_below_cost', params: { spend: round1(s.cost), value: round1(s.value) } },
+    })
+  }
+  return out
+}
+
+/**
+ * Cât buget pe zi mai încape pentru o campanie sub bugetul maxim al omului (pentru toate campaniile Hontrio
+ * care rulează, la un loc): maximul minus bugetele celorlalte (și ce le-a mai propus deja pilotul). null = fără maxim.
+ */
+export function budgetRoom(max: number | null, campaignId: string, campaigns: { id: string; status: string; daily_budget: number | null }[], reserved = 0): number | null {
+  if (max === null) return null
+  const others = campaigns.filter(x => x.id !== campaignId && x.status === 'active').reduce((s, x) => s + (x.daily_budget ?? 0), 0)
+  return Math.round((max - others - reserved) * 100) / 100
+}
+
+/** Textul fără diacritice, spații și semne („Lumină Design" = „luminadesign"), ca numele magazinului să fie recunoscut oricum e scris. */
+export const squash = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/[^\p{L}\p{N}]/gu, '')
+
 export function optimize(input: OptimizerInput): Proposal[] {
   const out: Proposal[] = []
-  const active = input.campaigns.filter(c => c.status === 'active')
+  const active = input.campaigns.filter(c => c.status === 'active' && !input.skip?.has(c.id))
+  const stopped = new Set<string>()
 
+  // 1. Oprirea de siguranță: protecție, se aplică oricum; o campanie oprită nu mai primește nimic altceva
+  for (const p of lossStops(active, input.loss_limit)) {
+    out.push(p)
+    stopped.add(p.campaign_id!)
+  }
+
+  // Creșterile de buget propuse deja în trecerea asta: împreună nu trec de bugetul maxim
+  let reserved = 0
   for (const c of active) {
+    if (stopped.has(c.id)) continue
     const actual = roas(c.eval30)
 
-    // 1. Oprirea de siguranță: protecție, se aplică oricum
-    if (input.loss_limit) {
-      const s = c.since_loss_check
-      const noConv = s.cost >= input.loss_limit.no_conversions && s.conversions === 0
-      const belowCost = s.cost >= input.loss_limit.low_roas && (roas(s) ?? 0) < 1
-      if (noConv || belowCost) {
-        out.push({
-          kind: 'pause_loss_limit', campaign_id: c.id, protective: true,
-          params: { spend: round1(s.cost), conversions: s.conversions, roas: roas(s) === null ? null : round1(roas(s)!) },
-          reason: noConv
-            ? { key: 'campaigns.reason_loss_no_conversions', params: { spend: round1(s.cost), limit: input.loss_limit.no_conversions } }
-            : { key: 'campaigns.reason_loss_below_cost', params: { spend: round1(s.cost), value: round1(s.value) } },
-        })
-        continue
-      }
-    }
-
-    // 2. Pornirea trece la Performance Max: cea principală după conversiile contului, a unei grupe după ale ei
-    if (c.stage === 'starter') {
+    // 2. Pornirea trece la Performance Max: cea principală după cumpărările contului, a unei grupe după ale ei
+    if (c.stage === 'starter' && c.can_graduate !== false) {
       const conversions = c.group ? c.eval30.conversions : input.account.conversions30
-      if (c.days_live >= STARTER_MIN_DAYS && conversions >= GROWTH_MIN_CONVERSIONS && !input.rejected.kinds.has('graduate')) {
+      const rejected = input.rejected.kinds.has('graduate') || input.rejected.kinds.has(`graduate:${c.id}`)
+      if (c.days_live >= STARTER_MIN_DAYS && conversions >= GROWTH_MIN_CONVERSIONS && !rejected) {
         out.push({
           kind: 'graduate', campaign_id: c.id, protective: false,
           params: { daily_budget: c.daily_budget },
@@ -149,11 +202,11 @@ export function optimize(input: OptimizerInput): Proposal[] {
     if (limited && actual !== null && actual >= 1 && c.eval30.conversions > 0
       && c.days_live >= minAge
       && (c.days_since_budget_change === null || c.days_since_budget_change >= BUDGET_MIN_GAP_DAYS)) {
-      const others = active.filter(x => x.id !== c.id).reduce((s, x) => s + x.daily_budget, 0)
-      const ceiling = input.max_daily_budget === null ? null : Math.round((input.max_daily_budget - others) * 100) / 100
+      const ceiling = budgetRoom(input.max_daily_budget, c.id, input.campaigns, reserved)
       const raised = Math.round(c.daily_budget * (1 + BUDGET_STEP) * 100) / 100
       const next = ceiling !== null ? Math.min(raised, ceiling) : raised
       if (next > c.daily_budget + 0.01) {
+        reserved += next - c.daily_budget
         out.push({
           kind: 'set_budget', campaign_id: c.id, protective: false, needs_approval: true,
           params: { from: c.daily_budget, to: next },
@@ -190,13 +243,15 @@ export function optimize(input: OptimizerInput): Proposal[] {
   // 5. Termenii de căutare care au costat cât o comandă medie, fără vânzări (niciodată numele magazinului)
   const aov = input.economics.aov
   if (aov !== null && aov > 0) {
+    const brands = input.brand.map(squash).filter(Boolean)
     const byCampaign = new Map<string, OptSearchTerm[]>()
     for (const t of input.searchTerms) {
       const term = t.term.toLowerCase().trim()
       if (!term || t.conversions > 0 || t.cost < TERM_NO_SALES_AOV * aov) continue
-      if (input.brand.some(b => term.includes(b)) || input.rejected.terms.has(term)) continue
+      // Numele magazinului, scris oricum (fără diacritice, legat, cu cratimă)
+      if (brands.some(b => squash(term).includes(b)) || input.rejected.terms.has(term)) continue
       if (input.negatives.get(t.campaign_id)?.has(term)) continue
-      if (!active.some(c => c.id === t.campaign_id)) continue
+      if (!active.some(c => c.id === t.campaign_id && !stopped.has(c.id))) continue
       byCampaign.set(t.campaign_id, [...(byCampaign.get(t.campaign_id) ?? []), { ...t, term }])
     }
     for (const [campaignId, terms] of byCampaign) {

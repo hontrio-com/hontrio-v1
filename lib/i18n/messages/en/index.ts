@@ -24,7 +24,8 @@ import reports from './reports.json'
 import wizard from './wizard.json'
 import home from './home.json'
 import site from './site.json'
+import errors from './errors.json'
 
-const messages = { common, google_ads, edinio, catalog, overview, recs, campaigns, sidebar, auth, onboarding, dashboard, products, settings, support, notifications, admin, api, sync, email, marketing, reports, wizard, home, site }
+const messages = { common, google_ads, edinio, catalog, overview, recs, campaigns, sidebar, auth, onboarding, dashboard, products, settings, support, notifications, admin, api, sync, email, marketing, reports, wizard, home, site, errors }
 
 export default messages

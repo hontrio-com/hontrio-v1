@@ -142,7 +142,8 @@ export function LiveCampaignItem({ campaign: c, f, onChanged, onError }: Props) 
             {[
               c.daily_budget !== null ? t('campaigns.live_budget', { budget: f.money.format(c.daily_budget) }) : null,
               c.type === 'shopping' && c.cpc_ceiling !== null ? t('campaigns.live_cpc', { cpc: f.money2.format(c.cpc_ceiling) }) : null,
-              c.type === 'performance_max' ? (c.target_roas !== null ? t('campaigns.live_target', { roas: f.num.format(c.target_roas) }) : t('campaigns.live_no_target')) : null,
+              // Hontrio nu pune ținte: doar o campanie veche are una, păstrată (și schimbată) în Google
+              c.type === 'performance_max' && c.target_roas !== null ? t('campaigns.live_target', { roas: f.num.format(c.target_roas) }) : null,
               c.included !== null ? t('campaigns.live_included', { count: c.included }) : t('campaigns.live_excluded', { count: c.excluded }),
             ].filter(Boolean).join(' · ')}
           </p>
