@@ -137,11 +137,13 @@ export function CookieConsent() {
     stopAnalytics()
   }
 
-  const button = 'flex-1 rounded-xl bg-neutral-900 py-2 text-[12px] font-semibold text-white transition-colors hover:bg-neutral-800'
+  // Amândouă butoanele arată la fel: refuzul nu e mai greu de ales decât acceptul
+  const button = 'flex-1 rounded-xl bg-neutral-900 px-6 py-2.5 text-[13px] font-semibold text-white transition-colors hover:bg-neutral-800 sm:flex-none'
 
   return (
     <AnimatePresence>
       {show && (
+        // O bandă lată, la mijloc, jos (pe telefon, pe toată lățimea, cu butoanele dedesubt)
         <motion.div
           role="dialog"
           aria-label={t('common.cookie_title')}
@@ -149,26 +151,27 @@ export function CookieConsent() {
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: 20 }}
           transition={{ duration: 0.3, ease: 'easeOut' }}
-          className="fixed bottom-4 left-4 right-4 z-50 sm:bottom-6 sm:left-auto sm:right-6 sm:max-w-sm"
+          // `app`: același font ca site-ul și platforma (bannerul stă în afara lor, în rădăcină)
+          className="app fixed inset-x-0 bottom-4 z-50 px-4 sm:bottom-6"
         >
-          <div className="relative rounded-2xl border border-neutral-200 bg-white p-5 shadow-[0_8px_40px_rgba(0,0,0,0.12)]">
-            {decided && (
-              <button type="button" onClick={closeCookieSettings} aria-label={t('site.cookie_close')}
-                className="absolute right-3 top-3 grid size-7 place-items-center rounded-full text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-900">
-                <X className="size-4" />
-              </button>
-            )}
-            <p className="mb-1 pr-6 text-[13px] font-semibold text-neutral-900">{t('common.cookie_title')}</p>
-            <p className="text-[12px] leading-relaxed text-neutral-500">
-              {t('site.cookie_text')}{' '}
-              <a href="/legal/cookies" className="underline transition-colors hover:text-neutral-700">{t('common.cookie_policy')}</a>
-            </p>
-            <p className="mb-4 mt-2 text-[12px] leading-relaxed text-neutral-500">
-              {decided ? t(choice === 'granted' ? 'site.cookie_now_on' : 'site.cookie_now_off') : t('site.cookie_hint')}
-            </p>
-            <div className="flex gap-2">
+          <div className="relative mx-auto flex max-w-5xl flex-col gap-4 rounded-2xl border border-neutral-200 bg-white p-4 shadow-[0_8px_40px_rgba(0,0,0,0.12)] sm:flex-row sm:items-center sm:gap-8 sm:py-4 sm:pl-6 sm:pr-5">
+            <div className={`min-w-0 flex-1 ${decided ? 'pr-8 sm:pr-0' : ''}`}>
+              <p className="text-[13px] font-semibold text-neutral-900">{t('common.cookie_title')}</p>
+              <p className="mt-1 text-[12.5px] leading-relaxed text-neutral-500">
+                {t('site.cookie_text')}{' '}
+                {decided ? t(choice === 'granted' ? 'site.cookie_now_on' : 'site.cookie_now_off') : t('site.cookie_hint')}{' '}
+                <a href="/legal/cookies" className="whitespace-nowrap underline transition-colors hover:text-neutral-700">{t('common.cookie_policy')}</a>
+              </p>
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
               <button type="button" onClick={decline} className={button}>{t('common.cookie_decline')}</button>
               <button type="button" onClick={accept} className={button}>{t('common.cookie_accept')}</button>
+              {decided && (
+                <button type="button" onClick={closeCookieSettings} aria-label={t('site.cookie_close')}
+                  className="absolute right-3 top-3 grid size-7 place-items-center rounded-full text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-900 sm:static sm:ml-1">
+                  <X className="size-4" />
+                </button>
+              )}
             </div>
           </div>
         </motion.div>
