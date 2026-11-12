@@ -19,6 +19,10 @@ const CSP = [
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // Doar pentru `next dev`: site-ul se deschide local și de pe adresa din rețea (unde
+  // se vede partea de prezentare). Fără ea, Next 16 blochează scripturile de dezvoltare
+  // cerute de pe acea adresă și paginile nu mai devin interactive.
+  allowedDevOrigins: ['192.168.1.137'],
   async headers() {
     return [
       {

@@ -54,6 +54,7 @@ export function SiteFooter() {
         { label: t('site.nav_how'), href: '/#how' },
         { label: t('site.nav_features'), href: '/#features' },
         { label: t('site.nav_faq'), href: '/#faq' },
+        { label: t('site.nav_pricing'), href: '/pricing' },
       ],
     },
     {

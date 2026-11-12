@@ -6,8 +6,9 @@ import { A, Clause, Code, Company, L, LegalPage, Mail, OL, P, UL, type LegalDoc 
 // Termenii și condițiile, în română și în engleză. Descriu serviciul de acum:
 // mandatul în Google Ads și Merchant Center, cele două moduri ale pilotului
 // (ce face singur în fiecare), costul reclamelor plătit direct la Google,
-// tarifele viitoare, răspunderea și clauzele acceptate expres (art. 1203 Cod civil).
-// Regulile pilotului de aici trebuie să rămână la fel cu lib/ads/optimizer.ts.
+// tarifele, răspunderea și clauzele acceptate expres (art. 1203 Cod civil).
+// Regulile pilotului de aici trebuie să rămână la fel cu lib/ads/optimizer.ts,
+// iar grila de la articolul 9, la fel cu lib/pricing.ts și cu pagina /pricing.
 // =============================================
 
 const THIRD_PARTY = 'https://support.google.com/adspolicy/answer/9457109'
@@ -117,9 +118,29 @@ const RO: LegalDoc = {
     {
       id: 'tarife', title: 'Tarife',
       body: <>
-        <Clause n="9.1"><P>Acum, Hontrio e gratuit. Plătești doar reclamele, direct la Google.</P></Clause>
-        <Clause n="9.2"><P>Putem introduce o taxă calculată ca procent din vânzările aduse de campaniile Hontrio, adică din comenzile din magazin a căror sursă are parametrul <Code>utm_campaign</Code> care începe cu „hontrio-”. Te anunțăm în scris, pe e-mail și în aplicație, cu cel puțin 30 de zile înainte, cu procentul, modul de calcul, facturarea și TVA-ul.</P></Clause>
-        <Clause n="9.3"><P>Taxa se aplică doar dacă o accepți expres. Dacă nu o accepți, poți înceta contractul fără costuri. Taxa va apărea pe fiecare factură, separat de costul reclamelor, pe care îl plătești în continuare direct la Google.</P></Clause>
+        <Clause n="9.1">
+          <P>Taxa Hontrio se plătește lunar, pentru fiecare magazin, și se calculează doar din vânzările aduse de campaniile Hontrio în luna calendaristică respectivă:</P>
+          <OL items={[
+            'magazinele care vând în lei: până la 5.000 lei, gratuit; peste 5.000 și până la 10.000 lei, 199 lei; peste 10.000 lei, 2% din vânzări;',
+            'magazinele care vând în euro: până la 1.000 €, gratuit; peste 1.000 și până la 2.000 €, 39 €; peste 2.000 €, 2% din vânzări.',
+          ]} />
+          <P>Nu există plafon. Grila și un calculator sunt pe pagina <L href="/pricing">Prețuri</L>.</P>
+        </Clause>
+        <Clause n="9.2">
+          <P>Se numără:</P>
+          <OL items={[
+            <>comenzile venite dintr-o campanie Hontrio, după ultimul clic: în magazin, sursa lor (parametrul <Code>utm_campaign</Code>) începe cu „hontrio-”, iar aceeași sursă o vezi și tu în magazin;</>,
+            'valoarea produselor, după reduceri, fără transport și fără TVA;',
+            'doar comenzile plătite sau livrate: comenzile anulate, refuzate sau returnate nu se numără, iar rambursările parțiale se scad;',
+            'fiecare magazin separat, cu pragul gratuit al lui;',
+            'vânzările în altă monedă decât leul sau euro, transformate în euro la cursul BCE din ultima zi a lunii, după grila în euro.',
+          ]} />
+          <P>În Hontrio vezi lista comenzilor numărate și poți contesta oricare dintre ele; o comandă care nu îndeplinește aceste reguli o scoatem din calcul.</P>
+        </Clause>
+        <Clause n="9.3"><P>Luna se închide în ultima ei zi. Factura se emite pe 15 ale lunii următoare, după cele 14 zile în care cumpărătorii pot returna produsele, și se plătește în termenul scris pe ea. O rambursare făcută după emiterea facturii se scade în luna următoare. Prețurile sunt finale: VOID SFT GAMES SRL nu e plătitoare de TVA.</P></Clause>
+        <Clause n="9.4"><P>Nu există abonament, taxă de pornire sau perioadă minimă: o lună fără vânzări aduse de Hontrio nu costă nimic. Taxa e separată de costul reclamelor, pe care îl plătești direct la Google și care nu trece niciodată prin Hontrio.</P></Clause>
+        <Clause n="9.5"><P>Perioada de lansare: acum, Hontrio e gratuit. Facturarea pornește doar după ce te anunțăm, pe e-mail și în aplicație, cu cel puțin 30 de zile înainte; vânzările de până atunci nu se numără. Dacă nu vrei să plătești, poți înceta contractul înainte, fără costuri.</P></Clause>
+        <Clause n="9.6"><P>Orice schimbare a prețurilor o anunțăm pe e-mail și în aplicație cu cel puțin 30 de zile înainte să se aplice. Dacă nu ești de acord, poți înceta contractul înainte, fără costuri.</P></Clause>
       </>,
     },
     {
@@ -148,7 +169,7 @@ const RO: LegalDoc = {
     {
       id: 'suspendare', title: 'Suspendarea',
       body: <>
-        <Clause n="13.1"><P>Putem suspenda, total sau parțial, accesul la Hontrio ori pilotul automat dacă: încalci acești Termeni sau legea; există un risc de securitate sau de abuz; Google ori platforma magazinului ne cere sau ne restrânge accesul; ne obligă o autoritate; după ce ai acceptat o taxă, nu o plătești la termen.</P></Clause>
+        <Clause n="13.1"><P>Putem suspenda, total sau parțial, accesul la Hontrio ori pilotul automat dacă: încalci acești Termeni sau legea; există un risc de securitate sau de abuz; Google ori platforma magazinului ne cere sau ne restrânge accesul; ne obligă o autoritate; nu plătești la termen o factură Hontrio.</P></Clause>
         <Clause n="13.2"><P>Te anunțăm înainte, cu motivul, în afara urgențelor; în urgențe, imediat după.</P></Clause>
         <Clause n="13.3"><P>Cât durează suspendarea, campaniile Hontrio rămân în contul tău Google Ads și rulează cu setările de atunci, fără pilot, deci și fără oprirea de siguranță. Le poți opri oricând direct din Google Ads.</P></Clause>
         <Clause n="13.4"><P>Reluăm accesul imediat ce motivul suspendării dispare.</P></Clause>
@@ -199,7 +220,7 @@ const RO: LegalDoc = {
       id: 'modificari', title: 'Modificarea Termenilor',
       body: <>
         <Clause n="18.1"><P>Te anunțăm pe e-mail și în aplicație cu cel puțin 30 de zile înainte de orice modificare, spunându-ți ce se schimbă.</P></Clause>
-        <Clause n="18.2"><P>Modificările privind tarifele, clauzele de la articolul 17 sau folosirea în alt scop a datelor primite de la Google se aplică doar dacă le accepți expres. Pentru celelalte, folosirea în continuare după data intrării în vigoare înseamnă acceptarea lor; dacă nu ești de acord, poți înceta contractul înainte, fără costuri.</P></Clause>
+        <Clause n="18.2"><P>Modificările clauzelor de la articolul 17 sau folosirea în alt scop a datelor primite de la Google se aplică doar dacă le accepți expres. Schimbările de preț urmează articolul 9.6. Pentru celelalte, folosirea în continuare după data intrării în vigoare înseamnă acceptarea lor; dacă nu ești de acord, poți înceta contractul înainte, fără costuri.</P></Clause>
         <Clause n="18.3"><P>Modificările impuse de lege sau de Google pot intra în vigoare mai repede, cu anunțarea ta.</P></Clause>
       </>,
     },
@@ -331,9 +352,29 @@ const EN: LegalDoc = {
     {
       id: 'fees', title: 'Fees',
       body: <>
-        <Clause n="9.1"><P>For now, Hontrio is free. You pay only for the ads, directly to Google.</P></Clause>
-        <Clause n="9.2"><P>We may introduce a fee calculated as a percentage of the sales brought by Hontrio campaigns, meaning the store orders whose source has a <Code>utm_campaign</Code> parameter starting with “hontrio-”. We will notify you in writing, by email and in the app, at least 30 days in advance, with the percentage, the calculation method, invoicing and VAT.</P></Clause>
-        <Clause n="9.3"><P>The fee applies only if you accept it expressly. If you do not accept it, you can end the contract at no cost. The fee will appear on every invoice, separately from the cost of the ads, which you keep paying directly to Google.</P></Clause>
+        <Clause n="9.1">
+          <P>The Hontrio fee is paid monthly, per store, and is worked out only from the sales brought by Hontrio campaigns in that calendar month:</P>
+          <OL items={[
+            'stores selling in lei: up to 5,000 lei, free; over 5,000 and up to 10,000 lei, 199 lei; over 10,000 lei, 2% of sales;',
+            'stores selling in euros: up to €1,000, free; over €1,000 and up to €2,000, €39; over €2,000, 2% of sales.',
+          ]} />
+          <P>There is no cap. The grid and a calculator are on the <L href="/pricing">Pricing</L> page.</P>
+        </Clause>
+        <Clause n="9.2">
+          <P>What counts:</P>
+          <OL items={[
+            <>orders that came from a Hontrio campaign, on the last click: in the store, their source (the <Code>utm_campaign</Code> parameter) starts with “hontrio-”, and you see the same source in your store;</>,
+            'the value of the products, after discounts, without shipping and without VAT;',
+            'only paid or delivered orders: cancelled, refused or returned orders do not count, and partial refunds are subtracted;',
+            'each store separately, with its own free tier;',
+            'sales in a currency other than lei or euros, converted to euros at the ECB rate of the month’s last day, under the euro grid.',
+          ]} />
+          <P>In Hontrio you see the list of counted orders and can contest any of them; we remove from the calculation any order that does not meet these rules.</P>
+        </Clause>
+        <Clause n="9.3"><P>The month closes on its last day. The invoice is issued on the 15th of the next month, after the 14 days in which buyers can return products, and is payable within the term written on it. A refund made after the invoice is issued is subtracted in the following month. Prices are final: VOID SFT GAMES SRL is not registered for VAT.</P></Clause>
+        <Clause n="9.4"><P>There is no subscription, setup fee or minimum term: a month without sales from Hontrio costs nothing. The fee is separate from the cost of the ads, which you pay directly to Google and which never goes through Hontrio.</P></Clause>
+        <Clause n="9.5"><P>Launch period: for now, Hontrio is free. Billing starts only after we notify you, by email and in the app, at least 30 days in advance; sales made before then do not count. If you do not want to pay, you can end the contract before then, at no cost.</P></Clause>
+        <Clause n="9.6"><P>We notify any price change by email and in the app at least 30 days before it applies. If you disagree, you can end the contract before then, at no cost.</P></Clause>
       </>,
     },
     {
@@ -362,7 +403,7 @@ const EN: LegalDoc = {
     {
       id: 'suspension', title: 'Suspension',
       body: <>
-        <Clause n="13.1"><P>We may suspend, fully or partly, access to Hontrio or the autopilot if: you breach these Terms or the law; there is a security or abuse risk; Google or the store’s platform asks us to or restricts our access; an authority obliges us to; after accepting a fee, you do not pay it on time.</P></Clause>
+        <Clause n="13.1"><P>We may suspend, fully or partly, access to Hontrio or the autopilot if: you breach these Terms or the law; there is a security or abuse risk; Google or the store’s platform asks us to or restricts our access; an authority obliges us to; you do not pay a Hontrio invoice on time.</P></Clause>
         <Clause n="13.2"><P>We notify you in advance, with the reason, except in emergencies; in emergencies, right after.</P></Clause>
         <Clause n="13.3"><P>While the suspension lasts, Hontrio campaigns stay in your Google Ads account and run with their settings at that time, without the autopilot, and therefore without the safety stop. You can stop them at any time directly in Google Ads.</P></Clause>
         <Clause n="13.4"><P>We restore access as soon as the reason for the suspension is gone.</P></Clause>
@@ -413,7 +454,7 @@ const EN: LegalDoc = {
       id: 'changes', title: 'Changes to the Terms',
       body: <>
         <Clause n="18.1"><P>We notify you by email and in the app at least 30 days before any change, telling you what changes.</P></Clause>
-        <Clause n="18.2"><P>Changes to fees, to the clauses in article 17 or to using the data received from Google for another purpose apply only if you accept them expressly. For the others, continuing to use Hontrio after the effective date means you accept them; if you disagree, you can end the contract before that date, at no cost.</P></Clause>
+        <Clause n="18.2"><P>Changes to the clauses in article 17 or to using the data received from Google for another purpose apply only if you accept them expressly. Price changes follow article 9.6. For the others, continuing to use Hontrio after the effective date means you accept them; if you disagree, you can end the contract before that date, at no cost.</P></Clause>
         <Clause n="18.3"><P>Changes required by law or by Google may take effect sooner, with notice to you.</P></Clause>
       </>,
     },

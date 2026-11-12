@@ -64,7 +64,11 @@ export function Faq() {
                     {isOpen && (
                       <motion.div id={`${uid}-${n}`} key="answer" initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
                         transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}>
-                        <p className="px-5 pb-6 pl-[3.25rem] text-[15px] leading-relaxed text-neutral-500 md:px-6 md:pl-[3.6rem]">{t(`site.faq_a${n}`)}</p>
+                        <p className="px-5 pb-6 pl-[3.25rem] text-[15px] leading-relaxed text-neutral-500 md:px-6 md:pl-[3.6rem]">
+                          {t(`site.faq_a${n}`)}
+                          {/* Răspunsul despre cost trimite la grila întreagă */}
+                          {n === 8 && <>{' '}<Link href="/pricing" className="font-semibold text-neutral-950 underline decoration-neutral-300 underline-offset-[3px] hover:decoration-neutral-950">{t('site.faq_a8_link')}</Link></>}
+                        </p>
                       </motion.div>
                     )}
                   </AnimatePresence>

@@ -17,9 +17,10 @@ import { cn } from '@/lib/utils'
 // =============================================
 
 const NAV = [
-  { hash: 'how', key: 'site.nav_how' },
-  { hash: 'features', key: 'site.nav_features' },
-  { hash: 'faq', key: 'site.nav_faq' },
+  { id: 'how', href: '/#how', key: 'site.nav_how' },
+  { id: 'features', href: '/#features', key: 'site.nav_features' },
+  { id: 'faq', href: '/#faq', key: 'site.nav_faq' },
+  { id: 'pricing', href: '/pricing', key: 'site.nav_pricing' },
 ] as const
 
 export const primaryPill = 'group relative inline-flex items-center justify-center gap-1.5 overflow-hidden rounded-full bg-[#0a0a0a] font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_8px_22px_-8px_rgba(0,0,0,0.55)] transition-[background-color,transform] hover:bg-[#1f1f1f] active:scale-[0.98]'
@@ -94,7 +95,7 @@ function MobileSheet({ open, onClose, top }: { open: boolean; onClose: () => voi
           transition={{ duration: 0.2 }} style={{ top }}
           className="fixed inset-x-3 z-50 rounded-3xl border border-line bg-white/95 p-3 shadow-[0_24px_60px_-30px_rgba(0,0,0,0.4)] backdrop-blur-xl lg:hidden">
           {NAV.map(n => (
-            <Link key={n.hash} href={`/#${n.hash}`} onClick={onClose} className="block rounded-2xl px-4 py-3 text-base font-medium text-neutral-800 hover:bg-black/5">
+            <Link key={n.id} href={n.href} onClick={onClose} className="block rounded-2xl px-4 py-3 text-base font-medium text-neutral-800 hover:bg-black/5">
               {t(n.key)}
             </Link>
           ))}
@@ -154,10 +155,10 @@ export function SiteHeader() {
 
             <nav className="hidden items-center lg:flex" onMouseLeave={() => setHovered(null)}>
               {NAV.map(n => (
-                <Link key={n.hash} href={`/#${n.hash}`} onMouseEnter={() => setHovered(n.hash)}
+                <Link key={n.id} href={n.href} onMouseEnter={() => setHovered(n.id)}
                   className="relative whitespace-nowrap px-3.5 py-2 text-sm font-medium text-neutral-600 transition-colors hover:text-black">
                   {t(n.key)}
-                  {hovered === n.hash && (
+                  {hovered === n.id && (
                     <motion.span layoutId="site-nav-underline" className="absolute inset-x-3.5 -bottom-[13px] h-[2px] rounded-full bg-black"
                       transition={{ type: 'spring', stiffness: 500, damping: 38 }} />
                   )}

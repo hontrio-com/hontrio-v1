@@ -113,7 +113,7 @@ const RO: LegalDoc = {
         <H3>Ce nu păstrăm</H3>
         <P>Numele, adresa de e-mail, telefonul, adresele de livrare și de facturare, adresa IP, datele browserului și notele cumpărătorului.</P>
         <H3>De ce</H3>
-        <P>Ca să știm ce vânzări au adus reclamele, ce produse se vând și ce merită pus în campanii, și ca să-ți arătăm rapoartele. Comenzile mai vechi de 400 de zile se șterg zilnic.</P>
+        <P>Ca să știm ce vânzări au adus reclamele, ce produse se vând și ce merită pus în campanii, ca să-ți arătăm rapoartele și, după perioada de lansare, ca să calculăm taxa Hontrio din vânzările aduse de campaniile Hontrio (<L href="/legal/terms">Termeni</L>, articolul 9). Comenzile mai vechi de 400 de zile se șterg zilnic.</P>
         <P>Magazinul răspunde de informarea cumpărătorilor și, unde legea o cere, de obținerea acordului pentru cookie-urile și identificatorii de măsurare a reclamelor.</P>
       </>,
     },
@@ -311,7 +311,7 @@ const EN: LegalDoc = {
         <H3>What we do not keep</H3>
         <P>The buyer’s name, email address, phone number, shipping and billing addresses, IP address, browser data and notes.</P>
         <H3>Why</H3>
-        <P>To know which sales the ads brought, which products sell and what is worth putting in campaigns, and to show you the reports. Orders older than 400 days are deleted daily.</P>
+        <P>To know which sales the ads brought, which products sell and what is worth putting in campaigns, to show you the reports and, after the launch period, to work out the Hontrio fee from the sales brought by Hontrio campaigns (<L href="/legal/terms">Terms</L>, article 9). Orders older than 400 days are deleted daily.</P>
         <P>The store is responsible for informing its buyers and, where the law requires it, for obtaining consent for the cookies and identifiers used to measure ads.</P>
       </>,
     },
