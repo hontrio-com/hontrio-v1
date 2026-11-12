@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils'
 import { DotField } from './fx'
 import { primaryPill, Shine } from './header'
 import { GoogleSim, SimSteps } from './google-sim'
+import { BrandMark, GOOGLE, STORES, type Brand } from './brands'
 
 // =============================================
 // Începutul paginii: titlul (cu un comutator „pilot automat" care se aprinde
@@ -62,36 +63,16 @@ function AutopilotSwitch() {
   )
 }
 
-type Brand = { name: string; src: string; wordmark?: boolean; height?: string }
-
 /**
- * Cu ce se conectează Hontrio, cu logo-urile oficiale (cele cu nume în logo n-au text alături):
- * pe un rând platformele de magazin, pe al doilea Google. Gomag, MerchantPro și OpenCart
- * se fac înainte de lansare (hotărârea proprietarului, 12.11.2026).
+ * Logo-urile, pe un rând platformele de magazin, pe al doilea Google. Pe telefon, două
+ * coloane egale, fiecare logo la mijlocul celulei lui, ca rândurile să nu se rupă inegal.
  */
-// i18n-ignore-start (nume de produse)
-const STORES: Brand[] = [
-  { name: 'Edinio', src: '/site/logos/edinio.svg', wordmark: true },
-  { name: 'WooCommerce', src: '/site/logos/woocommerce.svg' },
-  { name: 'Shopify', src: '/site/logos/shopify.svg' },
-  { name: 'Gomag', src: '/site/logos/gomag.png', wordmark: true, height: 'h-[30px]' },
-  { name: 'MerchantPro', src: '/site/logos/merchantpro.png', wordmark: true, height: 'h-[20px]' },
-  { name: 'OpenCart', src: '/site/logos/opencart.png' },
-]
-const GOOGLE: Brand[] = [
-  { name: 'Google Ads', src: '/site/logos/google-ads.svg' },
-  { name: 'Merchant Center', src: '/site/logos/google-merchant-center.svg' },
-]
-// i18n-ignore-end
-
 function BrandList({ brands, className }: { brands: Brand[]; className?: string }) {
   return (
-    <ul className={cn('mx-auto flex max-w-5xl flex-wrap items-center justify-center gap-x-9 gap-y-5', className)}>
+    <ul className={cn('mx-auto grid max-w-sm grid-cols-2 items-center gap-x-3 gap-y-7 [--logo:22px] sm:flex sm:max-w-5xl sm:flex-wrap sm:justify-center sm:gap-x-9 sm:gap-y-5 sm:[--logo:28px]', className)}>
       {brands.map(b => (
-        <li key={b.name} className="flex items-center gap-2.5">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={b.src} alt={b.wordmark ? b.name : ''} className={cn('w-auto', b.height ?? (b.wordmark ? 'h-[26px]' : 'h-7'))} />
-          {!b.wordmark && <span className="text-[17px] font-semibold tracking-tight text-neutral-800">{b.name}</span>}
+        <li key={b.name} className="flex min-w-0 justify-center">
+          <BrandMark brand={b} nameClassName="text-[14.5px] font-semibold tracking-tight text-neutral-800 sm:text-[17px]" />
         </li>
       ))}
     </ul>
@@ -153,7 +134,7 @@ export function Hero() {
         <div className="mt-16">
           <p className="text-sm text-neutral-500">{t('site.logos_label')}</p>
           <BrandList brands={STORES} className="mt-6" />
-          <BrandList brands={GOOGLE} className="mt-5" />
+          <BrandList brands={GOOGLE} className="mt-7 sm:mt-5" />
         </div>
       </div>
     </section>

@@ -8,18 +8,22 @@ import { useLocale } from '@/lib/i18n/context'
 import { LOCALES, LOCALE_NAMES } from '@/lib/i18n/config'
 import { cn } from '@/lib/utils'
 import { openCookieSettings } from '@/components/cookie-consent'
+import { BrandMark, GOOGLE, STORES } from './brands'
 
 // =============================================
-// Subsolul site-ului (ca în CLIPPING): negru, coloanele de linkuri și, jos,
-// logo-ul mare, aprins de o lumină care urmărește cursorul. Tot aici se
-// schimbă limba (antetul rămâne curat), se redeschide alegerea despre
-// cookie-uri și stau datele firmei (Legea nr. 365/2002, art. 5).
+// Subsolul site-ului (ca în CLIPPING): negru, coloanele de linkuri, logo-urile
+// cu care funcționează Hontrio și, jos, logo-ul mare, aprins de o lumină care
+// urmărește cursorul. Tot aici se schimbă limba (antetul rămâne curat) și se
+// redeschide alegerea despre cookie-uri. Datele firmei (Legea nr. 365/2002,
+// art. 5) sunt în paginile legale, legate de aici: Termeni, Confidențialitate.
 // =============================================
 
 type FooterLink = { label: string; href: string } | { label: string; onClick: () => void }
 
-const BRANDS = ['Edinio', 'WooCommerce', 'Shopify', 'Google Ads', 'Merchant Center'] // i18n-ignore: nume de produse
-const LOGO_MASK = '[mask-image:url(/logo-black.png)] [mask-position:center] [mask-repeat:no-repeat] [mask-size:contain]'
+// Logo-ul mare: conturul vectorial al logo-ului (din fișierul Illustrator), clar la orice lățime
+const LOGO_MASK = '[mask-image:url(/site/hontrio-wordmark.svg)] [mask-position:center] [mask-repeat:no-repeat] [mask-size:contain]'
+// Logo-urile, albe pe negru: detaliile albe din ele (literele Woo, „S”-ul Shopify, coșul OpenCart) rămân decupate
+const WHITE_LOGO = '[filter:grayscale(1)_invert(1)_brightness(2.2)]'
 // Anul, o dată la încărcare (nu la fiecare randare)
 const YEAR = String(new Date().getFullYear())
 
@@ -114,16 +118,16 @@ export function SiteFooter() {
           ))}
         </div>
 
-        <div className="mt-16 flex flex-col items-start justify-between gap-5 border-y border-white/10 py-6 md:flex-row md:items-center">
-          <span className="text-sm text-white/50">{t('site.footer_works_with')}</span>
-          <ul className="flex flex-wrap items-center gap-2">
-            {BRANDS.map(b => (
-              <li key={b} className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-xs text-white/70">{b}</li>
+        <div className="mt-16 border-y border-white/10 py-8">
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-white/40">{t('site.footer_works_with')}</p>
+          <ul className="mt-6 grid grid-cols-2 items-center gap-x-6 gap-y-6 opacity-70 [--logo:20px] sm:grid-cols-4 lg:flex lg:justify-between">
+            {[...STORES, ...GOOGLE].map(b => (
+              <li key={b.name} className="flex min-w-0">
+                <BrandMark brand={b} imgClassName={WHITE_LOGO} nameClassName="text-[13.5px] font-medium text-white" />
+              </li>
             ))}
           </ul>
         </div>
-
-        <p className="pt-6 text-[11.5px] leading-relaxed text-white/45">{t('site.footer_company')}</p>
 
         <div className="flex flex-col items-center justify-between gap-4 py-6 text-xs text-white/40 md:flex-row">
           <span>{t('site.footer_rights', { year: YEAR })}</span>
@@ -146,8 +150,8 @@ export function SiteFooter() {
           my.set(((e.clientY - r.top) / r.height) * 100)
         }}>
         <motion.div initial={reduce ? false : { y: '30%', opacity: 0 }} whileInView={{ y: '0%', opacity: 1 }} viewport={{ once: true }}
-          transition={{ duration: 1, ease: [0.22, 1, 0.36, 1] }} className="relative aspect-[772/106] w-full">
-          <div className={`absolute inset-0 bg-gradient-to-b from-white/[0.16] to-white/[0.03] ${LOGO_MASK}`} />
+          transition={{ duration: 1, ease: [0.22, 1, 0.36, 1] }} className="relative aspect-[184.95/25.41] w-full">
+          <div className={`absolute inset-0 bg-gradient-to-b from-white/[0.22] to-white/[0.07] ${LOGO_MASK}`} />
           <motion.div style={{ backgroundImage: glow }} className={`absolute inset-0 ${LOGO_MASK}`} />
         </motion.div>
       </div>

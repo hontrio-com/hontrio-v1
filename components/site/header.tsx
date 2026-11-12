@@ -130,8 +130,9 @@ export function SiteHeader() {
           {strip && (
             <motion.div initial={{ height: 0 }} animate={{ height: 36 }} exit={{ height: 0 }} transition={{ duration: 0.25, ease: 'easeOut' }}
               className="overflow-hidden bg-[#0a0a0a] text-white">
-              <div className="relative mx-auto flex h-9 max-w-6xl items-center justify-center gap-2.5 px-12 text-[12.5px]">
-                <span className="shrink-0 rounded-full bg-white px-2 py-px text-[10px] font-bold uppercase tracking-[0.12em] text-black">{t('site.announce_tag')}</span>
+              {/* Pe telefon, fără eticheta „Lansare”: așa încape tot textul */}
+              <div className="relative mx-auto flex h-9 max-w-6xl items-center justify-center gap-2.5 px-10 text-[12px] sm:px-12 sm:text-[12.5px]">
+                <span className="hidden shrink-0 rounded-full bg-white px-2 py-px text-[10px] font-bold uppercase tracking-[0.12em] text-black sm:block">{t('site.announce_tag')}</span>
                 <Link href="/pricing" className="group flex min-w-0 items-center gap-1.5 text-white/80 transition hover:text-white">
                   <span className="truncate">{t('site.announce_text')}</span>
                   <span className="hidden shrink-0 font-medium text-white sm:inline">{t('site.announce_link')}</span>
