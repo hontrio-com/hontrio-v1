@@ -23,6 +23,11 @@ const nextConfig: NextConfig = {
   // se vede partea de prezentare). Fără ea, Next 16 blochează scripturile de dezvoltare
   // cerute de pe acea adresă și paginile nu mai devin interactive.
   allowedDevOrigins: ['192.168.1.137'],
+  // Prețurile nu mai au pagina lor (14.11.2026): sunt o secțiune pe prima pagină.
+  // Adresa veche (și cea a site-ului dinainte) duce acolo.
+  async redirects() {
+    return [{ source: '/pricing', destination: '/#pricing', permanent: true }]
+  },
   async headers() {
     return [
       {

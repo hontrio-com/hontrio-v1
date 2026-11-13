@@ -10,15 +10,18 @@ import { Reveal } from '../fx'
 import { TITLE, TITLE_SIZE, TwoTone } from '../section'
 import { IsoFilters } from '../iso/primitives'
 import { MoneyScene, PLATE } from './money-scene'
+import { primaryPill, Shine } from '../header'
 import { useTeaserMoney } from './shared'
 
 // =============================================
-// Prețul pe scurt, varianta C („Unde merg banii”): o lună a unui magazin, ca
-// exemplu. Hontrio aduce vânzări de 50.000 de lei; reclamele (aici, o cincime
-// din vânzări) se plătesc direct la Google, iar Hontrio ia 2%. Se poate alege
-// și o lună mai mică (20.000) sau una sub pragul gratuit (4.000). În dreapta,
-// banii ca teancuri izometrice, la aceeași scară; în stânga, aceleași sume pe
-// rânduri, cu ce înseamnă fiecare.
+// Prețurile, pe prima pagină (#pricing; pagina separată /pricing nu mai există,
+// la cererea proprietarului, 14.11.2026): „Unde merg banii”, o lună a unui
+// magazin, ca exemplu. Hontrio aduce vânzări de 50.000 de lei; reclamele (aici,
+// o cincime din vânzări) se plătesc direct la Google, iar Hontrio ia 2%. Se
+// poate alege și o lună mai mică (20.000) sau una sub pragul gratuit (4.000).
+// În dreapta, banii ca teancuri izometrice, la aceeași scară; în stânga,
+// aceleași sume pe rânduri, apoi grila întreagă pe un rând și butonul de cont.
+// Regulile de numărare sunt în Termeni, la articolul 9.
 // =============================================
 
 /** Vânzările lunilor din exemplu; implicit, cea mare (50.000 de lei / 10.000 €). */
@@ -31,7 +34,7 @@ const adsFor = (sales: number) => Math.round(sales / 5)
 export function PriceTeaser() {
   const { t, currency, grid, number, money } = useTeaserMoney()
   const reduce = useReducedMotion()
-  const id = useId()
+  const uid = useId()
   const examples = EXAMPLES[currency]
   const [pick, setPick] = useState(examples.length - 1)
 
@@ -62,7 +65,7 @@ export function PriceTeaser() {
   ]
 
   return (
-    <section id="ptz-c" className="scroll-mt-24 px-5 py-24 md:py-32">
+    <section id="pricing" className="scroll-mt-24 px-5 py-24 md:py-32">
       <IsoFilters />
       {/* Pe telefon: titlul, alegerea lunii, ilustrația chiar sub ea, apoi sumele; pe ecranele mari, ilustrația stă în dreapta */}
       <div className="mx-auto grid max-w-6xl grid-cols-1 [grid-template-areas:'head'_'pick'_'art'_'legend'] lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] lg:grid-rows-[auto_auto_1fr] lg:gap-x-16 lg:[grid-template-areas:'head_head'_'pick_art'_'legend_art']">
@@ -90,8 +93,8 @@ export function PriceTeaser() {
 
         {/* Exemplul: trei luni de mărimi diferite */}
         <Reveal delay={0.06} className="mb-6 [grid-area:pick] lg:mb-0">
-          <p id={`${id}-pick`} className="text-[14px] text-neutral-500">{t('site.ptzc_example')}</p>
-          <div role="group" aria-labelledby={`${id}-pick`} className="mt-3 flex gap-7 border-b border-line">
+          <p id={`${uid}-pick`} className="text-[14px] text-neutral-500">{t('site.ptzc_example')}</p>
+          <div role="group" aria-labelledby={`${uid}-pick`} className="mt-3 flex gap-7 border-b border-line">
             {examples.map((value, i) => {
               const on = i === pick
               return (
@@ -100,7 +103,7 @@ export function PriceTeaser() {
                     on ? 'text-neutral-950' : 'text-neutral-400 hover:text-neutral-700')}>
                   {money(value)}
                   {on && (
-                    <motion.span layoutId={`${id}-pick-line`} aria-hidden className="absolute inset-x-0 bottom-0 h-[2px] rounded-full bg-neutral-950"
+                    <motion.span layoutId={`${uid}-pick-line`} aria-hidden className="absolute inset-x-0 bottom-0 h-[2px] rounded-full bg-neutral-950"
                       transition={reduce ? { duration: 0 } : { type: 'spring', stiffness: 520, damping: 42 }} />
                   )}
                 </button>
@@ -126,9 +129,13 @@ export function PriceTeaser() {
           <div className="mt-4 border-t border-line pt-5">
             <p className="text-pretty text-[13.5px] leading-relaxed text-neutral-500">{t('site.ptzc_note')} {t('site.pricing_vat')}</p>
             <p className="mt-2 text-pretty text-[13.5px] leading-relaxed text-neutral-500">{t('site.ptz_launch')}</p>
-            <Link href="/pricing" className="group mt-4 inline-flex items-center gap-1.5 rounded-sm text-[15px] font-semibold text-neutral-950 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-neutral-950">
-              <span className="underline decoration-neutral-300 underline-offset-[5px] transition-colors group-hover:decoration-neutral-950">{t('site.ptz_details')}</span>
-              <ArrowRight className="size-4 transition group-hover:translate-x-0.5" />
+            {/* Grila întreagă, pe un rând, și butonul de cont */}
+            <p className="mt-5 text-pretty text-[15px] font-semibold leading-relaxed text-neutral-950">
+              {t('site.prc_grid_line', { free: money(grid.freeUpTo), flat: money(grid.flatFee), to: money(grid.flatUpTo), percent: number(grid.percent) })}
+            </p>
+            <Link href="/register" className={cn(primaryPill, 'mt-6 h-12 px-7 text-[15px]')}>
+              <Shine /><span className="relative">{t('site.cta_primary')}</span>
+              <ArrowRight className="relative size-4 transition group-hover:translate-x-0.5" />
             </Link>
           </div>
         </Reveal>

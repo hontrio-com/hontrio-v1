@@ -2,15 +2,15 @@
 // Prețurile Hontrio (hotărâte de proprietar pe 12.11.2026): o taxă pe lună,
 // pentru fiecare magazin, calculată doar din vânzările aduse de campaniile
 // Hontrio în luna calendaristică respectivă (regulile de numărare sunt în
-// Termeni, art. 9, și pe pagina /pricing).
+// Termeni, art. 9).
 //
 //   lei:  până la 5.000 gratuit · până la 10.000, 199 lei · peste, 2% din vânzări
 //   euro: până la 1.000 gratuit · până la 2.000, 39 €     · peste, 2% din vânzări
 //
 // Fără plafon. Prețuri finale: VOID SFT GAMES SRL nu e plătitoare de TVA.
 // Alte monede se transformă în euro (cursul BCE din ultima zi a lunii) și
-// urmează grila în euro. Pagina de prețuri o folosește acum; facturarea o va
-// folosi la fel.
+// urmează grila în euro. Secțiunea de prețuri și comparația de pe prima pagină o
+// folosesc acum; facturarea o va folosi la fel.
 // =============================================
 
 export type PricingCurrency = 'RON' | 'EUR'

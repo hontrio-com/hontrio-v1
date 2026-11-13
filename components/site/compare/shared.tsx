@@ -20,7 +20,7 @@ export type Path = (typeof PATHS)[number]
 export const ROWS = ['cost', 'cadence', 'budget', 'contract', 'seen', 'time'] as const
 export type Row = (typeof ROWS)[number]
 
-/** Grila Hontrio, în moneda paginii: lei în română, euro în engleză (ca pe /pricing). */
+/** Grila Hontrio, în moneda paginii: lei în română, euro în engleză (ca la secțiunea de prețuri). */
 export function usePrice() {
   const { t, locale, intlLocale } = useT()
   const currency: PricingCurrency = locale === 'ro' ? 'RON' : 'EUR'

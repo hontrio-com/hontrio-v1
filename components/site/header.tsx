@@ -16,11 +16,12 @@ import { cn } from '@/lib/utils'
 // din subsol.
 // =============================================
 
+// În ordinea secțiunilor de pe prima pagină (prețurile nu mai au pagina lor)
 const NAV = [
   { id: 'how', href: '/#how', key: 'site.nav_how' },
   { id: 'optimize', href: '/#optimize', key: 'site.nav_autopilot' },
+  { id: 'pricing', href: '/#pricing', key: 'site.nav_pricing' },
   { id: 'faq', href: '/#faq', key: 'site.nav_faq' },
-  { id: 'pricing', href: '/pricing', key: 'site.nav_pricing' },
 ] as const
 
 export const primaryPill = 'group relative inline-flex items-center justify-center gap-1.5 overflow-hidden rounded-full bg-[#0a0a0a] font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_8px_22px_-8px_rgba(0,0,0,0.55)] transition-[background-color,transform] hover:bg-[#1f1f1f] active:scale-[0.98]'
@@ -133,7 +134,7 @@ export function SiteHeader() {
               {/* Pe telefon, fără eticheta „Lansare”: așa încape tot textul */}
               <div className="relative mx-auto flex h-9 max-w-6xl items-center justify-center gap-2.5 px-10 text-[12px] sm:px-12 sm:text-[12.5px]">
                 <span className="hidden shrink-0 rounded-full bg-white px-2 py-px text-[10px] font-bold uppercase tracking-[0.12em] text-black sm:block">{t('site.announce_tag')}</span>
-                <Link href="/pricing" className="group flex min-w-0 items-center gap-1.5 text-white/80 transition hover:text-white">
+                <Link href="/#pricing" className="group flex min-w-0 items-center gap-1.5 text-white/80 transition hover:text-white">
                   <span className="truncate">{t('site.announce_text')}</span>
                   <span className="hidden shrink-0 font-medium text-white sm:inline">{t('site.announce_link')}</span>
                   <ArrowRight className="size-3 shrink-0 transition group-hover:translate-x-0.5" />

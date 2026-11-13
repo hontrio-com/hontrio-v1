@@ -23,8 +23,9 @@ type FaqItem = { n: number; link?: { href: string; key: string } }
 
 const FAQ_ITEMS: FaqItem[] = [
   { n: 1 }, { n: 2 }, { n: 3 }, { n: 4 }, { n: 5 }, { n: 6 }, { n: 7 },
-  { n: 8, link: { href: '/pricing', key: 'site.faq_a8_link' } },
-  { n: 9, link: { href: '/legal/privacy', key: 'site.faq_a9_link' } },
+  { n: 8, link: { href: '/#pricing', key: 'site.faq_a8_link' } },
+  { n: 9 },
+  { n: 10, link: { href: '/legal/privacy', key: 'site.faq_a10_link' } },
 ]
 
 const LINK = 'font-semibold text-neutral-950 underline decoration-neutral-300 underline-offset-[3px] transition-colors hover:decoration-neutral-950'

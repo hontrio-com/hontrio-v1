@@ -50,8 +50,8 @@ export function SiteFooter() {
       links: [
         { label: t('site.nav_how'), href: '/#how' },
         { label: t('site.nav_autopilot'), href: '/#optimize' },
+        { label: t('site.nav_pricing'), href: '/#pricing' },
         { label: t('site.nav_faq'), href: '/#faq' },
-        { label: t('site.nav_pricing'), href: '/pricing' },
       ],
     },
     {

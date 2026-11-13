@@ -8,7 +8,8 @@ import { A, Clause, Code, Company, L, LegalPage, Mail, OL, P, UL, type LegalDoc 
 // (ce face singur în fiecare), costul reclamelor plătit direct la Google,
 // tarifele, răspunderea și clauzele acceptate expres (art. 1203 Cod civil).
 // Regulile pilotului de aici trebuie să rămână la fel cu lib/ads/optimizer.ts,
-// iar grila de la articolul 9, la fel cu lib/pricing.ts și cu pagina /pricing.
+// iar grila de la articolul 9, la fel cu lib/pricing.ts și cu secțiunea de prețuri
+// de pe prima pagină (#pricing).
 // =============================================
 
 const THIRD_PARTY = 'https://support.google.com/adspolicy/answer/9457109'
@@ -124,7 +125,7 @@ const RO: LegalDoc = {
             'magazinele care vând în lei: până la 5.000 lei, gratuit; peste 5.000 și până la 10.000 lei, 199 lei; peste 10.000 lei, 2% din vânzări;',
             'magazinele care vând în euro: până la 1.000 €, gratuit; peste 1.000 și până la 2.000 €, 39 €; peste 2.000 €, 2% din vânzări.',
           ]} />
-          <P>Nu există plafon. Grila și un calculator sunt pe pagina <L href="/pricing">Prețuri</L>.</P>
+          <P>Nu există plafon. Grila e și pe prima pagină a site-ului, la <L href="/#pricing">Prețuri</L>.</P>
         </Clause>
         <Clause n="9.2">
           <P>Se numără:</P>
@@ -358,7 +359,7 @@ const EN: LegalDoc = {
             'stores selling in lei: up to 5,000 lei, free; over 5,000 and up to 10,000 lei, 199 lei; over 10,000 lei, 2% of sales;',
             'stores selling in euros: up to €1,000, free; over €1,000 and up to €2,000, €39; over €2,000, 2% of sales.',
           ]} />
-          <P>There is no cap. The grid and a calculator are on the <L href="/pricing">Pricing</L> page.</P>
+          <P>There is no cap. The grid is also on the home page of the site, under <L href="/#pricing">Pricing</L>.</P>
         </Clause>
         <Clause n="9.2">
           <P>What counts:</P>
