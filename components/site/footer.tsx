@@ -1,8 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useRef } from 'react'
-import { motion, useMotionTemplate, useMotionValue, useReducedMotion, useSpring } from 'framer-motion'
+import { useReducedMotion } from 'framer-motion'
 import { ArrowUp, ArrowUpRight, Globe } from 'lucide-react'
 import { useLocale } from '@/lib/i18n/context'
 import { LOCALES, LOCALE_NAMES } from '@/lib/i18n/config'
@@ -11,17 +10,15 @@ import { openCookieSettings } from '@/components/cookie-consent'
 import { BrandMark, GOOGLE, STORES } from './brands'
 
 // =============================================
-// Subsolul site-ului (ca în CLIPPING): negru, coloanele de linkuri, logo-urile
-// cu care funcționează Hontrio și, jos, logo-ul mare, aprins de o lumină care
-// urmărește cursorul. Tot aici se schimbă limba (antetul rămâne curat) și se
+// Subsolul site-ului (ca în CLIPPING): negru, coloanele de linkuri și logo-urile
+// cu care funcționează Hontrio. Fără logo-ul mare HONTRIO de jos: proprietarul
+// l-a scos (14.11.2026). Tot aici se schimbă limba (antetul rămâne curat) și se
 // redeschide alegerea despre cookie-uri. Datele firmei (Legea nr. 365/2002,
 // art. 5) sunt în paginile legale, legate de aici: Termeni, Confidențialitate.
 // =============================================
 
 type FooterLink = { label: string; href: string } | { label: string; onClick: () => void }
 
-// Logo-ul mare: conturul vectorial al logo-ului (din fișierul Illustrator), clar la orice lățime
-const LOGO_MASK = '[mask-image:url(/site/hontrio-wordmark.svg)] [mask-position:center] [mask-repeat:no-repeat] [mask-size:contain]'
 // Logo-urile, albe pe negru: detaliile albe din ele (literele Woo, „S”-ul Shopify, coșul OpenCart) rămân decupate
 const WHITE_LOGO = '[filter:grayscale(1)_invert(1)_brightness(2.2)]'
 // Anul, o dată la încărcare (nu la fiecare randare)
@@ -46,10 +43,6 @@ function LanguageSwitch() {
 export function SiteFooter() {
   const { t } = useLocale()
   const reduce = useReducedMotion()
-  const ref = useRef<HTMLDivElement>(null)
-  const mx = useSpring(useMotionValue(50), { stiffness: 120, damping: 20 })
-  const my = useSpring(useMotionValue(40), { stiffness: 120, damping: 20 })
-  const glow = useMotionTemplate`radial-gradient(380px circle at ${mx}% ${my}%, rgba(255,255,255,0.95), rgba(255,255,255,0.28) 40%, rgba(255,255,255,0.06) 70%)`
 
   const columns: { title: string; links: FooterLink[] }[] = [
     {
@@ -129,7 +122,7 @@ export function SiteFooter() {
           </ul>
         </div>
 
-        <div className="flex flex-col items-center justify-between gap-4 py-6 text-xs text-white/40 md:flex-row">
+        <div className="flex flex-col items-center justify-between gap-4 pb-10 pt-6 text-xs text-white/40 md:flex-row">
           <span>{t('site.footer_rights', { year: YEAR })}</span>
           <div className="flex flex-wrap items-center justify-center gap-3">
             <LanguageSwitch />
@@ -139,21 +132,6 @@ export function SiteFooter() {
             </button>
           </div>
         </div>
-      </div>
-
-      {/* Logo-ul mare, aprins de lumina care urmărește cursorul */}
-      <div ref={ref} aria-hidden className="relative mx-auto max-w-[1400px] select-none px-4 pb-6"
-        onMouseMove={e => {
-          const r = ref.current?.getBoundingClientRect()
-          if (!r) return
-          mx.set(((e.clientX - r.left) / r.width) * 100)
-          my.set(((e.clientY - r.top) / r.height) * 100)
-        }}>
-        <motion.div initial={reduce ? false : { y: '30%', opacity: 0 }} whileInView={{ y: '0%', opacity: 1 }} viewport={{ once: true }}
-          transition={{ duration: 1, ease: [0.22, 1, 0.36, 1] }} className="relative aspect-[184.95/25.41] w-full">
-          <div className={`absolute inset-0 bg-gradient-to-b from-white/[0.22] to-white/[0.07] ${LOGO_MASK}`} />
-          <motion.div style={{ backgroundImage: glow }} className={`absolute inset-0 ${LOGO_MASK}`} />
-        </motion.div>
       </div>
     </footer>
   )
