@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { PLATFORM_NAMES } from '@/lib/commerce/platforms'
 
 // =============================================
 // Magazinele contului și cel activ, citite o dată pentru meniu și antet.
@@ -16,7 +17,7 @@ export type StoreItem = {
   platform_data?: { google_merchant?: { cont_id?: string | number | null } | null } | null
 }
 
-export const PLATFORM_NAME: Record<string, string> = { edinio: 'Edinio', woocommerce: 'WooCommerce', shopify: 'Shopify' }
+export const PLATFORM_NAME: Record<string, string> = PLATFORM_NAMES
 
 export const storeLabel = (s: StoreItem) => s.store_name || s.store_url.replace(/^https?:\/\//, '').replace(/\/$/, '')
 

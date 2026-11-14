@@ -470,5 +470,6 @@
   "g_stat_type": "Type",
   "col_ads_spend": "Google spend",
   "col_ads_hint": "What Google Ads reported for the product in the last 30 days, across all Shopping and Performance Max campaigns.",
-  "ads_sold": "{{value}} sold"
+  "ads_sold": "{{value}} sold",
+  "verified_at_launch_platform": "{{platform}} doesn’t tell apps whether it sends products to Google or measures purchases: we check at launch, from the Google account."
 }

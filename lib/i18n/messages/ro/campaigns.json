@@ -491,5 +491,6 @@
   "g_stat_type": "Tipul",
   "col_ads_spend": "Cheltuit în Google",
   "col_ads_hint": "Ce a raportat Google Ads pentru produs în ultimele 30 de zile, din toate campaniile Shopping și Performance Max.",
-  "ads_sold": "{{value}} vândut"
+  "ads_sold": "{{value}} vândut",
+  "verified_at_launch_platform": "{{platform}} nu le spune aplicațiilor dacă trimite produsele la Google sau dacă măsoară cumpărările: verificăm la lansare, din contul Google."
 }

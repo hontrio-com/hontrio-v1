@@ -12,6 +12,7 @@ import { readAllSoft } from '@/lib/ads/read-all'
 import { isExpired } from '@/lib/ads/schedule'
 import { AUDIT_FRESH_MS } from '@/lib/google/audit'
 import { getT } from '@/lib/i18n/server'
+import { storeDisplayName } from '@/lib/commerce/platforms'
 
 // =============================================
 // GET   /api/campaigns/plan — planul, socotit acum din datele magazinului, cu
@@ -127,7 +128,7 @@ export async function GET() {
     store: {
       platform: store.platform,
       supported: true,
-      store_name: store.store_name,
+      store_name: storeDisplayName(store),
       currency: store.currency || 'RON',
       connection_status: store.connection_status,
       last_sync_at: store.last_sync_at,

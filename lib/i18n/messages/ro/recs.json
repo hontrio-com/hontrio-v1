@@ -91,5 +91,11 @@
   "note_best_seller_rank": "locul {{rank}}",
   "css_partner_title": "Un partener CSS poate scădea costul pe click",
   "css_partner_body": "În SEE, reclamele Shopping trec printr-un serviciu de comparare a prețurilor (CSS). Implicit e cel al Google; partenerii CSS spun că scad costul pe click cu ~20% (cifra e a lor). Se alege în Merchant Center.",
-  "filter_all": "Toate"
+  "filter_all": "Toate",
+  "action_open_gomag": "Deschide magazinul",
+  "action_open_merchantpro": "Deschide MerchantPro",
+  "action_open_opencart": "Deschide panoul OpenCart",
+  "not_sent_body_gomag": "Merchant Center e legat, dar ofertele astea nu apar acolo. Verifică feedul Google din Gomag: produsele trebuie să fie active, cu preț și imagine.",
+  "not_sent_body_merchantpro": "Merchant Center e legat, dar ofertele astea nu apar acolo. Verifică feedul Google din MerchantPro: produsele trebuie să fie active și vizibile, cu preț și imagine.",
+  "not_sent_body_opencart": "Merchant Center e legat, dar ofertele astea nu apar acolo. Verifică extensia de feed Google din OpenCart și filtrele ei."
 }

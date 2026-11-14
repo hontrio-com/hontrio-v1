@@ -1,8 +1,15 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { logError } from '@/lib/logger'
 import { syncEdinioStore } from '@/lib/edinio/sync'
+import { syncGomagStore } from '@/lib/gomag/sync'
+import { syncMerchantProStore } from '@/lib/merchantpro/sync'
+import { syncOpenCartStore } from '@/lib/opencart/sync'
 import { syncShopifyStore } from '@/lib/shopify/sync'
 import { syncWooStore } from '@/lib/woocommerce/sync'
+import type { CommerceSyncResult, SyncMode } from './sync-types'
+
+export type { CommerceSyncResult, SyncMode } from './sync-types'
+export { COMMERCE_PLATFORMS, isCommercePlatform } from './platforms'
 
 // =============================================
 // Sincronizarea în modelul comun, oricare ar fi platforma magazinului.
@@ -14,19 +21,6 @@ import { syncWooStore } from '@/lib/woocommerce/sync'
 // unul care nu răspunde nu mai ține pe loc sincronizarea celorlalte.
 // =============================================
 
-export type SyncMode = 'incremental' | 'full'
-
-export type CommerceSyncResult =
-  | { ok: true; mode: SyncMode; complete: boolean; offers: number; orders: number; offersTotal: number; ordersTotal: number }
-  | { ok: false; reason: 'not_found' | 'locked' | 'revoked' | 'failed'; message?: string }
-
-/** Platformele care alimentează modelul comun (paginile de reclame). */
-export const COMMERCE_PLATFORMS = ['edinio', 'woocommerce', 'shopify'] as const
-
-export function isCommercePlatform(platform: string | null | undefined): boolean {
-  return (COMMERCE_PLATFORMS as readonly string[]).includes(platform ?? '')
-}
-
 // La reușită, magazinul e din nou la rând peste atât (cronul rulează la 15 minute)
 const NEXT_AFTER_SUCCESS_MS = 10 * 60_000
 const BACKOFF_BASE_MS = 15 * 60_000
@@ -37,11 +31,20 @@ export function backoffMs(failures: number): number {
   return Math.min(BACKOFF_MAX_MS, BACKOFF_BASE_MS * 2 ** Math.max(0, failures - 1))
 }
 
-async function runPlatform(storeId: string, platform: string, mode: SyncMode, opts: { deadline?: number }): Promise<CommerceSyncResult> {
-  if (platform === 'woocommerce') return syncWooStore(storeId, mode, opts)
-  if (platform === 'shopify') return syncShopifyStore(storeId, mode, opts)
+type SyncOptions = {
+  deadline?: number
+  /** Pornită de om („Sincronizează acum"): se încearcă și un magazin cu cheia refuzată (poate a reparat-o). */
+  manual?: boolean
+}
+
+async function runPlatform(storeId: string, platform: string, mode: SyncMode, opts: SyncOptions): Promise<CommerceSyncResult> {
+  if (platform === 'woocommerce') return syncWooStore(storeId, mode, { deadline: opts.deadline })
+  if (platform === 'shopify') return syncShopifyStore(storeId, mode, { deadline: opts.deadline })
+  if (platform === 'gomag') return syncGomagStore(storeId, mode, opts)
+  if (platform === 'merchantpro') return syncMerchantProStore(storeId, mode, opts)
+  if (platform === 'opencart') return syncOpenCartStore(storeId, mode, opts)
   if (platform === 'edinio') {
-    const r = await syncEdinioStore(storeId, mode, opts)
+    const r = await syncEdinioStore(storeId, mode, { deadline: opts.deadline })
     // Edinio termină trecerea dintr-o dată (magazine mici, paginare pe chei)
     return r.ok ? { ...r, complete: true } : r
   }
@@ -66,7 +69,7 @@ async function schedule(storeId: string, result: CommerceSyncResult) {
 }
 
 export async function syncCommerceStore(
-  storeId: string, platform: string, mode: SyncMode, opts: { deadline?: number } = {},
+  storeId: string, platform: string, mode: SyncMode, opts: SyncOptions = {},
 ): Promise<CommerceSyncResult> {
   const result = await runPlatform(storeId, platform, mode, opts)
   await schedule(storeId, result)

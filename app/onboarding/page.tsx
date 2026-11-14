@@ -7,6 +7,8 @@ import { Callout } from '@/components/app/feedback'
 import { Button } from '@/components/app/button'
 import { inputStyles } from '@/components/app/input'
 import { Surface } from '@/components/app/surface'
+import { KEY_PLATFORM_ICONS, KeyStoreForm, type KeyStorePlatform } from '@/components/integrations/key-store-form'
+import { PLATFORM_NAMES } from '@/lib/commerce/platforms'
 import { cn } from '@/lib/utils'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
@@ -20,9 +22,11 @@ import {
 // Onboarding — magazinul și contul Google Ads, apoi Prezentarea generală
 // arată ce mai trebuie pregătit pentru prima campanie. Conectările pornite de
 // aici (Edinio, Shopify, Google) se întorc aici, cu rezultatul în adresă.
+// Gomag, MerchantPro și OpenCart se leagă cu chei, în pagină (KeyStoreForm).
 // =============================================
 
-type Platform = 'edinio' | 'woocommerce' | 'shopify'
+type Platform = 'edinio' | 'woocommerce' | 'shopify' | KeyStorePlatform
+const KEY_FORMS: KeyStorePlatform[] = ['gomag', 'merchantpro', 'opencart']
 type StoreInfo = {
   id: string; platform: string; store_name: string | null; store_url: string
   sync_status: string | null; last_sync_at: string | null; products_count: number | null; orders_count: number | null
@@ -312,11 +316,13 @@ export default function OnboardingPage() {
                     </div>
                   ) : (
                     <div className="space-y-4">
-                      <div className="grid grid-cols-3 gap-2.5">
+                      {/* Șase platforme: pe telefon câte două pe rând, ca numele lungi (WooCommerce, MerchantPro) să încapă */}
+                      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
                         {([
                           { id: 'edinio', name: 'Edinio', sub: t('onboarding.edinio_subtitle'), icon: Sparkles },
                           { id: 'woocommerce', name: 'WooCommerce', sub: t('onboarding.woo_subtitle'), icon: Store },
                           { id: 'shopify', name: 'Shopify', sub: t('onboarding.shopify_subtitle'), icon: Zap },
+                          ...KEY_FORMS.map(id => ({ id, name: PLATFORM_NAMES[id], sub: t(`integrations.${id}_subtitle`), icon: KEY_PLATFORM_ICONS[id] })),
                         ] as { id: Platform; name: string; sub: string; icon: typeof Store }[]).map(p => (
                           <button key={p.id} onClick={() => { setPlatform(p.id); setError(null) }} aria-pressed={platform === p.id}
                             className={cn('flex flex-col items-start rounded-2xl border p-3.5 text-left transition-[border-color,box-shadow,background-color] duration-150',
@@ -399,6 +405,10 @@ export default function OnboardingPage() {
                           </Button>
                         </div>
                       )}
+
+                      {KEY_FORMS.map(p => platform === p && (
+                        <KeyStoreForm key={p} platform={p} variant="onboarding" onConnected={() => { loadStore() }} />
+                      ))}
                     </div>
                   )}
                 </Surface>

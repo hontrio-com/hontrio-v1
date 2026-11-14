@@ -8,6 +8,7 @@ import { getActiveStore } from '@/lib/stores/active'
 import { STORE_PLAN_COLUMNS, type PlanStore } from '@/lib/campaigns/context'
 import { storeAdsAccount } from '@/lib/google/accounts'
 import { getT } from '@/lib/i18n/server'
+import { storeDisplayName } from '@/lib/commerce/platforms'
 
 type StoreRow = PlanStore & {
   sync_status: string | null; last_error: string | null; products_count: number | null; orders_count: number | null
@@ -131,7 +132,7 @@ export async function GET(request: Request) {
       id: store.id,
       platform: store.platform,
       platform_name: setup?.platformName ?? store.platform,
-      store_name: store.store_name,
+      store_name: storeDisplayName(store),
       store_url: store.store_url,
       currency: store.currency || 'RON',
       timezone: store.timezone || 'Europe/Bucharest',

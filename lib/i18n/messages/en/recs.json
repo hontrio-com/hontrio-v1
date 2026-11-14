@@ -91,5 +91,11 @@
   "note_best_seller_rank": "rank {{rank}}",
   "css_partner_title": "A CSS partner can lower your cost per click",
   "css_partner_body": "In the EEA, Shopping ads run through a comparison shopping service (CSS). The default is Google's; CSS partners say they cut the cost per click by ~20% (their figure). It's chosen in Merchant Center.",
-  "filter_all": "All"
+  "filter_all": "All",
+  "action_open_gomag": "Open the store",
+  "action_open_merchantpro": "Open MerchantPro",
+  "action_open_opencart": "Open the OpenCart admin",
+  "not_sent_body_gomag": "Merchant Center is linked, but these offers aren’t there. Check the Google feed in Gomag: products must be active, with a price and an image.",
+  "not_sent_body_merchantpro": "Merchant Center is linked, but these offers aren’t there. Check the Google feed in MerchantPro: products must be active and visible, with a price and an image.",
+  "not_sent_body_opencart": "Merchant Center is linked, but these offers aren’t there. Check the Google feed extension in OpenCart and its filters."
 }

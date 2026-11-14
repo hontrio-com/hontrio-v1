@@ -1,0 +1,7 @@
+{
+  "name": "Hontrio",
+  "description": "Lets Hontrio read the products and orders (read-only, no customer data) and saves the visit source (UTM, gclid) on new orders.",
+  "version": "1.0.0",
+  "author": "Hontrio",
+  "link": "https://hontrio.com"
+}

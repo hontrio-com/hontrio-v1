@@ -1,0 +1,3 @@
+# Arhivele extensiei OpenCart (public/downloads) se compară octet cu octet cu sursele
+# (tests/opencart-extension.test.ts): git nu are voie să le atingă capetele de rând.
+*.zip binary

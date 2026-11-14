@@ -8,14 +8,16 @@ import type { GlaConnection } from '@/lib/woocommerce/types'
 // Edinio știe sigur (are integrările lui). La WooCommerce, Hontrio vede doar
 // pluginurile: Google for WooCommerce își spune legăturile, celelalte doar că
 // sunt instalate. Shopify nu spune aplicațiilor ce canale de vânzare are
-// magazinul (aplicația Google & YouTube). Ce nu putem verifica e „de
+// magazinul (aplicația Google & YouTube). Gomag, MerchantPro și OpenCart nu
+// spun prin API dacă trimit produsele la Google sau măsoară conversia: se
+// verifică la lansare, din contul Google. Ce nu putem verifica e „de
 // verificat", nu „gata".
 // =============================================
 
 export type SetupStatus = 'ok' | 'missing' | 'unverified'
 
 export type StoreSetup = {
-  platform: 'edinio' | 'woocommerce' | 'shopify'
+  platform: 'edinio' | 'woocommerce' | 'shopify' | 'gomag' | 'merchantpro' | 'opencart'
   platformName: string
   merchant: { status: SetupStatus; via: string | null; href: string }
   conversion: { status: SetupStatus; via: string | null; href: string }
@@ -49,6 +51,13 @@ type WooData = {
 const edinioBase = () => (process.env.EDINIO_BASE_URL || 'https://www.edinio.com').replace(/\/+$/, '')
 /** Aplicația gratuită Google & YouTube: trimite produsele la Merchant Center și pune conversia. */
 const GOOGLE_APP = 'https://apps.shopify.com/google'
+/** Unde se leagă feedul și conversia când platforma nu ne spune: direct la Google. */
+const MERCHANT_CENTER = 'https://merchants.google.com/'
+const GOOGLE_ADS_CONVERSIONS = 'https://ads.google.com/aw/conversions'
+/** Panoul MerchantPro e același pentru toate magazinele. */
+const MERCHANTPRO_DASHBOARD = 'https://flex.merchantpro.com/dashboard'
+
+const PLATFORM_LABELS = { gomag: 'Gomag', merchantpro: 'MerchantPro', opencart: 'OpenCart' } as const
 
 export function storeSetup(store: StoreLike): StoreSetup | null {
   if (store.platform === 'edinio') {
@@ -116,6 +125,23 @@ export function storeSetup(store: StoreLike): StoreSetup | null {
       feed: { country: store.country, language: store.language },
       googleStatusKnown: false,
       productsHref: `${admin}/products`,
+    }
+  }
+
+  if (store.platform === 'gomag' || store.platform === 'merchantpro' || store.platform === 'opencart') {
+    const site = (store.store_url ?? '').replace(/\/+$/, '')
+    return {
+      platform: store.platform,
+      platformName: PLATFORM_LABELS[store.platform],
+      merchant: { status: 'unverified', via: null, href: MERCHANT_CENTER },
+      conversion: { status: 'unverified', via: null, href: GOOGLE_ADS_CONVERSIONS },
+      feed: { country: store.country, language: store.language },
+      googleStatusKnown: false,
+      // Panoul Gomag nu are o adresă publică documentată: magazinul (de acolo omul intră în panou).
+      // OpenCart: folderul implicit al panoului (unii îl redenumesc).
+      productsHref: store.platform === 'merchantpro' ? MERCHANTPRO_DASHBOARD
+        : store.platform === 'opencart' ? `${site}/admin/`
+        : site,
     }
   }
 

@@ -6,8 +6,9 @@ Google Shopping și Performance Max (doar pe feed) din produsele magazinului și
 oprește singur o campanie care pierde sigur bani și propune creșteri de buget, care se
 aplică doar cu aprobarea omului.
 
-Magazinele se leagă din Edinio, WooCommerce sau Shopify; campaniile rulează în contul
-Google Ads al omului, cu produsele din Merchant Center. Interfața e în română și engleză.
+Magazinele se leagă din Edinio, WooCommerce, Shopify, Gomag, MerchantPro sau OpenCart (cu
+extensia Hontrio); Hontrio doar citește din magazin. Campaniile rulează în contul Google Ads
+al omului, cu produsele din Merchant Center. Interfața e în română și engleză.
 
 ## Tehnologie
 
@@ -31,7 +32,8 @@ Migrările sunt în `migrations/` și se rulează în ordine, în Supabase.
 
 - `npm run dev`, `npm run build`, `npm run start`
 - `npm run lint`
-- `npm test`: testele din `tests/` (planul, grupele, pilotul, auditul, Merchant Center)
+- `npm test`: testele din `tests/` (planul, grupele, pilotul, auditul, Merchant Center, conectorii)
+- `node scripts/build-opencart.mjs`: arhivele extensiei OpenCart din `integrations/opencart` în `public/downloads`
 - `npm run i18n:check`: cheile de traducere (ro/en) și textele scrise direct în interfață
 
 ## Structura
@@ -48,9 +50,12 @@ lib/ads/             pilotul: auditul, bucla de optimizare, jurnalul
 lib/campaigns/       planul campaniei principale și grupele de produse
 lib/google/          Google Ads: OAuth, conturi, lansare, rapoarte
 lib/merchant/        Merchant Center
-lib/commerce/        modelul comun al magazinelor; lib/edinio, lib/woocommerce, lib/shopify
+lib/commerce/        modelul comun al magazinelor și motorul de sincronizare pe pagini (paged-sync);
+                     conectorii: lib/edinio, lib/woocommerce, lib/shopify, lib/gomag, lib/merchantpro, lib/opencart
+integrations/opencart/  extensia Hontrio pentru OpenCart 3 și 4 (PHP)
 lib/i18n/            traducerile (lib/i18n/messages/{ro,en})
 docs/campanii/       specificația campaniilor și a pilotului
+docs/integrari/      conectorii Gomag, MerchantPro și contractul extensiei OpenCart
 ```
 
 ## Cronuri (vercel.json)

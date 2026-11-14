@@ -5,7 +5,8 @@ import { bearerMatches } from '@/lib/security/compare'
 import { COMMERCE_PLATFORMS, syncCommerceStore, type SyncMode } from '@/lib/commerce/sync'
 
 // =============================================
-// Cron (la 15 minute): sincronizează magazinele Edinio, WooCommerce și Shopify.
+// Cron (la 15 minute): sincronizează magazinele de pe toate platformele (Edinio,
+// WooCommerce, Shopify, Gomag, MerchantPro, OpenCart).
 // Incremental de obicei; complet o dată pe zi, ca să prindă ștergerile.
 // O trecere completă rămasă la jumătate (magazin mare) continuă oricum.
 //

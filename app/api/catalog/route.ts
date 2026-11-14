@@ -6,6 +6,7 @@ import { logApiError } from '@/lib/logger'
 import { storeSetup } from '@/lib/commerce/setup'
 import { getActiveStore } from '@/lib/stores/active'
 import { getT } from '@/lib/i18n/server'
+import { storeDisplayName } from '@/lib/commerce/platforms'
 
 // =============================================
 // GET /api/catalog?days=30|90|365
@@ -48,7 +49,7 @@ export async function GET(request: Request) {
     id: store.id,
     platform: store.platform,
     platform_name: setup?.platformName ?? store.platform,
-    store_name: store.store_name,
+    store_name: storeDisplayName(store),
     store_url: store.store_url,
     currency: store.currency || 'RON',
     connection_status: store.connection_status,

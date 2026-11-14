@@ -61,7 +61,6 @@
   "account_details": "Account details",
   "member_since": "Member since",
   "danger_zone_desc": "The actions below are permanent and cannot be undone.",
-  "woo_active": "WooCommerce active",
   "how_get_api_keys": "How do I get API keys?",
   "update_pw_desc": "Update your account password",
   "pw_min_placeholder": "At least 8 characters",
@@ -104,8 +103,7 @@
   "delete_account_desc": "Deletes the account, the linked stores and all their data from Hontrio, and withdraws Hontrio's access to Google, Edinio and Shopify.",
   "section_stores": "Your stores",
   "section_connect_store": "Connect your store",
-  "section_add_store_desc": "Edinio links in one click. WooCommerce needs a REST key with read permission; Shopify is approved from your store.",
-  "shopify_active": "Shopify active",
+  "section_add_store_desc": "Edinio links in one click and Shopify is approved from your store. WooCommerce, Gomag and MerchantPro link with a read-only key; OpenCart, with the Hontrio extension.",
   "woo_subtitle": "WordPress, with REST API keys",
   "section_google": "Google",
   "section_google_desc": "The Google Ads account your campaigns run in and the Merchant Center Google takes your products from.",
@@ -132,5 +130,7 @@
   "delete_confirm_btn": "Delete the account",
   "delete_failed": "The deletion stopped before the end. Please try again; if it keeps failing, write to us.",
   "delete_done": "The account has been deleted.",
-  "delete_admin_blocked": "An admin account can't be deleted from here. Another admin must first remove your admin role."
+  "delete_admin_blocked": "An admin account can't be deleted from here. Another admin must first remove your admin role.",
+  "platform_active": "{{platform}} active",
+  "store_reconnected_msg": "The store’s keys were updated."
 }

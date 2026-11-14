@@ -9,6 +9,7 @@ import { buildRecommendations, CSS_COUNTRIES } from '@/lib/recommendations/engin
 import { loadPlanContext, STORE_PLAN_COLUMNS, statusesKnown, type PlanStore } from '@/lib/campaigns/context'
 import { merchantIdForStore, type BestSellerRow, type PriceCompetitivenessRow, type PriceInsightRow } from '@/lib/merchant/sync'
 import { getT } from '@/lib/i18n/server'
+import { storeDisplayName } from '@/lib/commerce/platforms'
 
 // =============================================
 // GET /api/recommendations
@@ -71,7 +72,7 @@ export async function GET() {
     store: {
       platform: store.platform,
       supported: true,
-      store_name: store.store_name,
+      store_name: storeDisplayName(store),
       currency: store.currency || 'RON',
       last_sync_at: store.last_sync_at,
       // Fără vânzări în ultimele 90 de zile, recomandările de stoc n-au pe ce se sprijini

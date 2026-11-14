@@ -60,8 +60,11 @@ export function PlanTab({ plan, audit, running, currency, groupNames, f, onSaveS
     if (!code) return null
     try { return new Intl.DisplayNames([intlLocale], { type }).of(code) ?? code } catch { return code }
   }
-  // De ce „de verificat": pluginul (WooCommerce) sau canalele pe care Shopify nu le spune
-  const launchCheck = plan.platform.id === 'shopify' ? 'campaigns.verified_at_launch_shopify' : 'campaigns.verified_at_launch'
+  // De ce „de verificat": pluginul (WooCommerce), canalele pe care Shopify nu le spune, sau
+  // platformele care nu spun prin API dacă trimit produsele la Google (Gomag, MerchantPro, OpenCart)
+  const launchCheck = plan.platform.id === 'shopify' ? 'campaigns.verified_at_launch_shopify'
+    : ['gomag', 'merchantpro', 'opencart'].includes(plan.platform.id) ? 'campaigns.verified_at_launch_platform'
+    : 'campaigns.verified_at_launch'
   const place = [nameOf('region', campaign.country), nameOf('language', campaign.language)].filter(Boolean).join(' · ')
   const aov = econ.aov !== null ? f.money.format(econ.aov) : '—'
   const muted = (text: string) => <span className="font-normal text-neutral-400">{text}</span>
@@ -82,7 +85,7 @@ export function PlanTab({ plan, audit, running, currency, groupNames, f, onSaveS
         : t.has(`campaigns.merchant_${campaign.merchant.status}`)
           ? t(`campaigns.merchant_${campaign.merchant.status}${campaign.merchant.via ? '' : '_unknown'}`, { via: campaign.merchant.via ?? '' })
           : t('campaigns.merchant_unverified_unknown'),
-      hint: campaign.merchant.status === 'unverified' ? t(launchCheck) : undefined,
+      hint: campaign.merchant.status === 'unverified' ? t(launchCheck, { platform: plan.platform.name }) : undefined,
     },
     {
       label: t('campaigns.row_conversion'),
@@ -90,7 +93,7 @@ export function PlanTab({ plan, audit, running, currency, groupNames, f, onSaveS
         : t.has(`campaigns.conversion_${campaign.conversion.status}`)
           ? t(`campaigns.conversion_${campaign.conversion.status}${campaign.conversion.via ? '' : '_unknown'}`, { via: campaign.conversion.via ?? '' })
           : t('campaigns.conversion_unverified_unknown'),
-      hint: campaign.conversion.status === 'unverified' ? t(launchCheck) : undefined,
+      hint: campaign.conversion.status === 'unverified' ? t(launchCheck, { platform: plan.platform.name }) : undefined,
     },
     starter ? {
       label: t('campaigns.row_bidding'),

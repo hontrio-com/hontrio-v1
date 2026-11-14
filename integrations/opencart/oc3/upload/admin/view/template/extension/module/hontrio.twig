@@ -1,0 +1,135 @@
+{{ header }}{{ column_left }}
+<div id="content">
+  <div class="page-header">
+    <div class="container-fluid">
+      <div class="pull-right">
+        {% if installed %}
+        <button type="submit" form="form-module" data-toggle="tooltip" title="{{ button_save }}" class="btn btn-primary"><i class="fa fa-save"></i></button>
+        {% endif %}
+        <a href="{{ cancel }}" data-toggle="tooltip" title="{{ button_cancel }}" class="btn btn-default"><i class="fa fa-reply"></i></a></div>
+      <h1>{{ heading_title }}</h1>
+      <ul class="breadcrumb">
+        {% for breadcrumb in breadcrumbs %}
+        <li><a href="{{ breadcrumb.href }}">{{ breadcrumb.text }}</a></li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+  <div class="container-fluid">
+    {% if error_warning %}
+    <div class="alert alert-danger alert-dismissible"><i class="fa fa-exclamation-circle"></i> {{ error_warning }}
+      <button type="button" class="close" data-dismiss="alert">&times;</button>
+    </div>
+    {% endif %}
+    {% if success %}
+    <div class="alert alert-success alert-dismissible"><i class="fa fa-check-circle"></i> {{ success }}
+      <button type="button" class="close" data-dismiss="alert">&times;</button>
+    </div>
+    {% endif %}
+    {% if not installed %}
+    <div class="alert alert-warning"><i class="fa fa-exclamation-triangle"></i> {{ text_not_installed }}</div>
+    {% else %}
+    <div class="panel panel-default">
+      <div class="panel-heading">
+        <h3 class="panel-title"><i class="fa fa-link"></i> {{ text_steps }}</h3>
+      </div>
+      <div class="panel-body">
+        <p>{{ text_intro }}</p>
+        <ol>
+          <li>{{ text_step_1 }}</li>
+          <li>{{ text_step_2 }}</li>
+          <li>{{ text_step_3 }}</li>
+        </ol>
+        <p class="text-muted">{{ text_reads }}</p>
+      </div>
+    </div>
+    <div class="panel panel-default">
+      <div class="panel-heading">
+        <h3 class="panel-title"><i class="fa fa-pencil"></i> {{ text_edit }}</h3>
+      </div>
+      <div class="panel-body">
+        <form action="{{ action }}" method="post" enctype="multipart/form-data" id="form-module" class="form-horizontal">
+          <div class="form-group">
+            <label class="col-sm-2 control-label" for="input-store-url">{{ entry_store_url }}</label>
+            <div class="col-sm-10">
+              <input type="text" id="input-store-url" value="{{ store_url }}" class="form-control" readonly="readonly"/>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="col-sm-2 control-label" for="input-key">{{ entry_key }}</label>
+            <div class="col-sm-10">
+              <div class="input-group">
+                <input type="text" id="input-key" value="{{ key }}" class="form-control" readonly="readonly" style="font-family: monospace;"/>
+                <span class="input-group-btn">
+                  <button type="button" id="button-copy" class="btn btn-default"><i class="fa fa-copy"></i> <span id="button-copy-text">{{ button_copy }}</span></button>
+                </span>
+              </div>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="col-sm-2 control-label" for="input-status">{{ entry_status }}</label>
+            <div class="col-sm-10">
+              <select name="module_hontrio_status" id="input-status" class="form-control">
+                <option value="1"{% if module_hontrio_status %} selected="selected"{% endif %}>{{ text_enabled }}</option>
+                <option value="0"{% if not module_hontrio_status %} selected="selected"{% endif %}>{{ text_disabled }}</option>
+              </select>
+              <span class="help-block">{{ text_status_help }}</span>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="col-sm-2 control-label" for="input-tracking">{{ entry_tracking }}</label>
+            <div class="col-sm-10">
+              <select name="module_hontrio_tracking" id="input-tracking" class="form-control">
+                <option value="1"{% if module_hontrio_tracking %} selected="selected"{% endif %}>{{ text_enabled }}</option>
+                <option value="0"{% if not module_hontrio_tracking %} selected="selected"{% endif %}>{{ text_disabled }}</option>
+              </select>
+              <span class="help-block">{{ text_tracking_help }}</span>
+            </div>
+          </div>
+        </form>
+        <form action="{{ regenerate }}" method="post" id="form-regenerate" class="form-horizontal">
+          <div class="form-group">
+            <div class="col-sm-offset-2 col-sm-10">
+              <button type="submit" id="button-regenerate" class="btn btn-warning"><i class="fa fa-refresh"></i> {{ button_regenerate }}</button>
+              <span class="help-block">{{ text_regenerate_help }}</span>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+<script type="text/javascript"><!--
+(function () {
+  var copy = document.getElementById('button-copy');
+  if (copy) {
+    copy.addEventListener('click', function () {
+      var input = document.getElementById('input-key');
+      var done = function () {
+        var label = document.getElementById('button-copy-text');
+        label.textContent = '{{ text_copied|escape('js') }}';
+        setTimeout(function () { label.textContent = '{{ button_copy|escape('js') }}'; }, 2000);
+      };
+      if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(input.value).then(done);
+      } else {
+        input.removeAttribute('readonly');
+        input.select();
+        document.execCommand('copy');
+        input.setAttribute('readonly', 'readonly');
+        done();
+      }
+    });
+  }
+  var regenerate = document.getElementById('form-regenerate');
+  if (regenerate) {
+    regenerate.addEventListener('submit', function (event) {
+      if (!confirm('{{ text_regenerate_confirm|escape('js') }}')) {
+        event.preventDefault();
+      }
+    });
+  }
+})();
+//--></script>
+{{ footer }}

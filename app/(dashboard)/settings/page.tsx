@@ -28,6 +28,10 @@ import { FadeIn } from '@/components/app/motion'
 import GoogleAdsCard from '@/components/integrations/google-ads-card'
 import MerchantCard from '@/components/integrations/merchant-card'
 import { EdinioConnectCard, EdinioStoreCard, type EdinioStore } from '@/components/integrations/edinio-card'
+import { KEY_PLATFORM_ICONS, KeyStoreForm, type KeyStorePlatform } from '@/components/integrations/key-store-form'
+import { platformName } from '@/lib/commerce/platforms'
+
+const KEY_FORMS: KeyStorePlatform[] = ['gomag', 'merchantpro', 'opencart']
 
 // =============================================
 // Setări — contul, integrările (magazinele, Google Ads, Merchant Center),
@@ -76,6 +80,13 @@ function Section({ title, description, children }: { title: ReactNode; descripti
       <div className="min-w-0 space-y-4">{children}</div>
     </section>
   )
+}
+
+/** Iconița magazinului, după platformă. */
+function storeIcon(platform: string) {
+  if (platform === 'shopify') return <Zap />
+  const Icon = KEY_FORMS.includes(platform as KeyStorePlatform) ? KEY_PLATFORM_ICONS[platform as KeyStorePlatform] : Store
+  return <Icon />
 }
 
 /** Eticheta unui câmp, cu câmpul sub ea. */
@@ -279,8 +290,8 @@ function SettingsView() {
       const r = await fetch('/api/stores/connect', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(storeForm) })
       const d = await r.json()
       if (!r.ok) { toast.error(d.error); return }
-      // Magazinul nou devine cel activ (serverul l-a ales); îl vedem în listă
-      toast.success(t('settings.store_connected_msg')); setStoreForm({ store_url: '', consumer_key: '', consumer_secret: '' }); setConnTest(null)
+      // Magazinul nou devine cel activ (serverul l-a ales); îl vedem în listă. Același magazin din nou = cheile noi
+      toast.success(t(d.reconnected ? 'settings.store_reconnected_msg' : 'settings.store_connected_msg')); setStoreForm({ store_url: '', consumer_key: '', consumer_secret: '' }); setConnTest(null)
       await fetchStore()
     } catch { toast.error(t('settings.error_connect')) } finally { setConnecting(false) }
   }
@@ -482,8 +493,8 @@ function SettingsView() {
                       onDisconnected={() => { fetchStore(); toast.success(t('settings.store_disconnected')) }} />
                   ) : (
                     <Card key={s.id}>
-                      <CardHeader icon={s.platform === 'shopify' ? <Zap /> : <Store />} title={s.store_name || s.store_url.replace(/^https?:\/\//, '')}
-                        description={s.platform === 'shopify' ? t('settings.shopify_active') : t('settings.woo_active')}
+                      <CardHeader icon={storeIcon(s.platform)} title={s.store_name || s.store_url.replace(/^https?:\/\//, '')}
+                        description={t('settings.platform_active', { platform: platformName(s.platform) })}
                         action={<>
                           {switcher}
                           {s.connection_status === 'revoked' || s.connection_status === 'error'
@@ -571,6 +582,14 @@ function SettingsView() {
                     </Button>
                   </div>
                 </Card>
+
+                {/* Gomag, MerchantPro, OpenCart: cheile, verificate la platformă */}
+                {KEY_FORMS.map(p => (
+                  <KeyStoreForm key={p} platform={p} variant="settings" onConnected={(_, reconnected) => {
+                    toast.success(t(reconnected ? 'settings.store_reconnected_msg' : 'settings.store_connected_msg'))
+                    fetchStore()
+                  }} />
+                ))}
               </div>
             </Section>
 

@@ -3,18 +3,19 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/auth.config'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { rateLimitSync } from '@/lib/security/rate-limit'
-import { isCommercePlatform, syncCommerceStore } from '@/lib/commerce/sync'
+import { syncCommerceStore } from '@/lib/commerce/sync'
+import { isCommercePlatform, PLATFORM_NAMES } from '@/lib/commerce/platforms'
 import { getT } from '@/lib/i18n/server'
 
 // =============================================
 // POST /api/stores/[id]/sync — „Sincronizează acum"
-// Edinio, WooCommerce și Shopify: ofertele și comenzile, în modelul comun de reclame.
+// Toate platformele: ofertele și comenzile, în modelul comun de reclame.
+// Pornită de om, încearcă și un magazin cu cheia refuzată (Gomag, MerchantPro,
+// OpenCart): poate omul a reparat drepturile cheii între timp.
 // =============================================
 
 // Vercel: permite până la 5 minute pentru sincronizare
 export const maxDuration = 300
-
-const PLATFORM_NAMES: Record<string, string> = { edinio: 'Edinio', woocommerce: 'WooCommerce', shopify: 'Shopify' }
 
 export async function POST(
   _request: Request,
@@ -55,9 +56,9 @@ export async function POST(
     }
 
     // Un magazin mare continuă la sincronizările următoare (`complete: false`)
-    const result = await syncCommerceStore(store.id, store.platform, 'full', { deadline: Date.now() + 240_000 })
+    const result = await syncCommerceStore(store.id, store.platform, 'full', { deadline: Date.now() + 240_000, manual: true })
     if (!result.ok) {
-      // Revocat: ce face omul când platforma nu mai dă acces (sync.revoked_edinio / _woocommerce / _shopify)
+      // Revocat: ce face omul când platforma nu mai dă acces (sync.revoked_{platformă})
       const error = result.reason === 'locked' ? t('sync.already_running')
         : result.reason === 'revoked' ? t(`sync.revoked_${store.platform}`)
         : t('sync.platform_sync_failed', { platform: PLATFORM_NAMES[store.platform] })
