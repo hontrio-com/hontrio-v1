@@ -2,7 +2,7 @@
   "subtitle": "Connect your account to run campaigns",
   "connect": "Connect with Google",
   "reconnect": "Reconnect Google",
-  "connect_desc": "We'll send you to Google to give Hontrio access to Google Ads and Merchant Center. We read campaigns, budgets, results, search terms and product statuses. We create and look after Hontrio's campaigns in your account and add a “Hontrio” data source in Merchant Center; your existing campaigns change only if you choose so at launch. You pay Google directly for the ads, and you can revoke access at any time.",
+  "connect_desc": "You’ll authorize Hontrio’s access to Google Ads and Merchant Center in Google. Hontrio reads campaigns, budgets, results, search terms and product statuses, creates and manages Hontrio’s campaigns in your account, and adds a “Hontrio” data source in Merchant Center. Your existing campaigns change only if you choose so at launch. Ads are paid directly to Google, and access can be revoked at any time.",
   "no_account": "No Google Ads account? Create one",
   "revoked": "Access revoked",
   "revoked_desc": "Hontrio's access to your Google account was revoked or expired. Reconnect the account to continue.",

@@ -1,8 +1,7 @@
 'use client'
 
 import { useId, useState } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
-import { ChevronRight, Download, Eye, EyeOff, Globe, KeyRound, LayoutGrid, Lock, Plug, ShoppingBag, ShoppingCart, Wifi } from 'lucide-react'
+import { Download, Eye, EyeOff, Globe, KeyRound, LayoutGrid, Lock, Plug, ShoppingBag, ShoppingCart, Wifi } from 'lucide-react'
 import { useT } from '@/lib/i18n/context'
 import { cn } from '@/lib/utils'
 import { PLATFORM_NAMES } from '@/lib/commerce/platforms'
@@ -11,6 +10,7 @@ import { Button } from '@/components/app/button'
 import { Callout } from '@/components/app/feedback'
 import { inputStyles } from '@/components/app/input'
 import { Card, CardHeader } from '@/components/app/surface'
+import { Tutorial } from '@/components/integrations/tutorial'
 
 // =============================================
 // Conectarea unui magazin Gomag, MerchantPro sau OpenCart (cu chei), aceeași în
@@ -39,36 +39,6 @@ export const KEY_PLATFORM_ICONS: Record<KeyStorePlatform, typeof Globe> = { goma
 export type ConnectedStore = { id: string; store_name: string | null; store_url: string }
 
 const EMPTY: Record<FieldName, string> = { store_url: '', api_key: '', api_secret: '' }
-
-/** „Cum obții datele de conectare?": pașii, ascunși până îi ceri (onboarding). */
-export function Tutorial({ title, steps }: { title: string; steps: { title: string; desc: string }[] }) {
-  const [open, setOpen] = useState(false)
-  return (
-    <div>
-      <button type="button" onClick={() => setOpen(o => !o)} aria-expanded={open}
-        className="flex w-full items-center justify-between gap-3 rounded-xl bg-neutral-50 px-3.5 py-2.5 text-left text-[13px] font-medium text-neutral-700 ring-1 ring-inset ring-neutral-200/70 transition-colors hover:bg-neutral-100/70">
-        {title}<ChevronRight className={cn('size-4 shrink-0 text-neutral-400 transition-transform', open && 'rotate-90')} />
-      </button>
-      <AnimatePresence initial={false}>
-        {open && (
-          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.25 }} className="overflow-hidden">
-            <ol className="space-y-3 px-1 pb-1 pt-3.5">
-              {steps.map((s, i) => (
-                <li key={s.title} className="flex gap-3">
-                  <span className="grid size-5 shrink-0 place-items-center rounded-full bg-neutral-100 font-mono text-[10px] font-semibold text-neutral-600">{i + 1}</span>
-                  <span className="text-[13px] leading-relaxed text-neutral-600">
-                    <span className="block font-semibold text-neutral-900">{s.title}</span>
-                    {s.desc}
-                  </span>
-                </li>
-              ))}
-            </ol>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  )
-}
 
 export function KeyStoreForm({ platform, variant, onConnected }: {
   platform: KeyStorePlatform
@@ -184,7 +154,7 @@ export function KeyStoreForm({ platform, variant, onConnected }: {
   if (onboarding) {
     return (
       <div className="space-y-4">
-        <Tutorial title={t('integrations.tutorial_title')}
+        <Tutorial title={t('integrations.tutorial_title')} platform={platform}
           steps={STEPS[platform].map(n => ({ title: t(`integrations.${platform}_step_${n}_title`), desc: t(`integrations.${platform}_step_${n}_desc`) }))} />
         {downloads}
         {fieldList}

@@ -2,7 +2,7 @@
   "subtitle": "Conectează contul pentru a rula campanii",
   "connect": "Conectează cu Google",
   "reconnect": "Reconectează Google",
-  "connect_desc": "Te trimitem la Google ca să-i dai lui Hontrio acces la Google Ads și Merchant Center. Citim campaniile, bugetele, rezultatele, termenii de căutare și starea produselor. Facem și îngrijim campaniile Hontrio în contul tău și adăugăm în Merchant Center o sursă de date „Hontrio”; campaniile tale existente le schimbăm doar dacă alegi asta la lansare. Reclamele le plătești direct la Google, iar accesul îl poți retrage oricând.",
+  "connect_desc": "Vei autoriza în Google accesul lui Hontrio la Google Ads și Merchant Center. Hontrio citește campaniile, bugetele, rezultatele, termenii de căutare și starea produselor, creează și administrează campaniile Hontrio în contul tău și adaugă în Merchant Center o sursă de date „Hontrio”. Campaniile existente se modifică doar dacă alegi asta la lansare. Reclamele se plătesc direct către Google, iar accesul poate fi retras oricând.",
   "no_account": "Nu ai cont Google Ads? Creează unul",
   "revoked": "Acces revocat",
   "revoked_desc": "Accesul Hontrio la contul Google a fost revocat sau a expirat. Reconectează contul ca să continuăm.",

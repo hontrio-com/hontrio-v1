@@ -11,7 +11,8 @@ import { Button } from '@/components/app/button'
 import { Callout } from '@/components/app/feedback'
 import { inputStyles } from '@/components/app/input'
 import { GoogleMark } from '@/components/integrations/google-mark'
-import { KeyStoreForm, Tutorial, type KeyStorePlatform } from '@/components/integrations/key-store-form'
+import { KeyStoreForm, type KeyStorePlatform } from '@/components/integrations/key-store-form'
+import { Tutorial } from '@/components/integrations/tutorial'
 import { PlatformLogo } from '@/components/integrations/platform-logo'
 import { MotionPanel } from '@/components/onboarding/motion-panel'
 import { PLATFORM_NAMES, type CommercePlatform } from '@/lib/commerce/platforms'
@@ -361,7 +362,7 @@ export default function OnboardingPage() {
 
                       {chosen.id === 'woocommerce' && (
                         <div className="space-y-4">
-                          <Tutorial title={t('integrations.tutorial_title')}
+                          <Tutorial title={t('integrations.tutorial_title')} platform="woocommerce"
                             steps={WOO_TUTORIAL.map(n => ({ title: t(`onboarding.woo_tut_${n}_title`), desc: t(`onboarding.woo_tut_${n}_desc`) }))} />
                           {/* Nu e un formular de autentificare: managerul de parole nu are ce completa aici */}
                           <InputField label={t('onboarding.store_url')} value={woo.store_url} onChange={v => setWoo(p => ({ ...p, store_url: v }))}
