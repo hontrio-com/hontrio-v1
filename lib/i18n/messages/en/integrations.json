@@ -1,6 +1,5 @@
 {
   "tutorial_title": "How do you get the connection details?",
-  "tutorial_hint": "Step by step, in {{platform}}",
   "test_ok": "It works: {{platform}} answered and the key can read products and orders.",
   "gomag_subtitle": "With an API key",
   "gomag_desc": "Hontrio reads products and orders from Gomag with an API key. It doesn’t change anything in your store.",

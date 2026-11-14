@@ -1,6 +1,5 @@
 {
   "tutorial_title": "Cum obții datele de conectare?",
-  "tutorial_hint": "Pas cu pas, în {{platform}}",
   "test_ok": "Merge: {{platform}} a răspuns, iar cheia poate citi produsele și comenzile.",
   "gomag_subtitle": "Cu o cheie API",
   "gomag_desc": "Hontrio citește din Gomag produsele și comenzile, cu o cheie API. Nu modifică nimic în magazin.",

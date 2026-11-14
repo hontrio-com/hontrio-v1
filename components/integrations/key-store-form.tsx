@@ -1,7 +1,8 @@
 'use client'
 
 import { useId, useState } from 'react'
-import { ChevronRight, Download, Eye, EyeOff, Globe, Info, KeyRound, LayoutGrid, Lock, Plug, ShoppingBag, ShoppingCart, Wifi } from 'lucide-react'
+import { AnimatePresence, motion } from 'framer-motion'
+import { ChevronRight, Download, Eye, EyeOff, Globe, KeyRound, LayoutGrid, Lock, Plug, ShoppingBag, ShoppingCart, Wifi } from 'lucide-react'
 import { useT } from '@/lib/i18n/context'
 import { cn } from '@/lib/utils'
 import { PLATFORM_NAMES } from '@/lib/commerce/platforms'
@@ -39,6 +40,36 @@ export type ConnectedStore = { id: string; store_name: string | null; store_url:
 
 const EMPTY: Record<FieldName, string> = { store_url: '', api_key: '', api_secret: '' }
 
+/** „Cum obții datele de conectare?": pașii, ascunși până îi ceri (onboarding). */
+export function Tutorial({ title, steps }: { title: string; steps: { title: string; desc: string }[] }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div>
+      <button type="button" onClick={() => setOpen(o => !o)} aria-expanded={open}
+        className="flex w-full items-center justify-between gap-3 rounded-xl bg-neutral-50 px-3.5 py-2.5 text-left text-[13px] font-medium text-neutral-700 ring-1 ring-inset ring-neutral-200/70 transition-colors hover:bg-neutral-100/70">
+        {title}<ChevronRight className={cn('size-4 shrink-0 text-neutral-400 transition-transform', open && 'rotate-90')} />
+      </button>
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.25 }} className="overflow-hidden">
+            <ol className="space-y-3 px-1 pb-1 pt-3.5">
+              {steps.map((s, i) => (
+                <li key={s.title} className="flex gap-3">
+                  <span className="grid size-5 shrink-0 place-items-center rounded-full bg-neutral-100 font-mono text-[10px] font-semibold text-neutral-600">{i + 1}</span>
+                  <span className="text-[13px] leading-relaxed text-neutral-600">
+                    <span className="block font-semibold text-neutral-900">{s.title}</span>
+                    {s.desc}
+                  </span>
+                </li>
+              ))}
+            </ol>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  )
+}
+
 export function KeyStoreForm({ platform, variant, onConnected }: {
   platform: KeyStorePlatform
   variant: 'onboarding' | 'settings'
@@ -48,7 +79,6 @@ export function KeyStoreForm({ platform, variant, onConnected }: {
   const idBase = useId()
   const [values, setValues] = useState(EMPTY)
   const [shown, setShown] = useState(false)
-  const [tutorial, setTutorial] = useState(false)
   const [busy, setBusy] = useState<'' | 'test' | 'connect'>('')
   const [result, setResult] = useState<{ ok: boolean; text: string } | null>(null)
   const fields = FIELDS[platform]
@@ -122,7 +152,7 @@ export function KeyStoreForm({ platform, variant, onConnected }: {
   })
 
   const steps = (
-    <ol className={cn('space-y-3', onboarding ? 'rounded-2xl border border-line bg-white p-4' : 'mt-2')}>
+    <ol className="mt-2 space-y-3">
       {STEPS[platform].map(n => (
         <li key={n} className="flex gap-3">
           <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-neutral-100 font-mono text-[11px] font-semibold text-neutral-600">{n}</span>
@@ -150,22 +180,12 @@ export function KeyStoreForm({ platform, variant, onConnected }: {
 
   const feedback = result && <Callout tone={result.ok ? 'success' : 'danger'}>{result.text}</Callout>
 
+  // În onboarding, titlul și descrierea platformei le pune pagina; aici, pașii și câmpurile
   if (onboarding) {
     return (
-      <div className="space-y-3.5">
-        <p className="rounded-2xl bg-neutral-50 p-4 text-[13px] leading-relaxed text-neutral-600 ring-1 ring-black/5">{t(`integrations.${platform}_desc`)}</p>
-        <button type="button" onClick={() => setTutorial(s => !s)} aria-expanded={tutorial}
-          className="w-full rounded-2xl border border-line bg-white p-3.5 text-left transition-colors hover:border-neutral-300">
-          <div className="flex items-center gap-3">
-            <span className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-neutral-100 text-neutral-600"><Info className="size-4" /></span>
-            <div className="flex-1">
-              <p className="text-[13px] font-semibold text-neutral-950">{t('integrations.tutorial_title')}</p>
-              <p className="text-[12px] text-neutral-500">{t('integrations.tutorial_hint', { platform: name })}</p>
-            </div>
-            <ChevronRight className={cn('size-4 text-neutral-400 transition-transform', tutorial && 'rotate-90')} />
-          </div>
-        </button>
-        {tutorial && steps}
+      <div className="space-y-4">
+        <Tutorial title={t('integrations.tutorial_title')}
+          steps={STEPS[platform].map(n => ({ title: t(`integrations.${platform}_step_${n}_title`), desc: t(`integrations.${platform}_step_${n}_desc`) }))} />
         {downloads}
         {fieldList}
         {feedback}
