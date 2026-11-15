@@ -78,11 +78,10 @@ function InputField({ label, value, onChange, placeholder, type = 'text', mono =
   )
 }
 
-/** Titlul unui pas: rândul mic de deasupra, titlul mare, descrierea. */
-function Title({ kicker, title, desc }: { kicker?: string; title: string; desc?: ReactNode }) {
+/** Titlul unui pas: titlul mare și descrierea. */
+function Title({ title, desc }: { title: string; desc?: ReactNode }) {
   return (
     <div>
-      {kicker && <p className="mb-2 text-[13px] font-medium text-neutral-500">{kicker}</p>}
       <h1 className="text-balance text-[32px] font-bold leading-[1.08] tracking-[-0.04em] sm:text-[38px]">{title}</h1>
       {desc && <p className="mt-3 text-[15px] leading-relaxed text-neutral-600">{desc}</p>}
     </div>
@@ -446,10 +445,12 @@ export default function OnboardingPage() {
                 {/* ═══ GATA ═══ */}
                 {screen === 'done' && (
                   <div>
-                    <Title kicker={t('onboarding.done_kicker')} title={t('onboarding.done_title')} desc={t('onboarding.done_desc')} />
+                    {/* „Configurat" doar dacă magazinul și Google Ads chiar sunt conectate; altfel, contul e doar creat */}
+                    <Title title={t(store && google.connected ? 'onboarding.done_title' : 'onboarding.done_title_partial')}
+                      desc={t(store && google.connected ? 'onboarding.done_desc' : 'onboarding.done_desc_partial')} />
                     <ul className="mt-7 divide-y divide-line rounded-2xl border border-line">
                       {[
-                        { label: t('onboarding.account_created'), done: true, value: t('onboarding.active_label') },
+                        { label: t('onboarding.account_created'), done: true, value: session?.user?.email ?? '' },
                         { label: t('onboarding.summary_store'), done: !!store, value: store ? storeLabel : t('onboarding.skipped_label') },
                         { label: t('onboarding.summary_data'), done: !!store?.last_sync_at, value: store ? t('onboarding.summary_data_value', counts(store)) : t('onboarding.skipped_label') },
                         { label: 'Google Ads', done: google.connected, value: google.connected ? (google.storeAccount ?? t('onboarding.connected_label')) : t('onboarding.skipped_label') },

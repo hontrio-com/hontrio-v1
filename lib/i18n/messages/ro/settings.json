@@ -49,7 +49,7 @@
   "error_network": "Eroare de rețea. Încearcă din nou.",
   "prefs_saved": "Preferințe salvate!",
   "conn_ok_full": "Conexiune reușită! Magazinul răspunde.",
-  "conn_cant_connect": "Nu ne-am putut conecta. Verifică adresa și dacă site-ul e online.",
+  "conn_cant_connect": "Nu ne-am putut conecta. Verifică adresa și dacă site-ul este online.",
   "store_connected_msg": "Magazin conectat!",
   "error_connect": "Nu am putut conecta magazinul. Încearcă din nou.",
   "sync_complete_one": "Sincronizare completă: {{count}} produs.",

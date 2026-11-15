@@ -28,6 +28,6 @@
   "error_store_read": "Nu am putut citi datele magazinului din Edinio. Încearcă din nou.",
   "error_save": "Nu am putut salva magazinul. Încearcă din nou.",
   "error_rate_limited": "Prea multe încercări. Așteaptă un minut și încearcă din nou.",
-  "error_not_configured": "Conectarea cu Edinio nu este configurată pe server.",
-  "error_generic": "Conectarea cu Edinio a eșuat. Încearcă din nou."
+  "error_not_configured": "Conectarea cu Edinio nu este disponibilă momentan. Scrie-ne la suport.",
+  "error_generic": "Conectarea cu Edinio nu a reușit. Încearcă din nou."
 }

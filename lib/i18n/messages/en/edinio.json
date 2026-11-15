@@ -28,6 +28,6 @@
   "error_store_read": "We could not read your store data from Edinio. Please try again.",
   "error_save": "We could not save the store. Please try again.",
   "error_rate_limited": "Too many attempts. Wait a minute and try again.",
-  "error_not_configured": "The Edinio connection is not configured on the server.",
+  "error_not_configured": "Connecting to Edinio isn’t available right now. Please contact support.",
   "error_generic": "Connecting to Edinio failed. Please try again."
 }
