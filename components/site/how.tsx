@@ -33,7 +33,7 @@ export function HowItWorks() {
     <section id="how" className="scroll-mt-24 px-2 sm:px-4">
       <IsoFilters />
       <div className="mx-auto max-w-[1440px] rounded-[1.75rem] bg-black px-5 py-20 text-white sm:rounded-[2.5rem] sm:px-8 md:py-28 lg:px-12">
-        <Reveal className="mx-auto max-w-3xl text-center">
+        <Reveal className="mx-auto max-w-4xl text-center">
           <h2 className={cn('text-balance', TITLE_SIZE, TITLE)}>
             <TwoTone dark a={t('site.how_title_a')} b={t('site.how_title_b')} lineBreak="sm" />
           </h2>

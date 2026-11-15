@@ -4,7 +4,7 @@ import { useT } from '@/lib/i18n/context'
 import { PRICING, type PricingCurrency } from '@/lib/pricing'
 
 // =============================================
-// Prețurile de pe prima pagină („Plătești doar din ce vinzi”, price-teaser.tsx): moneda
+// Prețurile de pe prima pagină („Plătești doar din vânzările aduse de Hontrio”, price-teaser.tsx): moneda
 // după limbă (lei în română, euro în engleză) și sumele scrise în limba paginii.
 // Socoteala (taxa, treapta, procentul) e doar în lib/pricing.ts.
 // =============================================

@@ -7,7 +7,7 @@ import { SectionHeader } from './section'
 import { AdsSim, AdsSteps } from './optimize-ads/ads-sim'
 
 // =============================================
-// Varianta 2 a secțiunii „campanii optimizate la maxim, pe pilot automat":
+// Varianta 2 a secțiunii „Pilotul automat lucrează direct în contul tău Google Ads”:
 // pilotul, direct în contul Google Ads al magazinului. Fereastra rămâne fixată
 // cât derulezi (ca în capul paginii), iar derularea o duce pas cu pas: căutările
 // care au costat fără vânzări devin cuvinte negative exacte, produsele care

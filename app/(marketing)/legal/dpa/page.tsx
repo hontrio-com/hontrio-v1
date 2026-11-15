@@ -47,7 +47,7 @@ const RO: LegalDoc = {
     },
     {
       id: 'asistenta', title: 'Asistență pentru evaluări',
-      body: <P>Îți dăm informațiile de care ai nevoie pentru evaluarea impactului asupra protecției datelor și pentru consultarea autorității de supraveghere, în legătură cu prelucrarea făcută de noi (art. 32–36 GDPR).</P>,
+      body: <P>Îți dăm informațiile de care ai nevoie pentru evaluarea impactului asupra protecției datelor și pentru consultarea autorității de supraveghere, în legătură cu prelucrarea făcută de noi (art. 32-36 GDPR).</P>,
     },
     {
       id: 'incidente', title: 'Încălcarea securității datelor',
@@ -157,7 +157,7 @@ const EN: LegalDoc = {
     },
     {
       id: 'assistance', title: 'Assistance with assessments',
-      body: <P>We give you the information you need for a data protection impact assessment and for consulting the supervisory authority, regarding the processing we carry out (Art. 32–36 GDPR).</P>,
+      body: <P>We give you the information you need for a data protection impact assessment and for consulting the supervisory authority, regarding the processing we carry out (Art. 32-36 GDPR).</P>,
     },
     {
       id: 'breaches', title: 'Personal data breaches',

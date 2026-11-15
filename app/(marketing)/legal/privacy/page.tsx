@@ -123,7 +123,7 @@ const RO: LegalDoc = {
         <P>Nu vindem date. Le dăm doar furnizorilor de mai jos, care lucrează pentru noi pe bază de contract, cu obligații de confidențialitate și de securitate:</P>
         <Table head={['Furnizor', 'Ce face pentru Hontrio', 'Unde', 'Garanții pentru transfer']} rows={[
           ['Supabase', 'Baza de date, autentificarea, stocarea fișierelor', 'UE, Irlanda (AWS eu-west-1)', 'Datele stau în UE; pentru un eventual acces al furnizorului din afara SEE, clauzele contractuale standard'],
-          ['Vercel', 'Găzduirea și rularea aplicației', 'UE, Irlanda (Dublin); paginile publice se livrează prin rețeaua globală a furnizorului', 'Clauzele contractuale standard sau cadrul UE–SUA privind protecția datelor (DPF)'],
+          ['Vercel', 'Găzduirea și rularea aplicației', 'UE, Irlanda (Dublin); paginile publice se livrează prin rețeaua globală a furnizorului', 'Clauzele contractuale standard sau cadrul UE-SUA privind protecția datelor (DPF)'],
           ['Resend', 'Trimiterea e-mailurilor', 'SUA', 'Clauzele contractuale standard sau DPF'],
           ['Upstash', 'Limitarea încercărilor repetate, după adresa IP', 'SUA / UE', 'Clauzele contractuale standard'],
           ['Google', 'Google Ads API și Merchant API (pentru conturile tale), intrarea cu Google, Google Analytics 4 (doar cu acordul tău)', 'UE și SUA', 'Clauzele contractuale standard sau DPF'],
@@ -135,7 +135,7 @@ const RO: LegalDoc = {
     },
     {
       id: 'transferuri', title: 'Transferuri în afara Spațiului Economic European',
-      body: <P>Unii furnizori sunt companii din SUA sau trimit date acolo (de exemplu Resend, pentru e-mailuri). Transferurile se fac doar cu garanțiile din capitolul V GDPR: decizia de adecvare pentru cadrul UE–SUA privind protecția datelor (Data Privacy Framework), pentru furnizorii certificați, sau clauzele contractuale standard aprobate de Comisia Europeană. Ne poți cere o copie a garanțiilor la <Mail to="privacy@hontrio.com" />.</P>,
+      body: <P>Unii furnizori sunt companii din SUA sau trimit date acolo (de exemplu Resend, pentru e-mailuri). Transferurile se fac doar cu garanțiile din capitolul V GDPR: decizia de adecvare pentru cadrul UE-SUA privind protecția datelor (Data Privacy Framework), pentru furnizorii certificați, sau clauzele contractuale standard aprobate de Comisia Europeană. Ne poți cere o copie a garanțiilor la <Mail to="privacy@hontrio.com" />.</P>,
     },
     {
       id: 'emailuri', title: 'E-mailurile pe care ți le trimitem',
@@ -321,7 +321,7 @@ const EN: LegalDoc = {
         <P>We do not sell data. We share it only with the providers below, who work for us under contract, with confidentiality and security obligations:</P>
         <Table head={['Provider', 'What it does for Hontrio', 'Where', 'Transfer safeguards']} rows={[
           ['Supabase', 'Database, authentication, file storage', 'EU, Ireland (AWS eu-west-1)', 'Data stays in the EU; for any access by the provider from outside the EEA, the standard contractual clauses'],
-          ['Vercel', 'Hosting and running the application', 'EU, Ireland (Dublin); public pages are delivered through the provider’s global network', 'Standard contractual clauses or the EU–US Data Privacy Framework (DPF)'],
+          ['Vercel', 'Hosting and running the application', 'EU, Ireland (Dublin); public pages are delivered through the provider’s global network', 'Standard contractual clauses or the EU-US Data Privacy Framework (DPF)'],
           ['Resend', 'Sending emails', 'USA', 'Standard contractual clauses or DPF'],
           ['Upstash', 'Limiting repeated attempts, by IP address', 'USA / EU', 'Standard contractual clauses'],
           ['Google', 'Google Ads API and Merchant API (for your accounts), sign-in with Google, Google Analytics 4 (only with your consent)', 'EU and USA', 'Standard contractual clauses or DPF'],
@@ -333,7 +333,7 @@ const EN: LegalDoc = {
     },
     {
       id: 'transfers', title: 'Transfers outside the European Economic Area',
-      body: <P>Some providers are US companies or send data there (for example Resend, for emails). Transfers are made only with the safeguards of Chapter V GDPR: the adequacy decision for the EU–US Data Privacy Framework, for certified providers, or the standard contractual clauses approved by the European Commission. You can ask us for a copy of the safeguards at <Mail to="privacy@hontrio.com" />.</P>,
+      body: <P>Some providers are US companies or send data there (for example Resend, for emails). Transfers are made only with the safeguards of Chapter V GDPR: the adequacy decision for the EU-US Data Privacy Framework, for certified providers, or the standard contractual clauses approved by the European Commission. You can ask us for a copy of the safeguards at <Mail to="privacy@hontrio.com" />.</P>,
     },
     {
       id: 'emails', title: 'The emails we send you',
