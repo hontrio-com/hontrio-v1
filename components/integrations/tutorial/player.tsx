@@ -16,6 +16,10 @@ import { cn } from '@/lib/utils'
 // unde merge cursorul, unde se uită camera) și un ecran care se desenează din
 // numărul bătăii. Ținta cursorului e un element cu `data-t`, măsurat în pagină,
 // așa că textele pot avea orice lungime, în orice limbă.
+//
+// Panoul platformei se desenează la mărime reală (o fereastră de 1280 px, vezi
+// `Page` din parts) și se micșorează pe pânză; camera se apropie atât cât să se
+// citească, iar când pagina e mai lungă decât fereastra, coboară pe ea (derularea).
 // =============================================
 
 /** Lățimea pânzei și înălțimea ecranului de sub bara browserului. */
@@ -24,8 +28,16 @@ export const VIEW = 274
 const BAR = 26
 /** Cât durează drumul cursorului până la țintă (s); clicul vine imediat după. */
 const MOVE = 0.62
+/** Cât de mult se apropie camera când încadrează singură o zonă. */
+const ZOOM_MAX = 3
+/**
+ * Cursorul și cercul clicului cresc mai încet decât imaginea când camera se
+ * apropie (mărimea pe ecran = z^0.35): rămân ușor de urmărit, fără să acopere.
+ */
+const CURSOR_DAMP = -0.65
 
-export type Cam = { on?: string; z: number }
+/** Încotro se uită camera: zona `data-t` (implicit centrul) și cât de aproape (implicit cât s-o cuprindă). */
+export type Cam = { on?: string; z?: number }
 export type Beat = {
   /** cât ține bătaia (ms) */
   ms: number
@@ -41,7 +53,8 @@ export type Beat = {
   url?: string
 }
 export type SceneProps = { beat: number; hot: string | undefined }
-export type Scene = { beats: Beat[]; Screen: (props: SceneProps) => ReactNode }
+/** `height`: cât de lungă e scena pe pânză, când pagina trece de fereastră (implicit VIEW). */
+export type Scene = { beats: Beat[]; Screen: (props: SceneProps) => ReactNode; height?: number }
 
 type Resolved = Beat & { url: string; from: number; till: number }
 
@@ -62,17 +75,31 @@ function resolve(beats: Beat[]): Resolved[] {
 
 const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v))
 
-/** Centrul unui element față de stratul scenei, din poziția lui în pagină (fără transformări). */
-function centerOf(root: HTMLElement, el: HTMLElement) {
-  let x = el.offsetWidth / 2
-  let y = el.offsetHeight / 2
+/**
+ * Cutia unui element față de stratul scenei, din poziția lui în pagină: fără
+ * transformările animate (un card care tocmai intră e măsurat unde ajunge), dar
+ * cu scara paginilor desenate la mărime reală (`data-unit`).
+ */
+function boxOf(root: HTMLElement, el: HTMLElement) {
+  let x = 0
+  let y = 0
+  let w = el.offsetWidth
+  let h = el.offsetHeight
   let node: HTMLElement | null = el
   while (node && node !== root) {
     x += node.offsetLeft
     y += node.offsetTop
-    node = node.offsetParent as HTMLElement | null
+    const parent = node.offsetParent as HTMLElement | null
+    const unit = Number(parent?.dataset.unit)
+    if (unit) {
+      x *= unit
+      y *= unit
+      w *= unit
+      h *= unit
+    }
+    node = parent
   }
-  return { x, y }
+  return { x: x + w / 2, y: y + h / 2, w, h }
 }
 
 const find = (root: HTMLElement, id: string | undefined) => (id ? root.querySelector<HTMLElement>(`[data-t="${id}"]`) : null)
@@ -95,7 +122,7 @@ function Arrow() {
 }
 
 /** Camera și cursorul: se mută la fiecare bătaie, direct pe valori (fără randări în plus). */
-function Lens({ beats, beat, reduced, children }: { beats: Resolved[]; beat: number; reduced: boolean; children: ReactNode }) {
+function Lens({ beats, beat, reduced, height, children }: { beats: Resolved[]; beat: number; reduced: boolean; height: number; children: ReactNode }) {
   const layer = useRef<HTMLDivElement>(null)
   const first = useRef(true)
   const camX = useMotionValue(0)
@@ -110,6 +137,8 @@ function Lens({ beats, beat, reduced, children }: { beats: Resolved[]; beat: num
   const ripO = useMotionValue(0)
   const ripLeft = useTransform(ripX, v => v - 14)
   const ripTop = useTransform(ripY, v => v - 14)
+  const curScale = useTransform(() => press.get() * camZ.get() ** CURSOR_DAMP)
+  const ripScale = useTransform(() => ripZ.get() * camZ.get() ** CURSOR_DAMP)
 
   useLayoutEffect(() => {
     const root = layer.current
@@ -122,7 +151,7 @@ function Lens({ beats, beat, reduced, children }: { beats: Resolved[]; beat: num
 
     const target = find(root, b.to)
     if (target) {
-      const p = centerOf(root, target)
+      const p = boxOf(root, target)
       if (instant) {
         curX.set(p.x)
         curY.set(p.y)
@@ -143,16 +172,17 @@ function Lens({ beats, beat, reduced, children }: { beats: Resolved[]; beat: num
 
     if (b.cam) {
       const focus = find(root, b.cam.on)
-      const f = focus ? centerOf(root, focus) : { x: W / 2, y: VIEW / 2 }
-      const z = b.cam.z
+      const f = focus ? boxOf(root, focus) : { x: W / 2, y: VIEW / 2, w: W, h: VIEW }
+      // Fără `z`, camera se apropie cât să cuprindă zona
+      const z = b.cam.z ?? clamp(Math.min(W / f.w, VIEW / f.h), 1, ZOOM_MAX)
       const x = clamp(W / 2 - f.x * z, W - W * z, 0)
-      const y = clamp(VIEW / 2 - f.y * z, VIEW - VIEW * z, 0)
+      const y = clamp(VIEW / 2 - f.y * z, VIEW - height * z, 0)
       if (instant) {
         camX.set(x)
         camY.set(y)
         camZ.set(z)
       } else {
-        const glide = { type: 'spring', stiffness: 85, damping: 23, mass: 1 } as const
+        const glide = { type: 'spring', stiffness: 120, damping: 26, mass: 1 } as const
         runs.push(animate(camX, x, glide), animate(camY, y, glide), animate(camZ, z, glide))
       }
     }
@@ -162,14 +192,16 @@ function Lens({ beats, beat, reduced, children }: { beats: Resolved[]; beat: num
       press.set(1)
       ripO.set(0)
     }
-  }, [beat, beats, reduced, camX, camY, camZ, curX, curY, press, ripX, ripY, ripZ, ripO])
+  }, [beat, beats, reduced, height, camX, camY, camZ, curX, curY, press, ripX, ripY, ripZ, ripO])
 
   return (
-    // will-change rămâne „auto": textul se redesenează clar după fiecare apropiere a camerei
-    <motion.div ref={layer} className="absolute left-0 top-0" style={{ width: W, height: VIEW, x: camX, y: camY, scale: camZ, originX: 0, originY: 0, willChange: 'auto' }}>
+    // will-change rămâne „auto": textul se redesenează clar după fiecare apropiere a camerei.
+    // transition: none în stil: regula globală din globals.css (tranziție pe transform, în afara
+    // straturilor Tailwind, deci mai tare decât orice clasă) ar întârzia camera și cursorul.
+    <motion.div ref={layer} className="absolute left-0 top-0" style={{ width: W, height: VIEW, x: camX, y: camY, scale: camZ, originX: 0, originY: 0, willChange: 'auto', transition: 'none' }}>
       {children}
-      <motion.span aria-hidden className="pointer-events-none absolute left-0 top-0 size-7 rounded-full bg-black" style={{ x: ripLeft, y: ripTop, scale: ripZ, opacity: ripO }} />
-      <motion.span aria-hidden className="pointer-events-none absolute left-0 top-0" style={{ x: curX, y: curY, scale: press, originX: 0, originY: 0 }}>
+      <motion.span aria-hidden className="pointer-events-none absolute left-0 top-0 size-7 rounded-full bg-black" style={{ x: ripLeft, y: ripTop, scale: ripScale, opacity: ripO, transition: 'none' }} />
+      <motion.span aria-hidden className="pointer-events-none absolute left-0 top-0" style={{ x: curX, y: curY, scale: curScale, originX: 0, originY: 0, transition: 'none' }}>
         <Arrow />
       </motion.span>
     </motion.div>
@@ -267,7 +299,7 @@ export function GuidePlayer({ scene, steps }: { scene: Scene; steps: { title: st
             <div className="relative overflow-hidden" style={{ height: VIEW }}>
               <AnimatePresence initial={false}>
                 <motion.div key={cycle} className="absolute inset-0" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.45 }}>
-                  <Lens beats={beats} beat={beat} reduced={reduced}>
+                  <Lens beats={beats} beat={beat} reduced={reduced} height={scene.height ?? VIEW}>
                     <Screen beat={beat} hot={beats[beat].to} />
                   </Lens>
                 </motion.div>
