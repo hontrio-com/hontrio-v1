@@ -291,7 +291,7 @@ export default function OnboardingPage() {
                 {/* ═══ BUN VENIT ═══ */}
                 {screen === 'welcome' && (
                   <div>
-                    <Title kicker={t('onboarding.kicker_ready')} title={userName ? t('onboarding.welcome_title', { name: userName }) : t('onboarding.welcome')} desc={t('onboarding.welcome_desc')} />
+                    <Title title={userName ? t('onboarding.welcome_title', { name: userName }) : t('onboarding.welcome')} desc={t('onboarding.welcome_desc')} />
                     <ol className="mt-8 space-y-4">
                       {(['store', 'google'] as const).map((k, i) => (
                         <li key={k} className="flex gap-3.5">
