@@ -23,7 +23,7 @@ const RO: LegalDoc = {
     },
     {
       id: 'obiect', title: 'Obiectul și durata',
-      body: <P>Persoana împuternicită prelucrează datele descrise în Anexa 1, în numele Operatorului, cât timp magazinul e conectat la Hontrio și până la ștergerea datelor după termenele din Anexa 1.</P>,
+      body: <P>Persoana împuternicită prelucrează datele descrise în Anexa 1, în numele Operatorului, cât timp magazinul este conectat la Hontrio și până la ștergerea datelor după termenele din Anexa 1.</P>,
     },
     {
       id: 'instructiuni', title: 'Instrucțiunile Operatorului',
@@ -31,11 +31,11 @@ const RO: LegalDoc = {
     },
     {
       id: 'confidentialitate', title: 'Confidențialitatea',
-      body: <P>Persoanele care au acces la date în numele nostru s-au angajat să păstreze confidențialitatea sau au o obligație legală de confidențialitate, iar accesul lor e limitat la ce au nevoie.</P>,
+      body: <P>Persoanele care au acces la date în numele nostru s-au angajat să păstreze confidențialitatea sau au o obligație legală de confidențialitate, iar accesul lor este limitat la ce au nevoie.</P>,
     },
     {
       id: 'securitate', title: 'Securitatea',
-      body: <P>Aplicăm măsurile tehnice și organizatorice din Anexa 2 (art. 32 GDPR) și le actualizăm când e nevoie, fără să scădem nivelul de protecție.</P>,
+      body: <P>Aplicăm măsurile tehnice și organizatorice din Anexa 2 (art. 32 GDPR) și le actualizăm când este nevoie, fără să scădem nivelul de protecție.</P>,
     },
     {
       id: 'subimputerniciti', title: 'Subîmputerniciții',
@@ -88,7 +88,7 @@ const RO: LegalDoc = {
         ['Natura prelucrării', 'Citirea automată prin conexiunea cu platforma magazinului, stocarea, structurarea, agregarea în rapoarte, folosirea pentru atribuirea vânzărilor și pentru deciziile pilotului automat, ștergerea'],
         ['Scopul', 'Măsurarea vânzărilor aduse de reclame, alegerea produselor puse în campanii, rapoartele din Hontrio și, după perioada de lansare, calculul taxei Hontrio din vânzările aduse de campaniile Hontrio (articolul 9 din Termeni)'],
         ['Frecvența', 'Continuă: sincronizare la fiecare 15 minute, plus o trecere completă pe zi'],
-        ['Durata și ștergerea', 'Comenzile mai vechi de 400 de zile se șterg zilnic; toate datele magazinului se șterg când magazinul e scos din Hontrio sau la 30 de zile după ce accesul la magazin a fost revocat ori aplicația dezinstalată; la ștergerea contului, imediat; din copiile de siguranță, în cel mult 30 de zile'],
+        ['Durata și ștergerea', 'Comenzile mai vechi de 400 de zile se șterg zilnic; toate datele magazinului se șterg când magazinul este scos din Hontrio sau la 30 de zile după ce accesul la magazin a fost revocat ori aplicația dezinstalată; la ștergerea contului, imediat; din copiile de siguranță, în cel mult 30 de zile'],
       ]} />,
     },
     {
@@ -96,7 +96,7 @@ const RO: LegalDoc = {
       body: <UL items={[
         'Criptarea conexiunilor (HTTPS/TLS).',
         'Criptarea în baza de date a tokenurilor și a cheilor de acces la magazine și la Google (AES-256-GCM).',
-        'Baza de date în Uniunea Europeană (Irlanda), accesibilă doar serverului Hontrio; accesul public la tabele e închis.',
+        'Baza de date în Uniunea Europeană (Irlanda), accesibilă doar serverului Hontrio; accesul public la tabele este închis.',
         'Separarea datelor pe cont și pe magazin: fiecare cerere verifică dreptul contului asupra magazinului.',
         'Minimizarea: cerem de la magazin doar câmpurile necesare și nu păstrăm datele de contact ale cumpărătorilor.',
         'Ștergerea automată, zilnică, după termenele din Anexa 1.',

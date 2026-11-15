@@ -12,7 +12,7 @@ import { useT } from '@/lib/i18n/context'
 // analytics_storage (reclamele rămân refuzate, semnalele Google oprite).
 // Alegerea stă 12 luni în cookie-ul strict necesar `hontrio_consent`, comun
 // pentru hontrio.com și app.hontrio.com, și se schimbă oricând din „Setări
-// cookie” (subsolul site-ului, Politica de cookies): la retragere, măsurarea
+// cookie” (subsolul site-ului, Politica de cookie-uri): la retragere, măsurarea
 // se oprește și cookie-urile _ga se șterg. Lista cookie-urilor e în
 // app/(marketing)/legal/cookies: ce se schimbă aici se schimbă și acolo.
 // =============================================
@@ -63,7 +63,7 @@ function saveChoice(choice: Choice) {
   emit()
 }
 
-/** Redeschide bannerul („Setări cookie”), ca alegerea să se poată schimba oricând. */
+/** Redeschide bannerul („Setări cookie-uri”), ca alegerea să se poată schimba oricând. */
 export function openCookieSettings() {
   settingsOpen = true
   emit()

@@ -10,8 +10,8 @@ import type { Locale } from '@/lib/i18n/config'
 // =============================================
 
 /** Versiunea documentelor; aceeași cu cea salvată la acceptarea Termenilor. */
-export const LEGAL_VERSION = '2026-11-12'
-const UPDATED: Record<Locale, string> = { ro: '12 noiembrie 2026', en: '12 November 2026' }
+export const LEGAL_VERSION = '2026-11-16'
+const UPDATED: Record<Locale, string> = { ro: '16 noiembrie 2026', en: '16 November 2026' }
 
 export type LegalKind = 'terms' | 'privacy' | 'cookies' | 'dpa'
 export type LegalSection = { id: string; title: string; body: ReactNode }
@@ -20,7 +20,7 @@ export type LegalDoc = { title: string; summary: ReactNode; sections: LegalSecti
 export const LEGAL_DOCS: Record<LegalKind, { href: string; ro: string; en: string }> = {
   terms: { href: '/legal/terms', ro: 'Termeni și condiții', en: 'Terms and Conditions' },
   privacy: { href: '/legal/privacy', ro: 'Politica de confidențialitate', en: 'Privacy Policy' },
-  cookies: { href: '/legal/cookies', ro: 'Politica de cookies', en: 'Cookie Policy' },
+  cookies: { href: '/legal/cookies', ro: 'Politica de cookie-uri', en: 'Cookie Policy' },
   dpa: { href: '/legal/dpa', ro: 'Acordul de prelucrare a datelor', en: 'Data Processing Agreement' },
 }
 

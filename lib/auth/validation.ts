@@ -11,7 +11,7 @@ export const PASSWORD_MAX = 72
 export const EMAIL_MAX = 254
 
 /** Versiunea Termenilor, a Politicii de confidențialitate și a DPA-ului acceptate la înscriere. */
-export const TERMS_VERSION = '2026-11-12'
+export const TERMS_VERSION = '2026-11-16'
 
 /**
  * Numele: 2–60 de litere (cu spații, cratimă, apostrof, punct), fără cifre,

@@ -4,7 +4,7 @@ import { A, Box, Code, Company, H3, L, LegalPage, Mail, P, Table, UL, type Legal
 
 // =============================================
 // Politica de confidențialitate, în română și în engleză. Descrie ce face
-// codul acum: ce citesc conectorii (Edinio, WooCommerce, Shopify), ce se
+// codul acum: ce citesc conectorii (Edinio, WooCommerce, Shopify, Gomag, MerchantPro, OpenCart), ce se
 // păstrează din comenzi, datele Google (cu declarația Limited Use cerută la
 // verificarea aplicației OAuth), furnizorii și termenele de ștergere.
 // =============================================
@@ -19,7 +19,7 @@ const LIMITED_USE = (
 
 const RO: LegalDoc = {
   title: 'Politica de confidențialitate',
-  summary: <>Ce date prelucrează Hontrio, de unde le are, ce face cu ele, cui le dă, cât le păstrează și ce drepturi ai. Hontrio e un serviciu pentru firme: magazinele online își conectează magazinul și conturile Google Ads și Merchant Center, iar Hontrio le face și le îngrijește campaniile Google Shopping.</>,
+  summary: <>Ce date prelucrează Hontrio, de unde le are, ce face cu ele, cui le dă, cât le păstrează și ce drepturi ai. Hontrio este un serviciu pentru firme. Magazinele online își conectează magazinul și conturile Google Ads și Merchant Center, iar Hontrio le creează și le administrează campaniile Google Shopping.</>,
   sections: [
     {
       id: 'cine-suntem', title: 'Cine suntem',
@@ -56,14 +56,15 @@ const RO: LegalDoc = {
           ['Intrarea cu Google: numele, adresa de e-mail și fotografia din contul Google', 'De la Google, când alegi „Continuă cu Google”', 'Intrarea în cont fără parolă', 'Contractul'],
           ['Conexiunea Google Ads și Merchant Center: ID-ul contului Google, adresa lui de e-mail, permisiunile acordate și tokenul de acces, criptat', 'De la Google, când conectezi contul', 'Ca Hontrio să lucreze în conturile tale Google Ads și Merchant Center', 'Contractul'],
           ['Datele din Google Ads și Merchant Center (secțiunea 5)', 'Din conturile tale Google', 'Campaniile, pilotul automat, rapoartele și recomandările', 'Contractul'],
-          ['Datele magazinului: produsele (titlu, preț, stoc, imagine, link, categorie, brand, coduri SKU, GTIN, MPN) și comenzile (doar câmpurile din secțiunea 6)', 'Din magazinul tău (Edinio, WooCommerce, Shopify)', 'Planul campaniilor, măsurarea vânzărilor aduse de reclame, rapoartele', 'Contractul; pentru datele cumpărătorilor, instrucțiunile magazinului (DPA)'],
+          ['Datele magazinului: produsele (titlu, preț, stoc, imagine, link, categorie, brand, coduri SKU, GTIN, MPN) și comenzile (doar câmpurile din secțiunea 6)', 'Din magazinul tău (Edinio, WooCommerce, Shopify, Gomag, MerchantPro sau OpenCart)', 'Planul campaniilor, măsurarea vânzărilor aduse de reclame, rapoartele', 'Contractul; pentru datele cumpărătorilor, instrucțiunile magazinului (DPA)'],
           ['Suportul: subiectul, mesajele și fișierele atașate', 'De la tine', 'Ca să-ți răspundem și să rezolvăm problema', 'Contractul'],
           ['Notificările și e-mailurile: ce ți-am trimis și când', 'Generate de Hontrio', 'Ca să te anunțăm despre cont și despre campanii (secțiunea 9)', 'Contractul'],
           ['Date tehnice și de securitate: adresa IP, browserul, ora și rezultatul cererilor, erorile; la înregistrare, verificarea anti-roboți', 'Din browserul tău, automat', 'Siguranța serviciului, limitarea încercărilor repetate, investigarea abuzurilor și a erorilor', 'Interesul nostru legitim de a ține serviciul sigur (art. 6 alin. (1) lit. f) GDPR)'],
-          ['Analiza traficului cu Google Analytics 4: paginile vizitate, sursa vizitei, dispozitivul și browserul, localizarea aproximativă, identificatorii din cookie-urile _ga', 'Din browserul tău, doar după ce accepți', 'Ca să înțelegem cum e folosit site-ul', 'Consimțământul tău (art. 6 alin. (1) lit. a) GDPR și art. 4 alin. (5) din Legea nr. 506/2004)'],
+          ['Țara, dedusă din adresa IP de furnizorul de găzduire', 'Din cererile browserului tău, automat', 'Ca să-ți arătăm site-ul și aplicația în română sau în engleză. La înregistrare, limba aleasă astfel se salvează în cont. Țara nu o păstrăm.', 'Interesul nostru legitim de a-ți arăta serviciul într-o limbă pe care o înțelegi (art. 6 alin. (1) lit. f) GDPR)'],
+          ['Analiza traficului cu Google Analytics 4: paginile vizitate, sursa vizitei, dispozitivul și browserul, localizarea aproximativă, identificatorii din cookie-urile _ga', 'Din browserul tău, doar după ce accepți', 'Ca să înțelegem cum este folosit site-ul', 'Consimțământul tău (art. 6 alin. (1) lit. a) GDPR și art. 4 alin. (5) din Legea nr. 506/2004)'],
           ['Datele cerute de lege, de exemplu la cererea unei autorități', 'Din datele de mai sus', 'Respectarea obligațiilor legale', 'Obligația legală (art. 6 alin. (1) lit. c) GDPR)'],
         ]} />
-        <P>Nu e obligatoriu să ne dai datele, dar fără datele contului și fără conectarea magazinului și a contului Google, Hontrio nu poate funcționa.</P>
+        <P>Nu este obligatoriu să ne dai datele, dar fără datele contului și fără conectarea magazinului și a contului Google, Hontrio nu poate funcționa.</P>
       </>,
     },
     {
@@ -77,18 +78,18 @@ const RO: LegalDoc = {
         ]} />
         <H3>Ce facem în numele tău</H3>
         <UL items={[
-          <>În Google Ads: creăm campaniile Hontrio (Shopping sau Performance Max), cu bugetul, țara și limba lor; le schimbăm lista de produse, adăugăm cuvinte negative, le punem pe pauză, le repornim, le încheiem sau le mutăm pe Performance Max, după regulile din <L href="/legal/terms">Termeni</L>. La adresele reclamelor Hontrio adăugăm parametrii <Code>utm_source=google</Code>, <Code>utm_medium=cpc</Code> și <Code>utm_campaign=hontrio-ID</Code>, unde ID e numărul campaniei.</>,
+          <>În Google Ads: creăm campaniile Hontrio (Shopping sau Performance Max), cu bugetul, țara și limba lor; le schimbăm lista de produse, adăugăm cuvinte negative, le punem pe pauză, le repornim, le încheiem sau le mutăm pe Performance Max, după regulile din <L href="/legal/terms">Termeni</L>. La adresele reclamelor Hontrio adăugăm parametrii <Code>utm_source=google</Code>, <Code>utm_medium=cpc</Code> și <Code>utm_campaign=hontrio-ID</Code>, unde ID este numărul campaniei.</>,
           'Campaniile tale existente le schimbăm doar dacă alegi asta la lansare: le punem pe pauză pe cele care vând aceleași produse și completăm pe ele declarația privind publicitatea politică în UE, pe care o cere Google.',
           'În Merchant Center: creăm o sursă de date suplimentară numită „Hontrio”, o legăm de sursele tale de produse și scriem în ea o etichetă (custom label) pentru produsele scoase din campaniile Hontrio. Datele produselor din feedul tău nu le modificăm.',
         ]} />
         <H3>Cum folosim datele</H3>
         <P>Doar ca să-ți oferim și să îmbunătățim funcțiile pe care le vezi în Hontrio: campaniile, pilotul automat, rapoartele și recomandările pentru catalog. Nu le folosim ca să afișăm reclame, nu le vindem, nu le dăm brokerilor de date sau altor platforme de publicitate și nu le folosim pentru evaluarea bonității ori pentru credite.</P>
         <H3>Cine le vede</H3>
-        <P>Oamenii din echipa Hontrio nu citesc datele tale Google, cu excepția situațiilor în care: ne ceri explicit, de exemplu într-un tichet de suport, și doar pentru datele la care te referi; e nevoie pentru securitate, cum ar fi investigarea unui abuz sau a unei erori; o cere legea; datele sunt agregate și anonimizate și le folosim pentru operațiunile interne, conform legii.</P>
+        <P>Oamenii din echipa Hontrio nu citesc datele tale Google, cu excepția situațiilor în care: ne ceri explicit, de exemplu într-un tichet de suport, și doar pentru datele la care te referi; este nevoie pentru securitate, cum ar fi investigarea unui abuz sau a unei erori; o cere legea; datele sunt agregate și anonimizate și le folosim pentru operațiunile interne, conform legii.</P>
         <H3>Cui le transferăm</H3>
-        <P>Doar furnizorilor care găzduiesc și rulează Hontrio (secțiunea 7), cât e nevoie ca serviciul să funcționeze; autorităților, când legea o cere; unui eventual succesor, la o fuziune, o achiziție sau o vânzare de active, numai cu acordul tău prealabil.</P>
+        <P>Doar furnizorilor care găzduiesc și rulează Hontrio (secțiunea 7), cât este nevoie ca serviciul să funcționeze; autorităților, când legea o cere; unui eventual succesor, la o fuziune, o achiziție sau o vânzare de active, numai cu acordul tău prealabil.</P>
         <H3>Cum le păstrăm și cât timp</H3>
-        <P>Tokenul Google e criptat (AES-256-GCM), iar datele stau în baza noastră de date din Irlanda, la care are acces doar serverul Hontrio. Cifrele, termenii de căutare, auditurile contului, rapoartele Merchant Center și jurnalul pilotului se păstrează 400 de zile, prin rotație.</P>
+        <P>Tokenul Google este criptat (AES-256-GCM), iar datele stau în baza noastră de date din Irlanda, la care are acces doar serverul Hontrio. Cifrele, termenii de căutare, auditurile contului, rapoartele Merchant Center și jurnalul pilotului se păstrează 400 de zile, prin rotație.</P>
         <H3>Cum retragi accesul și cum ștergi datele</H3>
         <P>Deconectezi Google din Setări → Integrări: revocăm imediat accesul la Google și ștergem tokenul, iar datele aduse din Google se șterg după 30 de zile. Poți retrage accesul și din contul tău Google, la <A href="https://myaccount.google.com/permissions">myaccount.google.com/permissions</A>. Dacă ștergi magazinul sau contul, datele lor se șterg imediat. Atenție: campaniile create de Hontrio rămân în contul tău Google Ads și rulează până le oprești.</P>
         <Box>
@@ -127,9 +128,9 @@ const RO: LegalDoc = {
           ['Resend', 'Trimiterea e-mailurilor', 'SUA', 'Clauzele contractuale standard sau DPF'],
           ['Upstash', 'Limitarea încercărilor repetate, după adresa IP', 'SUA / UE', 'Clauzele contractuale standard'],
           ['Google', 'Google Ads API și Merchant API (pentru conturile tale), intrarea cu Google, Google Analytics 4 (doar cu acordul tău)', 'UE și SUA', 'Clauzele contractuale standard sau DPF'],
-          ['Cloudflare', 'Verificarea anti-roboți la înregistrare (Turnstile), când e activă', 'UE și SUA', 'Clauzele contractuale standard sau DPF'],
+          ['Cloudflare', 'Verificarea anti-roboți la înregistrare (Turnstile), când este activă', 'UE și SUA', 'Clauzele contractuale standard sau DPF'],
         ]} />
-        <P>Edinio, WooCommerce și Shopify nu primesc date de la noi: sunt platformele din care citim, la cererea ta. Conturile Google Ads și Merchant Center sunt ale tale; în ele trimitem doar ce e descris în secțiunea 5.</P>
+        <P>Platformele magazinelor (Edinio, WooCommerce, Shopify, Gomag, MerchantPro și OpenCart) nu primesc date de la noi. Sunt platformele din care citim, la cererea ta. Conturile Google Ads și Merchant Center sunt ale tale, iar în ele trimitem doar ce este descris în secțiunea 5.</P>
         <P>Mai putem dezvălui date autorităților, când legea ne obligă, și unui succesor, la o fuziune sau la vânzarea afacerii, cu anunțarea ta prealabilă (pentru datele Google, cu acordul tău).</P>
       </>,
     },
@@ -142,7 +143,7 @@ const RO: LegalDoc = {
       body: <>
         <UL items={[
           'Despre cont: confirmarea adresei de e-mail, resetarea parolei și mesajul de bun venit, după confirmare. Sunt necesare pentru cont și nu se pot opri.',
-          'Alertele pilotului automat: oprirea de siguranță a unei campanii, o acțiune de protecție care n-a reușit sau pierderea accesului la Google și propunerile care îți așteaptă aprobarea. Le poți opri din Setări.',
+          'Alertele pilotului automat: oprirea de siguranță a unei campanii, o acțiune de protecție care nu a reușit sau pierderea accesului la Google și propunerile care îți așteaptă aprobarea. Le poți opri din Setări.',
         ]} />
         <P>Nu trimitem newslettere sau e-mailuri de marketing. Dacă vom începe, o vom face doar cu acordul tău și cu un link de dezabonare în fiecare mesaj.</P>
       </>,
@@ -172,11 +173,11 @@ const RO: LegalDoc = {
       body: <>
         <UL items={[
           'Toate conexiunile sunt criptate (HTTPS/TLS).',
-          'Tokenurile Google, Shopify și Edinio și cheile API WooCommerce sunt criptate în baza de date (AES-256-GCM).',
-          'Baza de date nu e accesibilă din browser: o citește și o scrie doar serverul Hontrio.',
+          'Tokenul Google și toate tokenurile și cheile de acces la magazine (Edinio, Shopify, WooCommerce, Gomag, MerchantPro, OpenCart) sunt criptate în baza de date (AES-256-GCM).',
+          'Baza de date nu este accesibilă din browser: o citește și o scrie doar serverul Hontrio.',
           'Parolele sunt păstrate doar ca hash, de serviciul de autentificare.',
           'Confirmăm adresele de e-mail și limităm încercările repetate de autentificare și de înregistrare.',
-          'Accesul echipei la date e limitat la ce e nevoie pentru suport și securitate.',
+          'Accesul echipei la date este limitat la ce este nevoie pentru suport și securitate.',
           'Furnizorul bazei de date face copii de siguranță.',
         ]} />
         <P>Dacă apare o încălcare a securității datelor, anunțăm ANSPDCP în cel mult 72 de ore, când legea o cere, și te anunțăm pe tine fără întârziere nejustificată dacă există un risc ridicat pentru drepturile tale. Incidentele care privesc datele primite de la Google le raportăm și la Google.</P>
@@ -191,9 +192,9 @@ const RO: LegalDoc = {
           'să le corectezi (art. 16); numele și limba le schimbi direct în Setări;',
           'să le ștergi (art. 17); contul îl ștergi din Setări, oricând;',
           'să restricționezi prelucrarea (art. 18);',
-          'să primești datele într-un format structurat și să le duci la alt furnizor (art. 20); exportul în format JSON e în Setări;',
+          'să primești datele într-un format structurat și să le duci la alt furnizor (art. 20); exportul în format JSON este în Setări;',
           'să te opui prelucrării bazate pe interesul nostru legitim (art. 21);',
-          'să-ți retragi oricând consimțământul, de exemplu pentru Google Analytics, din „Setări cookie”, fără să afecteze ce s-a făcut înainte.',
+          'să-ți retragi oricând consimțământul, de exemplu pentru Google Analytics, din „Setări cookie-uri”, fără să afecteze ce s-a făcut înainte.',
         ]} />
         <P>Pilotul automat ia decizii despre campanii și produse, nu despre oameni: nu facem profilarea cumpărătorilor și nu luăm decizii automate care să producă efecte juridice asupra ta (art. 22).</P>
         <P>Pentru orice cerere ne scrii la <Mail to="privacy@hontrio.com" />. Răspundem în cel mult o lună; la cererile complexe termenul se poate prelungi cu încă două luni, cu anunțarea ta. Putem să-ți cerem să confirmi că ești titularul contului.</P>
@@ -202,22 +203,22 @@ const RO: LegalDoc = {
     },
     {
       id: 'minori', title: 'Minori',
-      body: <P>Hontrio e pentru firme și pentru persoane de cel puțin 18 ani care acționează în numele lor. Nu colectăm cu bună știință date despre minori.</P>,
+      body: <P>Hontrio este pentru firme și pentru persoane de cel puțin 18 ani care acționează în numele lor. Nu colectăm cu bună știință date despre minori.</P>,
     },
     {
       id: 'modificari', title: 'Modificări',
-      body: <P>Când schimbăm această politică în mod semnificativ, te anunțăm pe e-mail și în aplicație cu cel puțin 30 de zile înainte. Dacă vrem să folosim datele primite de la Google altfel decât e descris aici, îți cerem întâi acordul. Versiunile anterioare le poți cere la <Mail to="privacy@hontrio.com" />.</P>,
+      body: <P>Când schimbăm această politică în mod semnificativ, te anunțăm pe e-mail și în aplicație cu cel puțin 30 de zile înainte. Dacă vrem să folosim datele primite de la Google altfel decât este descris aici, îți cerem întâi acordul. Versiunile anterioare le poți cere la <Mail to="privacy@hontrio.com" />.</P>,
     },
     {
       id: 'contact', title: 'Contact',
-      body: <P>Protecția datelor: <Mail to="privacy@hontrio.com" /> · suport: <Mail to="support@hontrio.com" /> · general: <Mail to="contact@hontrio.com" /> · telefon: +40 750 456 096 · adresa: sediul social din secțiunea 1. Despre cookie-uri citești în <L href="/legal/cookies">Politica de cookies</L>.</P>,
+      body: <P>Protecția datelor: <Mail to="privacy@hontrio.com" /> · suport: <Mail to="support@hontrio.com" /> · general: <Mail to="contact@hontrio.com" /> · telefon: +40 750 456 096 · adresa: sediul social din secțiunea 1. Despre cookie-uri citești în <L href="/legal/cookies">Politica de cookie-uri</L>.</P>,
     },
   ],
 }
 
 const EN: LegalDoc = {
   title: 'Privacy Policy',
-  summary: <>What data Hontrio processes, where it comes from, what we do with it, who we share it with, how long we keep it and what your rights are. Hontrio is a service for businesses: online stores connect their store and their Google Ads and Merchant Center accounts, and Hontrio builds and looks after their Google Shopping campaigns.</>,
+  summary: <>What data Hontrio processes, where it comes from, what we do with it, who we share it with, how long we keep it and what your rights are. Hontrio is a service for businesses. Online stores connect their store and their Google Ads and Merchant Center accounts, and Hontrio builds and manages their Google Shopping campaigns.</>,
   sections: [
     {
       id: 'who-we-are', title: 'Who we are',
@@ -254,10 +255,11 @@ const EN: LegalDoc = {
           ['Sign-in with Google: the name, email address and picture of the Google account', 'Google, when you choose “Continue with Google”', 'Signing in without a password', 'Contract'],
           ['Google Ads and Merchant Center connection: the Google account ID, its email address, the permissions granted and the access token, encrypted', 'Google, when you connect the account', 'Letting Hontrio work in your Google Ads and Merchant Center accounts', 'Contract'],
           ['Data from Google Ads and Merchant Center (section 5)', 'Your Google accounts', 'Campaigns, autopilot, reports and recommendations', 'Contract'],
-          ['Store data: products (title, price, stock, image, link, category, brand, SKU, GTIN and MPN codes) and orders (only the fields in section 6)', 'Your store (Edinio, WooCommerce, Shopify)', 'Campaign planning, measuring the sales brought by ads, reports', 'Contract; for buyers’ data, the store’s instructions (DPA)'],
+          ['Store data: products (title, price, stock, image, link, category, brand, SKU, GTIN and MPN codes) and orders (only the fields in section 6)', 'Your store (Edinio, WooCommerce, Shopify, Gomag, MerchantPro or OpenCart)', 'Campaign planning, measuring the sales brought by ads, reports', 'Contract; for buyers’ data, the store’s instructions (DPA)'],
           ['Support: subject, messages and attached files', 'You', 'Answering you and solving the issue', 'Contract'],
           ['Notifications and emails: what we sent you and when', 'Generated by Hontrio', 'Keeping you informed about your account and campaigns (section 9)', 'Contract'],
           ['Technical and security data: IP address, browser, time and result of requests, errors; at sign-up, the anti-bot check', 'Your browser, automatically', 'Keeping the service secure, limiting repeated attempts, investigating abuse and errors', 'Our legitimate interest in keeping the service secure (Art. 6(1)(f) GDPR)'],
+          ['Country, derived from the IP address by our hosting provider', 'From your browser’s requests, automatically', 'To show you the site and the app in Romanian or English. At sign-up, the language chosen this way is saved in your account. We don’t store the country.', 'Our legitimate interest in showing you the service in a language you understand (Art. 6(1)(f) GDPR)'],
           ['Traffic analytics with Google Analytics 4: pages visited, source of the visit, device and browser, approximate location, the identifiers in the _ga cookies', 'Your browser, only after you accept', 'Understanding how the site is used', 'Your consent (Art. 6(1)(a) GDPR and Art. 4(5) of Romanian Law no. 506/2004)'],
           ['Data required by law, for example at an authority’s request', 'The data above', 'Complying with legal obligations', 'Legal obligation (Art. 6(1)(c) GDPR)'],
         ]} />
@@ -327,7 +329,7 @@ const EN: LegalDoc = {
           ['Google', 'Google Ads API and Merchant API (for your accounts), sign-in with Google, Google Analytics 4 (only with your consent)', 'EU and USA', 'Standard contractual clauses or DPF'],
           ['Cloudflare', 'Anti-bot check at sign-up (Turnstile), when enabled', 'EU and USA', 'Standard contractual clauses or DPF'],
         ]} />
-        <P>Edinio, WooCommerce and Shopify do not receive data from us: they are the platforms we read from, at your request. The Google Ads and Merchant Center accounts are yours; we send to them only what is described in section 5.</P>
+        <P>The store platforms (Edinio, WooCommerce, Shopify, Gomag, MerchantPro and OpenCart) do not receive data from us. They are the platforms we read from, at your request. The Google Ads and Merchant Center accounts are yours, and we send to them only what is described in section 5.</P>
         <P>We may also disclose data to authorities, when the law obliges us, and to a successor in a merger or sale of the business, with prior notice to you (for Google data, with your consent).</P>
       </>,
     },
@@ -370,7 +372,7 @@ const EN: LegalDoc = {
       body: <>
         <UL items={[
           'All connections are encrypted (HTTPS/TLS).',
-          'Google, Shopify and Edinio tokens and WooCommerce API keys are encrypted in the database (AES-256-GCM).',
+          'The Google token and all store access tokens and keys (Edinio, Shopify, WooCommerce, Gomag, MerchantPro, OpenCart) are encrypted in the database (AES-256-GCM).',
           'The database cannot be accessed from the browser: only the Hontrio server reads and writes it.',
           'Passwords are kept only as a hash, by the authentication service.',
           'We confirm email addresses and limit repeated sign-in and sign-up attempts.',

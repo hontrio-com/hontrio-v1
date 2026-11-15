@@ -16,7 +16,7 @@ const THIRD_PARTY = 'https://support.google.com/adspolicy/answer/9457109'
 
 const RO: LegalDoc = {
   title: 'Termeni și condiții',
-  summary: <>Contractul dintre VOID SFT GAMES SRL și firma care folosește Hontrio. Hontrio e un serviciu doar pentru firme. Clauzele de la articolul 17 se acceptă separat și expres, la crearea contului.</>,
+  summary: <>Contractul dintre VOID SFT GAMES SRL și firma care folosește Hontrio. Hontrio este un serviciu doar pentru firme. Clauzele de la articolul 17 se acceptă separat și expres, la crearea contului.</>,
   sections: [
     {
       id: 'parti', title: 'Părțile și încheierea contractului',
@@ -30,9 +30,9 @@ const RO: LegalDoc = {
     {
       id: 'serviciul', title: 'Ce face Hontrio',
       body: <>
-        <Clause n="2.1"><P>Hontrio conectează magazinul tău online (Edinio, WooCommerce sau Shopify) și conturile tale Google Ads și Google Merchant Center, face din produsele magazinului campanii Google Shopping sau Performance Max, le îngrijește zilnic prin pilotul automat și îți arată rapoarte și recomandări pentru catalog.</P></Clause>
-        <Clause n="2.2"><P>Ca să folosești Hontrio ai nevoie de un cont Google Ads cu o metodă de plată activă, de un cont Merchant Center cu produsele magazinului și de măsurarea conversiei de cumpărare în Google Ads. Hontrio le verifică înainte de lansare, dar configurarea lor corectă e responsabilitatea ta.</P></Clause>
-        <Clause n="2.3"><P>Magazinul doar îl citim: Hontrio nu modifică produsele, comenzile sau alte date din magazin.</P></Clause>
+        <Clause n="2.1"><P>Hontrio conectează magazinul tău online (Edinio, WooCommerce, Shopify, Gomag, MerchantPro sau OpenCart) și conturile tale Google Ads și Google Merchant Center, creează din produsele magazinului campanii Google Shopping sau Performance Max, le administrează zilnic prin pilotul automat și îți arată rapoarte și recomandări pentru catalog.</P></Clause>
+        <Clause n="2.2"><P>Ca să folosești Hontrio ai nevoie de un cont Google Ads cu o metodă de plată activă, de un cont Merchant Center cu produsele magazinului și de măsurarea conversiei de cumpărare în Google Ads. Hontrio le verifică înainte de lansare, dar configurarea lor corectă este responsabilitatea ta.</P></Clause>
+        <Clause n="2.3"><P>Magazinul doar îl citim. Hontrio nu modifică produsele, comenzile sau alte date din magazin. La OpenCart, legătura se face prin extensia Hontrio, pe care o instalezi în magazin și care îi permite lui Hontrio doar să citească datele.</P></Clause>
         <Clause n="2.4"><P>Putem schimba, adăuga sau scoate funcții. Dacă o schimbare îți reduce semnificativ serviciul, te anunțăm cu cel puțin 30 de zile înainte.</P></Clause>
       </>,
     },
@@ -57,9 +57,9 @@ const RO: LegalDoc = {
           ]} />
         </Clause>
         <Clause n="4.2"><P>Campaniile Hontrio le declarăm la Google ca nefiind publicitate politică în UE. Confirmi că produsele și reclamele tale nu sunt publicitate politică; dacă ar putea fi, nu folosi Hontrio pentru ele. Tot tu răspunzi de corectitudinea declarației pe care o confirmi pentru campaniile tale existente.</P></Clause>
-        <Clause n="4.3"><P>La adresele reclamelor din campaniile Hontrio adăugăm parametrii <Code>utm_source=google</Code>, <Code>utm_medium=cpc</Code> și <Code>utm_campaign=hontrio-ID</Code>, unde ID e numărul campaniei, ca să se vadă ce vânzări aduc.</P></Clause>
-        <Clause n="4.4"><P>Contul Google Ads rămâne al tău și îl controlezi oricând: poți opri sau modifica direct din Google Ads orice campanie. Schimbările făcute direct în Google Ads la o campanie Hontrio pot fi înlocuite de pilot cu planul din Hontrio (de exemplu lista de produse), așa că e bine să schimbi campaniile Hontrio din Hontrio.</P></Clause>
-        <Clause n="4.5"><P>Hontrio e un furnizor independent: nu este Google și nu e afiliat cu Google. Google Ads și Google Merchant Center sunt mărci ale Google LLC.</P></Clause>
+        <Clause n="4.3"><P>La adresele reclamelor din campaniile Hontrio adăugăm parametrii <Code>utm_source=google</Code>, <Code>utm_medium=cpc</Code> și <Code>utm_campaign=hontrio-ID</Code>, unde ID este numărul campaniei, ca să se vadă ce vânzări aduc.</P></Clause>
+        <Clause n="4.4"><P>Contul Google Ads rămâne al tău și îl controlezi oricând: poți opri sau modifica direct din Google Ads orice campanie. Schimbările făcute direct în Google Ads la o campanie Hontrio pot fi înlocuite de pilot cu planul din Hontrio (de exemplu lista de produse), așa că este bine să schimbi campaniile Hontrio din Hontrio.</P></Clause>
+        <Clause n="4.5"><P>Hontrio este un furnizor independent, care nu face parte din Google și nu este afiliat cu Google. Google Ads și Google Merchant Center sunt mărci ale Google LLC.</P></Clause>
         <Clause n="4.6"><P>Ce să aștepți de la cineva care îți administrează reclamele Google explică Google în ghidul <A href={THIRD_PARTY}>„Working with a third party”</A>. La cerere, îți comunicăm ID-urile conturilor Google Ads în care lucrăm pentru tine.</P></Clause>
       </>,
     },
@@ -125,7 +125,7 @@ const RO: LegalDoc = {
             'magazinele care vând în lei: până la 5.000 lei, gratuit; peste 5.000 și până la 10.000 lei, 199 lei; peste 10.000 lei, 2% din vânzări;',
             'magazinele care vând în euro: până la 1.000 €, gratuit; peste 1.000 și până la 2.000 €, 39 €; peste 2.000 €, 2% din vânzări.',
           ]} />
-          <P>Nu există plafon. Grila e și pe prima pagină a site-ului, la <L href="/#pricing">Prețuri</L>.</P>
+          <P>Nu există plafon. Grila este și pe prima pagină a site-ului, la <L href="/#pricing">Prețuri</L>.</P>
         </Clause>
         <Clause n="9.2">
           <P>Se numără:</P>
@@ -138,9 +138,9 @@ const RO: LegalDoc = {
           ]} />
           <P>În Hontrio vezi lista comenzilor numărate și poți contesta oricare dintre ele; o comandă care nu îndeplinește aceste reguli o scoatem din calcul.</P>
         </Clause>
-        <Clause n="9.3"><P>Luna se închide în ultima ei zi. Factura se emite pe 15 ale lunii următoare, după cele 14 zile în care cumpărătorii pot returna produsele, și se plătește în termenul scris pe ea. O rambursare făcută după emiterea facturii se scade în luna următoare. Prețurile sunt finale: VOID SFT GAMES SRL nu e plătitoare de TVA.</P></Clause>
-        <Clause n="9.4"><P>Nu există abonament, taxă de pornire sau perioadă minimă: o lună fără vânzări aduse de Hontrio nu costă nimic. Taxa e separată de costul reclamelor, pe care îl plătești direct la Google și care nu trece niciodată prin Hontrio.</P></Clause>
-        <Clause n="9.5"><P>Perioada de lansare: acum, Hontrio e gratuit. Facturarea pornește doar după ce te anunțăm, pe e-mail și în aplicație, cu cel puțin 30 de zile înainte; vânzările de până atunci nu se numără. Dacă nu vrei să plătești, poți înceta contractul înainte, fără costuri.</P></Clause>
+        <Clause n="9.3"><P>Luna se închide în ultima ei zi. Factura se emite pe 15 ale lunii următoare, după cele 14 zile în care cumpărătorii pot returna produsele, și se plătește în termenul scris pe ea. O rambursare făcută după emiterea facturii se scade în luna următoare. Prețurile sunt finale, pentru că VOID SFT GAMES SRL nu este plătitoare de TVA.</P></Clause>
+        <Clause n="9.4"><P>Nu există abonament, taxă de pornire sau perioadă minimă: o lună fără vânzări aduse de Hontrio nu costă nimic. Taxa este separată de costul reclamelor, pe care îl plătești direct la Google și care nu trece niciodată prin Hontrio.</P></Clause>
+        <Clause n="9.5"><P>În perioada de lansare, Hontrio este gratuit. Facturarea pornește doar după ce te anunțăm, pe e-mail și în aplicație, cu cel puțin 30 de zile înainte; vânzările de până atunci nu se numără. Dacă nu vrei să plătești, poți înceta contractul înainte, fără costuri.</P></Clause>
         <Clause n="9.6"><P>Orice schimbare a prețurilor o anunțăm pe e-mail și în aplicație cu cel puțin 30 de zile înainte să se aplice. Dacă nu ești de acord, poți înceta contractul înainte, fără costuri.</P></Clause>
       </>,
     },
@@ -149,7 +149,7 @@ const RO: LegalDoc = {
       body: <>
         <Clause n="10.1"><P>Datele contului tău le prelucrăm ca operator, după <L href="/legal/privacy">Politica de confidențialitate</L>.</P></Clause>
         <Clause n="10.2"><P>Datele cumpărătorilor din magazinul tău le prelucrăm ca persoană împuternicită, după <L href="/legal/dpa">Acordul de prelucrare a datelor</L>, care face parte din acest contract.</P></Clause>
-        <Clause n="10.3"><P>Datele magazinului și ale conturilor tale rămân ale tale. Ne dai dreptul să le folosim doar cât e nevoie ca să-ți furnizăm Hontrio.</P></Clause>
+        <Clause n="10.3"><P>Datele magazinului și ale conturilor tale rămân ale tale. Ne dai dreptul să le folosim doar cât este nevoie ca să-ți furnizăm Hontrio.</P></Clause>
         <Clause n="10.4"><P>Datele primite de la Google le folosim după Politica Google privind datele utilizatorilor din API-uri (Google API Services User Data Policy), inclusiv cerințele Limited Use.</P></Clause>
       </>,
     },
@@ -179,7 +179,7 @@ const RO: LegalDoc = {
     {
       id: 'incetare', title: 'Durata și încetarea',
       body: <>
-        <Clause n="14.1"><P>Contractul e pe durată nedeterminată.</P></Clause>
+        <Clause n="14.1"><P>Contractul este pe durată nedeterminată.</P></Clause>
         <Clause n="14.2"><P>Îl poți înceta oricând, fără preaviz și fără costuri, ștergându-ți contul din Setări sau scriindu-ne la <Mail to="support@hontrio.com" />.</P></Clause>
         <Clause n="14.3"><P>Îl putem înceta cu un preaviz de 30 de zile, trimis pe e-mail, sau imediat, la o încălcare gravă: fraudă, folosire ilegală, atacuri asupra platformei.</P></Clause>
         <Clause n="14.4"><P>La încetare, accesul la Hontrio se închide, accesul la Google se revocă, iar datele se șterg după termenele din Politica de confidențialitate.</P></Clause>
@@ -192,7 +192,7 @@ const RO: LegalDoc = {
       body: <>
         <Clause n="15.1"><P>Poți descărca oricând, gratuit, din Setări, datele pe care le ai în Hontrio, într-un format structurat (JSON): contul și setările, magazinele conectate, produsele și comenzile sincronizate, campaniile și grupurile, setările și jurnalul pilotului și datele aduse din Google. Nu fac parte din export cheile și tokenurile de acces și nici codul platformei.</P></Clause>
         <Clause n="15.2"><P>Poți trece oricând la alt furnizor, conform Regulamentului (UE) 2023/2854 privind datele: nu cerem preaviz, nu percepem costuri de schimbare și nu aplicăm penalități. Campaniile sunt deja în contul tău Google Ads, deci rămân la tine.</P></Clause>
-        <Clause n="15.3"><P>Dacă ne spui că vrei să schimbi furnizorul, contul rămâne disponibil cel puțin 30 de zile ca să-ți exporți datele, iar la cerere te ajutăm cu exportul; apoi ștergem definitiv datele, mai puțin cele pe care legea ne obligă să le păstrăm. Ștergerea contului din Setări e definitivă și imediată, așa că exportă datele înainte.</P></Clause>
+        <Clause n="15.3"><P>Dacă ne spui că vrei să schimbi furnizorul, contul rămâne disponibil cel puțin 30 de zile ca să-ți exporți datele, iar la cerere te ajutăm cu exportul; apoi ștergem definitiv datele, mai puțin cele pe care legea ne obligă să le păstrăm. Ștergerea contului din Setări este definitivă și imediată, așa că exportă datele înainte.</P></Clause>
       </>,
     },
     {
@@ -201,7 +201,7 @@ const RO: LegalDoc = {
         <Clause n="16.1"><P>Răspundem pentru prejudiciile directe pe care ți le cauzăm din vina noastră. Nu răspundem pentru prejudiciile indirecte și nici pentru beneficiul nerealizat, în afara cazurilor de la 16.5.</P></Clause>
         <Clause n="16.2"><P>Nu răspundem pentru: cheltuiala cu reclamele făcută în bugetele alese de tine și după regulile Google; deciziile Google (licitații, aprobări, respingeri, suspendări de cont); erorile din datele magazinului, din feed sau din măsurarea conversiilor; schimbările pe care le faci direct în Google Ads; campaniile lăsate să ruleze după deconectare, ștergere, suspendare sau încetare; întreruperile Google, ale platformei magazinului sau ale furnizorilor noștri.</P></Clause>
         <Clause n="16.3"><P>Dacă, din cauza unei erori a Hontrio, pilotul face o schimbare în afara limitelor alese de tine (de exemplu crește bugetul fără aprobarea ta), răspundem pentru cheltuiala suplimentară cu reclamele rezultată, în limita de la 16.4.</P></Clause>
-        <Clause n="16.4"><P>Răspunderea noastră totală față de tine, pentru toate pretențiile legate de acest contract, e limitată la cea mai mare dintre următoarele sume: totalul plătit de tine către Hontrio în ultimele 12 luni înainte de faptul care a cauzat prejudiciul; echivalentul în lei al sumei de 500 de euro, la cursul BNR din ziua plății.</P></Clause>
+        <Clause n="16.4"><P>Răspunderea noastră totală față de tine, pentru toate pretențiile legate de acest contract, este limitată la cea mai mare dintre următoarele sume: totalul plătit de tine către Hontrio în ultimele 12 luni înainte de faptul care a cauzat prejudiciul; echivalentul în lei al sumei de 500 de euro, la cursul BNR din ziua plății.</P></Clause>
         <Clause n="16.5"><P>Limitările de la 16.1 și 16.4 nu se aplică prejudiciilor cauzate cu intenție sau din culpă gravă, vătămării integrității corporale sau a sănătății și niciunui alt caz în care legea nu permite limitarea răspunderii.</P></Clause>
       </>,
     },
@@ -228,7 +228,7 @@ const RO: LegalDoc = {
     {
       id: 'lege', title: 'Legea și litigiile',
       body: <>
-        <Clause n="19.1"><P>Contractul e guvernat de legea română.</P></Clause>
+        <Clause n="19.1"><P>Contractul este guvernat de legea română.</P></Clause>
         <Clause n="19.2"><P>Încercăm întâi să rezolvăm amiabil orice neînțelegere, în 30 de zile de la notificarea scrisă.</P></Clause>
         <Clause n="19.3"><P>Dacă nu reușim, litigiul se judecă de instanțele competente de la sediul social al VOID SFT GAMES SRL, în județul Gorj.</P></Clause>
       </>,
@@ -236,13 +236,13 @@ const RO: LegalDoc = {
     {
       id: 'finale', title: 'Dispoziții finale',
       body: <UL items={[
-        'Contractul e format din acești Termeni, Acordul de prelucrare a datelor și clauzele acceptate expres; Politica de confidențialitate și Politica de cookies te informează despre date.',
-        'Dacă o clauză e declarată nevalabilă, celelalte rămân în vigoare.',
+        'Contractul este format din acești Termeni, Acordul de prelucrare a datelor și clauzele acceptate expres; Politica de confidențialitate și Politica de cookie-uri te informează despre date.',
+        'Dacă o clauză este declarată nevalabilă, celelalte rămân în vigoare.',
         'Putem transfera contractul unui succesor, la o reorganizare, fuziune sau vânzare a afacerii, cu anunțarea ta; tu îl poți transfera doar cu acordul nostru scris.',
         'Niciuna dintre părți nu răspunde pentru neexecutarea cauzată de forța majoră (art. 1351 Cod civil).',
         'Comunicările ți le trimitem la adresa de e-mail a contului; nouă ne scrii la contact@hontrio.com sau la support@hontrio.com.',
         'Termenii sunt disponibili în română și în engleză; dacă versiunile diferă, prevalează cea în română.',
-        'Versiunea în vigoare: 2026-11-12. Versiunile anterioare le poți cere la contact@hontrio.com.',
+        'Versiunea în vigoare: 2026-11-16. Versiunile anterioare le poți cere la contact@hontrio.com.',
       ]} />,
     },
   ],
@@ -264,9 +264,9 @@ const EN: LegalDoc = {
     {
       id: 'service', title: 'What Hontrio does',
       body: <>
-        <Clause n="2.1"><P>Hontrio connects your online store (Edinio, WooCommerce or Shopify) and your Google Ads and Google Merchant Center accounts, turns the store’s products into Google Shopping or Performance Max campaigns, looks after them daily through the autopilot and shows you reports and catalog recommendations.</P></Clause>
+        <Clause n="2.1"><P>Hontrio connects your online store (Edinio, WooCommerce, Shopify, Gomag, MerchantPro or OpenCart) and your Google Ads and Google Merchant Center accounts, turns the store’s products into Google Shopping or Performance Max campaigns, manages them daily through the autopilot and shows you reports and catalog recommendations.</P></Clause>
         <Clause n="2.2"><P>To use Hontrio you need a Google Ads account with an active payment method, a Merchant Center account with the store’s products and purchase conversion tracking in Google Ads. Hontrio checks them before launch, but setting them up correctly is your responsibility.</P></Clause>
-        <Clause n="2.3"><P>We only read the store: Hontrio does not change products, orders or any other data in the store.</P></Clause>
+        <Clause n="2.3"><P>We only read the store. Hontrio does not change products, orders or any other data in the store. For OpenCart, the connection goes through the Hontrio extension, which you install in your store and which only lets Hontrio read the data.</P></Clause>
         <Clause n="2.4"><P>We may change, add or remove features. If a change significantly reduces your service, we notify you at least 30 days in advance.</P></Clause>
       </>,
     },
@@ -293,7 +293,7 @@ const EN: LegalDoc = {
         <Clause n="4.2"><P>We declare Hontrio campaigns to Google as not being EU political advertising. You confirm that your products and ads are not political advertising; if they could be, do not use Hontrio for them. You are also responsible for the accuracy of the declaration you confirm for your existing campaigns.</P></Clause>
         <Clause n="4.3"><P>To the URLs of the ads in Hontrio campaigns we add the parameters <Code>utm_source=google</Code>, <Code>utm_medium=cpc</Code> and <Code>utm_campaign=hontrio-ID</Code>, where ID is the campaign number, so you can see which sales they bring.</P></Clause>
         <Clause n="4.4"><P>The Google Ads account remains yours and you control it at all times: you can stop or change any campaign directly in Google Ads. Changes made directly in Google Ads to a Hontrio campaign may be replaced by the autopilot with the plan in Hontrio (for example the product list), so it is best to change Hontrio campaigns from Hontrio.</P></Clause>
-        <Clause n="4.5"><P>Hontrio is an independent provider: it is not Google and it is not affiliated with Google. Google Ads and Google Merchant Center are trademarks of Google LLC.</P></Clause>
+        <Clause n="4.5"><P>Hontrio is an independent provider, not part of Google and not affiliated with Google. Google Ads and Google Merchant Center are trademarks of Google LLC.</P></Clause>
         <Clause n="4.6"><P>What to expect from someone who manages your Google ads is explained by Google in the guide <A href={THIRD_PARTY}>“Working with a third party”</A>. On request, we tell you the IDs of the Google Ads accounts we work in for you.</P></Clause>
       </>,
     },
@@ -372,9 +372,9 @@ const EN: LegalDoc = {
           ]} />
           <P>In Hontrio you see the list of counted orders and can contest any of them; we remove from the calculation any order that does not meet these rules.</P>
         </Clause>
-        <Clause n="9.3"><P>The month closes on its last day. The invoice is issued on the 15th of the next month, after the 14 days in which buyers can return products, and is payable within the term written on it. A refund made after the invoice is issued is subtracted in the following month. Prices are final: VOID SFT GAMES SRL is not registered for VAT.</P></Clause>
+        <Clause n="9.3"><P>The month closes on its last day. The invoice is issued on the 15th of the next month, after the 14 days in which buyers can return products, and is payable within the term written on it. A refund made after the invoice is issued is subtracted in the following month. Prices are final because VOID SFT GAMES SRL is not registered for VAT.</P></Clause>
         <Clause n="9.4"><P>There is no subscription, setup fee or minimum term: a month without sales from Hontrio costs nothing. The fee is separate from the cost of the ads, which you pay directly to Google and which never goes through Hontrio.</P></Clause>
-        <Clause n="9.5"><P>Launch period: for now, Hontrio is free. Billing starts only after we notify you, by email and in the app, at least 30 days in advance; sales made before then do not count. If you do not want to pay, you can end the contract before then, at no cost.</P></Clause>
+        <Clause n="9.5"><P>During the launch period, Hontrio is free. Billing starts only after we notify you, by email and in the app, at least 30 days in advance; sales made before then do not count. If you do not want to pay, you can end the contract before then, at no cost.</P></Clause>
         <Clause n="9.6"><P>We notify any price change by email and in the app at least 30 days before it applies. If you disagree, you can end the contract before then, at no cost.</P></Clause>
       </>,
     },
@@ -476,7 +476,7 @@ const EN: LegalDoc = {
         'Neither party is liable for non-performance caused by force majeure (Art. 1351 of the Romanian Civil Code).',
         'We send notices to the account’s email address; you write to us at contact@hontrio.com or support@hontrio.com.',
         'The Terms are available in Romanian and English; if the versions differ, the Romanian version prevails.',
-        'Version in force: 2026-11-12. You can ask for previous versions at contact@hontrio.com.',
+        'Version in force: 2026-11-16. You can ask for previous versions at contact@hontrio.com.',
       ]} />,
     },
   ],

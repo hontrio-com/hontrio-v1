@@ -4,18 +4,18 @@ import { A, Code, L, LegalPage, Mail, P, Table, type LegalDoc } from '../legal-p
 import { CookieSettingsButton } from '../cookie-settings-button'
 
 // =============================================
-// Politica de cookies, în română și în engleză: lista reală a cookie-urilor
+// Politica de cookie-uri, în română și în engleză: lista reală a cookie-urilor
 // (NextAuth, conectările OAuth, limba, alegerea despre cookie-uri) și Google
 // Analytics, care se încarcă doar după „Accept” (components/cookie-consent.tsx).
 // =============================================
 
 const RO: LegalDoc = {
-  title: 'Politica de cookies',
+  title: 'Politica de cookie-uri',
   summary: <>Ce cookie-uri și ce date din browser folosesc hontrio.com și app.hontrio.com, de ce, cât timp și cum îți dai sau îți retragi acordul.</>,
   sections: [
     {
       id: 'ce-sunt', title: 'Ce sunt cookie-urile',
-      body: <P>Cookie-urile sunt fișiere mici pe care un site le salvează în browserul tău. Tot aici intră și stocarea locală a browserului (local storage), pe care o folosim pentru o preferință. Le folosim după Legea nr. 506/2004 și GDPR: fără acordul tău punem doar ce e strict necesar pentru serviciul pe care l-ai cerut.</P>,
+      body: <P>Cookie-urile sunt fișiere mici pe care un site le salvează în browserul tău. Tot aici intră și stocarea locală a browserului (local storage), pe care o folosim pentru o preferință. Le folosim după Legea nr. 506/2004 și GDPR: fără acordul tău punem doar ce este strict necesar pentru serviciul pe care l-ai cerut.</P>,
     },
     {
       id: 'necesare', title: 'Cookie-uri strict necesare',
@@ -30,9 +30,11 @@ const RO: LegalDoc = {
           [<Code key="c">edinio_oauth</Code>, 'app.hontrio.com', 'Securitatea conectării unui magazin Edinio', '10 minute'],
           [<><Code>shopify_oauth_state</Code>, <Code>shopify_redirect_onboarding</Code></>, 'app.hontrio.com', 'Securitatea conectării unui magazin Shopify', '5 minute'],
           [<Code key="c">hontrio_return_to</Code>, 'app.hontrio.com', 'Unde revii după o conectare pornită din configurarea inițială', '15 minute'],
-          [<Code key="c">hontrio_locale</Code>, 'hontrio.com, app.hontrio.com', 'Limba pe care ai ales-o', '1 an'],
+          [<Code key="c">hontrio_verify</Code>, 'app.hontrio.com', 'La confirmarea adresei de e-mail, ține codul din link în afara adresei paginii', 'Cel mult o oră'],
+          [<Code key="c">hontrio_reset</Code>, 'app.hontrio.com', 'La resetarea parolei, ține codul din link în afara adresei paginii', 'Cel mult 30 de minute'],
+          [<Code key="c">hontrio_locale</Code>, 'hontrio.com, app.hontrio.com', 'Limba aleasă în Setări sau printr-un link de limbă', '1 an'],
           [<Code key="c">hontrio_consent</Code>, 'hontrio.com și subdomeniile lui', 'Alegerea ta despre cookie-uri', '12 luni'],
-          [<><Code>hontrio_announce_groups</Code> (stocare locală)</>, 'hontrio.com', 'Ține minte că ai închis anunțul din antet', 'Până ștergi datele site-ului din browser'],
+          [<><Code>hontrio_announce_launch_free</Code> (stocare locală)</>, 'hontrio.com', 'Ține minte că ai închis anunțul din antet', 'Până ștergi datele site-ului din browser'],
         ]} />
       </>,
     },
@@ -51,15 +53,15 @@ const RO: LegalDoc = {
       id: 'nu-folosim', title: 'Ce nu folosim',
       body: <>
         <P>Nu folosim cookie-uri de publicitate sau de remarketing, pixeli ai rețelelor sociale și nici instrumente care înregistrează sesiunea.</P>
-        <P>Unele servicii își pun propriile cookie-uri pe domeniile lor: când alegi „Continuă cu Google”, ajungi pe paginile Google, care folosesc cookie-urile Google; la înregistrare, verificarea anti-roboți Cloudflare Turnstile, când e activă, citește informații tehnice despre browser ca să deosebească oamenii de roboți.</P>
+        <P>Unele servicii își pun propriile cookie-uri pe domeniile lor: când alegi „Continuă cu Google”, ajungi pe paginile Google, care folosesc cookie-urile Google; la înregistrare, verificarea anti-roboți Cloudflare Turnstile, când este activă, citește informații tehnice despre browser ca să deosebească oamenii de roboți.</P>
       </>,
     },
     {
       id: 'acord', title: 'Cum îți dai și cum îți retragi acordul',
       body: <>
         <P>La prima vizită îți arătăm un banner cu două butoane la fel de vizibile, „Accept” și „Refuz”. Alegerea o ținem 12 luni în cookie-ul <Code>hontrio_consent</Code>, comun pentru hontrio.com și app.hontrio.com, apoi te întrebăm din nou.</P>
-        <P>Îți poți schimba oricând alegerea din „Setări cookie”, în subsolul site-ului, sau de aici:</P>
-        <div><CookieSettingsButton label="Setări cookie" /></div>
+        <P>Îți poți schimba oricând alegerea din „Setări cookie-uri”, în subsolul site-ului, sau de aici:</P>
+        <div><CookieSettingsButton label="Setări cookie-uri" /></div>
         <P>Când îți retragi acordul, oprim Google Analytics și ștergem cookie-urile <Code>_ga</Code> de pe domeniul nostru. Retragerea nu afectează ce s-a măsurat înainte.</P>
       </>,
     },
@@ -95,9 +97,11 @@ const EN: LegalDoc = {
           [<Code key="c">edinio_oauth</Code>, 'app.hontrio.com', 'Security of connecting an Edinio store', '10 minutes'],
           [<><Code>shopify_oauth_state</Code>, <Code>shopify_redirect_onboarding</Code></>, 'app.hontrio.com', 'Security of connecting a Shopify store', '5 minutes'],
           [<Code key="c">hontrio_return_to</Code>, 'app.hontrio.com', 'Where you return after a connection started from the initial setup', '15 minutes'],
-          [<Code key="c">hontrio_locale</Code>, 'hontrio.com, app.hontrio.com', 'The language you chose', '1 year'],
+          [<Code key="c">hontrio_verify</Code>, 'app.hontrio.com', 'When you confirm your email address, keeps the code from the link out of the page address', 'Up to one hour'],
+          [<Code key="c">hontrio_reset</Code>, 'app.hontrio.com', 'When you reset your password, keeps the code from the link out of the page address', 'Up to 30 minutes'],
+          [<Code key="c">hontrio_locale</Code>, 'hontrio.com, app.hontrio.com', 'The language you chose in Settings or through a language link', '1 year'],
           [<Code key="c">hontrio_consent</Code>, 'hontrio.com and its subdomains', 'Your cookie choice', '12 months'],
-          [<><Code>hontrio_announce_groups</Code> (local storage)</>, 'hontrio.com', 'Remembers that you closed the announcement in the header', 'Until you clear the site data in your browser'],
+          [<><Code>hontrio_announce_launch_free</Code> (local storage)</>, 'hontrio.com', 'Remembers that you closed the announcement in the header', 'Until you clear the site data in your browser'],
         ]} />
       </>,
     },
