@@ -2,19 +2,18 @@
 
 import Link from 'next/link'
 import { useReducedMotion } from 'framer-motion'
-import { ArrowUp, ArrowUpRight, Globe } from 'lucide-react'
+import { ArrowUp, ArrowUpRight } from 'lucide-react'
 import { useLocale } from '@/lib/i18n/context'
-import { LOCALES, LOCALE_NAMES } from '@/lib/i18n/config'
-import { cn } from '@/lib/utils'
 import { openCookieSettings } from '@/components/cookie-consent'
 import { BrandMark, GOOGLE, STORES } from './brands'
 
 // =============================================
 // Subsolul site-ului (ca în CLIPPING): negru, coloanele de linkuri și logo-urile
 // cu care funcționează Hontrio. Fără logo-ul mare HONTRIO de jos: proprietarul
-// l-a scos (14.11.2026). Tot aici se schimbă limba (antetul rămâne curat) și se
-// redeschide alegerea despre cookie-uri. Datele firmei (Legea nr. 365/2002,
-// art. 5) sunt în paginile legale, legate de aici: Termeni, Confidențialitate.
+// l-a scos (14.11.2026). Tot aici se redeschide alegerea despre cookie-uri.
+// Limba nu se alege pe site: vine din țara vizitatorului (`detectLocale`).
+// Datele firmei (Legea nr. 365/2002, art. 5) sunt în paginile legale, legate
+// de aici: Termeni, Confidențialitate.
 // =============================================
 
 type FooterLink = { label: string; href: string } | { label: string; onClick: () => void }
@@ -23,22 +22,6 @@ type FooterLink = { label: string; href: string } | { label: string; onClick: ()
 const WHITE_LOGO = '[filter:grayscale(1)_invert(1)_brightness(2.2)]'
 // Anul, o dată la încărcare (nu la fiecare randare)
 const YEAR = String(new Date().getFullYear())
-
-/** Română | English. Alegerea se ține minte și pagina se reîncarcă în limba nouă. */
-function LanguageSwitch() {
-  const { locale, setLocale, t } = useLocale()
-  return (
-    <div role="group" aria-label={t('common.language_change')} className="flex items-center gap-1 rounded-full border border-white/10 p-1">
-      <Globe aria-hidden className="ml-1.5 mr-0.5 size-3.5 text-white/40" />
-      {LOCALES.map(l => (
-        <button key={l} type="button" lang={l} onClick={() => setLocale(l)} aria-pressed={l === locale}
-          className={cn('rounded-full px-2.5 py-1 transition-colors', l === locale ? 'bg-white text-black' : 'text-white/60 hover:text-white')}>
-          {LOCALE_NAMES[l]}
-        </button>
-      ))}
-    </div>
-  )
-}
 
 export function SiteFooter() {
   const { t } = useLocale()
@@ -124,13 +107,10 @@ export function SiteFooter() {
 
         <div className="flex flex-col items-center justify-between gap-4 pb-10 pt-6 text-xs text-white/40 md:flex-row">
           <span>{t('site.footer_rights', { year: YEAR })}</span>
-          <div className="flex flex-wrap items-center justify-center gap-3">
-            <LanguageSwitch />
-            <button type="button" onClick={() => window.scrollTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' })}
-              className="group flex items-center gap-2 rounded-full border border-white/10 px-3 py-1.5 text-white/60 transition hover:border-white/30 hover:text-white">
-              {t('site.footer_top')}<ArrowUp className="size-3.5 transition group-hover:-translate-y-0.5" />
-            </button>
-          </div>
+          <button type="button" onClick={() => window.scrollTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' })}
+            className="group flex items-center gap-2 rounded-full border border-white/10 px-3 py-1.5 text-white/60 transition hover:border-white/30 hover:text-white">
+            {t('site.footer_top')}<ArrowUp className="size-3.5 transition group-hover:-translate-y-0.5" />
+          </button>
         </div>
       </div>
     </footer>

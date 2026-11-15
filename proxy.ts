@@ -1,7 +1,7 @@
 import { getToken } from 'next-auth/jwt'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import { LOCALE_COOKIE, SOURCE_LOCALE, detectLocale, isLocale } from '@/lib/i18n/config'
+import { LOCALE_COOKIE, LOCALE_COOKIE_MAX_AGE, SOURCE_LOCALE, detectLocale, isLocale } from '@/lib/i18n/config'
 import { MESSAGES } from '@/lib/i18n/dictionaries'
 import { createT } from '@/lib/i18n/translate'
 
@@ -38,6 +38,18 @@ const AUTH_PAGES = ['/login', '/register', '/forgot-password', '/reset-password'
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
   const hostType = getHostType(request)
+
+  // ?lang=ro|en: limba aleasă printr-un link (pentru verificări sau pentru un link trimis cuiva
+  // din altă țară). Pe pagină nu există selector; alegerea se ține minte în cookie, ca cea din
+  // Setări, iar adresa rămâne curată.
+  const lang = request.nextUrl.searchParams.get('lang')
+  if (lang !== null && request.method === 'GET' && !pathname.startsWith('/api/')) {
+    const clean = request.nextUrl.clone()
+    clean.searchParams.delete('lang')
+    const redirect = NextResponse.redirect(clean)
+    if (isLocale(lang)) redirect.cookies.set(LOCALE_COOKIE, lang, { path: '/', maxAge: LOCALE_COOKIE_MAX_AGE, sameSite: 'lax' })
+    return redirect
+  }
 
   // ═══════════════════════════════════════════════════════════════════════════
   // LANDING DOMAIN (hontrio.com) — only serve public pages

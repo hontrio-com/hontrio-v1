@@ -6,7 +6,6 @@ import { useRouter } from 'next/navigation'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ArrowLeft, ArrowRight, Check, ChevronLeft, ChevronRight, ExternalLink, Eye, EyeOff, Globe, KeyRound, Loader2, Lock } from 'lucide-react'
 import { useT } from '@/lib/i18n/context'
-import LanguageSwitcher from '@/components/language-switcher'
 import { Button } from '@/components/app/button'
 import { Callout } from '@/components/app/feedback'
 import { inputStyles } from '@/components/app/input'
@@ -271,14 +270,11 @@ export default function OnboardingPage() {
   return (
     <div className="app grid min-h-dvh bg-white text-neutral-950 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.08fr)]">
       <section className="flex min-h-dvh flex-col px-5 py-5 sm:px-10 lg:px-14">
-        {/* ── Sus: logo, pasul, limba ──────────────────────────────────────── */}
+        {/* ── Sus: logo și pasul (limba vine din țară; se schimbă din Setări) ── */}
         <header className="flex h-9 items-center justify-between gap-4">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/logo-black.png" alt="Hontrio" className="h-5 w-auto sm:h-6" />
-          <div className="flex items-center gap-4">
-            {step > 0 && <Progress step={step} label={t('onboarding.progress', { step: String(step), total: '3' })} />}
-            <LanguageSwitcher />
-          </div>
+          {step > 0 && <Progress step={step} label={t('onboarding.progress', { step: String(step), total: '3' })} />}
         </header>
 
         {/* ── Pasul ───────────────────────────────────────────────────────── */}

@@ -3,9 +3,8 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import { Command } from 'cmdk'
-import { ArrowRight, CornerDownLeft, Languages, Package, Plus, Search, Store } from 'lucide-react'
+import { ArrowRight, CornerDownLeft, Package, Plus, Search, Store } from 'lucide-react'
 import { useLocale } from '@/lib/i18n/context'
-import { LOCALES, LOCALE_NAMES } from '@/lib/i18n/config'
 import { Kbd } from '@/components/app/badge'
 import { NAV } from '@/components/app/shell/nav'
 import { PLATFORM_NAME, storeLabel, type StoreItem } from '@/components/app/shell/stores'
@@ -26,7 +25,7 @@ export function CommandMenu({ open, onOpenChange, admin, stores, activeStoreId, 
   activeStoreId: string | null
   onChooseStore: (s: StoreItem) => void
 }) {
-  const { t, locale, setLocale } = useLocale()
+  const { t } = useLocale()
   const router = useRouter()
   const [query, setQuery] = useState('')
   const [found, setFound] = useState<Product[]>([])
@@ -79,11 +78,6 @@ export function CommandMenu({ open, onOpenChange, admin, stores, activeStoreId, 
           <Item icon={<Store />} onSelect={() => go('/settings?tab=integrations')} keywords={['magazin', 'conectare', 'integrari', 'store']}>
             {t('sidebar.action_connect_store')}
           </Item>
-          {LOCALES.filter(l => l !== locale).map(l => (
-            <Item key={l} icon={<Languages />} onSelect={() => { onOpenChange(false); setLocale(l) }} keywords={['limba', 'language', l]}>
-              {t('sidebar.action_language', { language: LOCALE_NAMES[l] })}
-            </Item>
-          ))}
         </Command.Group>
 
         <Command.Group heading={t('sidebar.command_pages')}>

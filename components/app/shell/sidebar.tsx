@@ -3,9 +3,8 @@
 import Link from 'next/link'
 import { DropdownMenu } from 'radix-ui'
 import { motion } from 'framer-motion'
-import { Check, ChevronsUpDown, Languages, LogOut, Megaphone, Plus, Search, Settings, ShoppingBag, Store } from 'lucide-react'
+import { Check, ChevronsUpDown, LogOut, Megaphone, Plus, Search, ShoppingBag, Store } from 'lucide-react'
 import { useLocale } from '@/lib/i18n/context'
-import { LOCALES, LOCALE_NAMES } from '@/lib/i18n/config'
 import { cn } from '@/lib/utils'
 import NotificationBell from '@/components/notification-bell'
 import { NAV, activeItem, type NavItem } from '@/components/app/shell/nav'
@@ -171,50 +170,25 @@ function StoreCard(p: Props) {
   )
 }
 
-/** Contul: inițiala, numele și emailul, cu meniul (setări, limba) și ieșirea. */
+/** Contul: inițiala, numele și emailul, care duc în Setări (tot acolo se schimbă și limba), și ieșirea. */
 function UserCard(p: Props) {
-  const { t, locale, setLocale } = useLocale()
+  const { t } = useLocale()
   const initial = (p.user.name || p.user.email).slice(0, 1).toUpperCase()
   return (
     <div className="flex items-center gap-1 rounded-2xl p-1">
-      <DropdownMenu.Root>
-        <DropdownMenu.Trigger asChild>
-          <button className="flex min-w-0 flex-1 items-center gap-3 rounded-xl p-1 text-left outline-none transition-colors hover:bg-neutral-100/70 data-[state=open]:bg-neutral-100">
-            <span className="grid size-9 shrink-0 place-items-center overflow-hidden rounded-full bg-gradient-to-br from-neutral-700 to-black text-sm font-bold text-white ring-2 ring-white">
-              {p.user.avatarUrl
-                // eslint-disable-next-line @next/next/no-img-element
-                ? <img src={p.user.avatarUrl} alt="" className="size-full object-cover" />
-                : initial}
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-sm font-semibold text-neutral-900">{p.user.name}</span>
-              <span className="block truncate text-xs text-neutral-400">{p.user.email}</span>
-            </span>
-          </button>
-        </DropdownMenu.Trigger>
-        <DropdownMenu.Portal>
-          <DropdownMenu.Content side="top" align="start" sideOffset={10} className={menuContent}>
-            <DropdownMenu.Item asChild className={menuItem}>
-              <Link href="/settings" onClick={p.onNavigate}><Settings className="size-4 text-neutral-400" />{t('sidebar.settings')}</Link>
-            </DropdownMenu.Item>
-            <DropdownMenu.Sub>
-              <DropdownMenu.SubTrigger className={menuItem}>
-                <Languages className="size-4 text-neutral-400" /><span className="flex-1">{t('sidebar.language')}</span>
-                <span className="text-[12px] text-neutral-400">{LOCALE_NAMES[locale]}</span>
-              </DropdownMenu.SubTrigger>
-              <DropdownMenu.Portal>
-                <DropdownMenu.SubContent sideOffset={6} className={cn(menuContent, 'min-w-[160px]')}>
-                  {LOCALES.map(l => (
-                    <DropdownMenu.Item key={l} className={menuItem} onSelect={() => setLocale(l)}>
-                      <span className="flex-1">{LOCALE_NAMES[l]}</span>{l === locale && <Check className="size-4 text-black" />}
-                    </DropdownMenu.Item>
-                  ))}
-                </DropdownMenu.SubContent>
-              </DropdownMenu.Portal>
-            </DropdownMenu.Sub>
-          </DropdownMenu.Content>
-        </DropdownMenu.Portal>
-      </DropdownMenu.Root>
+      <Link href="/settings" onClick={p.onNavigate} title={t('sidebar.settings')}
+        className="flex min-w-0 flex-1 items-center gap-3 rounded-xl p-1 text-left outline-none transition-colors hover:bg-neutral-100/70 focus-visible:bg-neutral-100">
+        <span className="grid size-9 shrink-0 place-items-center overflow-hidden rounded-full bg-gradient-to-br from-neutral-700 to-black text-sm font-bold text-white ring-2 ring-white">
+          {p.user.avatarUrl
+            // eslint-disable-next-line @next/next/no-img-element
+            ? <img src={p.user.avatarUrl} alt="" className="size-full object-cover" />
+            : initial}
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-sm font-semibold text-neutral-900">{p.user.name}</span>
+          <span className="block truncate text-xs text-neutral-400">{p.user.email}</span>
+        </span>
+      </Link>
       <button onClick={p.onLogout} title={t('common.logout')} aria-label={t('common.logout')}
         className="grid size-8 shrink-0 place-items-center rounded-lg text-neutral-400 transition hover:bg-neutral-100 hover:text-black">
         <LogOut className="size-4" />
