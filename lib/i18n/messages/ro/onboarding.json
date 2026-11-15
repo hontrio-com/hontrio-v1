@@ -26,7 +26,7 @@
   "woo_tut_3_title": "Creează o cheie cu permisiunea „Citește”",
   "woo_tut_3_desc": "Apasă „Creează o cheie API”, scrie „Hontrio” la Descriere și alege „Citește” la Permisiuni. Apoi apasă „Generează cheia API”.",
   "woo_tut_4_title": "Copiază cheile în Hontrio",
-  "woo_tut_4_desc": "Copiază „Cheie client” (ck_…) și „Secret client” (cs_…) în câmpurile de mai jos. Secretul nu mai apare după ce părăsești pagina.",
+  "woo_tut_4_desc": "Copiază „Cheie client” (începe cu ck_) și „Secret client” (începe cu cs_) în câmpurile de mai jos. Secretul nu mai apare după ce părăsești pagina.",
   "show_keys": "Arată",
   "hide_keys": "Ascunde",
   "fill_all": "Completează toate câmpurile.",

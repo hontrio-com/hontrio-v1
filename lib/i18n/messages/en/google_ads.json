@@ -24,7 +24,7 @@
   "store_label": "Store",
   "per_store_hint": "Each store runs its campaigns in its own account.",
   "account_for_store": "Google Ads account for {{store}}",
-  "currency_mismatch": "The account currency ({{account}}) differs from the store's ({{store}}): budgets and sale values wouldn't match.",
+  "currency_mismatch": "The account currency ({{account}}) differs from the store's ({{store}}), so budgets and sale values wouldn't match.",
   "no_store": "Connect a store first, then choose its Google Ads account.",
   "clear_account": "Don't use any account for this store",
   "used_by_other_store": "Also used for {{store}}"

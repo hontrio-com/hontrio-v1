@@ -1,8 +1,8 @@
 {
   "not_found_title": "Pagina nu există",
-  "not_found_desc": "Adresa e greșită sau pagina a fost mutată. Verifică linkul sau întoarce-te la pagina principală.",
-  "error_title": "Ceva n-a mers",
-  "error_desc": "A apărut o eroare neașteptată. Încearcă din nou; dacă se repetă, scrie-ne și îți răspundem repede.",
+  "not_found_desc": "Adresa este greșită sau pagina a fost mutată. Verifică linkul sau întoarce-te la pagina principală.",
+  "error_title": "Ceva nu a mers",
+  "error_desc": "A apărut o eroare neașteptată. Încearcă din nou, iar dacă se repetă, scrie-ne și îți răspundem repede.",
   "retry": "Încearcă din nou",
   "home": "Înapoi la pagina principală",
   "code": "Codul erorii: {{code}}"

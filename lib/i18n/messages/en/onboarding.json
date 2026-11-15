@@ -26,7 +26,7 @@
   "woo_tut_3_title": "Create a key with “Read” permission",
   "woo_tut_3_desc": "Click “Create an API key”, enter “Hontrio” as the description and choose “Read” under Permissions. Then click “Generate API key”.",
   "woo_tut_4_title": "Copy the keys into Hontrio",
-  "woo_tut_4_desc": "Copy the “Consumer key” (ck_…) and “Consumer secret” (cs_…) into the fields below. The secret isn’t shown again once you leave the page.",
+  "woo_tut_4_desc": "Copy the “Consumer key” (it starts with ck_) and the “Consumer secret” (it starts with cs_) into the fields below. The secret isn’t shown again once you leave the page.",
   "show_keys": "Show",
   "hide_keys": "Hide",
   "fill_all": "Fill in all the fields.",

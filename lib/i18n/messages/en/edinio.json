@@ -5,7 +5,7 @@
   "connecting": "Taking you to Edinio…",
   "connect_desc": "You approve access in your Edinio dashboard, no keys to copy. Hontrio reads your catalog (exactly the offers sent to Merchant Center) and your orders with their source, so it knows which products to promote and which sales the ads brought.",
   "connect_note": "Hontrio never receives your shoppers' personal data and cannot change anything in your store.",
-  "platform_label": "Edinio — OAuth 2.0",
+  "platform_label": "Edinio · OAuth 2.0",
   "offers_synced": "Synced offers",
   "orders_synced": "Synced orders",
   "merchant_center": "Merchant Center",

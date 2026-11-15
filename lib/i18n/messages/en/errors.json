@@ -2,7 +2,7 @@
   "not_found_title": "This page doesn't exist",
   "not_found_desc": "The address is wrong or the page has moved. Check the link or go back to the home page.",
   "error_title": "Something went wrong",
-  "error_desc": "An unexpected error occurred. Please try again; if it keeps happening, write to us and we'll get back to you quickly.",
+  "error_desc": "An unexpected error occurred. Please try again, and if it keeps happening, write to us and we'll get back to you quickly.",
   "retry": "Try again",
   "home": "Back to the home page",
   "code": "Error code: {{code}}"

@@ -45,17 +45,17 @@
   "no_store_desc": "Hontrio reads your catalog and sales so it knows which products are worth promoting.",
   "connect_store": "Connect your store",
   "unsupported_title": "This store's platform isn't on the new model yet",
-  "unsupported_desc": "Products come from Edinio, WooCommerce and Shopify for now; other platforms are coming.",
+  "unsupported_desc": "Hontrio brings in products from Edinio, WooCommerce, Shopify, Gomag, MerchantPro and OpenCart. More platforms will follow.",
   "revoked": "Access to the {{platform}} store was stopped, so products are no longer updated.",
   "first_sync_title": "The first sync is running",
   "first_sync_desc": "We are bringing in your catalog and orders. It can take a few minutes.",
   "empty_title": "No active products",
   "empty_desc": "Your store has no active products that can reach Google.",
-  "page_of": "{{from}}–{{to}} of {{total}}",
+  "page_of": "{{from}}-{{to}} of {{total}}",
   "prev": "Previous page",
   "next": "Next page",
   "store_error": "The {{platform}} store did not respond at the last sync. We try again at every sync.",
   "store_unreachable": "Not responding",
   "reconnect": "Reconnect store",
-  "sync_partial": "So far we brought in {{offers}} and {{orders}}. The store is large: the rest comes with the next syncs, in the background."
+  "sync_partial": "So far we brought in {{offers}} and {{orders}}. The store is large, so the rest comes with the next syncs, in the background."
 }

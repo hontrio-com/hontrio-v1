@@ -167,7 +167,7 @@ export default function ReportsPage() {
           {/* Pe zile: valoarea vânzărilor față de cheltuială */}
           <FadeIn delay={0.04}>
             <Card>
-              <CardHeader title={t('reports.daily_title')} description={data.period ? `${label(data.period.from)} – ${label(data.period.to)}` : undefined}
+              <CardHeader title={t('reports.daily_title')} description={data.period ? t('reports.daily_range', { from: label(data.period.from), to: label(data.period.to) }) : undefined}
                 action={<ChartLegend items={[{ label: t('reports.kpi_value'), className: 'bg-neutral-900' }, { label: t('reports.kpi_spend'), className: 'bg-neutral-400' }]} />} />
               <div className="px-3 pb-4 pt-4">
                 <DualTrend data={daily.map(d => ({ label: label(d.date), a: d.value, b: d.cost }))} names={{ a: t('reports.kpi_value'), b: t('reports.kpi_spend') }}

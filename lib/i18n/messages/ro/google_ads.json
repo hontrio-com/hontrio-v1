@@ -2,7 +2,7 @@
   "subtitle": "Conectează contul pentru a rula campanii",
   "connect": "Conectează cu Google",
   "reconnect": "Reconectează Google",
-  "connect_desc": "În pasul următor, Google îți cere acordul ca Hontrio să acceseze Google Ads și Merchant Center. Hontrio citește campaniile, bugetele, rezultatele, termenii de căutare și starea produselor, creează și administrează propriile campanii în contul tău și adaugă în Merchant Center sursa de date „Hontrio”. Campaniile pe care le ai deja nu se schimbă decât dacă alegi asta la lansare. Reclamele le plătești direct lui Google, iar accesul îl poți retrage oricând.",
+  "connect_desc": "În pasul următor, Google îți cere acordul ca Hontrio să acceseze Google Ads și Merchant Center. Hontrio citește campaniile, bugetele, rezultatele, termenii de căutare și starea produselor, creează și administrează propriile campanii în contul tău și adaugă în Merchant Center sursa de date „Hontrio”. Campaniile pe care le ai deja nu se schimbă decât dacă alegi acest lucru la lansare. Reclamele le plătești direct lui Google, iar accesul îl poți retrage oricând.",
   "no_account": "Nu ai cont Google Ads? Creează unul",
   "revoked": "Acces revocat",
   "revoked_desc": "Accesul Hontrio la contul Google a fost revocat sau a expirat. Reconectează contul ca să continuăm.",
@@ -24,7 +24,7 @@
   "store_label": "Magazinul",
   "per_store_hint": "Fiecare magazin își rulează campaniile în contul lui.",
   "account_for_store": "Contul Google Ads pentru {{store}}",
-  "currency_mismatch": "Moneda contului ({{account}}) diferă de a magazinului ({{store}}): bugetul și valorile vânzărilor nu s-ar potrivi.",
+  "currency_mismatch": "Moneda contului ({{account}}) diferă de cea a magazinului ({{store}}), așa că bugetul și valorile vânzărilor nu s-ar potrivi.",
   "no_store": "Conectează întâi un magazin, apoi îi alegi contul Google Ads.",
   "clear_account": "Nu folosi niciun cont pentru acest magazin",
   "used_by_other_store": "Folosit și pentru {{store}}"
