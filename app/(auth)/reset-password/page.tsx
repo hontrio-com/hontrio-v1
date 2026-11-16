@@ -4,9 +4,9 @@ import { useEffect, useState, Suspense } from 'react'
 import { useT } from '@/lib/i18n/context'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { Loader2, Lock, CheckCircle, AlertCircle, ArrowRight, KeyRound } from 'lucide-react'
+import { Lock, CheckCircle, AlertCircle, ArrowRight, KeyRound } from 'lucide-react'
 import { Button } from '@/components/app/button'
-import { AuthCard, AuthToast, PasswordField, SubmitButton, type AuthNotice } from '@/components/auth/ui'
+import { AuthCard, AuthLoading, AuthToast, PasswordField, SubmitButton, type AuthNotice } from '@/components/auth/ui'
 import { checkPassword, PASSWORD_MAX, PASSWORD_MIN } from '@/lib/auth/validation'
 
 // =============================================
@@ -55,7 +55,7 @@ function ResetContent() {
   }
 
   if (legacyToken) {
-    return <div className="flex min-h-[100dvh] items-center justify-center"><Loader2 className="size-5 animate-spin text-neutral-300" /></div>
+    return <AuthLoading />
   }
 
   if (invalid) {
@@ -103,7 +103,7 @@ function ResetContent() {
 
 export default function ResetPasswordPage() {
   return (
-    <Suspense fallback={<div className="flex min-h-[100dvh] items-center justify-center"><Loader2 className="size-5 animate-spin text-neutral-300" /></div>}>
+    <Suspense fallback={<AuthLoading />}>
       <ResetContent />
     </Suspense>
   )

@@ -131,6 +131,19 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(loginUrl)
   }
 
+  // ===== Acordul pentru Termeni =====
+  // Un cont fără acord înregistrat (făcut cu Google sau de dinainte de acord) îl dă întâi, pe
+  // /accept-terms; până atunci nu are acces la nicio pagină și niciun API al platformei.
+  // Sesiunile mai vechi nu au câmpul și îl primesc la prima reîmprospătare (cel mult un minut).
+  const needsTerms = token?.termsAccepted === false
+  if (pathname === '/accept-terms') {
+    return needsTerms ? response : NextResponse.redirect(new URL('/dashboard', request.url))
+  }
+  if (needsTerms) {
+    if (pathname.startsWith('/api/')) return forbidden(request)
+    return NextResponse.redirect(new URL('/accept-terms', request.url))
+  }
+
   // ===== Onboarding route protection =====
   if (pathname === '/onboarding') {
     if (token?.onboardingCompleted === true) {
@@ -158,6 +171,7 @@ export const config = {
   matcher: [
     '/',
     '/onboarding',
+    '/accept-terms',
     '/dashboard/:path*',
     '/campaigns/:path*',
     '/products/:path*',

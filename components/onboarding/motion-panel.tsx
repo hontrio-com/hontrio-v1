@@ -5,10 +5,11 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { useT } from '@/lib/i18n/context'
 
 // =============================================
-// Dreapta onboarding-ului: un clip motion design (produse care plutesc într-un
-// studio alb-negru, generat pentru Hontrio), în buclă, cu o frază pentru
-// fiecare pas. Clipul se încarcă doar pe ecranele late, unde se vede; cine
-// cere mai puțină mișcare primește imaginea statică.
+// Dreapta onboarding-ului și a paginilor de cont: un clip motion design
+// (produse care plutesc într-un studio alb-negru, generat pentru Hontrio), în
+// buclă. În onboarding are și o frază pentru fiecare pas (`step`). Clipul se
+// încarcă doar pe ecranele late, unde se vede; cine cere mai puțină mișcare
+// primește imaginea statică.
 // =============================================
 
 const WIDE = '(min-width: 1024px)'
@@ -27,7 +28,7 @@ const isWide = () => window.matchMedia(WIDE).matches
 const isStill = () => window.matchMedia(STILL).matches
 const never = () => false
 
-export function MotionPanel({ step }: { step: number }) {
+export function MotionPanel({ step }: { step?: number }) {
   const { t } = useT()
   const wide = useSyncExternalStore(subscribeWide, isWide, never)
   const still = useSyncExternalStore(subscribeStill, isStill, never)
@@ -45,14 +46,16 @@ export function MotionPanel({ step }: { step: number }) {
       ))}
 
       {/* Fraza pasului, jos, peste o umbră ca să se citească pe orice cadru */}
-      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/45 to-transparent px-10 pb-10 pt-32 text-white">
-        <AnimatePresence mode="wait" initial={false}>
-          <motion.div key={step} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}>
-            <p className="max-w-md text-balance text-[24px] font-semibold leading-[1.2] tracking-[-0.025em]">{t(`onboarding.visual_${step}_title`)}</p>
-            <p className="mt-2.5 max-w-md text-[14px] leading-relaxed text-white/65">{t(`onboarding.visual_${step}_desc`)}</p>
-          </motion.div>
-        </AnimatePresence>
-      </div>
+      {step !== undefined && (
+        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/45 to-transparent px-10 pb-10 pt-32 text-white">
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div key={step} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}>
+              <p className="max-w-md text-balance text-[24px] font-semibold leading-[1.2] tracking-[-0.025em]">{t(`onboarding.visual_${step}_title`)}</p>
+              <p className="mt-2.5 max-w-md text-[14px] leading-relaxed text-white/65">{t(`onboarding.visual_${step}_desc`)}</p>
+            </motion.div>
+          </AnimatePresence>
+        </div>
+      )}
     </div>
   )
 }

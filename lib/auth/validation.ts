@@ -10,7 +10,7 @@ export const PASSWORD_MIN = 8
 export const PASSWORD_MAX = 72
 export const EMAIL_MAX = 254
 
-/** Versiunea Termenilor, a Politicii de confidențialitate și a DPA-ului acceptate la înscriere. */
+/** Versiunea Termenilor, a Politicii de confidențialitate și a DPA-ului acceptate la înscriere (sau pe /accept-terms, după Google). */
 export const TERMS_VERSION = '2026-11-16'
 
 /**

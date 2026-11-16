@@ -5,9 +5,9 @@ import { useT } from '@/lib/i18n/context'
 import { signIn } from 'next-auth/react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { Loader2, Lock, AlertCircle, MailCheck, ArrowRight } from 'lucide-react'
+import { Lock, AlertCircle, MailCheck, ArrowRight } from 'lucide-react'
 import { Button } from '@/components/app/button'
-import { AuthCard, AuthToast, PasswordField, SubmitButton, type AuthNotice } from '@/components/auth/ui'
+import { AuthCard, AuthLoading, AuthToast, PasswordField, SubmitButton, type AuthNotice } from '@/components/auth/ui'
 
 // =============================================
 // Confirmarea adresei: omul a venit din linkul din e-mail (jetonul e într-un
@@ -72,7 +72,7 @@ function VerifyContent() {
 
 export default function VerifyEmailPage() {
   return (
-    <Suspense fallback={<div className="flex min-h-[100dvh] items-center justify-center"><Loader2 className="size-5 animate-spin text-neutral-300" /></div>}>
+    <Suspense fallback={<AuthLoading />}>
       <VerifyContent />
     </Suspense>
   )

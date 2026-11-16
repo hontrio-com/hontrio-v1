@@ -15,6 +15,7 @@ import { Turnstile, turnstileOn } from '../_components/turnstile'
 // Cont nou: nume, e-mail, parolă și acordul pentru Termeni (cu DPA),
 // Confidențialitate și clauzele acceptate expres (art. 1203 C. civ.).
 // Contul se activează din linkul trimis pe e-mail; până atunci nu se poate intra.
+// Cu Google, acordul se dă după, pe /accept-terms, cu aceleași căsuțe.
 // =============================================
 
 export default function RegisterPage() {
@@ -93,8 +94,8 @@ export default function RegisterPage() {
       <AuthToast notice={toast} onClose={() => setToast(null)} />
       <AuthCard title={t('auth.create_account')} description={t('auth.create_desc')}
         footer={<>{t('auth.have_account')}{' '}<Link href="/login" className="font-semibold text-black hover:underline underline-offset-4">{t('auth.sign_in_link')}</Link></>}>
+        {/* Cu Google, aceleași două căsuțe vin după, pe /accept-terms */}
         <GoogleButton onClick={handleGoogle} loading={gLoading}>{t('auth.continue_google')}</GoogleButton>
-        <p className="mt-2.5 text-center text-[11.5px] leading-relaxed text-neutral-500"><LegalText text={t('auth.google_terms_note')} /></p>
         <OrDivider>{t('auth.or')}</OrDivider>
 
         <form onSubmit={handleSubmit} className="space-y-4">

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useSyncExternalStore } from 'react'
+import { useEffect, useRef, useSyncExternalStore } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X } from 'lucide-react'
 import { useT } from '@/lib/i18n/context'
@@ -128,6 +128,23 @@ export function CookieConsent() {
   const show = state !== 'server' && (choice === 'none' || panel === 'open')
   const decided = choice === 'granted' || choice === 'denied'
 
+  // Cât acoperă bannerul din josul ecranului, ca variabilă CSS (`--consent-h`): paginile de
+  // cont lasă atâta loc jos, ca formularul să rămână deasupra bannerului (app/(auth)/layout.tsx)
+  const bar = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const el = bar.current
+    if (!show || !el) return
+    const root = document.documentElement
+    const measure = () => root.style.setProperty('--consent-h', `${el.offsetHeight + (parseFloat(getComputedStyle(el).bottom) || 0)}px`)
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(el)
+    return () => {
+      observer.disconnect()
+      root.style.removeProperty('--consent-h')
+    }
+  }, [show])
+
   function accept() {
     saveChoice('granted')
   }
@@ -138,13 +155,15 @@ export function CookieConsent() {
   }
 
   // Amândouă butoanele arată la fel: refuzul nu e mai greu de ales decât acceptul
-  const button = 'flex-1 rounded-xl bg-neutral-900 px-6 py-2.5 text-[13px] font-semibold text-white transition-colors hover:bg-neutral-800 sm:flex-none'
+  const button = 'flex-1 rounded-xl bg-neutral-900 px-6 py-2 text-[13px] font-semibold text-white transition-colors hover:bg-neutral-800 sm:flex-none sm:py-2.5'
 
   return (
     <AnimatePresence>
       {show && (
-        // O bandă lată, la mijloc, jos (pe telefon, pe toată lățimea, cu butoanele dedesubt)
+        // O bandă lată, la mijloc, jos. Pe telefon e mai scundă (fără titlu și fără fraza despre
+        // „Setări cookie-uri”, care rămân în Politica de cookie-uri), cu butoanele dedesubt
         <motion.div
+          ref={bar}
           role="dialog"
           aria-label={t('common.cookie_title')}
           initial={{ opacity: 0, y: 20 }}
@@ -152,14 +171,16 @@ export function CookieConsent() {
           exit={{ opacity: 0, y: 20 }}
           transition={{ duration: 0.3, ease: 'easeOut' }}
           // `app`: același font ca site-ul și platforma (bannerul stă în afara lor, în rădăcină)
-          className="app fixed inset-x-0 bottom-4 z-50 px-4 sm:bottom-6"
+          className="app fixed inset-x-0 bottom-3 z-50 px-3 sm:bottom-6 sm:px-4"
         >
-          <div className="relative mx-auto flex max-w-5xl flex-col gap-4 rounded-2xl border border-neutral-200 bg-white p-4 shadow-[0_8px_40px_rgba(0,0,0,0.12)] sm:flex-row sm:items-center sm:gap-8 sm:py-4 sm:pl-6 sm:pr-5">
+          <div className="relative mx-auto flex max-w-5xl flex-col gap-3 rounded-2xl border border-neutral-200 bg-white p-3.5 shadow-[0_8px_40px_rgba(0,0,0,0.12)] sm:flex-row sm:items-center sm:gap-8 sm:py-4 sm:pl-6 sm:pr-5">
             <div className={`min-w-0 flex-1 ${decided ? 'pr-8 sm:pr-0' : ''}`}>
-              <p className="text-[13px] font-semibold text-neutral-900">{t('common.cookie_title')}</p>
-              <p className="mt-1 text-[12.5px] leading-relaxed text-neutral-500">
+              <p className="hidden text-[13px] font-semibold text-neutral-900 sm:block">{t('common.cookie_title')}</p>
+              <p className="text-[12.5px] leading-relaxed text-neutral-500 sm:mt-1">
                 {t('site.cookie_text')}{' '}
-                {decided ? t(choice === 'granted' ? 'site.cookie_now_on' : 'site.cookie_now_off') : t('site.cookie_hint')}{' '}
+                {decided
+                  ? t(choice === 'granted' ? 'site.cookie_now_on' : 'site.cookie_now_off')
+                  : <span className="hidden sm:inline">{t('site.cookie_hint')}</span>}{' '}
                 <a href="/legal/cookies" className="whitespace-nowrap underline transition-colors hover:text-neutral-700">{t('common.cookie_policy')}</a>
               </p>
             </div>

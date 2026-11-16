@@ -5,10 +5,9 @@ import { useT } from '@/lib/i18n/context'
 import { signIn } from 'next-auth/react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { Loader2, Mail, Lock, ArrowRight, CheckCircle, MailWarning, RefreshCw } from 'lucide-react'
+import { Mail, Lock, ArrowRight, CheckCircle, MailWarning, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/app/button'
-import { AuthCard, AuthField, AuthToast, GoogleButton, OrDivider, PasswordField, SubmitButton, type AuthNotice } from '@/components/auth/ui'
-import { LegalText } from '../_components/legal'
+import { AuthCard, AuthField, AuthLoading, AuthToast, GoogleButton, OrDivider, PasswordField, SubmitButton, type AuthNotice } from '@/components/auth/ui'
 
 // Erorile pe care le poate aduce adresa (întoarcerea din Google) sau `authorize`
 const LOGIN_ERRORS: Record<string, string> = {
@@ -87,8 +86,8 @@ function LoginContent() {
           </div>
         )}
 
+        {/* Un cont nou făcut cu Google acceptă Termenii după aceea, pe /accept-terms */}
         <GoogleButton onClick={handleGoogle} loading={gLoading}>{t('auth.continue_google')}</GoogleButton>
-        <p className="mt-2.5 text-center text-[11.5px] leading-relaxed text-neutral-500"><LegalText text={t('auth.google_terms_note')} /></p>
         <OrDivider>{t('auth.or')}</OrDivider>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -106,7 +105,7 @@ function LoginContent() {
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={<div className="flex min-h-[100dvh] items-center justify-center"><Loader2 className="size-5 animate-spin text-neutral-300" /></div>}>
+    <Suspense fallback={<AuthLoading />}>
       <LoginContent />
     </Suspense>
   )

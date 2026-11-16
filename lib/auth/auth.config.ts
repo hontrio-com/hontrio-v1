@@ -10,7 +10,7 @@ import { isLocale } from '@/lib/i18n/config'
 import { logError, logWarn } from '@/lib/logger'
 import { bumpSessionVersion } from './account'
 import { verifyPassword } from './password'
-import { checkName, TERMS_VERSION } from './validation'
+import { checkName } from './validation'
 
 if (!process.env.NEXTAUTH_SECRET) {
   throw new Error('NEXTAUTH_SECRET environment variable is not set');
@@ -27,15 +27,17 @@ if (!process.env.NEXTAUTH_SECRET) {
 // - Sesiunea poartă users.session_version: o versiune diferită (parolă
 //   resetată sau schimbată, rol schimbat) sau un cont dispărut înseamnă ieșire
 //   din cont, la cel mult un minut după schimbare.
+// - Sesiunea poartă și `termsAccepted`: un cont fără acord înregistrat (făcut
+//   cu Google sau de dinainte de acord) este trimis de proxy la /accept-terms.
 // Erorile aruncate din `authorize` ajung la pagina de intrare ca `error`.
 // =============================================
 
 /** Ce citim din users pentru sesiune. */
-const PROFILE_COLUMNS = 'id, email, name, role, onboarding_completed, ui_locale, session_version, email_verified_at'
+const PROFILE_COLUMNS = 'id, email, name, role, onboarding_completed, ui_locale, session_version, email_verified_at, terms_accepted_at'
 
 type Profile = {
   id: string; email: string; name: string | null; role: string | null; onboarding_completed: boolean | null
-  ui_locale: string | null; session_version: number | null; email_verified_at: string | null
+  ui_locale: string | null; session_version: number | null; email_verified_at: string | null; terms_accepted_at: string | null
 }
 
 /** Cât de des se recitește contul în sesiune (rolul, versiunea, numele). */
@@ -146,7 +148,8 @@ export const authOptions: NextAuthOptions = {
         return true
       }
 
-      // Primul cont cu Google: confirmat de Google; omul a văzut sub buton că acceptă Termenii
+      // Primul cont cu Google: confirmat de Google. Termenii îi acceptă imediat după, pe
+      // /accept-terms, cu aceleași căsuțe ca la înscriere; până atunci nu poate folosi platforma
       const { data: created, error: eCreate } = await supabase.auth.admin.createUser({ email, email_confirm: true })
       if (eCreate || !created.user) {
         logError('auth/google', 'Contul Google n-a putut fi creat', { error: eCreate?.message ?? 'fără utilizator' })
@@ -162,8 +165,6 @@ export const authOptions: NextAuthOptions = {
         role: 'user',
         onboarding_completed: false,
         email_verified_at: now,
-        terms_accepted_at: now,
-        terms_version: TERMS_VERSION,
       })
       if (eProfile) {
         logError('auth/google', 'Profilul contului Google n-a putut fi creat', { error: eProfile.message })
@@ -186,6 +187,7 @@ export const authOptions: NextAuthOptions = {
         token.name = profile.name || defaultName(profile.ui_locale)
         token.role = profile.role === 'admin' ? 'admin' : 'user'
         token.onboardingCompleted = !!profile.onboarding_completed
+        token.termsAccepted = !!profile.terms_accepted_at
         token.locale = profile.ui_locale ?? null
         token.sv = profile.session_version ?? 0
         token.provider = account?.provider ?? 'credentials'
@@ -200,7 +202,7 @@ export const authOptions: NextAuthOptions = {
       const elapsed = Date.now() - (Number(token.refreshedAt) || 0)
       if (trigger === 'update' || elapsed > REFRESH_MS) {
         const { data, error } = await supabase.from('users')
-          .select('name, role, onboarding_completed, ui_locale, session_version, email_verified_at')
+          .select('name, role, onboarding_completed, ui_locale, session_version, email_verified_at, terms_accepted_at')
           .eq('id', token.id)
           .maybeSingle()
         // Baza nu răspunde: sesiunea rămâne cum e (o pană nu scoate pe toată lumea din cont)
@@ -212,6 +214,7 @@ export const authOptions: NextAuthOptions = {
         token.name = profile.name || defaultName(profile.ui_locale)
         token.role = profile.role === 'admin' ? 'admin' : 'user'
         token.onboardingCompleted = !!profile.onboarding_completed
+        token.termsAccepted = !!profile.terms_accepted_at
         token.locale = profile.ui_locale ?? null
         token.refreshedAt = Date.now()
       }

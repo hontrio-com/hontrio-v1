@@ -2,55 +2,53 @@
 
 import { useId, useState, type ReactNode } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { AlertCircle, CheckCircle, Eye, EyeOff, X } from 'lucide-react'
+import { AlertCircle, CheckCircle, Eye, EyeOff, Loader2, X } from 'lucide-react'
 import { useT } from '@/lib/i18n/context'
 import { Button } from '@/components/app/button'
 import { inputStyles } from '@/components/app/input'
 import { cn } from '@/lib/utils'
 
 // =============================================
-// Paginile de cont (intrare, cont nou, parolă uitată, parolă nouă), în
-// designul din CLIPPING: logo deasupra, un card alb cu titlul și formularul,
-// etichete mici, câmpuri cu inel la focus și butoane-pastilă.
-// Logica (validări, cereri, redirecționări) rămâne în pagini.
+// Paginile de cont (intrare, cont nou, parolă uitată, parolă nouă, acordul),
+// în aspectul onboarding-ului: logo-ul și clipul sunt în app/(auth)/layout.tsx,
+// aici e coloana din stânga, cu titlul mare, etichete mici, câmpuri cu inel la
+// focus și butoane-pastilă. Logica (validări, cereri, redirecționări) rămâne
+// în pagini.
 // =============================================
 
 export type AuthNotice = { message: string; type: 'success' | 'error' } | null
 
-/** Logo, apoi cardul: iconița (opțional), titlul, fraza de sub el și conținutul. */
-export function AuthCard({ icon, tone = 'neutral', title, description, children, footer, note }: {
+/** Conținutul paginii: iconița (opțional), titlul, fraza de sub el, formularul și, dedesubt, linkul spre cealaltă pagină. */
+export function AuthCard({ icon, tone = 'neutral', title, description, children, footer }: {
   icon?: ReactNode
   tone?: 'neutral' | 'danger'
   title: ReactNode
   description?: ReactNode
   children: ReactNode
-  /** În card, sub formular: linkul spre cealaltă pagină. */
+  /** Sub formular: linkul spre cealaltă pagină. */
   footer?: ReactNode
-  /** Sub card, mărunt (termenii). */
-  note?: ReactNode
 }) {
   return (
-    <div className="flex min-h-[100dvh] items-center justify-center px-5 py-14">
-      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
-        className="w-full max-w-[400px]">
-        <div className="mb-8 flex justify-center">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo-black.png" alt="Hontrio" className="h-7 w-auto" />
+    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}>
+      {icon && (
+        <div className={cn('mb-6 grid size-11 place-items-center rounded-full [&_svg]:size-5',
+          tone === 'danger' ? 'bg-red-50 text-red-600' : 'bg-black text-white')}>
+          {icon}
         </div>
-        <div className="rounded-[1.25rem] border border-line bg-white p-7 shadow-[var(--shadow-surface)]">
-          {icon && (
-            <div className={cn('mb-5 flex size-12 items-center justify-center rounded-2xl [&_svg]:size-5',
-              tone === 'danger' ? 'bg-red-50 text-red-600' : 'bg-black text-white')}>
-              {icon}
-            </div>
-          )}
-          <h1 className="text-xl font-bold tracking-[-0.02em] text-neutral-950">{title}</h1>
-          {description && <p className="mt-1 text-sm leading-relaxed text-neutral-500">{description}</p>}
-          <div className="mt-6">{children}</div>
-          {footer && <div className="mt-5 text-center text-sm text-neutral-500">{footer}</div>}
-        </div>
-        {note && <div className="mt-5 px-4 text-center text-[11px] leading-relaxed text-neutral-400">{note}</div>}
-      </motion.div>
+      )}
+      <h1 className="text-balance text-[32px] font-bold leading-[1.08] tracking-[-0.04em] text-neutral-950 sm:text-[38px]">{title}</h1>
+      {description && <p className="mt-3 text-[15px] leading-relaxed text-neutral-600">{description}</p>}
+      <div className="mt-8">{children}</div>
+      {footer && <div className="mt-6 text-sm text-neutral-500">{footer}</div>}
+    </motion.div>
+  )
+}
+
+/** Cât se încarcă pagina: un cerc mic, în locul formularului. */
+export function AuthLoading() {
+  return (
+    <div className="flex justify-center py-24">
+      <Loader2 className="size-5 animate-spin text-neutral-300" />
     </div>
   )
 }
@@ -160,7 +158,7 @@ export function SubmitButton({ loading, children }: { loading: boolean; children
   )
 }
 
-/** Mesajul de sus (reușită sau eroare), ca o pastilă. */
+/** Mesajul de sus (reușită sau eroare), ca o pastilă; pe ecranele late, deasupra coloanei cu formularul. */
 export function AuthToast({ notice, onClose }: { notice: AuthNotice; onClose: () => void }) {
   const { t } = useT()
   return (
@@ -168,7 +166,7 @@ export function AuthToast({ notice, onClose }: { notice: AuthNotice; onClose: ()
       {notice && (
         <motion.div role="status" aria-live="polite"
           initial={{ opacity: 0, y: -16, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -16, scale: 0.96 }}
-          className={cn('fixed left-1/2 top-6 z-50 flex max-w-[calc(100vw-2.5rem)] -translate-x-1/2 items-center gap-3 rounded-full border bg-white/95 py-2.5 pl-4 pr-2.5 shadow-[0_20px_40px_-20px_rgba(0,0,0,0.35)] backdrop-blur',
+          className={cn('fixed left-1/2 top-6 z-50 flex lg:left-[24%] max-w-[calc(100vw-2.5rem)] -translate-x-1/2 items-center gap-3 rounded-full border bg-white/95 py-2.5 pl-4 pr-2.5 shadow-[0_20px_40px_-20px_rgba(0,0,0,0.35)] backdrop-blur',
             notice.type === 'success' ? 'border-line text-neutral-900' : 'border-red-200 text-red-700')}>
           {notice.type === 'success' ? <CheckCircle className="size-4 shrink-0" /> : <AlertCircle className="size-4 shrink-0 text-red-500" />}
           <span className="text-sm font-medium">{notice.message}</span>
