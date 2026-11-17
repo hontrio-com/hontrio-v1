@@ -9,9 +9,14 @@ import type { Locale } from '@/lib/i18n/config'
 // paginile lor, în română și în engleză; aici e doar forma, în alb și negru.
 // =============================================
 
-/** Versiunea documentelor; aceeași cu cea salvată la acceptarea Termenilor. */
+/** Versiunea documentelor; aceeași cu cea salvată la acceptarea Termenilor. Un document schimbat mai târziu își dă singur versiunea (`version`). */
 export const LEGAL_VERSION = '2026-11-16'
-const UPDATED: Record<Locale, string> = { ro: '16 noiembrie 2026', en: '16 November 2026' }
+
+/** Data unei versiuni, în limba paginii: „16 noiembrie 2026” / „16 November 2026”. */
+function versionDate(version: string, locale: Locale): string {
+  return new Intl.DateTimeFormat(locale === 'ro' ? 'ro-RO' : 'en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })
+    .format(new Date(`${version}T00:00:00Z`))
+}
 
 export type LegalKind = 'terms' | 'privacy' | 'cookies' | 'dpa'
 export type LegalSection = { id: string; title: string; body: ReactNode }
@@ -31,7 +36,7 @@ const UI: Record<Locale, { legal: string; updated: string; version: string; toc:
 
 const link = 'font-medium text-neutral-950 underline decoration-neutral-300 underline-offset-[3px] transition hover:decoration-neutral-950'
 
-export function LegalPage({ doc, kind, locale, contact }: { doc: LegalDoc; kind: LegalKind; locale: Locale; contact: string }) {
+export function LegalPage({ doc, kind, locale, contact, version = LEGAL_VERSION }: { doc: LegalDoc; kind: LegalKind; locale: Locale; contact: string; version?: string }) {
   const ui = UI[locale]
   const toc = (
     <ol className="space-y-2">
@@ -53,7 +58,7 @@ export function LegalPage({ doc, kind, locale, contact }: { doc: LegalDoc; kind:
           <p className="text-[13px] font-medium text-neutral-500">{ui.legal}</p>
           <h1 className="mt-3 text-[2.2rem] font-bold leading-[1.06] tracking-[-0.04em] text-neutral-950 sm:text-5xl">{doc.title}</h1>
           <div className="mt-5 text-pretty text-[16px] leading-relaxed text-neutral-600 sm:text-[17px]">{doc.summary}</div>
-          <p className="mt-6 text-[13px] text-neutral-500">{ui.updated}: {UPDATED[locale]} · {ui.version} {LEGAL_VERSION}</p>
+          <p className="mt-6 text-[13px] text-neutral-500">{ui.updated}: {versionDate(version, locale)} · {ui.version} {version}</p>
         </header>
 
         <div className="mt-12 grid grid-cols-1 gap-10 lg:grid-cols-[240px_minmax(0,1fr)] lg:gap-16">

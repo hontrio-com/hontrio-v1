@@ -9,6 +9,9 @@ import { A, Box, Code, Company, H3, L, LegalPage, Mail, P, Table, UL, type Legal
 // verificarea aplicației OAuth), furnizorii și termenele de ștergere.
 // =============================================
 
+/** 18.11.2026: secțiunea „Datele Google” urmează lista verificării Google (date brute și agregate, protecție, păstrare și ștergere, fără AI). */
+const PRIVACY_VERSION = '2026-11-18'
+
 const GOOGLE_POLICY = 'https://developers.google.com/terms/api-services-user-data-policy'
 const LIMITED_USE = (
   <blockquote lang="en" className="border-l-2 border-neutral-900 pl-4 font-medium text-neutral-900">
@@ -70,12 +73,14 @@ const RO: LegalDoc = {
     {
       id: 'google', title: 'Datele Google',
       body: <>
-        <P>Când conectezi Google, îi dai lui Hontrio acces prin Google OAuth, cu permisiunile pe care le vezi pe ecranul Google: Google Ads (<Code>https://www.googleapis.com/auth/adwords</Code>), Merchant Center (<Code>https://www.googleapis.com/auth/content</Code>) și identitatea de bază a contului (<Code>openid</Code>, <Code>email</Code>).</P>
-        <H3>Ce citim</H3>
+        <P>Când conectezi Google, îi dai lui Hontrio acces prin Google OAuth, cu permisiunile pe care le vezi pe ecranul Google: Google Ads (<Code>https://www.googleapis.com/auth/adwords</Code>), Merchant Center (<Code>https://www.googleapis.com/auth/content</Code>) și identitatea de bază a contului (<Code>openid</Code>, <Code>email</Code>). Alte permisiuni Google nu cerem.</P>
+        <H3>Ce date Google accesăm</H3>
         <UL items={[
+          'Din contul Google conectat: ID-ul contului și adresa de e-mail, ca să vezi în Hontrio ce cont ai conectat.',
           'Din Google Ads: conturile la care ai acces (ID, nume, monedă, fus orar, tipul contului), campaniile, bugetele și setările lor, conversiile configurate, cifrele zilnice pe campanie și pe produs (cost, clicuri, afișări, conversii, valoarea conversiilor) și termenii de căutare din ultimele 30 de zile.',
           'Din Merchant Center: starea produselor și problemele semnalate de Google, sursele de date, rapoartele de competitivitate a prețurilor, recomandările de preț și topul celor mai vândute produse.',
         ]} />
+        <P>Din aceste date brute calculăm date agregate, doar pentru contul tău: totaluri și medii pe campanie, pe produs și pe zi, pe care le vezi în rapoarte și după care lucrează pilotul automat. Nu facem seturi de date anonimizate din datele Google și nu amestecăm datele tale cu ale altor clienți.</P>
         <H3>Ce facem în numele tău</H3>
         <UL items={[
           <>În Google Ads: creăm campaniile Hontrio (Shopping sau Performance Max), cu bugetul, țara și limba lor; le schimbăm lista de produse, adăugăm cuvinte negative, le punem pe pauză, le repornim, le încheiem sau le mutăm pe Performance Max, după regulile din <L href="/legal/terms">Termeni</L>. La adresele reclamelor Hontrio adăugăm parametrii <Code>utm_source=google</Code>, <Code>utm_medium=cpc</Code> și <Code>utm_campaign=hontrio-ID</Code>, unde ID este numărul campaniei.</>,
@@ -83,15 +88,27 @@ const RO: LegalDoc = {
           'În Merchant Center: creăm o sursă de date suplimentară numită „Hontrio”, o legăm de sursele tale de produse și scriem în ea o etichetă (custom label) pentru produsele scoase din campaniile Hontrio. Datele produselor din feedul tău nu le modificăm.',
         ]} />
         <H3>Cum folosim datele</H3>
-        <P>Doar ca să-ți oferim și să îmbunătățim funcțiile pe care le vezi în Hontrio: campaniile, pilotul automat, rapoartele și recomandările pentru catalog. Nu le folosim ca să afișăm reclame, nu le vindem, nu le dăm brokerilor de date sau altor platforme de publicitate și nu le folosim pentru evaluarea bonității ori pentru credite.</P>
+        <P>Datele Google, brute sau agregate, le folosim doar ca să-ți oferim și să îmbunătățim funcțiile pe care le vezi în Hontrio: campaniile, pilotul automat, rapoartele și recomandările pentru catalog. Nu le folosim ca să afișăm reclame, nu le vindem, nu le dăm brokerilor de date sau altor platforme de publicitate și nu le folosim pentru evaluarea bonității ori pentru credite. Nu le folosim nici ca să dezvoltăm, să îmbunătățim sau să antrenăm modele de inteligență artificială ori de învățare automată și nu le trimitem către servicii de inteligență artificială.</P>
         <H3>Cine le vede</H3>
         <P>Oamenii din echipa Hontrio nu citesc datele tale Google, cu excepția situațiilor în care: ne ceri explicit, de exemplu într-un tichet de suport, și doar pentru datele la care te referi; este nevoie pentru securitate, cum ar fi investigarea unui abuz sau a unei erori; o cere legea; datele sunt agregate și anonimizate și le folosim pentru operațiunile interne, conform legii.</P>
         <H3>Cui le transferăm</H3>
-        <P>Doar furnizorilor care găzduiesc și rulează Hontrio (secțiunea 7), cât este nevoie ca serviciul să funcționeze; autorităților, când legea o cere; unui eventual succesor, la o fuziune, o achiziție sau o vânzare de active, numai cu acordul tău prealabil.</P>
-        <H3>Cum le păstrăm și cât timp</H3>
-        <P>Tokenul Google este criptat (AES-256-GCM), iar datele stau în baza noastră de date din Irlanda, la care are acces doar serverul Hontrio. Cifrele, termenii de căutare, auditurile contului, rapoartele Merchant Center și jurnalul pilotului se păstrează 400 de zile, prin rotație.</P>
-        <H3>Cum retragi accesul și cum ștergi datele</H3>
-        <P>Deconectezi Google din Setări → Integrări: revocăm imediat accesul la Google și ștergem tokenul, iar datele aduse din Google se șterg după 30 de zile. Poți retrage accesul și din contul tău Google, la <A href="https://myaccount.google.com/permissions">myaccount.google.com/permissions</A>. Dacă ștergi magazinul sau contul, datele lor se șterg imediat. Atenție: campaniile create de Hontrio rămân în contul tău Google Ads și rulează până le oprești.</P>
+        <P>Datele Google, brute, agregate sau anonimizate, nu le vindem și nu le dăm nimănui, cu aceste excepții: furnizorii care găzduiesc și rulează Hontrio (secțiunea 7), adică Supabase, pentru baza de date, și Vercel, pentru aplicație; Resend, pentru alertele pe e-mail pe care ți le trimitem, care pot conține numele unei campanii și cât a cheltuit; autoritățile, când legea o cere; un eventual succesor, la o fuziune, o achiziție sau o vânzare de active, numai cu acordul tău prealabil. Furnizorii lucrează pentru noi pe bază de contract și nu folosesc datele în alt scop.</P>
+        <H3>Cum le protejăm</H3>
+        <UL items={[
+          'Toate conexiunile, inclusiv cele cu Google, sunt criptate (HTTPS/TLS).',
+          'Tokenul de reîmprospătare primit de la Google este criptat în baza de date (AES-256-GCM). Tokenurile de acces, de scurtă durată, stau doar în memoria serverului și nu se salvează.',
+          'Baza de date este în Uniunea Europeană, în Irlanda, și nu este accesibilă din browser: o citește și o scrie doar serverul Hontrio.',
+          'Accesul echipei la date este limitat la ce este nevoie pentru suport și securitate, ca mai sus.',
+          'Incidentele de securitate care privesc datele primite de la Google le raportăm la Google și, când legea o cere, la ANSPDCP.',
+        ]} />
+        <H3>Cât le păstrăm și cum le ștergi</H3>
+        <UL items={[
+          'Cifrele, termenii de căutare, auditurile contului, rapoartele Merchant Center și jurnalul pilotului se păstrează 400 de zile, prin rotație.',
+          <>Deconectezi Google din Setări → Integrări: revocăm imediat accesul la Google și ștergem tokenul, iar datele aduse din Google se șterg după 30 de zile. Poți retrage accesul și din contul tău Google, la <A href="https://myaccount.google.com/permissions">myaccount.google.com/permissions</A>.</>,
+          'Dacă ștergi magazinul sau contul, datele lor se șterg imediat, iar din copiile de siguranță ale furnizorilor dispar în cel mult 30 de zile.',
+          <>Ne poți cere oricând să le ștergem mai devreme, la <Mail to="privacy@hontrio.com" />.</>,
+        ]} />
+        <P>Atenție: campaniile create de Hontrio rămân în contul tău Google Ads și rulează până le oprești.</P>
         <Box>
           <P>Declarația Limited Use, în forma cerută de Google:</P>
           {LIMITED_USE}
@@ -269,12 +286,14 @@ const EN: LegalDoc = {
     {
       id: 'google', title: 'Google data',
       body: <>
-        <P>When you connect Google, you give Hontrio access through Google OAuth, with the permissions shown on Google’s screen: Google Ads (<Code>https://www.googleapis.com/auth/adwords</Code>), Merchant Center (<Code>https://www.googleapis.com/auth/content</Code>) and the account’s basic identity (<Code>openid</Code>, <Code>email</Code>).</P>
-        <H3>What we read</H3>
+        <P>When you connect Google, you give Hontrio access through Google OAuth, with the permissions shown on Google’s screen: Google Ads (<Code>https://www.googleapis.com/auth/adwords</Code>), Merchant Center (<Code>https://www.googleapis.com/auth/content</Code>) and the account’s basic identity (<Code>openid</Code>, <Code>email</Code>). We request no other Google permissions.</P>
+        <H3>What Google data we access</H3>
         <UL items={[
+          'From the connected Google account: the account ID and email address, so you can see in Hontrio which account you connected.',
           'From Google Ads: the accounts you can access (ID, name, currency, time zone, account type), campaigns, budgets and their settings, the configured conversions, daily figures per campaign and per product (cost, clicks, impressions, conversions, conversion value) and the search terms of the last 30 days.',
           'From Merchant Center: product statuses and the issues reported by Google, data sources, price competitiveness reports, price suggestions and the best-sellers ranking.',
         ]} />
+        <P>From this raw data we compute aggregated data, only for your account: totals and averages per campaign, per product and per day, which you see in the reports and which the autopilot works from. We do not create anonymized datasets from Google data, and we do not combine your data with that of other customers.</P>
         <H3>What we do on your behalf</H3>
         <UL items={[
           <>In Google Ads: we create Hontrio campaigns (Shopping or Performance Max) with their budget, country and language; we change their product list, add negative keywords, pause, resume, end or move them to Performance Max, under the rules in the <L href="/legal/terms">Terms</L>. To the URLs of Hontrio ads we add the parameters <Code>utm_source=google</Code>, <Code>utm_medium=cpc</Code> and <Code>utm_campaign=hontrio-ID</Code>, where ID is the campaign number.</>,
@@ -282,15 +301,27 @@ const EN: LegalDoc = {
           'In Merchant Center: we create a supplemental data source named “Hontrio”, link it to your product sources and write in it a label (custom label) for the products taken out of Hontrio campaigns. We do not change the product data in your feed.',
         ]} />
         <H3>How we use the data</H3>
-        <P>Only to provide and improve the features you see in Hontrio: the campaigns, the autopilot, the reports and the catalog recommendations. We do not use it to serve ads, we do not sell it, we do not give it to data brokers or other advertising platforms, and we do not use it for creditworthiness or lending decisions.</P>
+        <P>We use Google data, raw or aggregated, only to provide and improve the features you see in Hontrio: the campaigns, the autopilot, the reports and the catalog recommendations. We do not use it to serve ads, we do not sell it, we do not give it to data brokers or other advertising platforms, and we do not use it for creditworthiness or lending decisions. We also do not use it to develop, improve or train artificial intelligence or machine learning models, and we do not send it to artificial intelligence services.</P>
         <H3>Who sees it</H3>
         <P>People on the Hontrio team do not read your Google data, except when: you explicitly ask us to, for example in a support ticket, and only for the data you refer to; it is needed for security, such as investigating abuse or a bug; the law requires it; the data is aggregated and anonymized and used for internal operations, as the law allows.</P>
-        <H3>Who we transfer it to</H3>
-        <P>Only to the providers that host and run Hontrio (section 7), as far as needed for the service to work; to authorities, when the law requires it; to a possible successor in a merger, acquisition or sale of assets, only with your prior consent.</P>
-        <H3>How we store it and for how long</H3>
-        <P>The Google token is encrypted (AES-256-GCM), and the data sits in our database in Ireland, which only the Hontrio server can access. Figures, search terms, account audits, Merchant Center reports and the autopilot journal are kept for 400 days, on a rolling basis.</P>
-        <H3>How to revoke access and delete the data</H3>
-        <P>You disconnect Google in Settings → Integrations: we immediately revoke the access at Google and delete the token, and the data brought from Google is deleted after 30 days. You can also revoke the access from your Google account, at <A href="https://myaccount.google.com/permissions">myaccount.google.com/permissions</A>. If you delete the store or the account, its data is deleted immediately. Note: the campaigns created by Hontrio stay in your Google Ads account and keep running until you stop them.</P>
+        <H3>Who we share it with</H3>
+        <P>We do not sell Google data, whether raw, aggregated or anonymized, and we do not give it to anyone, with these exceptions: the providers that host and run Hontrio (section 7), namely Supabase for the database and Vercel for the application; Resend, for the email alerts we send you, which may contain a campaign’s name and spend; authorities, when the law requires it; a possible successor in a merger, acquisition or sale of assets, only with your prior consent. The providers work for us under contract and do not use the data for any other purpose.</P>
+        <H3>How we protect it</H3>
+        <UL items={[
+          'All connections, including those with Google, are encrypted (HTTPS/TLS).',
+          'The refresh token received from Google is encrypted in the database (AES-256-GCM). Access tokens are short-lived, stay only in the server’s memory and are never saved.',
+          'The database is in the European Union, in Ireland, and cannot be accessed from the browser: only the Hontrio server reads and writes it.',
+          'Team access to data is limited to what support and security need, as described above.',
+          'Security incidents involving data received from Google are reported to Google and, where the law requires it, to ANSPDCP.',
+        ]} />
+        <H3>How long we keep it and how it is deleted</H3>
+        <UL items={[
+          'Figures, search terms, account audits, Merchant Center reports and the autopilot journal are kept for 400 days, on a rolling basis.',
+          <>You disconnect Google in Settings → Integrations: we immediately revoke the access at Google and delete the token, and the data brought from Google is deleted after 30 days. You can also revoke the access from your Google account, at <A href="https://myaccount.google.com/permissions">myaccount.google.com/permissions</A>.</>,
+          'If you delete the store or the account, its data is deleted immediately, and it disappears from the providers’ backups within at most 30 days.',
+          <>You can ask us at any time to delete it sooner, at <Mail to="privacy@hontrio.com" />.</>,
+        ]} />
+        <P>Note: the campaigns created by Hontrio stay in your Google Ads account and keep running until you stop them.</P>
         <Box>
           <P>The Limited Use disclosure, in the form required by Google:</P>
           {LIMITED_USE}
@@ -428,5 +459,5 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function PrivacyPage() {
   const locale = await getLocale()
-  return <LegalPage kind="privacy" locale={locale} doc={locale === 'ro' ? RO : EN} contact="privacy@hontrio.com" />
+  return <LegalPage kind="privacy" locale={locale} doc={locale === 'ro' ? RO : EN} contact="privacy@hontrio.com" version={PRIVACY_VERSION} />
 }
