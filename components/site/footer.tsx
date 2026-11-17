@@ -13,7 +13,9 @@ import { BrandMark, GOOGLE, STORES } from './brands'
 // l-a scos (14.11.2026). Tot aici se redeschide alegerea despre cookie-uri.
 // Limba nu se alege pe site: vine din țara vizitatorului (`detectLocale`).
 // Datele firmei (Legea nr. 365/2002, art. 5) sunt în paginile legale, legate
-// de aici: Termeni, Confidențialitate.
+// de aici: Termeni, Confidențialitate. Jos stau numele firmei și mențiunea că
+// Google, Google Ads și Merchant Center sunt mărci Google LLC (Hontrio nu este
+// un produs Google), adăugate pentru verificarea aplicației OAuth (17.11.2026).
 // =============================================
 
 type FooterLink = { label: string; href: string } | { label: string; onClick: () => void }
@@ -105,8 +107,11 @@ export function SiteFooter() {
           </ul>
         </div>
 
-        <div className="flex flex-col items-center justify-between gap-4 pb-10 pt-6 text-xs text-white/40 md:flex-row">
-          <span>{t('site.footer_rights', { year: YEAR })}</span>
+        <div className="flex flex-col items-center justify-between gap-4 pb-10 pt-6 text-xs text-white/40 md:flex-row md:items-end">
+          <div className="max-w-2xl space-y-1.5 text-pretty text-center leading-relaxed md:text-left">
+            <p>{t('site.footer_rights', { year: YEAR })} {t('site.footer_company')}</p>
+            <p>{t('site.footer_trademarks')}</p>
+          </div>
           <button type="button" onClick={() => window.scrollTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' })}
             className="group flex items-center gap-2 rounded-full border border-white/10 px-3 py-1.5 text-white/60 transition hover:border-white/30 hover:text-white">
             {t('site.footer_top')}<ArrowUp className="size-3.5 transition group-hover:-translate-y-0.5" />

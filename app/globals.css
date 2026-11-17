@@ -203,6 +203,19 @@
   0%, 100% { transform: translateY(0px); }
   50%       { transform: translateY(-10px); }
 }
+
+/* Site-ul de prezentare: textul din capul paginii apare din estompare prin CSS, nu prin
+   JavaScript, ca să existe vizibil în pagina trimisă de server (verificarea Google a
+   paginii, motoarele de căutare, cititorii fără JavaScript). Vezi components/site/hero.tsx. */
+@keyframes site-rise {
+  from { opacity: 0; transform: translateY(var(--rise-y, 12px)); filter: blur(var(--rise-blur, 0px)); }
+}
+.site-rise {
+  animation: site-rise 0.7s cubic-bezier(0.22, 1, 0.36, 1) var(--rise-delay, 0s) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .site-rise { animation: none; }
+}
 @keyframes barGrow {
   from { width: 0%; }
 }

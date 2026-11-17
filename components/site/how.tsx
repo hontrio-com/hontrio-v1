@@ -1,6 +1,5 @@
 'use client'
 
-import { motion, useReducedMotion } from 'framer-motion'
 import { useT } from '@/lib/i18n/context'
 import { cn } from '@/lib/utils'
 import { Reveal } from './fx'
@@ -24,11 +23,8 @@ const STEPS = [
   { id: 'pilot', Art: IsoPilot },
 ] as const
 
-const EASE = [0.22, 1, 0.36, 1] as const
-
 export function HowItWorks() {
   const { t } = useT()
-  const reduce = useReducedMotion()
   return (
     <section id="how" className="scroll-mt-24 px-2 sm:px-4">
       <IsoFilters />
@@ -42,15 +38,14 @@ export function HowItWorks() {
 
         <ol className="mx-auto mt-14 grid max-w-[460px] gap-16 md:mt-20 lg:max-w-[1240px] lg:grid-cols-3 lg:gap-10">
           {STEPS.map(({ id, Art }, i) => (
-            <motion.li key={id} initial={reduce ? false : { opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: '-60px' }} transition={{ duration: 0.7, delay: i * 0.1, ease: EASE }}>
+            <Reveal key={id} as="li" y={24} blur={0} delay={i * 0.1}>
               <Art label={t(`site.how_${id}_img`)} />
               <div className="mt-6 px-1">
                 <p className="font-mono text-[13px] text-white/40">{`0${i + 1}`}</p>
                 <h3 className="mt-2 text-[1.3rem] font-semibold tracking-[-0.025em]">{t(`site.how_${id}_title`)}</h3>
                 <p className="mt-2 text-pretty text-[15px] leading-relaxed text-white/55">{t(`site.how_${id}_desc`)}</p>
               </div>
-            </motion.li>
+            </Reveal>
           ))}
         </ol>
       </div>

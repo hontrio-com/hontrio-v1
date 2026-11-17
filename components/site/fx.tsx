@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, type ReactNode } from 'react'
-import { motion, useReducedMotion } from 'framer-motion'
+import { useAnimate, useReducedMotion } from 'framer-motion'
 import { cn } from '@/lib/utils'
 
 // =============================================
@@ -15,21 +15,32 @@ import { cn } from '@/lib/utils'
 
 const EASE = [0.22, 1, 0.36, 1] as const
 
-/** Apare din estompare când intră în ecran (o singură dată). */
-export function Reveal({ children, delay = 0, y = 18, className, as = 'div' }: {
-  children: ReactNode; delay?: number; y?: number; className?: string; as?: 'div' | 'li' | 'section'
+/**
+ * Apare din estompare când intră în ecran (o singură dată). De la server vine vizibil, ca
+ * textul să existe și pentru cititorii fără JavaScript (verificarea Google a paginii,
+ * motoarele de căutare). După încărcare se ascunde doar ce este încă sub ecran, iar acel
+ * conținut apare când ajunge în ecran. Ce se vede deja la încărcare rămâne pe loc.
+ */
+export function Reveal({ children, delay = 0, y = 18, blur = 6, className, as = 'div' }: {
+  children: ReactNode; delay?: number; y?: number; blur?: number; className?: string; as?: 'div' | 'li' | 'section'
 }) {
   const reduce = useReducedMotion()
-  const Tag = as === 'li' ? motion.li : as === 'section' ? motion.section : motion.div
-  return (
-    <Tag className={className}
-      initial={reduce ? false : { opacity: 0, y, filter: 'blur(6px)' }}
-      whileInView={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-      viewport={{ once: true, margin: '-60px' }}
-      transition={{ duration: 0.7, delay, ease: EASE }}>
-      {children}
-    </Tag>
-  )
+  const [scope, animate] = useAnimate()
+  useEffect(() => {
+    const el: HTMLElement | null = scope.current
+    if (!el || reduce) return
+    if (el.getBoundingClientRect().top < window.innerHeight - 60) return
+    animate(el, { opacity: 0, y, filter: `blur(${blur}px)` }, { duration: 0 })
+    const io = new IntersectionObserver(entries => {
+      if (!entries.some(e => e.isIntersecting)) return
+      io.disconnect()
+      animate(el, { opacity: 1, y: 0, filter: 'blur(0px)' }, { duration: 0.7, delay, ease: EASE })
+    }, { rootMargin: '0px 0px -60px 0px' })
+    io.observe(el)
+    return () => io.disconnect()
+  }, [scope, animate, reduce, y, blur, delay])
+  const Tag = as
+  return <Tag ref={scope} className={className}>{children}</Tag>
 }
 
 /**

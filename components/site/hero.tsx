@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useRef, useState } from 'react'
+import { useRef, useState, type CSSProperties } from 'react'
 import { motion, useReducedMotion, useScroll, useTransform } from 'framer-motion'
 import { ArrowRight } from 'lucide-react'
 import { useT } from '@/lib/i18n/context'
@@ -21,25 +21,26 @@ import { BrandMark, GOOGLE, STORES, type Brand } from './brands'
 
 const EASE = [0.22, 1, 0.36, 1] as const
 
+/** Apariția prin CSS (`.site-rise` din globals.css): întârzierea, distanța și estomparea. */
+const rise = (delay: number, y?: string, blur?: string) =>
+  ({ '--rise-delay': `${delay}s`, ...(y && { '--rise-y': y }), ...(blur && { '--rise-blur': blur }) }) as CSSProperties
+
 /**
  * Text care apare cuvânt cu cuvânt, din estompare. Cititorul de ecran primește textul întreg.
  * `wordClassName` merge pe fiecare cuvânt: un gradient pe text (bg-clip-text) trebuie pus
  * pe cuvânt, fiindcă un părinte nu-l poate „decupa" prin copiii animați (au stratul lor).
+ * Animația este în CSS, ca titlul să existe vizibil și în pagina trimisă de server.
  */
 function Words({ text, delay = 0, className, wordClassName }: { text: string; delay?: number; className?: string; wordClassName?: string }) {
-  const reduce = useReducedMotion()
   const words = text.split(' ')
   return (
     <span className={className}>
       <span className="sr-only">{text}</span>
       <span aria-hidden>
         {words.map((w, i) => (
-          <motion.span key={`${w}-${i}`} className={cn('inline-block whitespace-pre', wordClassName)}
-            initial={reduce ? false : { opacity: 0, y: '0.35em', filter: 'blur(10px)' }}
-            animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-            transition={{ duration: 0.7, delay: delay + i * 0.06, ease: EASE }}>
+          <span key={`${w}-${i}`} className={cn('site-rise inline-block whitespace-pre', wordClassName)} style={rise(delay + i * 0.06, '0.35em', '10px')}>
             {w}{i < words.length - 1 ? ' ' : ''}
-          </motion.span>
+          </span>
         ))}
       </span>
     </span>
@@ -105,20 +106,18 @@ export function Hero() {
           <Words text={t('site.hero_title_b')} delay={0.35} wordClassName="bg-gradient-to-b from-neutral-950 via-neutral-700 to-neutral-400 bg-clip-text pb-[0.08em] text-transparent" />
         </h1>
 
-        <motion.p initial={reduce ? false : { opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, delay: 0.5, ease: EASE }}
-          className="mx-auto mt-6 max-w-2xl text-pretty text-[16.5px] leading-relaxed text-neutral-500 sm:text-lg">
+        <p className="site-rise mx-auto mt-6 max-w-2xl text-pretty text-[16.5px] leading-relaxed text-neutral-500 sm:text-lg" style={rise(0.5)}>
           {t('site.hero_desc')}
-        </motion.p>
+        </p>
 
-        <motion.div initial={reduce ? false : { opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, delay: 0.62, ease: EASE }}
-          className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
+        <div className="site-rise mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row" style={rise(0.62)}>
           <Link href="/register" className={cn(primaryPill, 'h-12 px-7 text-[15px]')}>
             <Shine /><span className="relative">{t('site.hero_cta')}</span><ArrowRight className="relative size-4 transition group-hover:translate-x-0.5" />
           </Link>
           <Link href="#how" className="inline-flex h-12 items-center rounded-full border border-line bg-white/80 px-7 text-[15px] font-semibold text-neutral-900 backdrop-blur transition hover:border-black">
             {t('site.hero_cta_alt')}
           </Link>
-        </motion.div>
+        </div>
 
         {/* Căutarea pe Google: zona e înaltă, fereastra rămâne fixată și derularea o duce pas cu pas */}
         <div ref={track} className="relative mt-14 h-[270vh] md:mt-16 md:h-[320vh]">
