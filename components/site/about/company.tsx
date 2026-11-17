@@ -7,8 +7,7 @@ import { TITLE, TITLE_SIZE, TwoTone } from '../section'
 // „Despre Hontrio” · firma care face Hontrio: titlul, câteva rânduri și linkurile
 // spre documentele legale, iar alături o fișă albă cu datele firmei (aceleași ca
 // în documentele legale, `Company` din app/(marketing)/legal/legal-page.tsx) și
-// adresele de e-mail. Google cere ca pagina principală să arate limpede cine
-// face aplicația.
+// adresele de e-mail, ca să fie limpede cine face aplicația.
 // =============================================
 
 const DOCS = [
@@ -36,7 +35,7 @@ export async function AboutCompany() {
   // i18n-ignore-end
 
   return (
-    <section className="px-5 pb-24 md:pb-32">
+    <section className="px-5 py-24 md:py-32">
       <div className="mx-auto grid max-w-6xl items-center gap-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:gap-16">
         <div>
           <h2 className={cn('text-balance', TITLE_SIZE, TITLE)}>

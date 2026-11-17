@@ -12,9 +12,9 @@ import { TITLE, TwoTone } from '../section'
 
 // =============================================
 // „Despre Hontrio” · începutul paginii: ce este Hontrio, butoanele și cu ce se
-// conectează. Pagina este „App home page” în verificarea aplicației OAuth la
-// Google (17.11.2026), deci tot textul vine vizibil de la server, fără animații
-// de apariție. Câmpul de puncte din spate este doar decor, ca pe prima pagină.
+// conectează. Tot textul vine vizibil de la server, fără animații de apariție,
+// pentru cititorii fără JavaScript și pentru verificările automate ale Google.
+// Câmpul de puncte din spate este doar decor, ca pe prima pagină.
 // =============================================
 
 export function AboutHero() {
