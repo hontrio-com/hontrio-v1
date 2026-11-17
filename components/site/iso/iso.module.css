@@ -1,6 +1,6 @@
 /* =============================================
-   Ilustrațiile izometrice din „Cum funcționează" (în stilul celor de pe
-   opteo.com): plăci aproape negre, cu o margine subțire deschisă și puțină
+   Ilustrațiile izometrice din „Cum funcționează" și din pagina „Despre
+   Hontrio" (în stilul celor de pe opteo.com): plăci aproape negre, cu o margine subțire deschisă și puțină
    grosime. Planul e rotit (rotateX + rotateZ), plăcile se ridică din el cu
    translateZ, iar grosimea e o umbră plină trasă spre față, cu marginea ei.
    Totul e desenat pe o ramă de 380 × 340 de unități și se micșorează cu ea.
@@ -216,6 +216,81 @@
 .today {
   border-color: var(--lit) var(--lit) var(--lit-dim) var(--lit-dim);
   color: #fff;
+}
+
+/* ── Despre · deconectarea contului Google ────────────────────────────────── */
+
+/* O tură de 9s: conectat, comutatorul se stinge, legăturile se sting și accesul se
+   anulează, apoi totul revine. Stilurile de bază sunt starea conectată (fără animații). */
+.knob {
+  translate: calc(18 * var(--u)) 0;
+  background-color: #0b0b0b;
+  animation: knob 9s ease-in-out infinite;
+}
+@keyframes knob {
+  0%, 36% { translate: calc(18 * var(--u)) 0; background-color: #0b0b0b; }
+  42%, 88% { translate: 0 0; background-color: #fff; }
+  94%, 100% { translate: calc(18 * var(--u)) 0; background-color: #0b0b0b; }
+}
+
+.track {
+  background-color: #fff;
+  animation: track 9s ease-in-out infinite;
+}
+@keyframes track {
+  0%, 36% { background-color: #fff; }
+  42%, 88% { background-color: rgba(255, 255, 255, 0.1); }
+  94%, 100% { background-color: #fff; }
+}
+
+/* Liniile dintre Google și Hontrio, iar plăcile Google se sting cât accesul este anulat */
+.linked {
+  animation: linked 9s ease-in-out infinite;
+}
+@keyframes linked {
+  0%, 38% { opacity: 1; }
+  46%, 88% { opacity: 0.05; }
+  95%, 100% { opacity: 1; }
+}
+
+.fade {
+  animation: fade 9s ease-in-out infinite;
+}
+@keyframes fade {
+  0%, 38% { opacity: 1; }
+  46%, 88% { opacity: 0.32; }
+  95%, 100% { opacity: 1; }
+}
+
+/* Starea scrisă pe comutator: „Conectat”, apoi „Deconectat” */
+.on {
+  animation: on 9s ease-in-out infinite;
+}
+@keyframes on {
+  0%, 36% { opacity: 1; }
+  40%, 90% { opacity: 0; }
+  94%, 100% { opacity: 1; }
+}
+.off {
+  opacity: 0;
+  animation: off 9s ease-in-out infinite;
+}
+@keyframes off {
+  0%, 38% { opacity: 0; }
+  42%, 88% { opacity: 1; }
+  92%, 100% { opacity: 0; }
+}
+
+/* „Acces anulat” urcă din plan după ce comutatorul s-a stins */
+.revoked {
+  opacity: 0;
+  animation: revoked 9s linear infinite;
+}
+@keyframes revoked {
+  0%, 46% { translate: 0 0 calc(-16 * var(--u)); opacity: 0; animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1); }
+  55% { translate: 0 0 0; opacity: 1; }
+  84% { translate: 0 0 0; opacity: 1; }
+  90%, 100% { translate: 0 0 0; opacity: 0; }
 }
 
 /* ── Pe ecran / în afara lui; „reduce motion" ─────────────────────────────── */

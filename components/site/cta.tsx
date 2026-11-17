@@ -10,15 +10,17 @@ import { TITLE, TITLE_SIZE, TwoTone } from './section'
 
 // =============================================
 // Îndemnul de la final: un panou negru cu pătrățele care pâlpâie (Magic UI ·
-// Flickering Grid) și o lumină moale la mijloc, pentru lizibilitate.
+// Flickering Grid) și o lumină moale la mijloc, pentru lizibilitate. Pe pagina
+// „Despre Hontrio” vine fără animația de intrare (`reveal={false}`), ca tot textul
+// acelei pagini să fie vizibil în pagina trimisă de server.
 // =============================================
 
-export function FinalCta() {
+export function FinalCta({ reveal = true }: { reveal?: boolean }) {
   const { t } = useT()
   const reduce = useReducedMotion()
   return (
     <section className="px-5 pb-24 md:pb-28">
-      <motion.div initial={reduce ? false : { opacity: 0, y: 40, scale: 0.98 }} whileInView={{ opacity: 1, y: 0, scale: 1 }}
+      <motion.div initial={reduce || !reveal ? false : { opacity: 0, y: 40, scale: 0.98 }} whileInView={{ opacity: 1, y: 0, scale: 1 }}
         viewport={{ once: true, margin: '-80px' }} transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
         className="relative mx-auto max-w-6xl overflow-hidden rounded-[2.5rem] bg-[#0a0a0a] shadow-[0_50px_120px_-40px_rgba(0,0,0,0.6)]">
         <FlickeringGrid className="[mask-image:radial-gradient(ellipse_80%_70%_at_50%_50%,transparent_20%,black_75%)]" maxOpacity={0.22} chance={0.3} />

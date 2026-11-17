@@ -13,7 +13,7 @@ import { BrandMark, GOOGLE, STORES } from './brands'
 // l-a scos (14.11.2026). Tot aici se redeschide alegerea despre cookie-uri.
 // Limba nu se alege pe site: vine din țara vizitatorului (`detectLocale`).
 // Datele firmei (Legea nr. 365/2002, art. 5) sunt în paginile legale, legate
-// de aici: Termeni, Confidențialitate. Jos stau numele firmei și mențiunea că
+// de aici: Termeni, Confidențialitate, și pe pagina „Despre Hontrio” (/about). Jos stau numele firmei și mențiunea că
 // Google, Google Ads și Merchant Center sunt mărci Google LLC (Hontrio nu este
 // un produs Google), adăugate pentru verificarea aplicației OAuth (17.11.2026).
 // =============================================
@@ -37,6 +37,7 @@ export function SiteFooter() {
         { label: t('site.nav_autopilot'), href: '/#optimize' },
         { label: t('site.nav_pricing'), href: '/#pricing' },
         { label: t('site.nav_faq'), href: '/#faq' },
+        { label: t('site.nav_about'), href: '/about' },
       ],
     },
     {

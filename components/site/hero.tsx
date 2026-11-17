@@ -67,8 +67,9 @@ function AutopilotSwitch() {
 /**
  * Logo-urile, pe un rând platformele de magazin, pe al doilea Google. Pe telefon, două
  * coloane egale, fiecare logo la mijlocul celulei lui, ca rândurile să nu se rupă inegal.
+ * Tot așa și în capul paginii „Despre Hontrio”.
  */
-function BrandList({ brands, className }: { brands: Brand[]; className?: string }) {
+export function BrandList({ brands, className }: { brands: Brand[]; className?: string }) {
   return (
     <ul className={cn('mx-auto grid max-w-sm grid-cols-2 items-center gap-x-3 gap-y-7 [--logo:22px] sm:flex sm:max-w-5xl sm:flex-wrap sm:justify-center sm:gap-x-9 sm:gap-y-5 sm:[--logo:28px]', className)}>
       {brands.map(b => (
