@@ -46,6 +46,16 @@ test('suprapunerile și etichetarea automată', () => {
   assert.ok(got.includes('auto_tagging_off'))
 })
 
+test('contul Google Ads fără buget este primul lucru de rezolvat, cu linkul spre Google Ads', () => {
+  const spent = { accountBudget: { status: 'APPROVED', approvedStartDateTime: '2025-01-21 20:53:20', approvedEndTimeType: 'FOREVER', approvedSpendingLimitMicros: '199920000', amountServedMicros: '199920000' } }
+  const recs = buildRecommendations(input({ audit: evaluateAudit(auditRaw({ accountBudgets: [spent] }), ctx) }))
+  const budget = recs.find(r => r.id === 'account_budget_spent')!
+  assert.equal(budget.severity, 'high')
+  assert.deepEqual(budget.title, { key: 'recs.account_budget_spent_title' })
+  assert.equal(budget.action?.href, 'https://ads.google.com/')
+  assert.ok(!ids(input({ audit: evaluateAudit(auditRaw(), ctx) })).includes('account_budget_spent'))
+})
+
 test('conversiile de cumpărare principale duplicate au recomandarea lor, cu linkul spre Google Ads', () => {
   const action = (id: string) => ({ conversionAction: { id, name: id, status: 'ENABLED', category: 'PURCHASE', origin: 'WEBSITE', primaryForGoal: true } })
   const recs = buildRecommendations(input({ audit: evaluateAudit(auditRaw({ conversionActions: [action('1'), action('2')] }), ctx) }))

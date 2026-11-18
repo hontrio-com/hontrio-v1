@@ -154,6 +154,15 @@ export function buildRecommendations(input: EngineInput): Recommendation[] {
   const audit = input.audit ?? null
   if (audit) {
     const has = (id: string) => audit.checks.find(c => c.id === id)
+    // Fără bani în contul Google Ads nu rulează nimic: primul lucru de rezolvat
+    if (has('account_budget_spent')) {
+      recs.push({
+        id: 'account_budget_spent', severity: 'high',
+        title: { key: 'recs.account_budget_spent_title' }, body: { key: 'recs.account_budget_spent_body' },
+        impact_revenue: null, items: [], total_items: 0,
+        action: { href: 'https://ads.google.com/', external: true, label_key: 'recs.action_open_google_ads' },
+      })
+    }
     if (has('eu_undeclared')) {
       recs.push({
         id: 'eu_undeclared', severity: 'high',

@@ -202,6 +202,8 @@ function CampaignsView() {
   )
 
   const pilotError = data.store.pilot?.error ?? null
+  // Contul Google Ads fără buget: campaniile sunt pornite, dar Google nu le arată
+  const budgetSpent = live.some(c => c.status === 'active') && !!data.audit?.result?.checks.some(c => c.id === 'account_budget_spent')
 
   return (
     <div className="space-y-6">
@@ -211,6 +213,12 @@ function CampaignsView() {
       {pilotError && (
         <Callout tone="danger" title={t('campaigns.pilot_error_title')}>
           {translateStored(t, pilotError)} {t('campaigns.pilot_error_hint')}
+        </Callout>
+      )}
+
+      {budgetSpent && (
+        <Callout tone="danger" title={t('campaigns.budget_spent_title')}>
+          {t('campaigns.budget_spent_body')}
         </Callout>
       )}
 

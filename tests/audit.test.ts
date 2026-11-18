@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { evaluateAudit, purchaseConversions30, type AuditRaw } from '@/lib/google/audit'
+import { accountBudgetSpent, evaluateAudit, purchaseConversions30, type AuditRaw } from '@/lib/google/audit'
 
 // Auditul contului: rândurile vin cum le dă API-ul REST (camelCase, int64 ca text,
 // valorile implicite lipsesc).
@@ -110,6 +110,35 @@ test('mai multe conversii de cumpărare principale pe site: aceeași comandă s-
     action('1'), action('2', { primaryForGoal: false }), action('3', { origin: 'STORE' }), action('4', { status: 'REMOVED' }),
   ] }), ctx)
   assert.deepEqual(one.checks, [])
+})
+
+test('bugetul de cont cheltuit sau încheiat: Google nu rulează nimic, iar auditul o spune', () => {
+  const NOW = Date.parse('2026-11-18T22:00:00Z')
+  const budget = (over: Record<string, string> = {}) => ({ accountBudget: {
+    status: 'APPROVED', approvedStartDateTime: '2025-01-21 20:53:20', approvedEndTimeType: 'FOREVER',
+    approvedSpendingLimitMicros: '199920000', amountServedMicros: '199920000', ...over,
+  } })
+  const enabled = [{ status: 'ENABLED', serving_status: 'SUSPENDED' }]
+  // Ca la primul client: 199,92 lei aprobați, 199,92 lei cheltuiți
+  assert.equal(accountBudgetSpent([budget()], enabled, NOW), true)
+  // Mai sunt bani, limită infinită, plata automată (fără bugete), bugetele necitite
+  assert.equal(accountBudgetSpent([budget({ amountServedMicros: '150000000' })], enabled, NOW), false)
+  assert.equal(accountBudgetSpent([budget({ approvedSpendingLimitType: 'INFINITE', approvedSpendingLimitMicros: '' })], enabled, NOW), false)
+  assert.equal(accountBudgetSpent([], enabled, NOW), false)
+  assert.equal(accountBudgetSpent(null, enabled, NOW), false)
+  // Limita mărită după aprobare (ajustată) are întâietate
+  assert.equal(accountBudgetSpent([budget({ adjustedSpendingLimitMicros: '500000000' })], enabled, NOW), false)
+  // Un buget propus, încă neaprobat, nu contează
+  assert.equal(accountBudgetSpent([budget({ status: 'PENDING' })], enabled, NOW), false)
+  // Toate bugetele încheiate: doar dacă Google chiar ține campaniile suspendate
+  const ended = budget({ approvedEndTimeType: '', approvedEndDateTime: '2026-10-31 23:59:59', amountServedMicros: '10000000' })
+  assert.equal(accountBudgetSpent([ended], enabled, NOW), true)
+  assert.equal(accountBudgetSpent([ended], [{ status: 'ENABLED', serving_status: 'SERVING' }], NOW), false)
+  // Un buget nou, cu bani, după unul cheltuit: contul rulează
+  assert.equal(accountBudgetSpent([{ accountBudget: { ...ended.accountBudget, amountServedMicros: '199920000' } }, budget({ approvedStartDateTime: '2026-11-01 00:00:00', amountServedMicros: '0' })], enabled, NOW), false)
+
+  const r = evaluateAudit(raw({ accountBudgets: [budget()] }), { ...ctx, now: NOW })
+  assert.deepEqual(r.checks, [{ id: 'account_budget_spent', level: 'warning' }])
 })
 
 test('treapta numără doar cumpărările (un „adaugă în coș" principal nu contează); un audit vechi folosește toate conversiile', () => {

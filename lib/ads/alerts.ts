@@ -1,7 +1,7 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { storedMessage } from '@/lib/i18n/stored'
 import { notify } from '@/lib/ads/journal'
-import { accessLostMail, lossLimitMail, moneyIn, pilotBlockedMail, proposalsMail, protectionFailedMail, sendPilotEmail } from '@/lib/ads/emails'
+import { accessLostMail, budgetSpentMail, lossLimitMail, moneyIn, pilotBlockedMail, proposalsMail, protectionFailedMail, sendPilotEmail } from '@/lib/ads/emails'
 
 // =============================================
 // Ce află omul de la pilot, în clopoțel și pe e-mail: oprirea de siguranță
@@ -63,6 +63,20 @@ export async function alertPilotBlocked(supabase: Supabase, userId: string, stor
   if (await notifiedSince(supabase, userId, title, since)) return
   await notify(supabase, userId, 'error', title, storedMessage('notifications.pilot_blocked_body', { store }))
   await sendPilotEmail(userId, t => pilotBlockedMail(t, { store }))
+}
+
+/** Cât timp contul rămâne fără buget, omul primește din nou avertismentul doar după atât. */
+const BUDGET_ALERT_GAP_MS = 3 * 24 * 60 * 60_000
+
+/**
+ * (b) Contul Google Ads nu mai are buget (cheltuit sau expirat), iar magazinul are campanii Hontrio pornite:
+ * Google nu le arată. Doar omul poate adăuga bani, din Google Ads; îi amintim cel mult o dată la 3 zile.
+ */
+export async function alertBudgetSpent(supabase: Supabase, userId: string, store: string) {
+  const title = storedMessage('notifications.budget_spent_title', { store })
+  if (await notifiedSince(supabase, userId, title, new Date(Date.now() - BUDGET_ALERT_GAP_MS).toISOString())) return
+  await notify(supabase, userId, 'error', title, storedMessage('notifications.budget_spent_body'))
+  await sendPilotEmail(userId, t => budgetSpentMail(t, { store }))
 }
 
 /** Un e-mail cu propuneri, cel mult o dată pe zi pe magazin. */

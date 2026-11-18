@@ -19,7 +19,7 @@ type ConversionActionRow = {
 type GoalRow = { customerConversionGoal?: { category?: string; origin?: string; biddable?: boolean } }
 type CampaignRow = {
   campaign?: {
-    id?: string; name?: string; status?: string; advertisingChannelType?: string
+    id?: string; name?: string; status?: string; servingStatus?: string; advertisingChannelType?: string
     shoppingSetting?: { merchantId?: string; feedLabel?: string }
     missingEuPoliticalAdvertisingDeclaration?: boolean
   }
@@ -27,6 +27,20 @@ type CampaignRow = {
 }
 type MetricsRow = { campaign?: { id?: string; advertisingChannelType?: string }; metrics?: { costMicros?: string; conversions?: number; conversionsValue?: number } }
 type PurchaseRow = { metrics?: { conversions?: number } }
+/** Un buget de cont (plata prin factură sau plățile manuale); datele vin în fusul orar al contului. */
+export type AccountBudgetRow = {
+  accountBudget?: {
+    status?: string
+    approvedStartDateTime?: string
+    approvedEndDateTime?: string
+    approvedEndTimeType?: string
+    approvedSpendingLimitMicros?: string
+    approvedSpendingLimitType?: string
+    adjustedSpendingLimitMicros?: string
+    adjustedSpendingLimitType?: string
+    amountServedMicros?: string
+  }
+}
 
 export type AuditRaw = {
   customer: CustomerRow[]
@@ -37,13 +51,15 @@ export type AuditRaw = {
   metrics30: MetricsRow[]
   /** Conversiile de cumpărare din 30 de zile (segments.conversion_action_category); null = nu s-au putut citi. */
   purchase30?: PurchaseRow[] | null
+  /** Bugetele de cont; null = nu s-au putut citi (atunci nu se spune nimic despre ele). */
+  accountBudgets?: AccountBudgetRow[] | null
 }
 
 export type AuditCheckId =
   | 'account_manager' | 'currency_mismatch' | 'auto_tagging_off'
   | 'merchant_not_linked' | 'merchant_other' | 'merchant_choose'
   | 'purchase_missing' | 'purchase_not_primary' | 'purchase_no_value' | 'purchase_duplicate' | 'no_recent_conversions'
-  | 'eu_undeclared' | 'overlap' | 'search_active'
+  | 'eu_undeclared' | 'overlap' | 'search_active' | 'account_budget_spent'
 
 /**
  * blocker = lansarea nu se poate face; choice = omul alege la lansare
@@ -62,6 +78,8 @@ export type AuditCampaign = {
   eu_missing: boolean
   hontrio: boolean
   daily_budget: number | null
+  /** Starea de difuzare din Google (SERVING, SUSPENDED, ENDED…); null în auditurile mai vechi. */
+  serving_status?: string | null
   cost30: number
   conversions30: number
   value30: number
@@ -98,6 +116,8 @@ export type AuditContext = {
   /** Merchant Center-ul știut din magazin (Edinio) sau ales de om; null = nu-l știm. */
   storeMerchantId: string | null
   hontrioCampaignIds: Set<string>
+  /** Momentul auditului, în ms (pentru bugetele de cont); implicit acum. */
+  now?: number
 }
 
 const SHOPPING_CHANNELS = new Set(['SHOPPING', 'PERFORMANCE_MAX'])
@@ -112,7 +132,15 @@ export async function fetchAuditRaw(accessToken: string, customerId: string, log
     FROM customer
     WHERE segments.date DURING LAST_30_DAYS AND segments.conversion_action_category = 'PURCHASE'`)
     .catch((err: unknown) => { if (err instanceof GoogleAdsApiError) return null; throw err })
-  const [customer, productLinks, conversionActions, goals, campaigns, metrics30, purchase30] = await Promise.all([
+  // Bugetele de cont: unul cheltuit sau încheiat oprește toate campaniile din cont. Tot fără să oprească auditul
+  const budgets = q<AccountBudgetRow>(`
+    SELECT account_budget.status, account_budget.approved_start_date_time, account_budget.approved_end_date_time,
+           account_budget.approved_end_time_type, account_budget.approved_spending_limit_micros,
+           account_budget.approved_spending_limit_type, account_budget.adjusted_spending_limit_micros,
+           account_budget.adjusted_spending_limit_type, account_budget.amount_served_micros
+    FROM account_budget`)
+    .catch((err: unknown) => { if (err instanceof GoogleAdsApiError) return null; throw err })
+  const [customer, productLinks, conversionActions, goals, campaigns, metrics30, purchase30, accountBudgets] = await Promise.all([
     q<CustomerRow>(`
       SELECT customer.id, customer.descriptive_name, customer.currency_code, customer.time_zone,
              customer.auto_tagging_enabled, customer.manager, customer.test_account
@@ -131,7 +159,7 @@ export async function fetchAuditRaw(accessToken: string, customerId: string, log
       SELECT customer_conversion_goal.category, customer_conversion_goal.origin, customer_conversion_goal.biddable
       FROM customer_conversion_goal`),
     q<CampaignRow>(`
-      SELECT campaign.id, campaign.name, campaign.status, campaign.advertising_channel_type,
+      SELECT campaign.id, campaign.name, campaign.status, campaign.serving_status, campaign.advertising_channel_type,
              campaign.shopping_setting.merchant_id, campaign.shopping_setting.feed_label,
              campaign.missing_eu_political_advertising_declaration, campaign_budget.amount_micros
       FROM campaign
@@ -143,8 +171,34 @@ export async function fetchAuditRaw(accessToken: string, customerId: string, log
       FROM campaign
       WHERE segments.date DURING LAST_30_DAYS`),
     purchases,
+    budgets,
   ])
-  return { customer, productLinks, conversionActions, goals, campaigns, metrics30, purchase30 }
+  return { customer, productLinks, conversionActions, goals, campaigns, metrics30, purchase30, accountBudgets }
+}
+
+/** „2025-01-21 20:53:20" (fusul contului) → ms; câteva ore de fus nu schimbă nimic aici. NaN fără dată. */
+const budgetTime = (s: string | undefined) => (s ? Date.parse(s.trim().replace(' ', 'T')) : NaN)
+
+/**
+ * Contul nu are bani de reclame: bugetul de cont care rulează acum este cheltuit integral, sau toate
+ * bugetele s-au încheiat și Google ține campaniile pornite suspendate. Fără bugete de cont (plata
+ * automată) sau fără să le putem citi, nu spunem nimic.
+ */
+export function accountBudgetSpent(rows: AccountBudgetRow[] | null | undefined, campaigns: Pick<AuditCampaign, 'status' | 'serving_status'>[], nowMs: number): boolean {
+  const approved = (rows ?? []).map(r => r.accountBudget).filter((b): b is NonNullable<AccountBudgetRow['accountBudget']> => b?.status === 'APPROVED')
+  if (!approved.length) return false
+  const current = approved.filter(b => {
+    const start = budgetTime(b.approvedStartDateTime)
+    const end = budgetTime(b.approvedEndDateTime)
+    return !(start > nowMs) && (b.approvedEndTimeType === 'FOREVER' || Number.isNaN(end) || end > nowMs)
+  })
+  // Niciun buget în curs: doar dacă Google chiar a suspendat campaniile (o plată automată de după nu are buget de cont)
+  if (!current.length) return campaigns.some(x => x.status === 'ENABLED' && x.serving_status === 'SUSPENDED')
+  return current.every(b => {
+    if ((b.adjustedSpendingLimitType ?? b.approvedSpendingLimitType) === 'INFINITE') return false
+    const limit = Number(b.adjustedSpendingLimitMicros ?? b.approvedSpendingLimitMicros)
+    return Number.isFinite(limit) && limit > 0 && Number(b.amountServedMicros ?? 0) >= limit
+  })
 }
 
 /** Conversiile de cumpărare din 30 de zile (treapta); un audit fără ele folosește toate conversiile. */
@@ -204,6 +258,7 @@ export function evaluateAudit(raw: AuditRaw, ctx: AuditContext): AuditResult {
       eu_missing: !!x.missingEuPoliticalAdvertisingDeclaration,
       hontrio: ctx.hontrioCampaignIds.has(id),
       daily_budget: r.campaignBudget?.amountMicros ? round2(fromMicros(r.campaignBudget.amountMicros)) : null,
+      serving_status: x.servingStatus ?? null,
       cost30: round2(m.cost),
       conversions30: round2(m.conversions),
       value30: round2(m.value),
@@ -218,6 +273,9 @@ export function evaluateAudit(raw: AuditRaw, ctx: AuditContext): AuditResult {
     checks.push({ id: 'currency_mismatch', level: 'blocker', params: { account: customer.currency, store: ctx.storeCurrency } })
   }
   if (!customer.auto_tagging) checks.push({ id: 'auto_tagging_off', level: 'warning' })
+  // Fără bani în cont, Google nu arată nicio reclamă. Nu oprește lansarea: campania trece între timp prin
+  // verificarea Google și pornește singură când omul adaugă bani
+  if (accountBudgetSpent(raw.accountBudgets, campaigns, ctx.now ?? Date.now())) checks.push({ id: 'account_budget_spent', level: 'warning' })
 
   // ── Merchant Center ─────────────────────────────────────────────────────
   let merchantId: string | null = null

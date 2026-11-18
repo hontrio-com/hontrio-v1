@@ -15,7 +15,7 @@ import { CAMPAIGN_COLUMNS, groupItems, listingSize, merchantLabels, parseCampaig
 import { lossStops, optimize, sumWindows, windowOf, EMPTY, type OptCampaign, type OptimizerInput, type OptProduct, type Proposal, type Window } from '@/lib/ads/optimizer'
 import { readAll } from '@/lib/ads/read-all'
 import { addDays, dayStr, daysBetween, isTransientGoogleError, refreshFrom, DAY_MS, MISSED_PASS_MS, PROPOSAL_TTL_DAYS } from '@/lib/ads/schedule'
-import { alertLossStop, alertPilotBlocked, alertProposals, alertProtectionFailed } from '@/lib/ads/alerts'
+import { alertBudgetSpent, alertLossStop, alertPilotBlocked, alertProposals, alertProtectionFailed } from '@/lib/ads/alerts'
 import { loadPlanContext, STORE_PLAN_COLUMNS, type PlanContext, type PlanStore } from '@/lib/campaigns/context'
 import { brandTerms } from '@/lib/campaigns/plan'
 import { syncMerchant, type MerchantLabels } from '@/lib/merchant/sync'
@@ -241,6 +241,13 @@ export async function runAutopilot(storeId: string, opts: { deadline?: number; f
     const { data: auditRow } = await supabase.from('google_audits').select('checked_at, customer_id').eq('store_id', storeId).maybeSingle()
     const auditFresh = !!auditRow && nowMs - Date.parse(auditRow.checked_at) < AUDIT_FRESH_MS * 0.8 && auditRow.customer_id === account.customer_id
     if (!auditFresh) await runAudit(supabase, store)
+
+    // Contul fără buget: campaniile noastre sunt pornite, dar Google nu le arată, iar doar omul poate adăuga bani
+    if (campaigns.some(c => c.status === 'active')) {
+      const { data: latest } = await supabase.from('google_audits').select('result').eq('store_id', storeId).maybeSingle()
+      const checks = (latest?.result as { checks?: { id?: string }[] } | null)?.checks ?? []
+      if (checks.some(c => c.id === 'account_budget_spent')) await alertBudgetSpent(supabase, store.user_id, storeName)
+    }
 
     const productDays = await fetchProductDays(token, acc, from, yesterday)
     await saveProductDays(supabase, storeId, productDays)

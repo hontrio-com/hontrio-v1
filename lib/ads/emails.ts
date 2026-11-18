@@ -91,6 +91,16 @@ export function pilotBlockedMail(t: TFunction, p: { store: string }): PilotMail 
   }
 }
 
+/** (b) Contul Google Ads nu mai are buget: campaniile Hontrio sunt pornite, dar Google nu le arată. */
+export function budgetSpentMail(t: TFunction, p: { store: string }): PilotMail {
+  return {
+    subject: t('notifications.email_budget_spent_subject', { store: p.store }),
+    title: t('notifications.email_budget_spent_subject', { store: p.store }),
+    paragraphs: [t('notifications.email_budget_spent_body', { store: p.store }), t('notifications.email_budget_spent_next')],
+    cta: toCampaigns(t),
+  }
+}
+
 /** (c) Propuneri noi care așteaptă aprobarea omului. */
 export function proposalsMail(t: TFunction, p: { store: string; count: number }): PilotMail {
   return {

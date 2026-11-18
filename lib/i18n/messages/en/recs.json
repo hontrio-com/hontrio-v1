@@ -72,6 +72,8 @@
   "overlap_body": "The account has Shopping or Performance Max campaigns on the same products. Since 2024 the higher Ad Rank wins, so your campaigns push each other's cost per click up. At launch, Hontrio asks you what to do with them.",
   "auto_tagging_off_title": "Auto-tagging is off in Google Ads",
   "auto_tagging_off_body": "Without gclid on links, Google can't connect clicks to orders and conversions get lost. Turn on “Auto-tagging” in the Google Ads account settings.",
+  "account_budget_spent_title": "Your Google Ads account has no budget left for ads",
+  "account_budget_spent_body": "The account budget is spent or has expired, so Google shows no ads, including those of Hontrio campaigns. Add funds or a new budget in Google Ads, under Billing.",
   "action_open_google_ads": "Open Google Ads",
   "action_open_merchant": "Open Merchant Center",
   "action_open_settings": "Open Settings",

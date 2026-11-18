@@ -72,6 +72,8 @@
   "overlap_body": "Contul are campanii Shopping sau Performance Max pe aceleași produse. Din 2024 câștigă cea cu Ad Rank mai mare, deci campaniile tale își urcă una alteia prețul pe clic. La lansare, Hontrio te întreabă ce facem cu ele.",
   "auto_tagging_off_title": "Etichetarea automată este oprită în Google Ads",
   "auto_tagging_off_body": "Fără gclid pe linkuri, Google nu poate lega clicurile de comenzi și conversiile se pierd. Pornește „Etichetare automată” din setările contului Google Ads.",
+  "account_budget_spent_title": "Contul Google Ads nu mai are buget pentru reclame",
+  "account_budget_spent_body": "Bugetul contului este cheltuit sau a expirat, așa că Google nu arată nicio reclamă, nici pe cele ale campaniilor Hontrio. Adaugă bani sau un buget nou din Google Ads, la Facturare.",
   "action_open_google_ads": "Deschide Google Ads",
   "action_open_merchant": "Deschide Merchant Center",
   "action_open_settings": "Deschide Setările",
