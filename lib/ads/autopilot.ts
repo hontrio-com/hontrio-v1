@@ -242,11 +242,19 @@ export async function runAutopilot(storeId: string, opts: { deadline?: number; f
     const auditFresh = !!auditRow && nowMs - Date.parse(auditRow.checked_at) < AUDIT_FRESH_MS * 0.8 && auditRow.customer_id === account.customer_id
     if (!auditFresh) await runAudit(supabase, store)
 
-    // Contul fără buget: campaniile noastre sunt pornite, dar Google nu le arată, iar doar omul poate adăuga bani
+    // Contul fără buget: campaniile noastre sunt pornite, dar Google nu le arată, iar doar omul poate adăuga bani.
+    // Un audit păstrat de ieri care o spune se reface întâi: omul poate să fi plătit între timp
     if (campaigns.some(c => c.status === 'active')) {
-      const { data: latest } = await supabase.from('google_audits').select('result').eq('store_id', storeId).maybeSingle()
-      const checks = (latest?.result as { checks?: { id?: string }[] } | null)?.checks ?? []
-      if (checks.some(c => c.id === 'account_budget_spent')) await alertBudgetSpent(supabase, store.user_id, storeName)
+      const budgetSpent = async () => {
+        const { data: latest } = await supabase.from('google_audits').select('result').eq('store_id', storeId).maybeSingle()
+        return ((latest?.result as { checks?: { id?: string }[] } | null)?.checks ?? []).some(c => c.id === 'account_budget_spent')
+      }
+      let spent = await budgetSpent()
+      if (spent && auditFresh) {
+        await runAudit(supabase, store)
+        spent = await budgetSpent()
+      }
+      if (spent) await alertBudgetSpent(supabase, store.user_id, storeName)
     }
 
     const productDays = await fetchProductDays(token, acc, from, yesterday)
