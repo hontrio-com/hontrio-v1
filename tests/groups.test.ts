@@ -118,6 +118,7 @@ test('grupa: comanda medie a produselor ei dă plafonul, oprirea și bugetul; Sh
   assert.equal(p.cpc_ceiling, null)
   // 2.600 în 35 de comenzi, cu TVA și transport ca la magazin (9.000 / 7.200): 92,86
   assert.equal(p.economics.aov, 92.86)
+  assert.equal(p.economics.aov_basis, 'orders')
   assert.equal(p.budget.suggested, 19)
   // Lustrele, cu 2: Shopping standard cu „Maximizează clicurile"
   const small = group('lustre', { categories: ['Lustre'] })
@@ -125,11 +126,13 @@ test('grupa: comanda medie a produselor ei dă plafonul, oprirea și bugetul; Sh
   assert.equal(s.conversions30, 2)
   assert.equal(s.type, 'shopping')
   assert.equal(s.stage, 'starter')
-  // 3.500 în 9 comenzi × 1,25 = 486,11: plafon 1%, oprire la 1× / 3×, buget o cincime
-  assert.equal(s.economics.aov, 486.11)
-  assert.equal(s.cpc_ceiling, 4.86)
-  assert.deepEqual(s.loss_limit, { no_conversions: 487, low_roas: 1459 })
-  assert.deepEqual(s.budget, { suggested: 95, chosen: null, daily: 95 })
+  // Doar 9 comenzi (sub 10): comanda medie se estimează după prețuri, (500 + 300) / 2 × 1,25 = 500;
+  // plafon 1%, oprire la 1× / 3×, buget o cincime
+  assert.equal(s.economics.aov, 500)
+  assert.equal(s.economics.aov_basis, 'prices')
+  assert.equal(s.cpc_ceiling, 5)
+  assert.deepEqual(s.loss_limit, { no_conversions: 500, low_roas: 1500 })
+  assert.deepEqual(s.budget, { suggested: 100, chosen: null, daily: 100 })
   assert.deepEqual(s.blockers, [])
 })
 

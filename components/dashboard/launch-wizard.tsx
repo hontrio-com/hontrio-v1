@@ -513,7 +513,7 @@ function BudgetSlider({ plan, f, draft, onDraft, saving, disabled, onSave }: {
         <div className="mt-3 flex justify-between font-mono text-[10px] text-neutral-400"><span>{f.money.format(min)}</span><span>{f.money.format(max)}</span></div>
       </div>
       {budget.basis && budget.suggested !== null && (
-        <p className="mt-2 text-xs text-neutral-400">{t(budget.basis === 'history' ? 'wizard.budget_basis_history' : 'wizard.budget_basis_aov', { amount: f.money.format(budget.suggested) })}</p>
+        <p className="mt-2 text-xs text-neutral-400">{t(budget.basis === 'history' ? 'wizard.budget_basis_history' : plan.economics.aov_basis === 'prices' ? 'wizard.budget_basis_prices' : 'wizard.budget_basis_aov', { amount: f.money.format(budget.suggested) })}</p>
       )}
     </div>
   )

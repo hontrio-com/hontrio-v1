@@ -67,6 +67,8 @@ export function PlanTab({ plan, audit, running, currency, groupNames, f, onSaveS
     : 'campaigns.verified_at_launch'
   const place = [nameOf('region', campaign.country), nameOf('language', campaign.language)].filter(Boolean).join(' · ')
   const aov = econ.aov !== null ? f.money.format(econ.aov) : '—'
+  // Cu prea puține comenzi pe site, comanda medie este estimată după prețurile produselor
+  const estimated = econ.aov_basis === 'prices'
   const muted = (text: string) => <span className="font-normal text-neutral-400">{text}</span>
 
   const rows: { label: string; value: ReactNode; hint?: ReactNode }[] = [
@@ -99,7 +101,7 @@ export function PlanTab({ plan, audit, running, currency, groupNames, f, onSaveS
       label: t('campaigns.row_bidding'),
       value: structure.cpc_ceiling !== null ? t('campaigns.bidding_clicks', { cpc: f.money2.format(structure.cpc_ceiling) }) : t('campaigns.bidding_clicks_no_cap'),
       hint: structure.cpc_ceiling !== null
-        ? `${t('campaigns.bidding_clicks_hint', { aov })}${structure.cpc_ceiling_low ? ` ${t('campaigns.bidding_cpc_low')}` : ''}`
+        ? `${t(estimated ? 'campaigns.bidding_clicks_hint_prices' : 'campaigns.bidding_clicks_hint', { aov })}${structure.cpc_ceiling_low ? ` ${t('campaigns.bidding_cpc_low')}` : ''}`
         : undefined,
     } : {
       label: t('campaigns.row_bidding'),
@@ -173,7 +175,7 @@ export function PlanTab({ plan, audit, running, currency, groupNames, f, onSaveS
               {rows.map(r => <Field key={r.label} label={r.label} hint={r.hint}>{r.value}</Field>)}
               <Field label={t('campaigns.row_budget')} hint={
                 budget.suggested === null ? t('campaigns.budget_hint_none')
-                  : t(budget.basis === 'history' ? 'campaigns.budget_hint_history' : 'campaigns.budget_hint_aov', { budget: f.money.format(budget.suggested), aov })
+                  : t(budget.basis === 'history' ? 'campaigns.budget_hint_history' : estimated ? 'campaigns.budget_hint_prices' : 'campaigns.budget_hint_aov', { budget: f.money.format(budget.suggested), aov })
               }>
                 <BudgetInput key={String(budget.chosen)} chosen={budget.chosen} suggested={budget.suggested} currency={currency}
                   onSave={value => onSaveSettings({ daily_budget: value })} />

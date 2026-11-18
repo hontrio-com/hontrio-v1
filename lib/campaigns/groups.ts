@@ -1,7 +1,7 @@
 import { MAX_LISTING_ITEMS } from '@/lib/google/operations'
 import {
-  GROWTH_MIN_CONVERSIONS, LOW_CPC, cpcCeilingOf, lossLimitOf, startBudget,
-  type Plan, type PlanOffer,
+  GROWTH_MIN_CONVERSIONS, LOW_CPC, MIN_AOV_ORDERS, cpcCeilingOf, lossLimitOf, startBudget,
+  type AovBasis, type Plan, type PlanOffer,
 } from '@/lib/campaigns/plan'
 
 // =============================================
@@ -194,6 +194,8 @@ export type GroupPlan = {
   economics: {
     /** Comanda medie cu produsele grupei (cu TVA și transport, ca la magazin). */
     aov: number | null
+    /** Din comenzile grupei (de la MIN_AOV_ORDERS), altfel estimată după prețurile produselor ei. */
+    aov_basis: AovBasis | null
     /** ROAS-ul pe care îl fac acum produsele grupei (sau contul), doar ca informație. */
     historical_roas: number | null
   }
@@ -235,13 +237,15 @@ export function buildGroupPlan(group: ProductGroup, ctx: GroupPlanContext): Grou
   const matched = running.filter(o => o.item_id)
   const itemIds = [...new Set(matched.map(o => o.item_id!))]
 
-  // Valoarea medie a unei comenzi cu produsele grupei: valoarea lor pe comandă, cu TVA și transport ca la magazin
+  // Valoarea medie a unei comenzi cu produsele grupei: valoarea lor pe comandă, cu TVA și transport ca la magazin.
+  // Din câteva comenzi, una mare ar umfla plafonul și oprirea: atunci se estimează după prețuri, ca la magazin
   const soldRevenue = running.reduce((s, o) => s + o.revenue, 0)
   const orders = running.reduce((s, o) => s + o.orders, 0)
   const ratio = plan.economics.value_ratio || 1
-  const aov = orders > 0 && soldRevenue > 0
-    ? (soldRevenue / orders) * ratio
-    : running.length ? (running.reduce((s, o) => s + o.price, 0) / running.length) * ratio : plan.economics.aov
+  const fromOrders = orders >= MIN_AOV_ORDERS && soldRevenue > 0 ? (soldRevenue / orders) * ratio : null
+  const fromPrices = running.length ? (running.reduce((s, o) => s + o.price, 0) / running.length) * ratio : null
+  const aov = fromOrders ?? fromPrices ?? plan.economics.aov
+  const aovBasis: AovBasis | null = fromOrders !== null ? 'orders' : fromPrices !== null ? 'prices' : plan.economics.aov_basis
 
   // ── Conversiile: ce a raportat Google pe produs, altfel comenzile aduse de Google din magazin ──
   const googleData = plan.history.product_data
@@ -304,7 +308,7 @@ export function buildGroupPlan(group: ProductGroup, ctx: GroupPlanContext): Grou
     sales90: { units: running.reduce((s, o) => s + o.units, 0), revenue: soldRevenue },
     conversions30,
     basis: googleData ? 'google_ads' : 'store',
-    economics: { aov: aov === null ? null : Math.round(aov * 100) / 100, historical_roas: historical },
+    economics: { aov: aov === null ? null : Math.round(aov * 100) / 100, aov_basis: aov === null ? null : aovBasis, historical_roas: historical },
     auto_type: autoType,
     type,
     stage: type === 'shopping' ? 'starter' : 'growth',

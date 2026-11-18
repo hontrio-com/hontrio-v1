@@ -75,6 +75,7 @@
   "budget_none": "Bugetul se propune după ce magazinul are produse care pot rula.",
   "budget_basis_history": "Propunerea pornește de la cât cheltui acum pe zi pe Shopping și Performance Max ({{amount}}).",
   "budget_basis_aov": "Propus: {{amount}} pe zi, o cincime din comanda medie, ca să pornești cu puțin.",
+  "budget_basis_prices": "Propus: {{amount}} pe zi, o cincime din comanda medie estimată după prețurile produselor, ca să pornești cu puțin.",
   "aside_launch_title": "Cheltuiala pe lună",
   "aside_launch_1": "Google nu cheltuie mai mult decât bugetul ales, pe lună.",
   "aside_launch_2": "Hontrio oprește singur campania dacă reclamele costă mai mult decât aduc vânzările.",

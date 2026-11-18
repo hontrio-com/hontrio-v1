@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { brandTerms, buildPlan, cpcCeilingOf, lossLimitOf, niceBudget, startBudget, type PlanInput } from '@/lib/campaigns/plan'
+import { brandTerms, buildPlan, cpcCeilingOf, lossLimitOf, MIN_AOV_ORDERS, niceBudget, startBudget, type PlanInput } from '@/lib/campaigns/plan'
 import { evaluateAudit } from '@/lib/google/audit'
 import { auditRaw, offer, setup } from './fixtures'
 
@@ -42,6 +42,7 @@ test('pornire: Shopping standard, plafon de 1% din comanda medie, oprire de sigu
   assert.equal(p.stage.basis, 'google_ads')
   assert.equal(p.structure.type, 'shopping')
   assert.equal(p.economics.aov, 300)
+  assert.equal(p.economics.aov_basis, 'orders')
   // 300 × 1% = 3: la o vânzare din 100 de clicuri, vânzarea își acoperă reclama
   assert.equal(p.structure.cpc_ceiling, 3)
   assert.equal(p.structure.cpc_ceiling_low, false)
@@ -81,9 +82,31 @@ test('fără costuri nu se blochează nimic; fără comenzi, comanda medie vine 
   assert.deepEqual(p.blockers, [])
   // Prețul mediu al produselor care pot rula (a și b, 100 fiecare)
   assert.equal(p.economics.aov, 100)
+  assert.equal(p.economics.aov_basis, 'prices')
   assert.equal(p.structure.cpc_ceiling, 1)
   assert.deepEqual(p.structure.loss_limit, { no_conversions: 100, low_roas: 300 })
   assert.equal(p.budget.suggested, 20)
+})
+
+test('câteva comenzi pe site nu spun comanda medie: una mare, neplătită, nu umflă plafonul, oprirea și bugetul', () => {
+  // Ca la primul client: o singură comandă de pe site în 90 de zile, de 2.043,80 lei, încă neplătită
+  const one = buildPlan(input({ orders90: { orders: 1, total: 2043.8, items: 1700, discount: 0, tax: 354.71 } }))
+  assert.equal(one.economics.aov, 100)
+  assert.equal(one.economics.aov_basis, 'prices')
+  // Nici raportul total / produse dintr-o singură comandă nu se folosește
+  assert.equal(one.economics.value_ratio, 1)
+  assert.equal(one.structure.cpc_ceiling, 1)
+  assert.deepEqual(one.structure.loss_limit, { no_conversions: 100, low_roas: 300 })
+  assert.equal(one.budget.suggested, 20)
+  // De la MIN_AOV_ORDERS comenzi, comanda medie vine din ele
+  const enough = buildPlan(input({ orders90: { orders: MIN_AOV_ORDERS, total: MIN_AOV_ORDERS * 250, items: MIN_AOV_ORDERS * 200, discount: 0, tax: 0 } }))
+  assert.equal(enough.economics.aov, 250)
+  assert.equal(enough.economics.aov_basis, 'orders')
+  assert.equal(enough.economics.value_ratio, 1.25)
+  // Fără comenzi și fără produse care pot rula, nu se poate socoti
+  const none = buildPlan(input({ orders90: { orders: 0, total: 0, items: 0, discount: 0, tax: 0 }, offers: [offer('x', { available: false })], sales90: new Map() }))
+  assert.equal(none.economics.aov, null)
+  assert.equal(none.economics.aov_basis, null)
 })
 
 test('excluderile: alegerea omului și pilotul, după ID-ul din Merchant Center', () => {

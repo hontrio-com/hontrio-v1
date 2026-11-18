@@ -360,7 +360,7 @@ function EditorBody({ group, initialStep = 1, plan, groups, campaigns, audit, to
                 </div>
                 <p className="mt-2 max-w-2xl text-[12px] leading-relaxed text-neutral-500">
                   {preview.budget.suggested !== null && preview.economics.aov !== null
-                    ? t('campaigns.g_budget_hint', { aov: f.money.format(preview.economics.aov), budget: f.money.format(preview.budget.suggested) })
+                    ? t(preview.economics.aov_basis === 'prices' ? 'campaigns.g_budget_hint_prices' : 'campaigns.g_budget_hint', { aov: f.money.format(preview.economics.aov), budget: f.money.format(preview.budget.suggested) })
                     : t('campaigns.budget_hint_none')}
                 </p>
               </Block>
@@ -469,7 +469,7 @@ function Summary({ preview: p, name, f, showNotes, className }: { preview: Group
   const blockers = p.blockers.filter(b => b.id !== 'empty').length
   const rows = [
     { label: t('campaigns.g_stat_conversions'), value: f.num.format(p.conversions30) },
-    { label: t('campaigns.econ_aov'), value: p.economics.aov !== null ? f.money.format(p.economics.aov) : '—' },
+    { label: t(p.economics.aov_basis === 'prices' ? 'campaigns.econ_aov_prices' : 'campaigns.econ_aov'), value: p.economics.aov !== null ? f.money.format(p.economics.aov) : '—' },
     ...(p.type === 'shopping' ? [{ label: t('campaigns.g_stat_cpc'), value: p.cpc_ceiling !== null ? f.money2.format(p.cpc_ceiling) : '—' }] : []),
     { label: t('campaigns.g_stat_budget'), value: p.budget.daily !== null ? f.money.format(p.budget.daily) : '—' },
   ]
@@ -790,7 +790,7 @@ function ReviewStep({ plan, preview: p, name, account, audit, live, overlap, set
       label: t('campaigns.row_bidding'),
       value: p.cpc_ceiling !== null ? t('campaigns.bidding_clicks', { cpc: f.money2.format(p.cpc_ceiling) }) : t('campaigns.bidding_clicks_no_cap'),
       hint: p.cpc_ceiling !== null && p.economics.aov !== null
-        ? `${t('campaigns.bidding_clicks_hint', { aov: f.money.format(p.economics.aov) })}${p.cpc_ceiling_low ? ` ${t('campaigns.bidding_cpc_low')}` : ''}`
+        ? `${t(p.economics.aov_basis === 'prices' ? 'campaigns.bidding_clicks_hint_prices' : 'campaigns.bidding_clicks_hint', { aov: f.money.format(p.economics.aov) })}${p.cpc_ceiling_low ? ` ${t('campaigns.bidding_cpc_low')}` : ''}`
         : undefined,
     } : {
       label: t('campaigns.row_bidding'),
@@ -820,7 +820,7 @@ function ReviewStep({ plan, preview: p, name, account, audit, live, overlap, set
           {[
             { label: t('campaigns.g_stat_products'), value: f.int.format(p.counts.included) },
             { label: t('campaigns.g_stat_budget'), value: p.budget.daily !== null ? f.money.format(p.budget.daily) : '—' },
-            { label: t('campaigns.econ_aov'), value: p.economics.aov !== null ? f.money.format(p.economics.aov) : '—' },
+            { label: t(p.economics.aov_basis === 'prices' ? 'campaigns.econ_aov_prices' : 'campaigns.econ_aov'), value: p.economics.aov !== null ? f.money.format(p.economics.aov) : '—' },
             { label: t('campaigns.g_stat_conversions'), value: f.num.format(p.conversions30) },
           ].map(k => (
             <div key={k.label}>

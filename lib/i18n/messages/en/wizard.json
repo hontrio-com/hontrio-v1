@@ -74,6 +74,7 @@
   "budget_none": "A budget is suggested once the store has products that can run.",
   "budget_basis_history": "The suggestion starts from what you spend per day on Shopping and Performance Max today ({{amount}}).",
   "budget_basis_aov": "Suggested: {{amount}} a day, a fifth of your average order, to start small.",
+  "budget_basis_prices": "Suggested: {{amount}} a day, a fifth of the average order estimated from your product prices, to start small.",
   "aside_launch_title": "Spend per month",
   "aside_launch_1": "Google doesn't spend more than the budget you choose, per month.",
   "aside_launch_2": "Hontrio stops the campaign on its own if the ads cost more than the sales bring in.",

@@ -42,6 +42,13 @@ export const LOW_CPC = 0.05
 export const DAYS_PER_MONTH = 30.4
 /** Bugetul propus când contul n-are încă Shopping: o parte din comanda medie, pe zi. */
 export const START_BUDGET_SHARE = 0.2
+/**
+ * De la câte comenzi de pe site în 90 de zile spun ele comanda medie. Sub atât, o singură
+ * comandă mare (sau una încă neplătită) ar ridica de zeci de ori plafonul pe click, oprirea
+ * de siguranță și bugetul propus, așa că se estimează după prețurile produselor.
+ */
+export const MIN_AOV_ORDERS = 10
+export type AovBasis = 'orders' | 'prices'
 
 export type Reason =
   // Nu pot rula: se repară în magazin
@@ -168,9 +175,11 @@ export type Plan = {
     brand_negatives: string[]
   }
   economics: {
-    /** Comanda medie: din comenzile de pe site, altfel prețul mediu al produselor care pot rula. */
+    /** Comanda medie: din comenzile de pe site (de la MIN_AOV_ORDERS), altfel prețul mediu al produselor care pot rula. */
     aov: number | null
-    /** Totalul comenzii față de valoarea produselor (TVA, transport): din valoarea produselor, valoarea raportată. */
+    /** De unde vine comanda medie; null = nu se poate socoti. */
+    aov_basis: AovBasis | null
+    /** Totalul comenzii față de valoarea produselor (TVA, transport): din valoarea produselor, valoarea raportată. 1 sub MIN_AOV_ORDERS. */
     value_ratio: number
   }
   /**
@@ -296,7 +305,12 @@ export function buildPlan(input: PlanInput): Plan {
   const included = offers.filter(o => o.reason === null)
 
   // ── Comanda medie: unitatea de măsură pentru plafon, oprire și bugetul propus ──
-  const aov = econ.aov ?? (eligible.length ? eligible.reduce((s, o) => s + o.price, 0) / eligible.length : null)
+  // Din comenzile de pe site doar când sunt destule; altfel, după prețurile produselor care pot rula
+  const enoughOrders = input.orders90.orders >= MIN_AOV_ORDERS
+  const fromOrders = enoughOrders ? econ.aov : null
+  const fromPrices = eligible.length ? eligible.reduce((s, o) => s + o.price, 0) / eligible.length : null
+  const aov = fromOrders ?? fromPrices
+  const aovBasis: AovBasis | null = fromOrders !== null ? 'orders' : fromPrices !== null ? 'prices' : null
 
   // ── Treapta: Google cere 15 conversii în 30 de zile pentru licitarea pe valoare la Shopping ──
   // Doar cumpărările: Performance Max licitează numai pe PURCHASE~WEBSITE (un „adaugă în coș" principal nu contează)
@@ -389,7 +403,7 @@ export function buildPlan(input: PlanInput): Plan {
       feed_label: input.merchant.feed_label,
       brand_negatives: audit?.search_active ? brandTerms(store.name, store.url) : [],
     },
-    economics: { aov, value_ratio: econ.valueRatio },
+    economics: { aov, aov_basis: aovBasis, value_ratio: enoughOrders ? econ.valueRatio : 1 },
     budget: { suggested, basis, chosen, daily },
     settings: { mode: input.settings.mode, max_daily_budget: input.settings.max_daily_budget },
     history: {
