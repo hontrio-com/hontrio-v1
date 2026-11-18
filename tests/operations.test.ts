@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { toMicros, idFromResourceName } from '@/lib/google/ads'
 import {
-  addNegativesOps, buildLaunchOperations, budgetOp, cleanKeyword, endDateOp, endOfDay, euDeclarationOps, pmaxListingOps, removeNodesOps, shoppingListingOps, startOfDay,
+  addNegativesOps, buildLaunchOperations, budgetOp, cleanKeyword, endDateOp, endOfDay, euDeclarationOps, listingBidMicros, pmaxListingOps, removeNodesOps, shoppingListingOps, startOfDay,
   FINAL_URL_SUFFIX, type GrowthSpec, type StarterSpec,
 } from '@/lib/google/operations'
 
@@ -145,24 +145,35 @@ test('Shopping standard: „Maximizează clicurile" cu plafon, grupul fără ofe
   const [root, excluded, rest] = ops.slice(6).map(o => body(o).create)
   assert.equal(root.listingGroup.type, 'SUBDIVISION')
   assert.equal(root.resourceName, 'customers/1234567890/adGroupCriteria/-3~-4')
+  assert.equal(root.cpcBidMicros, undefined, 'o subdiviziune n-are ofertă')
   assert.equal(excluded.negative, true)
   assert.equal(excluded.cpcBidMicros, undefined, 'un nod negativ n-are ofertă')
   assert.equal(excluded.listingGroup.parentAdGroupCriterion, root.resourceName)
   assert.equal(rest.negative, undefined)
-  assert.equal(rest.cpcBidMicros, undefined)
+  // Google cere oferta pe unitățile incluse (fieldError.REQUIRED la primul client): plafonul campaniei
+  assert.equal(rest.cpcBidMicros, '790000')
   assert.deepEqual(rest.listingGroup.caseValue, { productItemId: {} })
 })
 
-test('Shopping fără excluderi: o singură unitate, fără ofertă', () => {
-  const ops = shoppingListingOps('1', '5', { kind: 'all' }).map(o => body(o).create)
+test('Shopping fără excluderi: o singură unitate, cu oferta primită', () => {
+  const ops = shoppingListingOps('1', '5', { kind: 'all' }, '1540000').map(o => body(o).create)
   assert.equal(ops.length, 1)
   assert.deepEqual(ops[0].listingGroup, { type: 'UNIT' })
-  assert.equal(ops[0].cpcBidMicros, undefined)
+  assert.equal(ops[0].cpcBidMicros, '1540000')
+  assert.equal(ops[0].negative, undefined)
+})
+
+test('oferta pe nod: plafonul, multiplu de unitatea facturabilă; fără plafon, o unitate din monedă', () => {
+  assert.equal(listingBidMicros(1.54), '1540000')
+  assert.equal(listingBidMicros(1.54, 1_000_000), '2000000')
+  assert.equal(listingBidMicros(null), '1000000')
 })
 
 test('Shopping fără plafon: „Maximizează clicurile" simplu', () => {
   const ops = buildLaunchOperations({ ...starter, cpcCeiling: null })
   assert.deepEqual(body(ops[1]).create.targetSpend, {})
+  // Unitatea arborelui primește totuși o ofertă, cum cere Google
+  assert.equal(ops.map(o => body(o).create).find(c => c?.listingGroup?.type === 'UNIT')?.cpcBidMicros, '1000000')
 })
 
 test('modificările de după lansare: măștile câmpurilor în camelCase', () => {

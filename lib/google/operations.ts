@@ -164,12 +164,24 @@ export function pmaxListingOps(cid: string, assetGroupId: string, listing: Listi
   }))
 }
 
+/** Oferta pe nod când campania n-are plafon pe click (o unitate din moneda contului). */
+export const LISTING_BID_FALLBACK = 1
+
 /**
- * Arborele unui grup de anunțuri Shopping standard: excluderile sunt noduri negative. Fără
- * oferte pe noduri: licitează „Maximizează clicurile" (iar o campanie veche cu CPC manual
- * folosește oferta grupului de anunțuri).
+ * Oferta pe nodurile care licitează, la Shopping standard. Google o cere pe fiecare unitate
+ * inclusă (fieldError.REQUIRED la cpc_bid_micros, văzut la validarea primului client), deși
+ * „Maximizează clicurile" licitează singur, în limita plafonului. Punem chiar plafonul, ca nodul
+ * să nu poată licita peste el nici dacă cineva trece campania pe CPC manual.
  */
-export function shoppingListingOps(cid: string, adGroupId: string, listing: ListingSpec, firstTemp = FIRST_NODE): MutateOperation[] {
+export function listingBidMicros(cpcCeiling: number | null, billableUnitMicros?: number): string {
+  return toMicros(cpcCeiling ?? LISTING_BID_FALLBACK, billableUnitMicros)
+}
+
+/**
+ * Arborele unui grup de anunțuri Shopping standard: excluderile sunt noduri negative, fără ofertă;
+ * unitățile incluse au oferta `bidMicros` (vezi `listingBidMicros`).
+ */
+export function shoppingListingOps(cid: string, adGroupId: string, listing: ListingSpec, bidMicros: string, firstTemp = FIRST_NODE): MutateOperation[] {
   const nextId = counter(firstTemp)
   const root = nextId()
   return listingNodes(listing, root, nextId).map(n => ({
@@ -179,6 +191,7 @@ export function shoppingListingOps(cid: string, adGroupId: string, listing: List
         adGroup: adGroupPath(cid, adGroupId),
         status: 'ENABLED',
         ...(n.type === 'UNIT' && !n.included ? { negative: true } : {}),
+        ...(n.type === 'UNIT' && n.included ? { cpcBidMicros: bidMicros } : {}),
         listingGroup: {
           type: n.type,
           ...(n.caseValue ? { caseValue: n.caseValue } : {}),
@@ -289,7 +302,7 @@ export function buildLaunchOperations(spec: LaunchSpec): MutateOperation[] {
       },
     })
     ops.push({ adGroupAdOperation: { create: { adGroup: adGroupPath(cid, GROUP), status: 'ENABLED', ad: { shoppingProductAd: {} } } } })
-    ops.push(...shoppingListingOps(cid, GROUP, spec.listing))
+    ops.push(...shoppingListingOps(cid, GROUP, spec.listing, listingBidMicros(spec.cpcCeiling, spec.billableUnitMicros)))
   } else {
     ops.push({
       assetGroupOperation: {

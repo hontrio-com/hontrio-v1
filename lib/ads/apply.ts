@@ -3,7 +3,7 @@ import { storedMessage } from '@/lib/i18n/stored'
 import { logError } from '@/lib/logger'
 import { billableUnitMicros, GoogleAdsApiError, mutate, type MutateOperation } from '@/lib/google/ads'
 import {
-  addNegativesOps, budgetOp, campaignStatusOp, endDateOp, endOfDay, normalizeItemId, pmaxListingOps, removeNodesOps, shoppingListingOps,
+  addNegativesOps, budgetOp, campaignStatusOp, endDateOp, endOfDay, listingBidMicros, normalizeItemId, pmaxListingOps, removeNodesOps, shoppingListingOps,
   FINAL_URL_SUFFIX, MAX_LISTING_ITEMS, type NegativeKeyword,
 } from '@/lib/google/operations'
 import { campaignName, createCampaign, LaunchError, resolveTargeting, type Account } from '@/lib/google/launch'
@@ -66,9 +66,11 @@ export async function syncCampaignProducts(supabase: Supabase, token: string, ac
   if (!groupId) return null
 
   const nodes = await fetchListingNodes(token, acc, { type: c.type, group_id: groupId })
+  // La Shopping, unitățile incluse cer o ofertă: plafonul campaniei, multiplu de unitatea facturabilă a monedei
+  const unit = c.type === 'shopping' && c.currency ? await billableUnitMicros(token, acc.customer_id, c.currency, acc.login_customer_id) : undefined
   const ops: MutateOperation[] = c.type === 'performance_max'
     ? [...removeNodesOps(nodes, 'assetGroupListingGroupFilterOperation'), ...pmaxListingOps(acc.customer_id, groupId, want.listing)]
-    : [...removeNodesOps(nodes, 'adGroupCriterionOperation'), ...shoppingListingOps(acc.customer_id, groupId, want.listing)]
+    : [...removeNodesOps(nodes, 'adGroupCriterionOperation'), ...shoppingListingOps(acc.customer_id, groupId, want.listing, listingBidMicros(c.cpc_ceiling, unit))]
   await run(token, acc, ops)
   await supabase.from('ad_campaigns').update({
     excluded_item_ids: want.excluded,
