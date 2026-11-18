@@ -36,7 +36,7 @@ import { syncMerchant, type MerchantLabels } from '@/lib/merchant/sync'
 
 type Supabase = ReturnType<typeof createAdminClient>
 /** Magazinul, cu ultima trecere a pilotului și eroarea ei. */
-type PilotStore = PlanStore & { ads_synced_at: string | null; ads_sync_error: string | null }
+type PilotStore = PlanStore & { ads_synced_at: string | null; ads_sync_error: string | null; billing_suspended_at: string | null }
 
 /** Felurile de propuneri de când Hontrio lucra cu marje (ținta, împărțirea): nu se mai aplică. */
 const RETIRED_KINDS = ['set_target', 'segment']
@@ -161,9 +161,14 @@ export async function runAutopilot(storeId: string, opts: { deadline?: number; f
   const supabase = createAdminClient()
   const nowMs = Date.now()
   const now = new Date(nowMs)
-  const { data: store } = await supabase.from('stores').select(`${STORE_PLAN_COLUMNS}, ads_synced_at, ads_sync_error`).eq('id', storeId).maybeSingle<PilotStore>()
+  const { data: store } = await supabase.from('stores').select(`${STORE_PLAN_COLUMNS}, ads_synced_at, ads_sync_error, billing_suspended_at`).eq('id', storeId).maybeSingle<PilotStore>()
   if (!store) return { ok: false, note: 'no_store' }
   const storeName = store.store_name || store.store_url
+  // Factură neplătită (Termeni, art. 13): pilotul nu rulează deloc până la plată; campaniile rămân în Google Ads
+  if (store.billing_suspended_at) {
+    await supabase.from('stores').update({ ads_synced_at: now.toISOString(), ads_sync_error: storedMessage('billing.pilot_suspended') }).eq('id', storeId)
+    return { ok: false, note: 'billing_suspended' }
+  }
 
   /** Trecerea zilei s-a făcut (și cu o eroare care nu trece singură): următoarea, peste ~20 de ore. */
   const finish = async (note: string, error: string | null = null) => {

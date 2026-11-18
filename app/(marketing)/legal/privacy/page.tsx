@@ -9,7 +9,10 @@ import { A, Box, Code, Company, H3, L, LegalPage, Mail, P, Table, UL, type Legal
 // verificarea aplicației OAuth), furnizorii și termenele de ștergere.
 // =============================================
 
-/** 18.11.2026: secțiunea „Datele Google” urmează lista verificării Google (date brute și agregate, protecție, păstrare și ștergere, fără AI). */
+/**
+ * 18.11.2026: secțiunea „Datele Google” urmează lista verificării Google (date brute și agregate, protecție,
+ * păstrare și ștergere, fără AI); facturarea (datele firmei, SmartBill, procesatorul de plăți, ANAF, e-mailurile, păstrarea).
+ */
 const PRIVACY_VERSION = '2026-11-18'
 
 const GOOGLE_POLICY = 'https://developers.google.com/terms/api-services-user-data-policy'
@@ -61,7 +64,8 @@ const RO: LegalDoc = {
           ['Datele din Google Ads și Merchant Center (secțiunea 5)', 'Din conturile tale Google', 'Campaniile, pilotul automat, rapoartele și recomandările', 'Contractul'],
           ['Datele magazinului: produsele (titlu, preț, stoc, imagine, link, categorie, brand, coduri SKU, GTIN, MPN) și comenzile (doar câmpurile din secțiunea 6)', 'Din magazinul tău (Edinio, WooCommerce, Shopify, Gomag, MerchantPro sau OpenCart)', 'Planul campaniilor, măsurarea vânzărilor aduse de reclame, rapoartele', 'Contractul; pentru datele cumpărătorilor, instrucțiunile magazinului (DPA)'],
           ['Suportul: subiectul, mesajele și fișierele atașate', 'De la tine', 'Ca să-ți răspundem și să rezolvăm problema', 'Contractul'],
-          ['Notificările și e-mailurile: ce ți-am trimis și când', 'Generate de Hontrio', 'Ca să te anunțăm despre cont și despre campanii (secțiunea 9)', 'Contractul'],
+          ['Facturarea: datele firmei (denumirea, codul fiscal, Registrul Comerțului, adresa sediului, adresa de e-mail pentru facturi), situațiile lunare (comenzile numărate, cu numărul, data și valoarea lor) și facturile (seria, numărul, suma, scadența, plata)', 'De la tine; pentru o firmă din România, datele publice de la ANAF, după CUI; situațiile, din comenzile magazinului', 'Calculul taxei Hontrio, emiterea facturii, urmărirea plății și contestațiile', 'Contractul; păstrarea facturilor, obligația legală'],
+          ['Notificările și e-mailurile: ce ți-am trimis și când', 'Generate de Hontrio', 'Ca să te anunțăm despre cont, campanii și facturare (secțiunea 9)', 'Contractul'],
           ['Date tehnice și de securitate: adresa IP, browserul, ora și rezultatul cererilor, erorile; la înregistrare, verificarea anti-roboți', 'Din browserul tău, automat', 'Siguranța serviciului, limitarea încercărilor repetate, investigarea abuzurilor și a erorilor', 'Interesul nostru legitim de a ține serviciul sigur (art. 6 alin. (1) lit. f) GDPR)'],
           ['Țara, dedusă din adresa IP de furnizorul de găzduire', 'Din cererile browserului tău, automat', 'Ca să-ți arătăm site-ul și aplicația în română sau în engleză. La înregistrare, limba aleasă astfel se salvează în cont. Țara nu o păstrăm.', 'Interesul nostru legitim de a-ți arăta serviciul într-o limbă pe care o înțelegi (art. 6 alin. (1) lit. f) GDPR)'],
           ['Analiza traficului cu Google Analytics 4: paginile vizitate, sursa vizitei, dispozitivul și browserul, localizarea aproximativă, identificatorii din cookie-urile _ga', 'Din browserul tău, doar după ce accepți', 'Ca să înțelegem cum este folosit site-ul', 'Consimțământul tău (art. 6 alin. (1) lit. a) GDPR și art. 4 alin. (5) din Legea nr. 506/2004)'],
@@ -146,7 +150,10 @@ const RO: LegalDoc = {
           ['Upstash', 'Limitarea încercărilor repetate, după adresa IP', 'SUA / UE', 'Clauzele contractuale standard'],
           ['Google', 'Google Ads API și Merchant API (pentru conturile tale), intrarea cu Google, Google Analytics 4 (doar cu acordul tău)', 'UE și SUA', 'Clauzele contractuale standard sau DPF'],
           ['Cloudflare', 'Verificarea anti-roboți la înregistrare (Turnstile), când este activă', 'UE și SUA', 'Clauzele contractuale standard sau DPF'],
+          ['SmartBill', 'Emiterea facturilor Hontrio, trimiterea lor în e-Factura și linkul de plată cu cardul', 'România (UE)', 'Datele stau în UE'],
+          ['Procesatorul de plăți legat în SmartBill (Netopia, euPlatesc sau Stripe)', 'Plata cu cardul a unei facturi Hontrio, pe pagina procesatorului. Hontrio nu vede datele cardului', 'UE; Stripe, și în SUA', 'Clauzele contractuale standard sau DPF'],
         ]} />
+        <P>ANAF primește CUI-ul firmei când ceri completarea datelor de facturare, iar factura, prin SmartBill, în sistemul e-Factura, cum cere legea.</P>
         <P>Platformele magazinelor (Edinio, WooCommerce, Shopify, Gomag, MerchantPro și OpenCart) nu primesc date de la noi. Sunt platformele din care citim, la cererea ta. Conturile Google Ads și Merchant Center sunt ale tale, iar în ele trimitem doar ce este descris în secțiunea 5.</P>
         <P>Mai putem dezvălui date autorităților, când legea ne obligă, și unui succesor, la o fuziune sau la vânzarea afacerii, cu anunțarea ta prealabilă (pentru datele Google, cu acordul tău).</P>
       </>,
@@ -161,6 +168,7 @@ const RO: LegalDoc = {
         <UL items={[
           'Despre cont: confirmarea adresei de e-mail, resetarea parolei și mesajul de bun venit, după confirmare. Sunt necesare pentru cont și nu se pot opri.',
           'Alertele pilotului automat: oprirea de siguranță a unei campanii, o acțiune de protecție care nu a reușit sau pierderea accesului la Google și propunerile care îți așteaptă aprobarea. Le poți opri din Setări.',
+          'Despre facturare: anunțul pornirii facturării, factura lunară, amintirile de plată, oprirea pilotului pentru o factură neplătită și confirmarea plății. Sunt necesare pentru contract și nu se pot opri.',
         ]} />
         <P>Nu trimitem newslettere sau e-mailuri de marketing. Dacă vom începe, o vom face doar cu acordul tău și cu un link de dezabonare în fiecare mesaj.</P>
       </>,
@@ -175,6 +183,8 @@ const RO: LegalDoc = {
           ['Datele aduse din Google (cifre, termeni de căutare, audituri, rapoarte Merchant Center, jurnalul pilotului)', '400 de zile, prin rotație; se șterg la 30 de zile după ce deconectezi Google'],
           ['Tokenul de acces Google', 'Până deconectezi Google sau ștergi contul; atunci se șterge imediat'],
           ['Tichetele de suport și fișierele atașate', '24 de luni după închiderea tichetului'],
+          ['Datele firmei pentru facturare', 'Până ștergi contul'],
+          ['Situațiile lunare și facturile Hontrio', 'Cât cere legea contabilității, și după ștergerea contului'],
           ['Notificările din aplicație', '12 luni'],
           ['Linkurile de confirmare și de resetare a parolei', 'Până expiră; cele expirate se șterg zilnic'],
           ['Jurnalele tehnice ale serverului', 'Cel mult 30 de zile'],
@@ -274,7 +284,8 @@ const EN: LegalDoc = {
           ['Data from Google Ads and Merchant Center (section 5)', 'Your Google accounts', 'Campaigns, autopilot, reports and recommendations', 'Contract'],
           ['Store data: products (title, price, stock, image, link, category, brand, SKU, GTIN and MPN codes) and orders (only the fields in section 6)', 'Your store (Edinio, WooCommerce, Shopify, Gomag, MerchantPro or OpenCart)', 'Campaign planning, measuring the sales brought by ads, reports', 'Contract; for buyers’ data, the store’s instructions (DPA)'],
           ['Support: subject, messages and attached files', 'You', 'Answering you and solving the issue', 'Contract'],
-          ['Notifications and emails: what we sent you and when', 'Generated by Hontrio', 'Keeping you informed about your account and campaigns (section 9)', 'Contract'],
+          ['Billing: company details (name, tax ID, Trade Register number, registered address, invoice email), monthly statements (the counted orders, with their number, date and value) and invoices (series, number, amount, due date, payment)', 'You; for a Romanian company, the public data from ANAF, by tax ID; the statements, from your store’s orders', 'Calculating the Hontrio fee, issuing the invoice, tracking payment and handling disputes', 'Contract; keeping invoices, legal obligation'],
+          ['Notifications and emails: what we sent you and when', 'Generated by Hontrio', 'Keeping you informed about your account, campaigns and billing (section 9)', 'Contract'],
           ['Technical and security data: IP address, browser, time and result of requests, errors; at sign-up, the anti-bot check', 'Your browser, automatically', 'Keeping the service secure, limiting repeated attempts, investigating abuse and errors', 'Our legitimate interest in keeping the service secure (Art. 6(1)(f) GDPR)'],
           ['Country, derived from the IP address by our hosting provider', 'From your browser’s requests, automatically', 'To show you the site and the app in Romanian or English. At sign-up, the language chosen this way is saved in your account. We don’t store the country.', 'Our legitimate interest in showing you the service in a language you understand (Art. 6(1)(f) GDPR)'],
           ['Traffic analytics with Google Analytics 4: pages visited, source of the visit, device and browser, approximate location, the identifiers in the _ga cookies', 'Your browser, only after you accept', 'Understanding how the site is used', 'Your consent (Art. 6(1)(a) GDPR and Art. 4(5) of Romanian Law no. 506/2004)'],
@@ -359,7 +370,10 @@ const EN: LegalDoc = {
           ['Upstash', 'Limiting repeated attempts, by IP address', 'USA / EU', 'Standard contractual clauses'],
           ['Google', 'Google Ads API and Merchant API (for your accounts), sign-in with Google, Google Analytics 4 (only with your consent)', 'EU and USA', 'Standard contractual clauses or DPF'],
           ['Cloudflare', 'Anti-bot check at sign-up (Turnstile), when enabled', 'EU and USA', 'Standard contractual clauses or DPF'],
+          ['SmartBill', 'Issuing Hontrio invoices, sending them to e-Factura and the card payment link', 'Romania (EU)', 'Data stays in the EU'],
+          ['The payment processor connected in SmartBill (Netopia, euPlatesc or Stripe)', 'Card payment of a Hontrio invoice, on the processor’s page. Hontrio does not see card details', 'EU; Stripe, also in the USA', 'Standard contractual clauses or DPF'],
         ]} />
+        <P>ANAF, the Romanian tax authority, receives the company’s tax ID when you ask us to fill in the billing details, and the invoice, through SmartBill, in the e-Factura system, as the law requires.</P>
         <P>The store platforms (Edinio, WooCommerce, Shopify, Gomag, MerchantPro and OpenCart) do not receive data from us. They are the platforms we read from, at your request. The Google Ads and Merchant Center accounts are yours, and we send to them only what is described in section 5.</P>
         <P>We may also disclose data to authorities, when the law obliges us, and to a successor in a merger or sale of the business, with prior notice to you (for Google data, with your consent).</P>
       </>,
@@ -374,6 +388,7 @@ const EN: LegalDoc = {
         <UL items={[
           'About your account: email address confirmation, password reset and the welcome message, after confirmation. They are needed for the account and cannot be turned off.',
           'Autopilot alerts: a campaign’s safety stop, a protective action that failed or lost access to Google, and proposals awaiting your approval. You can turn them off in Settings.',
+          'About billing: the notice that billing is starting, the monthly invoice, payment reminders, pausing the autopilot over an unpaid invoice and the payment confirmation. They are needed for the contract and cannot be turned off.',
         ]} />
         <P>We do not send newsletters or marketing emails. If we start, we will do it only with your consent and with an unsubscribe link in every message.</P>
       </>,
@@ -388,6 +403,8 @@ const EN: LegalDoc = {
           ['Data brought from Google (figures, search terms, audits, Merchant Center reports, autopilot journal)', '400 days, on a rolling basis; deleted 30 days after you disconnect Google'],
           ['Google access token', 'Until you disconnect Google or delete the account; then it is deleted immediately'],
           ['Support tickets and attached files', '24 months after the ticket is closed'],
+          ['Company details for billing', 'Until you delete your account'],
+          ['Monthly statements and Hontrio invoices', 'As long as accounting law requires, also after the account is deleted'],
           ['In-app notifications', '12 months'],
           ['Confirmation and password reset links', 'Until they expire; expired ones are deleted daily'],
           ['Server technical logs', 'At most 30 days'],

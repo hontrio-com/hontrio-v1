@@ -49,6 +49,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: t('sync.store_read_failed') }, { status: 500 })
   }
   if (!store || !isCommercePlatform(store.platform)) return NextResponse.json({ error: t('sync.platform_unsupported') }, { status: 400 })
+  // Factură neplătită (Termeni, art. 13): nicio lansare nouă până la plată
+  const { data: billing } = await supabase.from('stores').select('billing_suspended_at').eq('id', store.id).maybeSingle()
+  if (billing?.billing_suspended_at) return NextResponse.json({ error: t('billing.launch_suspended') }, { status: 402 })
 
   // Lansarea se sprijină pe un audit proaspăt: contul s-ar putea să se fi schimbat de ieri
   const { data: last } = await supabase.from('google_audits').select('checked_at, customer_id').eq('store_id', store.id).maybeSingle()

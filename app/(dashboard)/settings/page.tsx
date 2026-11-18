@@ -1,15 +1,17 @@
 'use client'
 
-import { Suspense, useEffect, useRef, useState, type ReactNode } from 'react'
+import { Suspense, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { signOut, useSession } from 'next-auth/react'
 import { toast } from 'sonner'
 import {
   Camera, Check, Download, ExternalLink, Eye, EyeOff, Globe, KeyRound,
-  Loader2, Lock, Mail, Package, Plug, RefreshCw, Shield, SlidersHorizontal, Store, Trash2,
+  Loader2, Lock, Mail, Package, Plug, Receipt, RefreshCw, Shield, SlidersHorizontal, Store, Trash2,
   Unplug, User, Wifi, X, Zap,
 } from 'lucide-react'
+import { Label, Section } from '@/components/settings/layout'
+import BillingTab from '@/components/billing/billing-tab'
 import { useT, useLocale } from '@/lib/i18n/context'
 import { LOCALES, LOCALE_NAMES, type Locale } from '@/lib/i18n/config'
 import { translateStored } from '@/lib/i18n/stored'
@@ -50,11 +52,11 @@ type UserProfile = {
   /** Deconectarea sau ștergerea șterge campaniile Hontrio din Google Ads (Termeni, art. 14.5). */
   leave_removes_campaigns?: boolean
 }
-type Tab = 'general' | 'integrations' | 'security' | 'preferences'
+type Tab = 'general' | 'integrations' | 'billing' | 'security' | 'preferences'
 
 // Rezultatul conectării Edinio (redirect înapoi din /api/integrations/edinio/callback)
 const EDINIO_ERRORS = ['access_denied', 'state', 'expired', 'store_exists', 'store_read', 'save', 'rate_limited', 'not_configured']
-const TABS: Tab[] = ['general', 'integrations', 'security', 'preferences']
+const TABS: Tab[] = ['general', 'integrations', 'billing', 'security', 'preferences']
 
 /** Cât de bună e o parolă nouă: 0–5, cu eticheta și culoarea barei. */
 function passwordStrength(p: string, t: (k: string) => string) {
@@ -71,35 +73,11 @@ function passwordStrength(p: string, t: (k: string) => string) {
   return { score: s, label: t('settings.pw_strong'), color: 'bg-emerald-500' }
 }
 
-/** O secțiune a setărilor: în stânga ce e, în dreapta setarea. */
-function Section({ title, description, children }: { title: ReactNode; description?: ReactNode; children: ReactNode }) {
-  return (
-    <section className="grid grid-cols-1 gap-4 border-b border-neutral-200/70 py-8 first:pt-2 last:border-0 lg:grid-cols-[260px_minmax(0,1fr)] lg:gap-10">
-      <div>
-        <h2 className="text-[15px] font-semibold tracking-[-0.01em] text-neutral-900">{title}</h2>
-        {description && <div className="mt-1 text-[13px] leading-relaxed text-neutral-500">{description}</div>}
-      </div>
-      <div className="min-w-0 space-y-4">{children}</div>
-    </section>
-  )
-}
-
 /** Iconița magazinului, după platformă. */
 function storeIcon(platform: string) {
   if (platform === 'shopify') return <Zap />
   const Icon = KEY_FORMS.includes(platform as KeyStorePlatform) ? KEY_PLATFORM_ICONS[platform as KeyStorePlatform] : Store
   return <Icon />
-}
-
-/** Eticheta unui câmp, cu câmpul sub ea. */
-function Label({ text, hint, children }: { text: string; hint?: string; children: ReactNode }) {
-  return (
-    <label className="block">
-      <span className="text-[13px] font-medium text-neutral-700">{text}</span>
-      <div className="mt-1.5">{children}</div>
-      {hint && <span className="mt-1.5 block text-[12px] text-neutral-500">{hint}</span>}
-    </label>
-  )
 }
 
 /** Un câmp de parolă, cu buton de arătat / ascuns. */
@@ -357,6 +335,7 @@ function SettingsView() {
       <PageTabs id="settings" value={tab} onChange={goTab} items={[
         { value: 'general', label: t('settings.tab_general'), icon: <User /> },
         { value: 'integrations', label: t('settings.tab_integrations'), icon: <Plug /> },
+        { value: 'billing', label: t('billing.tab'), icon: <Receipt /> },
         { value: 'security', label: t('settings.security'), icon: <Shield /> },
         { value: 'preferences', label: t('settings.tab_preferences'), icon: <SlidersHorizontal /> },
       ]} />
@@ -613,6 +592,9 @@ function SettingsView() {
             </Section>
           </div>
         )}
+
+        {/* ═══════ FACTURARE ═══════ */}
+        {tab === 'billing' && <BillingTab />}
 
         {/* ═══════ SECURITATE ═══════ */}
         {tab === 'security' && (
