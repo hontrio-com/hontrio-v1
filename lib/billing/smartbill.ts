@@ -52,7 +52,9 @@ export function smartBillErrorText(body: unknown): string | null {
   return null
 }
 
-async function call<T>(cfg: SmartBillConfig, method: 'GET' | 'POST' | 'PUT', path: string, opts: { query?: Record<string, string>; body?: unknown } = {}): Promise<T> {
+type Raw = { status: number; ok: boolean; body: Record<string, unknown> | null; error: string | null }
+
+async function request(cfg: SmartBillConfig, method: 'GET' | 'POST' | 'PUT', path: string, opts: { query?: Record<string, string>; body?: unknown } = {}): Promise<Raw> {
   const url = new URL(`${BASE}${path}`)
   for (const [k, v] of Object.entries(opts.query ?? {})) url.searchParams.set(k, v)
   const res = await fetch(url, {
@@ -66,10 +68,14 @@ async function call<T>(cfg: SmartBillConfig, method: 'GET' | 'POST' | 'PUT', pat
     signal: AbortSignal.timeout(30_000),
     cache: 'no-store',
   })
-  const body = await res.json().catch(() => null)
-  const error = smartBillErrorText(body)
-  if (!res.ok || error) throw new SmartBillError(error ?? `HTTP ${res.status}`, res.status)
-  return body as T
+  const body = await res.json().catch(() => null) as Record<string, unknown> | null
+  return { status: res.status, ok: res.ok, body, error: smartBillErrorText(body) }
+}
+
+async function call<T>(cfg: SmartBillConfig, method: 'GET' | 'POST' | 'PUT', path: string, opts: { query?: Record<string, string>; body?: unknown } = {}): Promise<T> {
+  const r = await request(cfg, method, path, opts)
+  if (!r.ok || r.error) throw new SmartBillError(r.error ?? `HTTP ${r.status}`, r.status)
+  return r.body as T
 }
 
 // ─── Factura ─────────────────────────────────────────────────────────────────
@@ -145,13 +151,23 @@ export function invoicePayload(cfg: SmartBillConfig, inv: InvoiceInput): Record<
   }
 }
 
-export type IssuedInvoice = { series: string; number: string; viewUrl: string | null; payUrl: string | null }
+/** `warning` = SmartBill a emis factura, dar a raportat o problemă (de exemplu, linkul de plată nu s-a generat). */
+export type IssuedInvoice = { series: string; number: string; viewUrl: string | null; payUrl: string | null; warning: string | null }
 
-/** Emite factura. O eroare SmartBill aruncă SmartBillError cu mesajul ei. */
+/**
+ * Emite factura. SmartBill poate crea documentul și totuși să întoarcă o eroare (văzut la 18.11.2026:
+ * „A apărut o eroare la generarea linkului de plată”, cu numărul documentului în același răspuns).
+ * Cu număr, factura EXISTĂ: se întoarce ca emisă, cu eroarea ca avertisment, ca să nu se emită
+ * a doua oară. Fără număr, factura nu există: SmartBillError.
+ */
 export async function createInvoice(cfg: SmartBillConfig, inv: InvoiceInput): Promise<IssuedInvoice> {
-  const r = await call<{ number?: string; series?: string; url?: string; documentViewUrl?: string }>(cfg, 'POST', '/invoice/v2', { body: invoicePayload(cfg, inv) })
-  if (!r.number || !r.series) throw new SmartBillError('Factura nu are număr', 502) // i18n-ignore (jurnal)
-  return { series: r.series, number: r.number, viewUrl: r.documentViewUrl || null, payUrl: r.url || null }
+  const r = await request(cfg, 'POST', '/invoice/v2', { body: invoicePayload(cfg, inv) })
+  const b = r.body ?? {}
+  const str = (k: string) => (typeof b[k] === 'string' && b[k] ? (b[k] as string) : null)
+  const number = str('number')
+  const series = str('series')
+  if (number && series) return { series, number, viewUrl: str('documentViewUrl'), payUrl: str('url'), warning: r.error }
+  throw new SmartBillError(r.error ?? `HTTP ${r.status}`, r.status)
 }
 
 export type PaymentStatus = { paid: boolean; paidAmount: number; unpaidAmount: number; total: number }

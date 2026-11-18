@@ -185,8 +185,11 @@ export async function issueStatement(supabase: Supabase, row: StatementRow, cfg:
     })
     await supabase.from('billing_statements').update({
       status: 'invoiced', invoice_series: inv.series, invoice_number: inv.number, invoice_url: inv.viewUrl, payment_url: inv.payUrl,
-      invoice_total: row.amount, issued_at: new Date().toISOString(), due_date: dueDate, error: null, updated_at: new Date().toISOString(),
+      invoice_total: row.amount, issued_at: new Date().toISOString(), due_date: dueDate, updated_at: new Date().toISOString(),
+      // Emisă, dar cu o problemă raportată de SmartBill (de exemplu, fără link de plată): o vede administrarea
+      error: inv.warning,
     }).eq('id', row.id)
+    if (inv.warning) logWarn('billing', 'Factura s-a emis cu un avertisment SmartBill', { statementId: row.id, warning: inv.warning })
     const number = `${inv.series} ${inv.number}`
     await sendBillingEmail(row.user_id, (tt, locale) => invoiceMail(tt, {
       store: row.store_name, month: monthLabel(row.period, locale), amount: moneyIn(locale, row.currency)(row.amount),

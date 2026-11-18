@@ -7,7 +7,8 @@ import {
 import { addDays, billingActive, countFrom, daysBetween, dunningStep, earliestStart, periodToClose, todayRo } from '@/lib/billing/schedule'
 import { cleanCui, parseAnaf, validCui } from '@/lib/billing/anaf'
 import { parseEcbCsv } from '@/lib/billing/ecb'
-import { clientVatCode, invoicePayload, smartBillConfig, smartBillErrorText, type SmartBillConfig } from '@/lib/billing/smartbill'
+import { clientVatCode, createInvoice, invoicePayload, smartBillConfig, SmartBillError, smartBillErrorText, type SmartBillConfig } from '@/lib/billing/smartbill'
+import { json, stubNetwork } from './store-api-stub'
 import { checkProfile } from '@/lib/billing/profile'
 import { dueReminderMail, finalReminderMail, invoiceMail, noticeMail, paidMail, profileMissingMail, suspendedMail } from '@/lib/billing/emails'
 import { tIn } from '@/lib/ads/emails'
@@ -271,5 +272,36 @@ test('e-mailurile facturării au textele în ambele limbi, cu sumele și datele'
     assert.equal(mails[1].cta.href, 'https://p', 'plata cu cardul întâi')
     assert.equal(mails[2].cta.href, 'https://v')
     assert.ok(mails[4].paragraphs[0].includes('8 februarie 2027'))
+  }
+})
+
+test('SmartBill: o factură creată cu o eroare (linkul de plată) rămâne emisă, ca să nu se emită de două ori', async () => {
+  const inv = {
+    client: { name: 'Client SRL', vat_code: '18547290', reg_com: null, is_vat_payer: false, address: 'Str. X 1', city: 'Craiova', county: 'Dolj', country: 'RO', email: 'f@client.ro' },
+    currency: 'RON' as const, amount: 199, issueDate: '2027-01-15', dueDate: '2027-01-25', line: 'Servicii Hontrio', mentions: 'm',
+  }
+  const replies = [
+    json({ errorText: '', number: '0001', series: 'HON', url: 'https://pay.example/1', documentViewUrl: 'https://view.example/1' }),
+    // Văzut pe contul real: documentul există (are număr), dar SmartBill raportează eroarea linkului
+    json({ errorText: 'A aparut o eroare la generarea linkului de plata. Incearca din nou.', number: '0002', series: 'HON', url: '', documentViewUrl: 'https://view.example/2' }),
+    json({ errorText: 'Seria nu a fost gasita! Folositi o serie creata in contul de cloud.', number: '', series: '', documentId: -1 }, 400),
+  ]
+  const net = stubNetwork(() => replies.shift()!)
+  try {
+    const ok = await createInvoice(SB, inv)
+    assert.deepEqual(ok, { series: 'HON', number: '0001', viewUrl: 'https://view.example/1', payUrl: 'https://pay.example/1', warning: null })
+
+    const noLink = await createInvoice(SB, inv)
+    assert.equal(noLink.number, '0002')
+    assert.equal(noLink.payUrl, null)
+    assert.equal(noLink.warning, 'A aparut o eroare la generarea linkului de plata. Incearca din nou.')
+
+    await assert.rejects(() => createInvoice(SB, inv), (err: unknown) => err instanceof SmartBillError && err.status === 400 && /Seria nu a fost gasita/.test(err.message))
+
+    assert.equal(net.calls[0].url.pathname, '/SBORO/api/invoice/v2')
+    assert.equal(net.calls[0].method, 'POST')
+    assert.match(net.calls[0].headers.get('authorization') ?? '', /^Basic /)
+  } finally {
+    net.restore()
   }
 })
