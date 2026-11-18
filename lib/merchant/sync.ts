@@ -8,7 +8,7 @@ import {
   MerchantApiError, priceOf, productInputName, searchReports, setDefaultRule,
   type DataSourceReference, type ReportRow,
 } from '@/lib/merchant/api'
-import { dominantFeed, freeLabelIndex, matchProducts, shoppingIssues, shoppingStatus, type OfferRef } from '@/lib/merchant/match'
+import { dominantFeed, foreignItems, freeLabelIndex, matchProducts, shoppingIssues, shoppingStatus, type OfferRef } from '@/lib/merchant/match'
 
 // =============================================
 // Sincronizarea cu Merchant Center-ul magazinului (cron zilnic și la cerere):
@@ -24,6 +24,8 @@ type Supabase = ReturnType<typeof createAdminClient>
 
 export const SUPPLEMENTAL_NAME = 'Hontrio'
 const PUSH_CONCURRENCY = 5
+/** Cele mai multe produse străine ținute minte (Shopping standard duce 20.000 de noduri în arbore). */
+const FOREIGN_MAX = 20_000
 
 type StoreRow = {
   id: string; user_id: string; platform: string; store_url: string | null; currency: string | null
@@ -331,6 +333,13 @@ export async function syncMerchant(storeId: string, opts: { auditMerchantId?: st
     if (insights.length) {
       await supabase.from('merchant_insights').upsert(insights.map(i => ({ store_id: storeId, kind: i.kind, rows: i.rows, fetched_at: now })), { onConflict: 'store_id,kind' })
     }
+
+    // 4. Produsele din cont care nu sunt ale magazinului: planul le scoate din campania principală.
+    //    Se scrie și lista goală, ca una veche să nu mai rămână.
+    const foreign = foreignItems(products, new Set(matched.map(p => p.offerId)), feed.feedLabel ?? store.merchant_feed_label, country)
+    const { error: eForeign } = await supabase.from('merchant_insights')
+      .upsert({ store_id: storeId, kind: 'foreign_items', rows: foreign.slice(0, FOREIGN_MAX), fetched_at: now }, { onConflict: 'store_id,kind' })
+    if (eForeign) logError('merchant-sync', 'Produsele străine din Merchant Center nu s-au salvat', { storeId, error: eForeign.message })
 
     await supabase.from('stores').update({
       merchant_center_id: merchantId,

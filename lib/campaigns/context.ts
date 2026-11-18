@@ -86,7 +86,7 @@ export async function loadPlanContext(supabase: Supabase, userId: string, store:
   const googleRes = await supabase.from('google_connections').select('status').eq('user_id', userId).maybeSingle()
   const googleConnected = googleRes.data?.status === 'active'
 
-  const [ads, draftRes, account, auditRes, groupsRes, liveRes] = await Promise.all([
+  const [ads, draftRes, account, auditRes, groupsRes, liveRes, foreignRes] = await Promise.all([
     loadAdsData(supabase, store.id),
     supabase.from('ad_campaigns').select('id, daily_budget, mode, max_daily_budget').eq('store_id', store.id).eq('status', 'draft').maybeSingle(),
     // Contul Google Ads e al magazinului
@@ -95,8 +95,12 @@ export async function loadPlanContext(supabase: Supabase, userId: string, store:
     supabase.from('ad_product_groups').select(GROUP_COLUMNS).eq('store_id', store.id).order('position', { ascending: true }),
     // Bugetul campaniilor care rulează: avertismentele grupelor văd tot ce cheltuie magazinul
     supabase.from('ad_campaigns').select('product_group_id, daily_budget').eq('store_id', store.id).eq('status', 'active').not('google_campaign_id', 'is', null),
+    // Produsele din Merchant Center care nu sunt ale magazinului (le scrie sincronizarea Merchant)
+    supabase.from('merchant_insights').select('rows').eq('store_id', store.id).eq('kind', 'foreign_items').maybeSingle(),
   ])
   const errors = [...ads.errors]
+  if (foreignRes.error) errors.push(`merchant_insights: ${foreignRes.error.message}`)
+  const foreignIds = Array.isArray(foreignRes.data?.rows) ? (foreignRes.data.rows as unknown[]).filter((x): x is string => typeof x === 'string') : []
   if (draftRes.error) errors.push(`ad_campaigns: ${draftRes.error.message}`)
   if (auditRes.error) errors.push(`google_audits: ${auditRes.error.message}`)
   if (groupsRes.error) errors.push(`ad_product_groups: ${groupsRes.error.message}`)
@@ -132,6 +136,7 @@ export async function loadPlanContext(supabase: Supabase, userId: string, store:
       feed_label: feedLabelForStore(store),
       statuses_known: statusesKnown(setup, store),
       label_index: store.merchant_label_index,
+      foreign_ids: foreignIds,
     },
     offers: ads.data.offers,
     sales90: ads.data.sales90,

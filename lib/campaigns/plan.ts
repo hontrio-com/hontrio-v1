@@ -94,6 +94,8 @@ export type BlockerId =
   // Din auditul contului Google Ads
   | 'audit' | 'account_manager' | 'merchant_not_linked' | 'merchant_other' | 'merchant_choose'
   | 'purchase_missing' | 'purchase_not_primary' | 'purchase_no_value' | 'too_many_exclusions'
+  // Merchant Center are produse care nu sunt ale magazinului, iar excluderile au trecut pe etichetă
+  | 'merchant_foreign'
 
 export type PlanInput = {
   store: { currency: string; connection_status: string | null; name: string | null; url: string | null }
@@ -112,6 +114,11 @@ export type PlanInput = {
     statuses_known: boolean
     /** custom_label_N liber pentru Hontrio (cataloagele prea mari pentru lista de ID-uri). */
     label_index: number | null
+    /**
+     * Produsele din Merchant Center care nu sunt ale magazinului, dar ar intra în campanie
+     * (aceeași etichetă de feed, pot rula în țară): ID-ul din Merchant Center.
+     */
+    foreign_ids?: string[]
   }
   offers: Offer[]
   sales90: Sales
@@ -180,8 +187,11 @@ export type Plan = {
     /** Google a raportat deja cifre pe produs (pilotul a citit contul): conversiile grupelor vin de acolo. */
     product_data: boolean
   }
-  /** Ce se exclude în campanie, după ID-ul din Merchant Center. */
-  exclusions: { item_ids: string[]; unmatched: number; mode: 'items' | 'label' | 'too_many' }
+  /**
+   * Ce se exclude în campanie, după ID-ul din Merchant Center. `foreign` = câte dintre ele sunt
+   * produse din Merchant Center care nu sunt ale magazinului.
+   */
+  exclusions: { item_ids: string[]; unmatched: number; foreign: number; mode: 'items' | 'label' | 'too_many' }
   offers: PlanOffer[]
   /** `in_groups` = produsele care pot rula, dar sunt în campaniile grupelor lansate. */
   counts: { included: number; excluded: number; in_groups: number }
@@ -227,6 +237,12 @@ function reasonOf(o: Offer, statusKnown: boolean): Reason | null {
 }
 
 /** „Lampi LED SRL" + „https://www.lampi-led.ro" → ['lampi led'] (fără forma juridică, fără duplicate). */
+/**
+ * Domeniile platformelor de magazin: un magazin găzduit la ele (edinio.com/magazin,
+ * magazin.myshopify.com) nu are brandul în primul cuvânt al domeniului.
+ */
+const PLATFORM_HOSTS = ['edinio.com', 'edinio.ro', 'myshopify.com', 'shopify.com', 'gomag.ro', 'gomag.com', 'merchantpro.com', 'merchantpro.ro']
+
 export function brandTerms(name: string | null, url: string | null): string[] {
   const clean = (s: string) => s.toLowerCase()
     .replace(/\b(s\.?r\.?l\.?|s\.?a\.?|pfa|ii|ltd|llc|gmbh|inc)\b/g, ' ')
@@ -234,7 +250,10 @@ export function brandTerms(name: string | null, url: string | null): string[] {
   const terms = new Set<string>()
   if (name) terms.add(clean(name))
   if (url) {
-    try { terms.add(clean(new URL(url.startsWith('http') ? url : `https://${url}`).hostname.replace(/^www\./, '').split('.')[0])) } catch {}
+    try {
+      const host = new URL(url.startsWith('http') ? url : `https://${url}`).hostname.replace(/^www\./, '')
+      if (!PLATFORM_HOSTS.some(p => host === p || host.endsWith(`.${p}`))) terms.add(clean(host.split('.')[0]))
+    } catch {}
   }
   return [...terms].filter(t => t.length >= 3).slice(0, 2)
 }
@@ -303,7 +322,10 @@ export function buildPlan(input: PlanInput): Plan {
 
   // ── Excluderile din campanie, după ID-ul din Merchant Center ─────────────
   const excludedOffers = offers.filter(o => o.reason !== null && CAMPAIGN_EXCLUSIONS.includes(o.reason))
-  const itemIds = [...new Set(excludedOffers.map(o => o.item_id).filter((x): x is string => !!x))]
+  // Și produsele din Merchant Center care nu sunt ale magazinului: altfel campania le-ar promova
+  const own = new Set(offers.map(o => o.item_id?.trim().toLowerCase()).filter((x): x is string => !!x))
+  const foreignIds = [...new Set(input.merchant.foreign_ids ?? [])].filter(id => !own.has(id.trim().toLowerCase()))
+  const itemIds = [...new Set([...excludedOffers.map(o => o.item_id).filter((x): x is string => !!x), ...foreignIds])]
   const unmatched = excludedOffers.filter(o => !o.item_id).length
   // Shopping standard duce 20.000 de noduri; PMax 1.000 pe grup, iar peste ele trece pe eticheta Hontrio
   const exclusionMode: Plan['exclusions']['mode'] = stageId === 'starter' || itemIds.length <= MAX_LISTING_ITEMS
@@ -339,6 +361,10 @@ export function buildPlan(input: PlanInput): Plan {
     }
   }
   if (exclusionMode === 'too_many') blockers.push({ id: 'too_many_exclusions', href: '/campaigns?tab=plan', external: false, params: { count: itemIds.length } })
+  // Eticheta Hontrio se pune doar pe produsele magazinului: cele străine ar rămâne în campanie
+  else if (exclusionMode === 'label' && foreignIds.length) {
+    blockers.push({ id: 'merchant_foreign', href: 'https://merchants.google.com/', external: true, params: { count: foreignIds.length } })
+  }
 
   const merchantId = input.merchant.id ?? audit?.merchant_id ?? null
 
@@ -372,7 +398,7 @@ export function buildPlan(input: PlanInput): Plan {
       roas30: historical === null ? null : Math.round(historical * 100) / 100,
       product_data: (input.products30?.size ?? 0) > 0,
     },
-    exclusions: { item_ids: itemIds, unmatched, mode: exclusionMode },
+    exclusions: { item_ids: itemIds, unmatched, foreign: foreignIds.length, mode: exclusionMode },
     offers,
     counts: { included: included.length, excluded: offers.length - eligible.length, in_groups: eligible.length - included.length },
   }

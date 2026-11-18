@@ -109,6 +109,24 @@ export function shoppingStatus(p: McProduct, country: string | null): GoogleStat
   return null
 }
 
+/**
+ * Produsele din Merchant Center care nu sunt ale magazinului, dar ar intra în campania principală:
+ * aceeași etichetă de feed (campania filtrează după ea) și pot rula în țara campaniei. Un cont
+ * Merchant Center vechi sau împărțit (alt site, un feed rămas după mutarea pe altă platformă) le
+ * poate avea; fără excludere, campania „toate produsele" le-ar promova și pe ele.
+ */
+export function foreignItems(products: McProduct[], ownOfferIds: Set<string>, feedLabel: string | null, country: string | null): string[] {
+  const label = feedLabel?.trim().toUpperCase() || null
+  const out = new Set<string>()
+  for (const p of products) {
+    if (ownOfferIds.has(p.offerId)) continue
+    if (label && (p.feedLabel ?? '').trim().toUpperCase() !== label) continue
+    const s = shoppingStatus(p, country)
+    if (s === 'active' || s === 'pending') out.add(p.offerId)
+  }
+  return [...out]
+}
+
 export type MerchantIssue = { code: string; severity: string; attribute: string | null; description: string; documentation: string | null }
 
 /** Problemele care opresc sau scad afișarea la Shopping (cel mult 5, cele grave primele). */

@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import type { McProduct } from '@/lib/merchant/api'
-import { dominantFeed, freeLabelIndex, matchProducts, normalizeLink, shoppingIssues, shoppingStatus, type OfferRef } from '@/lib/merchant/match'
+import { dominantFeed, foreignItems, freeLabelIndex, matchProducts, normalizeLink, shoppingIssues, shoppingStatus, type OfferRef } from '@/lib/merchant/match'
 import { wantedLabel } from '@/lib/merchant/sync'
 
 // Potrivirea produselor din Merchant Center cu ofertele magazinului, pe
@@ -90,4 +90,28 @@ test('eticheta din sursa suplimentară: pusă, scoasă, sau lăsată cum e de ci
   // 'keep': o reîmprospătare care nu știe ce campanii rulează nu atinge etichetele
   assert.equal(wantedLabel('keep', 2, 'a', 'hontrio_exclude'), 'hontrio_exclude')
   assert.equal(wantedLabel('keep', 2, 'b', null), null)
+})
+
+test('produsele străine din Merchant Center: aceeași etichetă de feed și pot rula în țară', () => {
+  const status = (approved: string[] = [], pending: string[] = [], disapproved: string[] = []): Partial<McProduct> => ({
+    productStatus: { destinationStatuses: [{ reportingContext: 'SHOPPING_ADS', approvedCountries: approved, pendingCountries: pending, disapprovedCountries: disapproved }] },
+  })
+  const products = [
+    mc('own-1', status(['RO'])),
+    mc('old-site-1', status(['RO'])),
+    mc('old-site-2', status([], ['RO'])),
+    mc('old-site-3', status([], [], ['RO'])),
+    mc('other-feed', { ...status(['RO']), feedLabel: 'MD' }),
+    mc('other-country', status(['BG'])),
+    mc('no-status'),
+  ]
+  const own = new Set(['own-1'])
+  // Doar cele care ar intra în campanie: eticheta RO, aprobate sau în verificare în RO
+  assert.deepEqual(foreignItems(products, own, 'RO', 'RO'), ['old-site-1', 'old-site-2'])
+  // Eticheta de feed se compară fără majuscule și spații
+  assert.deepEqual(foreignItems(products, own, ' ro ', 'RO'), ['old-site-1', 'old-site-2'])
+  // Fără etichetă de feed în campanie intră toate etichetele
+  assert.deepEqual(foreignItems(products, own, null, 'RO').sort(), ['old-site-1', 'old-site-2', 'other-feed'])
+  // Un cont doar cu produsele magazinului: nimic străin
+  assert.deepEqual(foreignItems([mc('own-1', status(['RO']))], own, 'RO', 'RO'), [])
 })

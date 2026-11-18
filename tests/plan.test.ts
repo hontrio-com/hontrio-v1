@@ -160,6 +160,11 @@ test('numele magazinului devine negativ doar când contul are o campanie Search'
   assert.deepEqual(buildPlan(input({ audit: withSearch })).structure.brand_negatives, ['lampi led'])
   assert.deepEqual(brandTerms('Casa Lumen S.R.L.', 'casalumen.ro'), ['casa lumen', 'casalumen'])
   assert.deepEqual(brandTerms(null, 'https://ab.ro'), [])
+  // Magazinul găzduit la platformă: domeniul este al platformei, nu brandul magazinului
+  assert.deepEqual(brandTerms('MH Tools', 'https://www.edinio.com/itp-blk'), ['mh tools'])
+  assert.deepEqual(brandTerms('Casa Lumen', 'casa-lumen.myshopify.com'), ['casa lumen'])
+  assert.deepEqual(brandTerms(null, 'https://magazin.gomag.ro'), [])
+  assert.deepEqual(brandTerms('MH Tools', 'https://mhtools.ro'), ['mh tools', 'mhtools'])
 })
 
 test('unitățile din comanda medie: plafonul pe click, oprirea, bugetul de start', () => {
@@ -175,4 +180,25 @@ test('unitățile din comanda medie: plafonul pe click, oprirea, bugetul de star
   assert.equal(niceBudget(137), 140)
   assert.equal(niceBudget(23), 25)
   assert.equal(niceBudget(0.3), 1)
+})
+
+test('produsele din Merchant Center care nu sunt ale magazinului se exclud; pe etichetă devin pas de făcut', () => {
+  const p = buildPlan(input({ merchant: { id: '555', feed_label: 'RO', statuses_known: true, label_index: 4, foreign_ids: ['old-1', 'old-2', 'A'] } }))
+  // „A” este ID-ul unei oferte a magazinului (litere mari în Merchant Center): nu e străin
+  assert.deepEqual([...p.exclusions.item_ids].sort(), ['mine', 'old-1', 'old-2'])
+  assert.equal(p.exclusions.foreign, 2)
+  assert.equal(p.exclusions.mode, 'items')
+  assert.ok(!p.blockers.some(b => b.id === 'merchant_foreign'))
+
+  // Peste 990 de excluderi la Performance Max, eticheta Hontrio nu ajunge la produsele străine
+  const many = Array.from({ length: 1000 }, (_, i) => offer(`x${i}`, { ads_mode: 'exclude' }))
+  const label = buildPlan(input({ audit: growthAudit, offers: [offer('a'), ...many], merchant: { id: '555', feed_label: 'RO', statuses_known: true, label_index: 4, foreign_ids: ['old-1'] } }))
+  assert.equal(label.exclusions.mode, 'label')
+  const b = label.blockers.find(x => x.id === 'merchant_foreign')
+  assert.ok(b)
+  assert.equal(b!.params?.count, 1)
+
+  // Fără produse străine nu se schimbă nimic
+  const clean = buildPlan(input())
+  assert.equal(clean.exclusions.foreign, 0)
 })
