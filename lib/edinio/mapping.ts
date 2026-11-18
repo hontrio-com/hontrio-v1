@@ -40,8 +40,13 @@ export function offerRows(ctx: Ctx, product: EdinioProduct, syncedAt: string): O
   }))
 }
 
-/** Starea Edinio spusă la fel pentru toate platformele. Necunoscută = încă deschisă. */
-export function orderState(status: string): OrderState {
+/**
+ * Starea Edinio spusă la fel pentru toate platformele. Necunoscută = încă deschisă.
+ * Plata rambursată (`stare_plata`) face comanda rambursată chiar dacă starea a rămas
+ * „confirmed” sau „delivered”: banii s-au întors, deci nu este o vânzare (ca la Shopify).
+ */
+export function orderState(status: string, payment?: string | null): OrderState {
+  if (payment === 'refunded' && status !== 'cancelled') return 'refunded'
   switch (status) {
     case 'delivered': return 'fulfilled'
     case 'cancelled': return 'cancelled'
@@ -84,7 +89,7 @@ export function orderRow(ctx: Ctx, o: EdinioOrder, syncedAt: string): OrderRow {
     placed_at: o.creata_la,
     source_updated_at: o.actualizata_la,
     status: o.stare,
-    state: orderState(o.stare),
+    state: orderState(o.stare, o.stare_plata),
     payment_status: o.stare_plata || null,
     payment_method: o.metoda_plata,
     // Edinio spune „magazin" pentru vitrină; în modelul comun e „store"

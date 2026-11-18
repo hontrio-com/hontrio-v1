@@ -5,6 +5,7 @@ import { countryCode } from '@/lib/commerce/country'
 import { wwwVariants } from '@/lib/commerce/connect-types'
 import { COMMERCE_PLATFORMS, isCommercePlatform, isKeyPlatform, PLATFORM_NAMES, platformName, storeDisplayName } from '@/lib/commerce/platforms'
 import { repeatGuard } from '@/lib/commerce/paged-sync'
+import { orderState as edinioOrderState } from '@/lib/edinio/mapping'
 
 // Uneltele comune ale conectorilor: ora locală a platformelor românești, țara
 // scrisă cu numele ei, adresele cu și fără „www.", lista platformelor.
@@ -106,4 +107,15 @@ test('numele magazinului pentru pagini: cel dat de platformă, altfel adresa', (
   assert.equal(storeDisplayName({ store_name: null, store_url: 'https://www.magazin.ro/' }), 'www.magazin.ro')
   assert.equal(storeDisplayName({ store_name: '  ', store_url: 'https://magazin.ro/shop' }), 'magazin.ro/shop')
   assert.equal(storeDisplayName({ store_name: null, store_url: 'magazin.myshopify.com' }), 'magazin.myshopify.com')
+})
+
+test('Edinio: plata rambursată face comanda rambursată, oricare ar fi starea ei', () => {
+  assert.equal(edinioOrderState('confirmed', 'refunded'), 'refunded')
+  assert.equal(edinioOrderState('delivered', 'refunded'), 'refunded')
+  assert.equal(edinioOrderState('pending', 'refunded'), 'refunded')
+  assert.equal(edinioOrderState('cancelled', 'refunded'), 'cancelled', 'anulată rămâne anulată')
+  assert.equal(edinioOrderState('confirmed', 'paid'), 'confirmed')
+  assert.equal(edinioOrderState('delivered', 'unpaid'), 'fulfilled')
+  assert.equal(edinioOrderState('shipped', null), 'confirmed')
+  assert.equal(edinioOrderState('ceva-nou'), 'pending')
 })
