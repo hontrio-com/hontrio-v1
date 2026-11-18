@@ -477,8 +477,9 @@ function BudgetSlider({ plan, f, draft, onDraft, saving, disabled, onSave }: {
   }
   const base = budget.suggested ?? anchor
   const max = niceBudget(Math.max(base * 3, 30))
-  const min = Math.max(1, niceBudget(base * 0.2))
   const step = max > 400 ? 10 : max > 80 ? 5 : 1
+  // Glisorul merge doar pe min + k × pas: cu minimul multiplu de pas, bugetul propus (rotunjit la fel) se poate alege exact
+  const min = Math.max(step, Math.round(niceBudget(base * 0.2) / step) * step)
   const value = Math.min(max, Math.max(min, draft ?? anchor))
   const pct = ((value - min) / (max - min || 1)) * 100
   const suggestedPct = budget.suggested !== null ? ((budget.suggested - min) / (max - min || 1)) * 100 : null
