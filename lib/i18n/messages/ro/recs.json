@@ -66,6 +66,8 @@
   "purchase_not_primary_body": "Conversia există, dar este marcată „secundară”, așa că Google o raportează, dar nu licitează după ea. Fă-o principală din Google Ads, în Obiective → Conversii.",
   "purchase_no_value_title": "Conversia de cumpărare n-are valoarea comenzii",
   "purchase_no_value_body": "Conversia folosește mereu aceeași valoare, deci nici Google, nici pilotul nu văd cât aduce fiecare vânzare. Astfel, ROAS-ul și oprirea de siguranță ar ieși greșit. Trimite valoarea fiecărei comenzi.",
+  "purchase_duplicate_title": "Aceeași vânzare se poate număra de mai multe ori",
+  "purchase_duplicate_body": "Contul Google Ads are {{count}} conversii de cumpărare principale pe site. Dacă două se declanșează la aceeași comandă, Google vede mai multe vânzări decât sunt, iar pilotul judecă greșit ROAS-ul. În Google Ads, la Obiective → Conversii, lasă principală doar conversia magazinului.",
   "overlap_title": "Campanii care se licitează între ele: {{count}}",
   "overlap_body": "Contul are campanii Shopping sau Performance Max pe aceleași produse. Din 2024 câștigă cea cu Ad Rank mai mare, deci campaniile tale își urcă una alteia prețul pe clic. La lansare, Hontrio te întreabă ce facem cu ele.",
   "auto_tagging_off_title": "Etichetarea automată este oprită în Google Ads",

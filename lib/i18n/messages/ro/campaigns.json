@@ -231,6 +231,7 @@
   "check_purchase_missing": "Nu există o conversie de cumpărare activă. Fără ea, Google nu știe ce clicuri devin vânzări.",
   "check_purchase_not_primary": "Conversia de cumpărare există, dar nu este „principală”, așa că Google nu o folosește la licitare.",
   "check_purchase_no_value": "Conversia de cumpărare folosește mereu aceeași valoare, nu valoarea comenzii. Astfel, pilotul nu ar ști cât aduc vânzările, iar oprirea de siguranță ar judeca greșit.",
+  "check_purchase_duplicate": "Contul are {{count}} conversii de cumpărare principale pe site. Dacă se declanșează la aceeași comandă, Google numără vânzarea de mai multe ori, iar ROAS-ul și oprirea de siguranță ies greșit. Lasă principală doar conversia magazinului și trece-le pe celelalte ca secundare.",
   "check_no_recent_conversions": "Nicio conversie în ultimele 30 de zile. Verifică dacă tagul se declanșează pe pagina de confirmare a comenzii.",
   "check_eu_undeclared": "Campanii fără declarația UE pentru publicitate politică: {{count}}. Google refuză orice modificare în cont până când sunt declarate, iar tu le poți declara la lansare.",
   "check_overlap": "Campanii Shopping sau Performance Max pe aceleași produse: {{count}}. Alegi mai jos ce facem cu ele.",

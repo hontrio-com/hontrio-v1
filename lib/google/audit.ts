@@ -42,7 +42,7 @@ export type AuditRaw = {
 export type AuditCheckId =
   | 'account_manager' | 'currency_mismatch' | 'auto_tagging_off'
   | 'merchant_not_linked' | 'merchant_other' | 'merchant_choose'
-  | 'purchase_missing' | 'purchase_not_primary' | 'purchase_no_value' | 'no_recent_conversions'
+  | 'purchase_missing' | 'purchase_not_primary' | 'purchase_no_value' | 'purchase_duplicate' | 'no_recent_conversions'
   | 'eu_undeclared' | 'overlap' | 'search_active'
 
 /**
@@ -244,6 +244,10 @@ export function evaluateAudit(raw: AuditRaw, ctx: AuditContext): AuditResult {
   else if (!purchases.some(p => p.primary)) checks.push({ id: 'purchase_not_primary', level: 'blocker' })
   // Fără valoarea comenzii, pilotul n-are ROAS: oprirea de siguranță și produsele s-ar judeca greșit
   else if (!purchases.some(p => p.primary && p.has_value)) checks.push({ id: 'purchase_no_value', level: 'blocker' })
+  // Mai multe cumpărări principale pe site (ex. tagul magazinului și importuri din GA4): aceeași comandă
+  // se poate număra de mai multe ori, iar ROAS-ul și oprirea de siguranță ar ieși umflate
+  const primaryWeb = purchases.filter(p => p.primary && p.origin === 'WEBSITE').length
+  if (primaryWeb > 1) checks.push({ id: 'purchase_duplicate', level: 'warning', params: { count: primaryWeb } })
   if (purchases.length && history.conversions30 === 0) checks.push({ id: 'no_recent_conversions', level: 'info' })
 
   // ── Campaniile existente ────────────────────────────────────────────────
@@ -255,7 +259,9 @@ export function evaluateAudit(raw: AuditRaw, ctx: AuditContext): AuditResult {
     .map(x => x.id)
   if (overlap.length) checks.push({ id: 'overlap', level: 'choice', params: { count: overlap.length } })
 
-  const searchActive = campaigns.some(x => !x.hontrio && x.status === 'ENABLED' && x.channel === 'SEARCH')
+  // Doar o campanie Search care chiar rulează (a cheltuit în 30 de zile) prinde căutările după numele magazinului.
+  // Una pornită, dar fără nicio afișare, nu le prinde, iar cuvântul negativ din campania Hontrio le-ar pierde
+  const searchActive = campaigns.some(x => !x.hontrio && x.status === 'ENABLED' && x.channel === 'SEARCH' && x.cost30 > 0)
   if (searchActive) checks.push({ id: 'search_active', level: 'info' })
 
   return {

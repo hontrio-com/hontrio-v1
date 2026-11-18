@@ -46,6 +46,17 @@ test('suprapunerile și etichetarea automată', () => {
   assert.ok(got.includes('auto_tagging_off'))
 })
 
+test('conversiile de cumpărare principale duplicate au recomandarea lor, cu linkul spre Google Ads', () => {
+  const action = (id: string) => ({ conversionAction: { id, name: id, status: 'ENABLED', category: 'PURCHASE', origin: 'WEBSITE', primaryForGoal: true } })
+  const recs = buildRecommendations(input({ audit: evaluateAudit(auditRaw({ conversionActions: [action('1'), action('2')] }), ctx) }))
+  const dup = recs.find(r => r.id === 'purchase_duplicate')!
+  assert.equal(dup.severity, 'medium')
+  assert.deepEqual(dup.body, { key: 'recs.purchase_duplicate_body', params: { count: 2 } })
+  assert.equal(dup.action?.href, 'https://ads.google.com/')
+  // O singură conversie principală: nimic de spus
+  assert.ok(!ids(input({ audit: evaluateAudit(auditRaw(), ctx) })).includes('purchase_duplicate'))
+})
+
 test('Merchant Center la WooCommerce: respinsele cu mesajul Google, cele retrogradate, netrimisele', () => {
   const woo = setup({ platform: 'woocommerce', platformName: 'WooCommerce', googleStatusKnown: false })
   const recs = buildRecommendations(input({

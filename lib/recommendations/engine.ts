@@ -179,6 +179,15 @@ export function buildRecommendations(input: EngineInput): Recommendation[] {
         impact_revenue: null, items: [], total_items: 0, action: planPage,
       })
     }
+    const duplicate = has('purchase_duplicate')
+    if (duplicate) {
+      recs.push({
+        id: 'purchase_duplicate', severity: 'medium',
+        title: { key: 'recs.purchase_duplicate_title' }, body: { key: 'recs.purchase_duplicate_body', params: { count: Number(duplicate.params?.count ?? 2) } },
+        impact_revenue: null, items: [], total_items: 0,
+        action: { href: 'https://ads.google.com/', external: true, label_key: 'recs.action_open_google_ads' },
+      })
+    }
     if (has('auto_tagging_off')) {
       recs.push({
         id: 'auto_tagging_off', severity: 'medium',

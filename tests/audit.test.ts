@@ -89,6 +89,29 @@ test('declarația UE, suprapunerile și campania Search', () => {
   assert.deepEqual(r.checks.map(c => [c.id, c.level]), [['eu_undeclared', 'choice'], ['overlap', 'choice'], ['search_active', 'info']])
 })
 
+test('o campanie Search pornită care n-a cheltuit nimic în 30 de zile nu prinde căutările pe brand', () => {
+  // Ca la primul client: o campanie Search pornită, fără nicio afișare într-un an
+  const idle = evaluateAudit(raw({
+    campaigns: [{ campaign: { id: '7', name: 'Brand', status: 'ENABLED', advertisingChannelType: 'SEARCH' } }],
+    metrics30: [],
+  }), ctx)
+  assert.equal(idle.search_active, false)
+  assert.ok(!ids(idle).includes('search_active'))
+})
+
+test('mai multe conversii de cumpărare principale pe site: aceeași comandă s-ar număra de mai multe ori', () => {
+  const action = (id: string, over: Record<string, unknown> = {}) =>
+    ({ conversionAction: { id, name: `Cumpărare ${id}`, status: 'ENABLED', category: 'PURCHASE', origin: 'WEBSITE', primaryForGoal: true, ...over } })
+  // Tagul magazinului și două importuri din GA4, toate principale
+  const three = evaluateAudit(raw({ conversionActions: [action('1'), action('2'), action('3')] }), ctx)
+  assert.deepEqual(three.checks, [{ id: 'purchase_duplicate', level: 'warning', params: { count: 3 } }])
+  // Una secundară, una din alt loc decât site-ul și una oprită nu se numără
+  const one = evaluateAudit(raw({ conversionActions: [
+    action('1'), action('2', { primaryForGoal: false }), action('3', { origin: 'STORE' }), action('4', { status: 'REMOVED' }),
+  ] }), ctx)
+  assert.deepEqual(one.checks, [])
+})
+
 test('treapta numără doar cumpărările (un „adaugă în coș" principal nu contează); un audit vechi folosește toate conversiile', () => {
   const r = evaluateAudit(raw({
     metrics30: [{ campaign: { id: '50', advertisingChannelType: 'SEARCH' }, metrics: { costMicros: '1000000', conversions: 20, conversionsValue: 800 } }],

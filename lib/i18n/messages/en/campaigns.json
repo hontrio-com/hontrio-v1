@@ -222,6 +222,7 @@
   "check_purchase_missing": "There's no active purchase conversion. Without it, Google doesn't know which clicks become sales.",
   "check_purchase_not_primary": "The purchase conversion exists but isn't “primary”, so Google doesn't use it for bidding.",
   "check_purchase_no_value": "The purchase conversion always uses the same value instead of the order value. The autopilot couldn't tell what sales bring in, and the safety stop would judge wrongly.",
+  "check_purchase_duplicate": "The account has {{count}} primary website purchase conversions. If they fire on the same order, Google counts the sale more than once, and ROAS and the safety stop come out wrong. Keep only the store's conversion as primary and make the others secondary.",
   "check_no_recent_conversions": "No conversions in the last 30 days. Check that the tag fires on the order confirmation page.",
   "check_eu_undeclared": "Campaigns without the EU political advertising declaration: {{count}}. Google refuses any change in the account until they're declared, and you can declare them at launch.",
   "check_overlap": "Shopping or Performance Max campaigns on the same products: {{count}}. Choose below what we do with them.",
