@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth/auth.config'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { decrypt } from '@/lib/security/encryption'
 import { revokeToken, clearCachedAccessToken } from '@/lib/google/oauth'
+import { leaveRuleFor, removeHontrioCampaigns } from '@/lib/ads/remove'
 import { logApiError } from '@/lib/logger'
 import { getT } from '@/lib/i18n/server'
 
@@ -44,7 +45,7 @@ export async function GET() {
     .order('is_manager', { ascending: true })
     .order('descriptive_name', { ascending: true })
 
-  return NextResponse.json({ connection, accounts: accounts || [], stores, active_store_id: activeStoreId })
+  return NextResponse.json({ connection, accounts: accounts || [], stores, active_store_id: activeStoreId, leave_removes_campaigns: await leaveRuleFor(supabase, userId) })
 }
 
 export async function DELETE() {
@@ -62,6 +63,9 @@ export async function DELETE() {
 
   if (!connection) return NextResponse.json({ success: true })
 
+  // Campaniile create de Hontrio se șterg din Google Ads înainte (Termeni, art. 14.5), cât accesul mai merge
+  const removal = await removeHontrioCampaigns(supabase, userId, { reason: 'google_disconnect' })
+
   try {
     await revokeToken(decrypt(connection.refresh_token_encrypted))
   } catch (err) {
@@ -78,5 +82,5 @@ export async function DELETE() {
   await supabase.from('stores').update({ google_ads_customer_id: null }).eq('user_id', userId).not('google_ads_customer_id', 'is', null)
 
   clearCachedAccessToken(userId)
-  return NextResponse.json({ success: true })
+  return NextResponse.json({ success: true, campaigns_removed: removal.removed, campaigns_failed: removal.failed })
 }

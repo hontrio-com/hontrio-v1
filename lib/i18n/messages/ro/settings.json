@@ -133,5 +133,7 @@
   "delete_done": "Contul a fost șters.",
   "delete_admin_blocked": "Un cont de admin nu se șterge de aici. Întâi un alt admin trebuie să-ți ia rolul de admin.",
   "platform_active": "{{platform}} activ",
-  "store_reconnected_msg": "Cheile magazinului au fost actualizate."
+  "store_reconnected_msg": "Cheile magazinului au fost actualizate.",
+  "disconnect_confirm_remove": "Deconectezi magazinul? Hontrio șterge definitiv din Google Ads campaniile create pentru el, cu bugetele lor, iar produsele, comenzile și istoricul campaniilor lui se șterg din Hontrio.",
+  "delete_campaigns_warning_remove": "Campaniile create de Hontrio se șterg definitiv din contul tău Google Ads odată cu contul și nu mai pot fi pornite din nou. Celelalte campanii din cont rămân cum sunt."
 }

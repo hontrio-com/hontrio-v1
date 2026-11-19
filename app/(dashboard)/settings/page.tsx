@@ -47,6 +47,8 @@ type StoreData = EdinioStore & {
 type UserProfile = {
   id: string; name: string | null; email: string; avatar_url: string | null
   role: string; preferences: Record<string, boolean> | null; created_at: string
+  /** Deconectarea sau ștergerea șterge campaniile Hontrio din Google Ads (Termeni, art. 14.5). */
+  leave_removes_campaigns?: boolean
 }
 type Tab = 'general' | 'integrations' | 'security' | 'preferences'
 
@@ -330,9 +332,17 @@ function SettingsView() {
   }
 
   async function handleDisconnect(s: StoreData) {
-    if (!confirm(t('settings.disconnect_confirm'))) return
+    if (!confirm(t(profile?.leave_removes_campaigns ? 'settings.disconnect_confirm_remove' : 'settings.disconnect_confirm'))) return
     setDisconnectingId(s.id)
-    try { await fetch(`/api/stores/${s.id}`, { method: 'DELETE' }); await fetchStore(); toast.success(t('settings.store_disconnected')) }
+    try {
+      const r = await fetch(`/api/stores/${s.id}`, { method: 'DELETE' })
+      const d = await r.json().catch(() => ({}))
+      await fetchStore()
+      toast.success(t('settings.store_disconnected'))
+      // Campaniile Hontrio ale magazinului, șterse din Google Ads sau rămase acolo
+      if (d.campaigns_failed > 0) toast.warning(t('google_ads.campaigns_remove_failed', { count: d.campaigns_failed }))
+      else if (d.campaigns_removed > 0) toast.success(t('google_ads.campaigns_removed', { count: d.campaigns_removed }))
+    }
     catch { toast.error(t('settings.error_disconnect')) } finally { setDisconnectingId(null) }
   }
 
@@ -459,11 +469,15 @@ function SettingsView() {
               title={t('settings.delete_title')} description={t('settings.delete_account_desc')}
               confirmLabel={<><Trash2 />{t('settings.delete_confirm_btn')}</>} onConfirm={handleDeleteAccount} loading={deleting}>
               <div className="space-y-4">
-                {/* Campaniile rulează în contul Google Ads al omului: ștergerea contului Hontrio nu le oprește */}
-                <Callout tone="warning">
-                  {t('settings.delete_campaigns_warning')}{' '}
-                  <Link href="/campaigns" className={linkStyles}>{t('settings.delete_go_campaigns')}</Link>
-                </Callout>
+                {/* Campaniile Hontrio se șterg din Google Ads odată cu contul (Termeni, art. 14.5) sau, până la regula nouă, rămân și rulează */}
+                {profile?.leave_removes_campaigns ? (
+                  <Callout tone="warning">{t('settings.delete_campaigns_warning_remove')}</Callout>
+                ) : (
+                  <Callout tone="warning">
+                    {t('settings.delete_campaigns_warning')}{' '}
+                    <Link href="/campaigns" className={linkStyles}>{t('settings.delete_go_campaigns')}</Link>
+                  </Callout>
+                )}
                 <Label text={t('settings.delete_password_label')} hint={t('settings.delete_google_hint')}>
                   <PasswordInput value={deletePw} onChange={setDeletePw} autoComplete="current-password" />
                 </Label>
@@ -489,7 +503,7 @@ function SettingsView() {
                     ? <Badge tone="brand"><Check className="size-3" />{t('settings.store_active')}</Badge>
                     : <Button size="xs" loading={switchingId === s.id} disabled={!!switchingId} onClick={() => handleUseStore(s)}>{t('settings.store_use')}</Button>)
                   return s.platform === 'edinio' ? (
-                    <EdinioStoreCard key={s.id} store={s} header={switcher} onChanged={fetchStore}
+                    <EdinioStoreCard key={s.id} store={s} header={switcher} leaveRemovesCampaigns={!!profile?.leave_removes_campaigns} onChanged={fetchStore}
                       onDisconnected={() => { fetchStore(); toast.success(t('settings.store_disconnected')) }} />
                   ) : (
                     <Card key={s.id}>

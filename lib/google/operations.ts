@@ -69,7 +69,7 @@ export type GrowthSpec = Common & {
 export type LaunchSpec = StarterSpec | GrowthSpec
 
 const customerPath = (cid: string) => `customers/${cid}`
-const budgetPath = (cid: string, id: string) => `${customerPath(cid)}/campaignBudgets/${id}`
+export const budgetPath = (cid: string, id: string) => `${customerPath(cid)}/campaignBudgets/${id}`
 export const campaignPath = (cid: string, id: string) => `${customerPath(cid)}/campaigns/${id}`
 const adGroupPath = (cid: string, id: string) => `${customerPath(cid)}/adGroups/${id}`
 const assetGroupPath = (cid: string, id: string) => `${customerPath(cid)}/assetGroups/${id}`

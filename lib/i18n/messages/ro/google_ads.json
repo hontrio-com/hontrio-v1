@@ -27,5 +27,12 @@
   "currency_mismatch": "Moneda contului ({{account}}) diferă de cea a magazinului ({{store}}), așa că bugetul și valorile vânzărilor nu s-ar potrivi.",
   "no_store": "Conectează întâi un magazin, apoi îi alegi contul Google Ads.",
   "clear_account": "Nu folosi niciun cont pentru acest magazin",
-  "used_by_other_store": "Folosit și pentru {{store}}"
+  "used_by_other_store": "Folosit și pentru {{store}}",
+  "disconnect_confirm_remove": "Deconectezi contul Google? Hontrio șterge definitiv din Google Ads campaniile pe care le-a creat, cu bugetele lor, iar ele nu mai pot fi pornite din nou. Celelalte campanii din cont rămân cum sunt.",
+  "campaigns_removed_one": "Am șters din Google Ads {{count}} campanie creată de Hontrio.",
+  "campaigns_removed_few": "Am șters din Google Ads {{count}} campanii create de Hontrio.",
+  "campaigns_removed_other": "Am șters din Google Ads {{count}} de campanii create de Hontrio.",
+  "campaigns_remove_failed_one": "{{count}} campanie creată de Hontrio nu s-a putut șterge din Google Ads. Șterge-o tu din Google Ads.",
+  "campaigns_remove_failed_few": "{{count}} campanii create de Hontrio nu s-au putut șterge din Google Ads. Șterge-le tu din Google Ads.",
+  "campaigns_remove_failed_other": "{{count}} de campanii create de Hontrio nu s-au putut șterge din Google Ads. Șterge-le tu din Google Ads."
 }

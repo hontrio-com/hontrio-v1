@@ -57,6 +57,8 @@ export default function GoogleAdsCard() {
   const [storeId, setStoreId] = useState<string | null>(null)
   const [refreshing, setRefreshing] = useState(false)
   const [disconnecting, setDisconnecting] = useState(false)
+  // Deconectarea șterge campaniile Hontrio din Google Ads (Termeni, art. 14.5)?
+  const [leaveRemoves, setLeaveRemoves] = useState(false)
   const [selecting, setSelecting] = useState<string | null>(null)
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null)
 
@@ -100,6 +102,7 @@ export default function GoogleAdsCard() {
         setAccounts(d.accounts || [])
         setStores(d.stores || [])
         setStoreId(id => id ?? d.active_store_id ?? null)
+        setLeaveRemoves(!!d.leave_removes_campaigns)
       })
       .catch(() => {})
       .finally(() => setLoading(false))
@@ -134,12 +137,17 @@ export default function GoogleAdsCard() {
   }
 
   async function handleDisconnect() {
-    if (!confirm(t('google_ads.disconnect_confirm'))) return
+    if (!confirm(t(leaveRemoves ? 'google_ads.disconnect_confirm_remove' : 'google_ads.disconnect_confirm'))) return
     setDisconnecting(true)
     try {
-      await fetch('/api/integrations/google', { method: 'DELETE' })
-      setConnection(null); setAccounts([]); setNotice(null)
+      const r = await fetch('/api/integrations/google', { method: 'DELETE' })
+      const d = await r.json().catch(() => ({}))
+      if (!r.ok) { setNotice({ ok: false, text: d.error || t('google_ads.error_generic') }); return }
+      setConnection(null); setAccounts([])
       setStores(list => list.map(s => ({ ...s, google_ads_customer_id: null })))
+      // Campaniile Hontrio șterse din Google Ads și cele care au rămas acolo
+      setNotice(d.campaigns_failed > 0 ? { ok: false, text: t('google_ads.campaigns_remove_failed', { count: d.campaigns_failed }) }
+        : d.campaigns_removed > 0 ? { ok: true, text: t('google_ads.campaigns_removed', { count: d.campaigns_removed }) } : null)
     } catch { setNotice({ ok: false, text: t('google_ads.error_generic') }) }
     finally { setDisconnecting(false) }
   }

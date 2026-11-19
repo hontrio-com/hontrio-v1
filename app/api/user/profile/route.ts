@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { checkName } from '@/lib/auth/validation'
 import { logApiError } from '@/lib/logger'
 import { getT } from '@/lib/i18n/server'
+import { leaveRuleFor } from '@/lib/ads/remove'
 
 // =============================================
 // GET /api/user/profile — profilul complet al contului.
@@ -34,7 +35,8 @@ export async function GET() {
       return NextResponse.json({ error: t('api.profile_load_failed') }, { status: 500 })
     }
     if (!user) return NextResponse.json({ error: t('api.user_not_found') }, { status: 404 })
-    return NextResponse.json({ user })
+    // La deconectare sau ștergere, campaniile Hontrio se șterg din Google Ads (Termeni, art. 14.5)?
+    return NextResponse.json({ user: { ...user, leave_removes_campaigns: await leaveRuleFor(createAdminClient(), session.user.id) } })
   } catch {
     return NextResponse.json({ error: t('api.internal_error') }, { status: 500 })
   }

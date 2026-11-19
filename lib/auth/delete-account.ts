@@ -4,11 +4,15 @@ import { clearCachedAccessToken, revokeToken } from '@/lib/google/oauth'
 import { EdinioClient } from '@/lib/edinio/client'
 import { ShopifyApi } from '@/lib/shopify/api'
 import { ATTACHMENTS_BUCKET, attachmentObjects } from '@/lib/tickets/attachments'
+import { removeHontrioCampaigns } from '@/lib/ads/remove'
 import { logError, logWarn } from '@/lib/logger'
 
 // =============================================
 // Ștergerea unui cont (de omul însuși sau de un admin), în ordinea în care
 // ceva poate rămâne în urmă:
+// 0. campaniile create de Hontrio se șterg din contul Google Ads al omului
+//    (Termeni, art. 14.5 nou, lib/ads/remove.ts), cât accesul mai merge;
+//    înainte ca regula să intre în vigoare, rămân ale lui și rulează mai departe;
 // 1. accesurile date altora se retrag la ei: Google (refresh token), Edinio
 //    (jetonul), Shopify (aplicația se dezinstalează) — fiecare „cât se poate";
 // 2. fișierele din Storage: avatarul și atașamentele tichetelor (și cele
@@ -16,7 +20,6 @@ import { logError, logWarn } from '@/lib/logger'
 // 3. rândul din users: restul (magazinele cu ofertele, comenzile și campaniile
 //    lor, legătura Google, notificările, tichetele) se șterge în cascadă;
 // 4. contul din Supabase Auth.
-// ⚠ Campaniile din contul Google Ads al omului NU se opresc: sunt ale lui.
 // Pașii 2–4 se verifică; la o eroare, ștergerea se oprește și se poate relua.
 // =============================================
 
@@ -86,6 +89,7 @@ async function removeFiles(supabase: Supabase, userId: string): Promise<boolean>
 export async function deleteAccount(userId: string): Promise<DeleteResult> {
   const supabase = createAdminClient()
 
+  await removeHontrioCampaigns(supabase, userId, { reason: 'account_deleted' })
   await revokeAccess(supabase, userId)
 
   if (!(await removeFiles(supabase, userId))) return { ok: false, step: 'storage' }

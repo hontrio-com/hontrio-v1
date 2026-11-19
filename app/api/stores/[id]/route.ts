@@ -6,6 +6,7 @@ import { decrypt } from '@/lib/security/encryption'
 import { EdinioClient } from '@/lib/edinio/client'
 import { ShopifyApi } from '@/lib/shopify/api'
 import { getT } from '@/lib/i18n/server'
+import { removeHontrioCampaigns } from '@/lib/ads/remove'
 
 // =============================================
 // DELETE /api/stores/{id} — deconectează un magazin al contului.
@@ -32,6 +33,9 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
       .maybeSingle()
     if (!store) return NextResponse.json({ error: t('sync.store_not_found') }, { status: 404 })
 
+    // Campaniile create de Hontrio pentru magazin se șterg din Google Ads (Termeni, art. 14.5)
+    const removal = await removeHontrioCampaigns(supabase, userId, { storeId: id, reason: 'store_deleted' })
+
     if (store.api_key) {
       try {
         if (store.platform === 'edinio') await new EdinioClient(decrypt(store.api_key)).revoke()
@@ -45,7 +49,7 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
     const { error } = await supabase.from('stores').delete().eq('id', id).eq('user_id', userId)
     if (error) return NextResponse.json({ error: t('sync.store_delete_failed') }, { status: 500 })
 
-    return NextResponse.json({ message: t('sync.store_disconnected') })
+    return NextResponse.json({ message: t('sync.store_disconnected'), campaigns_removed: removal.removed, campaigns_failed: removal.failed })
   } catch {
     return NextResponse.json({ error: t('api.internal_error') }, { status: 500 })
   }

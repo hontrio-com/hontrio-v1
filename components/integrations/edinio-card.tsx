@@ -8,6 +8,7 @@ import { Card, CardHeader } from '@/components/app/surface'
 import { Badge } from '@/components/app/badge'
 import { Button } from '@/components/app/button'
 import { Callout } from '@/components/app/feedback'
+import { toast } from 'sonner'
 
 // =============================================
 // Edinio — cardul din Setări → Integrări
@@ -58,10 +59,12 @@ export function EdinioConnectCard() {
   )
 }
 
-export function EdinioStoreCard({ store, onChanged, onDisconnected, header }: {
+export function EdinioStoreCard({ store, onChanged, onDisconnected, header, leaveRemovesCampaigns }: {
   store: EdinioStore
   onChanged: () => void
   onDisconnected: () => void
+  /** Deconectarea șterge campaniile Hontrio ale magazinului din Google Ads (Termeni, art. 14.5). */
+  leaveRemovesCampaigns?: boolean
   /** Ce se arată lângă starea conexiunii (ex. „Activ" / „Folosește acest magazin"). */
   header?: React.ReactNode
 }) {
@@ -97,10 +100,13 @@ export function EdinioStoreCard({ store, onChanged, onDisconnected, header }: {
   }
 
   async function handleDisconnect() {
-    if (!confirm(t('edinio.disconnect_confirm'))) return
+    if (!confirm(t(leaveRemovesCampaigns ? 'edinio.disconnect_confirm_remove' : 'edinio.disconnect_confirm'))) return
     setDisconnecting(true)
     try {
       const r = await fetch(`/api/stores/${store.id}`, { method: 'DELETE' })
+      const d = await r.json().catch(() => ({}))
+      if (r.ok && d.campaigns_failed > 0) toast.warning(t('google_ads.campaigns_remove_failed', { count: d.campaigns_failed }))
+      else if (r.ok && d.campaigns_removed > 0) toast.success(t('google_ads.campaigns_removed', { count: d.campaigns_removed }))
       if (r.ok) onDisconnected()
       else setNotice({ ok: false, text: t('settings.error_disconnect') })
     } catch { setNotice({ ok: false, text: t('settings.error_disconnect') }) }

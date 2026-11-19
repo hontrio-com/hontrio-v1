@@ -27,5 +27,10 @@
   "currency_mismatch": "The account currency ({{account}}) differs from the store's ({{store}}), so budgets and sale values wouldn't match.",
   "no_store": "Connect a store first, then choose its Google Ads account.",
   "clear_account": "Don't use any account for this store",
-  "used_by_other_store": "Also used for {{store}}"
+  "used_by_other_store": "Also used for {{store}}",
+  "disconnect_confirm_remove": "Disconnect your Google account? Hontrio permanently deletes the campaigns it created from Google Ads, with their budgets, and they can't be started again. Your other campaigns stay as they are.",
+  "campaigns_removed_one": "We deleted {{count}} campaign created by Hontrio from Google Ads.",
+  "campaigns_removed_other": "We deleted {{count}} campaigns created by Hontrio from Google Ads.",
+  "campaigns_remove_failed_one": "{{count}} campaign created by Hontrio couldn't be deleted from Google Ads. Please delete it yourself in Google Ads.",
+  "campaigns_remove_failed_other": "{{count}} campaigns created by Hontrio couldn't be deleted from Google Ads. Please delete them yourself in Google Ads."
 }

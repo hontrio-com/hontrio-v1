@@ -132,5 +132,7 @@
   "delete_done": "The account has been deleted.",
   "delete_admin_blocked": "An admin account can't be deleted from here. Another admin must first remove your admin role.",
   "platform_active": "{{platform}} active",
-  "store_reconnected_msg": "The store’s keys were updated."
+  "store_reconnected_msg": "The store’s keys were updated.",
+  "disconnect_confirm_remove": "Disconnect the store? Hontrio permanently deletes the campaigns it created for it from Google Ads, with their budgets, and its products, orders and campaign history are removed from Hontrio.",
+  "delete_campaigns_warning_remove": "The campaigns created by Hontrio are permanently deleted from your Google Ads account together with your account and can't be started again. Your other campaigns stay as they are."
 }

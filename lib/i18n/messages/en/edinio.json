@@ -29,5 +29,6 @@
   "error_save": "We could not save the store. Please try again.",
   "error_rate_limited": "Too many attempts. Wait a minute and try again.",
   "error_not_configured": "Connecting to Edinio isn’t available right now. Please contact support.",
-  "error_generic": "Connecting to Edinio failed. Please try again."
+  "error_generic": "Connecting to Edinio failed. Please try again.",
+  "disconnect_confirm_remove": "Disconnect the Edinio store? Hontrio permanently deletes the campaigns it created for it from Google Ads, its access is also stopped in Edinio, and the synced offers and orders are deleted from Hontrio."
 }
