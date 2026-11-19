@@ -1,22 +1,24 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import Link from 'next/link'
 import { toast } from 'sonner'
-import { CalendarClock, ExternalLink, Play, Receipt, RotateCcw, Square } from 'lucide-react'
+import { ArrowRight, CalendarClock, FileText, Play, Receipt, Square } from 'lucide-react'
 import { useT } from '@/lib/i18n/context'
 import { Card, CardHeader } from '@/components/app/surface'
 import { Badge } from '@/components/app/badge'
 import { Button } from '@/components/app/button'
 import { Input } from '@/components/app/input'
 import { Callout } from '@/components/app/feedback'
-import { ConfirmDialog, Modal } from '@/components/app/dialog'
+import { ConfirmDialog } from '@/components/app/dialog'
 import { useAdminData } from '@/components/admin/use-admin-data'
 
 // =============================================
 // Administrarea facturării (pagina Financiar): pornirea, cu anunțul de 30 de
-// zile (Termeni, art. 9.5), legătura SmartBill, magazinele cu pilotul oprit
-// pentru neplată și situațiile tuturor, cu acțiunile lor (reîncercarea,
-// factura cu rezultat necunoscut, anularea, scoaterea unei comenzi contestate).
+// zile (Termeni, art. 9.5), legătura SmartBill și magazinele cu pilotul oprit
+// pentru neplată. Facturile, cu acțiunile lor (reîncercarea, factura cu
+// rezultat necunoscut, anularea, scoaterea unei comenzi contestate), sunt în
+// pagina Facturi (app/admin/invoices).
 // =============================================
 
 type Order = { id: string; number: string; placed_at: string; value: number }
@@ -31,10 +33,6 @@ type AdminBilling = {
   statements: Row[]; suspended: { store_id: string; store_name: string; since: string }[]
 }
 
-const TONE: Record<string, 'neutral' | 'green' | 'amber' | 'red'> = {
-  free: 'neutral', pending: 'neutral', needs_profile: 'amber', issuing: 'red', invoiced: 'amber', paid: 'green', error: 'red', void: 'neutral',
-}
-
 async function act(body: Record<string, unknown>): Promise<{ ok: boolean; data: Record<string, unknown> }> {
   const r = await fetch('/api/admin/billing', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
   return { ok: r.ok, data: await r.json().catch(() => ({})) }
@@ -46,11 +44,6 @@ export default function BillingAdmin() {
   const [start, setStart] = useState('')
   const [confirmStart, setConfirmStart] = useState(false)
   const [busy, setBusy] = useState<string | null>(null)
-  const [resolve, setResolve] = useState<Row | null>(null)
-  const [series, setSeries] = useState('')
-  const [number, setNumber] = useState('')
-  const [exclude, setExclude] = useState<{ row: Row; order: Order } | null>(null)
-  const [reason, setReason] = useState('')
 
   const fmt = useMemo(() => ({
     money: (n: number, c: string) => new Intl.NumberFormat(intlLocale, { style: 'currency', currency: c, maximumFractionDigits: 2 }).format(n),
@@ -125,75 +118,15 @@ export default function BillingAdmin() {
       )}
 
       <Card>
-        <CardHeader title={t('billing.admin_statements_title')} description={t('billing.admin_statements_desc')} />
-        {data.statements.length === 0 ? <p className="px-5 pb-5 text-[13px] text-neutral-500">{t('billing.invoices_empty')}</p> : (
-          <div className="overflow-x-auto px-5 pb-4">
-            <table className="w-full min-w-[860px] text-left text-[12.5px]">
-              <thead className="text-neutral-500">
-                <tr>
-                  <th className="py-2 pr-3 font-medium">{t('billing.admin_col_month')}</th>
-                  <th className="py-2 pr-3 font-medium">{t('billing.admin_col_client')}</th>
-                  <th className="py-2 pr-3 text-right font-medium">{t('billing.admin_col_sales')}</th>
-                  <th className="py-2 pr-3 text-right font-medium">{t('billing.admin_col_amount')}</th>
-                  <th className="py-2 pr-3 font-medium">{t('billing.admin_col_status')}</th>
-                  <th className="py-2 pr-3 font-medium">{t('billing.admin_col_invoice')}</th>
-                  <th className="py-2 font-medium" />
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-neutral-100 align-top">
-                {data.statements.map(s => (
-                  <tr key={s.id}>
-                    <td className="py-2.5 pr-3 font-medium text-neutral-900">{s.period}</td>
-                    <td className="py-2.5 pr-3 text-neutral-700">{s.store_name}<span className="block text-[11.5px] text-neutral-500">{s.email ?? '—'}</span></td>
-                    <td className="py-2.5 pr-3 text-right tabular-nums">{fmt.money(s.sales, s.currency)}<span className="block text-[11.5px] text-neutral-500">{s.orders.length} · {fmt.money(s.fee, s.currency)}</span></td>
-                    <td className="py-2.5 pr-3 text-right font-semibold tabular-nums text-neutral-900">{fmt.money(s.amount, s.currency)}</td>
-                    <td className="py-2.5 pr-3"><Badge tone={TONE[s.status] ?? 'neutral'}>{t(`billing.st_${s.status}`)}</Badge>{s.error && <span className="mt-1 block max-w-[220px] text-[11.5px] text-red-600">{s.error.startsWith('billing.') ? t(s.error) : s.error}</span>}</td>
-                    <td className="py-2.5 pr-3 text-neutral-700">
-                      {s.invoice_number ? <>{s.invoice_series} {s.invoice_number}{s.invoice_url && <a href={s.invoice_url} target="_blank" rel="noopener noreferrer" className="ml-1 inline-flex align-middle text-neutral-500 hover:text-neutral-900"><ExternalLink className="size-3.5" /></a>}</> : '—'}
-                      {s.due_date && <span className="block text-[11.5px] text-neutral-500">{fmt.day(s.due_date)}</span>}
-                    </td>
-                    <td className="space-x-1 py-2.5 text-right whitespace-nowrap">
-                      {['error', 'needs_profile', 'pending'].includes(s.status) && <Button size="xs" variant="secondary" loading={busy === s.id} onClick={() => run(s.id, { action: 'retry', statement_id: s.id }, t('billing.admin_retried'))}><RotateCcw />{t('billing.admin_retry')}</Button>}
-                      {s.status === 'issuing' && <Button size="xs" variant="secondary" onClick={() => { setResolve(s); setSeries(''); setNumber('') }}>{t('billing.admin_resolve')}</Button>}
-                      {s.status === 'invoiced' && <Button size="xs" variant="secondary" loading={busy === `v${s.id}`} onClick={() => run(`v${s.id}`, { action: 'void', statement_id: s.id }, t('billing.admin_voided'))}>{t('billing.admin_void')}</Button>}
-                      {s.orders.length > 0 && (
-                        <select className="h-7 rounded-lg border border-line bg-white px-1.5 text-[12px]" value="" onChange={e => { const o = s.orders.find(x => x.id === e.target.value); if (o) { setExclude({ row: s, order: o }); setReason('') } }}>
-                          <option value="">{t('billing.admin_exclude')}</option>
-                          {s.orders.map(o => <option key={o.id} value={o.id}>#{o.number} · {fmt.money(o.value, s.currency)}</option>)}
-                        </select>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        <CardHeader icon={<FileText />} title={t('admin.inv_link_title')} description={t('admin.inv_link_desc', { count: data.statements.length })}
+          action={<Button asChild size="sm"><Link href="/admin/invoices">{t('admin.nav_invoices')}<ArrowRight /></Link></Button>} />
+        <div className="pb-2" />
       </Card>
 
       <ConfirmDialog open={confirmStart} onOpenChange={setConfirmStart} tone="primary"
         title={t('billing.admin_start_confirm_title', { date: start ? fmt.day(start) : '' })}
         description={t('billing.admin_start_confirm_desc')} confirmLabel={t('billing.admin_start_btn')} loading={busy === 'start'}
         onConfirm={async () => { if (await run('start', { action: 'start', start_date: start }, t('billing.admin_started'))) setConfirmStart(false) }} />
-
-      <Modal open={!!resolve} onOpenChange={o => { if (!o) setResolve(null) }} title={t('billing.admin_resolve_title')} description={t('billing.admin_resolve_desc')}
-        footer={<>
-          <Button variant="secondary" loading={busy === 'none'} onClick={async () => { if (resolve && await run('none', { action: 'resolve', statement_id: resolve.id }, t('billing.admin_resolved'))) setResolve(null) }}>{t('billing.admin_resolve_missing')}</Button>
-          <Button variant="primary" disabled={!series || !number} loading={busy === 'found'} onClick={async () => { if (resolve && await run('found', { action: 'resolve', statement_id: resolve.id, series, number }, t('billing.admin_resolved'))) setResolve(null) }}>{t('billing.admin_resolve_found')}</Button>
-        </>}>
-        <div className="grid grid-cols-2 gap-3">
-          <Input value={series} onChange={e => setSeries(e.target.value)} placeholder={t('billing.admin_series')} />
-          <Input value={number} onChange={e => setNumber(e.target.value)} placeholder={t('billing.admin_number')} />
-        </div>
-      </Modal>
-
-      <Modal open={!!exclude} onOpenChange={o => { if (!o) setExclude(null) }} title={t('billing.admin_exclude_title', { number: exclude?.order.number ?? '' })} description={t('billing.admin_exclude_desc')}
-        footer={<>
-          <Button variant="secondary" onClick={() => setExclude(null)}>{t('billing.cancel')}</Button>
-          <Button variant="primary" disabled={reason.trim().length < 3} loading={busy === 'exclude'} onClick={async () => { if (exclude && await run('exclude', { action: 'exclude', order_id: exclude.order.id, reason }, t('billing.admin_excluded'))) setExclude(null) }}>{t('billing.admin_exclude_btn')}</Button>
-        </>}>
-        <Input value={reason} onChange={e => setReason(e.target.value)} placeholder={t('billing.admin_exclude_reason')} />
-      </Modal>
     </div>
   )
 }

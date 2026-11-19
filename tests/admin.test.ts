@@ -2,9 +2,10 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { addSales, emptySales, periodStart } from '@/lib/admin/accounts'
 import { addMoney } from '@/lib/admin/money'
+import { balanceOf } from '@/lib/admin/balance'
 
-// Panoul de administrare: perioadele după ceasul României și banii pe monede
-// (comenzile aduse de campaniile Hontrio).
+// Panoul de administrare: perioadele după ceasul României, banii pe monede
+// (comenzile aduse de campaniile Hontrio) și soldul facturilor.
 
 test('perioadele încep la miezul nopții în România, cu ora de vară socotită', () => {
   const now = Date.parse('2026-11-19T09:30:00Z')
@@ -30,4 +31,21 @@ test('banii rămân pe monede: lei cu lei, euro cu euro', () => {
   const all = addSales(addSales(addSales(emptySales(), 2, 300.5, 'RON'), 1, 40, 'EUR'), 0, 0, 'RON')
   assert.equal(all.orders, 3)
   assert.deepEqual(all.sales, { RON: 300.5, EUR: 40 })
+})
+
+test('soldul facturilor: de plată, restant după scadență, plătit, fără cele anulate', () => {
+  const b = balanceOf([
+    { status: 'invoiced', amount: 199, currency: 'RON', due_date: '2026-11-25' },
+    { status: 'invoiced', amount: 120.5, currency: 'RON', due_date: '2026-11-10' },
+    { status: 'paid', amount: 300, currency: 'RON', due_date: '2026-10-25' },
+    { status: 'invoiced', amount: 40, currency: 'EUR', due_date: '2026-11-01' },
+    { status: 'void', amount: 999, currency: 'RON', due_date: '2026-09-25' },
+    { status: 'free', amount: 0, currency: 'RON', due_date: null },
+    { status: 'error', amount: 50, currency: 'RON', due_date: null },
+  ], '2026-11-19')
+  assert.deepEqual(b.due, { RON: 319.5, EUR: 40 })
+  assert.deepEqual(b.overdue, { RON: 120.5, EUR: 40 })
+  assert.equal(b.overdue_count, 2)
+  assert.deepEqual(b.paid, { RON: 300 })
+  assert.deepEqual(b.invoiced, { RON: 619.5, EUR: 40 })
 })

@@ -4,7 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { ArrowLeft, Bell, History, LayoutGrid, Megaphone, ShoppingBag, Store, Trash2, UserCheck } from 'lucide-react'
+import { ArrowLeft, Bell, History, LayoutGrid, Megaphone, Receipt, ShoppingBag, Store, Trash2, UserCheck } from 'lucide-react'
 import { useSession } from 'next-auth/react'
 import { useT } from '@/lib/i18n/context'
 import { PageHeader } from '@/components/app/page-header'
@@ -23,17 +23,19 @@ import { LoadError, PageSkeleton, RefreshButton, UserAvatar } from '@/components
 import { NotifyModal, sendNotification } from '@/components/admin/notify-modal'
 import { useMoney } from '@/components/admin/money'
 import { AccountActivity, AccountCampaigns, AccountOverview, AccountStores } from '@/components/admin/account-sections'
+import { AccountBillingTab } from '@/components/admin/account-billing'
 import type { AccountDetail, Period } from '@/lib/admin/accounts'
+import type { AccountBilling } from '@/lib/admin/billing'
 
 // =============================================
 // Un cont, pe larg: cine e, comenzile aduse de campaniile Hontrio (luna
-// aceasta, 30 de zile, de la început), magazinele, campaniile și
-// activitatea. Fără datele Google ale clientului
+// aceasta, 30 de zile, de la început), ce are de plată, magazinele,
+// campaniile, facturarea și activitatea. Fără datele Google ale clientului
 // (politica de confidențialitate, lib/admin/accounts.ts). Rolul și ștergerea
 // contului sunt jos, în prezentare.
 // =============================================
 
-type Tab = 'overview' | 'stores' | 'campaigns' | 'activity'
+type Tab = 'overview' | 'stores' | 'campaigns' | 'billing' | 'activity'
 const ROLES = ['user', 'admin'] as const
 
 const post = (url: string, body: unknown) =>
@@ -47,6 +49,7 @@ export default function AccountPage() {
   const f = useFormats('RON')
   const money = useMoney()
   const { data, loading, refresh } = useAdminData<AccountDetail>(`/api/admin/accounts/${id}`)
+  const billing = useAdminData<AccountBilling>(`/api/admin/accounts/${id}/billing`)
   const [period, setPeriod] = useState<Period>('d30')
   const [tab, setTab] = useState<Tab>('overview')
   const [notify, setNotify] = useState(false)
@@ -55,7 +58,7 @@ export default function AccountPage() {
   const [deleteConfirm, setDeleteConfirm] = useState('')
   const [deleting, setDeleting] = useState(false)
 
-  if (loading && !data) return <PageSkeleton tiles={3} />
+  if (loading && !data) return <PageSkeleton tiles={4} />
   if (!data?.user) return <LoadError />
   const u = data.user
   const sales = data.sales[period]
@@ -103,15 +106,19 @@ export default function AccountPage() {
           {live > 0 && <Badge tone="green" dot live>{t('admin.badge_campaigns_live')}</Badge>}
         </div>}
         actions={<>
-          <RefreshButton loading={loading} onClick={refresh} />
+          <RefreshButton loading={loading} onClick={() => { refresh(); billing.refresh() }} />
           <Button variant="primary" onClick={() => setNotify(true)}><Bell />{t('admin.send_notification')}</Button>
         </>} />
 
       <Segmented id="acc-period" value={period} onChange={setPeriod} items={(['month', 'd30', 'all'] as const).map(p => ({ value: p, label: t(`admin.period_${p}`) }))} />
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard label={t('admin.kpi_hontrio_sales')} value={money.many(sales.sales)} icon={<ShoppingBag />}
           footnote={t('admin.accounts_orders', { count: sales.orders })} />
+        <StatCard label={t('admin.bill_due')} value={billing.data ? money.many(billing.data.balance.due) : '—'} icon={<Receipt />}
+          footnote={!billing.data ? undefined : billing.data.balance.overdue_count
+            ? t('admin.bill_overdue_amount', { amount: money.many(billing.data.balance.overdue) })
+            : billing.data.active ? t('admin.bill_due_hint') : t('admin.bill_off_short')} />
         <StatCard label={t('admin.kpi_stores')} value={f.int.format(data.stores.length)} icon={<Store />}
           footnote={t('admin.kpi_stores_connected', { count: connected })} />
         <StatCard label={t('admin.kpi_campaigns')} value={f.int.format(live)} icon={<Megaphone />}
@@ -122,12 +129,14 @@ export default function AccountPage() {
         { value: 'overview', label: t('admin.tab_overview'), icon: <LayoutGrid /> },
         { value: 'stores', label: t('admin.tab_stores'), icon: <Store />, count: data.stores.length },
         { value: 'campaigns', label: t('admin.tab_campaigns'), icon: <Megaphone />, count: data.campaigns.length },
+        { value: 'billing', label: t('admin.tab_billing'), icon: <Receipt />, count: billing.data?.balance.overdue_count, attention: true },
         { value: 'activity', label: t('admin.tab_activity'), icon: <History /> },
       ]} />
 
       {tab === 'overview' && <AccountOverview data={data} f={f} />}
       {tab === 'stores' && <AccountStores data={data} period={period} f={f} />}
       {tab === 'campaigns' && <AccountCampaigns data={data} f={f} />}
+      {tab === 'billing' && <AccountBillingTab data={billing.data} loading={billing.loading} f={f} />}
       {tab === 'activity' && <AccountActivity data={data} />}
 
       {tab === 'overview' && (
