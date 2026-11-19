@@ -97,6 +97,8 @@ export function LiveCampaignItem({ campaign: c, f, onChanged, onError }: Props) 
     // Sub 1, reclamele au costat mai mult decât au adus vânzările
     { label: t('campaigns.kpi_roas'), value: roas === null ? '—' : f.num.format(roas), warn: roas !== null && roas < 1 },
     { label: t('campaigns.kpi_conversions'), value: f.num.format(Math.round(c.last30.conversions * 10) / 10) },
+    { label: t('campaigns.st_clicks'), value: f.int.format(c.last30.clicks) },
+    { label: t('campaigns.st_cpc'), value: c.last30.clicks > 0 ? f.money2.format(c.last30.cost / c.last30.clicks) : '—' },
   ]
 
   return (
@@ -130,7 +132,7 @@ export function LiveCampaignItem({ campaign: c, f, onChanged, onError }: Props) 
       {/* Una încheiată n-are cifre pe 30 de zile: ce a adus rămâne în Rapoarte */}
       {c.status !== 'ended' && (
         <>
-          <dl className="mt-4 grid grid-cols-2 gap-px overflow-hidden rounded-lg bg-neutral-100 ring-1 ring-neutral-100 sm:grid-cols-4">
+          <dl className="mt-4 grid grid-cols-2 gap-px overflow-hidden rounded-lg bg-neutral-100 ring-1 ring-neutral-100 sm:grid-cols-3">
             {stats.map(s => (
               <div key={s.label} className="bg-white px-3 py-2.5">
                 <dt className="text-[11px] text-neutral-500">{s.label}</dt>

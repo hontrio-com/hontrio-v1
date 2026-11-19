@@ -8,8 +8,8 @@ import { Sheet, SheetHeader } from '@/components/app/sheet'
 import { Badge } from '@/components/app/badge'
 import { Button, textActionStyles } from '@/components/app/button'
 import { Callout } from '@/components/app/feedback'
-import { TrendChart, CHART } from '@/components/app/charts'
 import { LiveCampaignItem } from '@/components/campaigns/live-campaigns'
+import { CampaignStats } from '@/components/campaigns/campaign-stats'
 import { STATUS, iconOf, useViewLabels } from '@/components/campaigns/campaign-table'
 import { noteParams, type Step } from '@/components/campaigns/group-editor'
 import { day, type Formats } from '@/components/app/formats'
@@ -19,8 +19,10 @@ import type { Plan } from '@/lib/campaigns/plan'
 
 // =============================================
 // Fișa unei campanii, într-un panou lateral: starea și acțiunile ei, cifrele
-// pe 30 de zile cu evoluția, ce produse vinde și campaniile din Google Ads
-// din spatele ei (cu pauza și repornirea).
+// (pe 7, 30 sau 90 de zile, cu clicurile, costul pe clic, conversiile,
+// produsele și căutările, components/campaigns/campaign-stats.tsx), ce
+// produse vinde și campaniile din Google Ads din spatele ei (cu pauza și
+// repornirea).
 // =============================================
 
 type Props = {
@@ -111,14 +113,6 @@ function SheetBody({ view: v, onClose, plan, f, onEdit, onPlan, onChanged }: Omi
       : <Button size="sm" onClick={onPlan}>{t('campaigns.board_see_plan')}<ArrowRight /></Button>
   }
 
-  // ROAS sub 1: reclamele au costat mai mult decât au adus vânzările
-  const stats: { label: string; value: string; tone?: 'bad' }[] = [
-    { label: t('campaigns.kpi_spend'), value: f.money.format(v.last30.cost) },
-    { label: t('campaigns.kpi_value'), value: f.money.format(v.last30.value) },
-    { label: t('campaigns.kpi_roas'), value: v.roas === null ? '—' : f.num.format(v.roas), tone: v.roas !== null && v.roas < 1 ? 'bad' : undefined },
-    { label: t('campaigns.kpi_conversions'), value: f.num.format(Math.round(v.last30.conversions * 10) / 10) },
-  ]
-
   return (
     <>
       <SheetHeader icon={viewIcon(g?.group.rules ?? null)} title={labels.name(v)} description={labels.subtitle(v)} onClose={onClose}>
@@ -139,27 +133,8 @@ function SheetBody({ view: v, onClose, plan, f, onEdit, onPlan, onChanged }: Omi
       <div className="flex-1 space-y-7 overflow-y-auto px-6 py-6">
         {error && <Callout tone="danger" onClose={() => setError(null)}>{error}</Callout>}
 
-        {/* Cifrele pe 30 de zile */}
-        {hasNumbers && (
-          <section>
-            <SectionTitle>{t('campaigns.sheet_last30')}</SectionTitle>
-            <dl className="mt-3 grid grid-cols-2 gap-px overflow-hidden rounded-xl bg-neutral-200/70 ring-1 ring-neutral-200/70 sm:grid-cols-4">
-              {stats.map(k => (
-                <div key={k.label} className="bg-white px-4 py-3">
-                  <dt className="text-[12px] text-neutral-500">{k.label}</dt>
-                  <dd className={cn('mt-1 text-[18px] font-semibold tabular-nums tracking-[-0.015em]', k.tone === 'bad' ? 'text-red-600' : 'text-neutral-950')}>{k.value}</dd>
-                </div>
-              ))}
-            </dl>
-            {v.trend.length > 1 && v.trend.some(p => p.value > 0) && (
-              <div className="mt-4 rounded-xl border border-neutral-200/80 px-2 pb-2 pt-3">
-                <p className="px-2 text-[12px] font-medium text-neutral-500">{t('campaigns.sheet_trend')}</p>
-                <TrendChart height={150} color={CHART.brand} format={n => f.money.format(n)} axisFormat={n => f.compact.format(n)}
-                  data={v.trend.map(p => ({ label: f.shortDate.format(day(p.date)), value: p.value }))} />
-              </div>
-            )}
-          </section>
-        )}
+        {/* Cifrele: perioada, cele zece cifre, evoluția, produsele și căutările */}
+        {hasNumbers && <CampaignStats ids={v.google.map(c => c.id)} plan={plan} f={f} />}
 
         {/* O grupă nelansată: planul ei pe scurt și ce trebuie știut */}
         {g && g.group.status !== 'live' && (

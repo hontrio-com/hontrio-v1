@@ -215,8 +215,8 @@ Citirile din bază se fac pagină cu pagină (API-ul întoarce cel mult 1.000 de
 **Cifrele de azi (migrarea 030):** trecerea citește doar zilele încheiate, o dată la ~20 de ore, așa
 că o campanie lansată azi n-ar avea cifre în pagină până mâine după-amiază. De aceea, în timpul
 rămas din fiecare oră, cronul citește pentru magazinele cu campanii pornite și zilele de după ultima
-trecere, până azi (cel puțin de ieri), cu o singură cerere la Google pe magazin (metricile pe zi și
-pe campanie). Când a făcut-o se scrie în `stores.ads_today_at`. Paginile arată atunci și ziua de
+trecere, până azi (cel puțin de ieri), cu două cereri la Google pe magazin: metricile pe zi și pe
+campanie și, pentru ieri și azi, cele pe produs (fișa campaniei). Când a făcut-o se scrie în `stores.ads_today_at`. Paginile arată atunci și ziua de
 azi. Pilotul judecă tot doar până ieri, deci oprirea de siguranță și bucla nu se schimbă.
 
 Ferestre: 30 de zile fără ultimele 2, ca evaluare; 14 zile, ca semnal recent.

@@ -14,7 +14,8 @@ import { safeEqual } from '@/lib/ads/schedule'
 // o eroare Google trecătoare) nu se socotește: magazinul revine la ora
 // următoare, primul la rând.
 // În timpul rămas, magazinele cu campanii pornite primesc cifrele de azi
-// (o cerere la Google pe magazin), ca paginile să nu aștepte trecerea zilnică.
+// (pe campanie și pe produs, două cereri la Google pe magazin), ca paginile
+// să nu aștepte trecerea zilnică.
 // =============================================
 
 export const maxDuration = 300

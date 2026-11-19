@@ -351,8 +351,8 @@ export async function runAutopilot(storeId: string, opts: { deadline?: number; f
 // ─── Cifrele de azi, din oră în oră ─────────────────────────────────────────
 
 /**
- * Cifrele campaniilor unui magazin cu campanii pornite, de la ultima trecere zilnică până azi, cu o singură
- * cerere la Google: paginile arată ziua de azi fără să aștepte trecerea de mâine. Pilotul judecă tot doar zilele
+ * Cifrele campaniilor unui magazin cu campanii pornite, de la ultima trecere zilnică până azi (și pe produs, pentru
+ * ieri și azi), cu două cereri la Google: paginile arată ziua de azi fără să aștepte trecerea de mâine. Pilotul judecă tot doar zilele
  * încheiate (citește până ieri), deci oprirea de siguranță nu se schimbă. O eroare nu se scrie pe magazin: o
  * spune trecerea zilnică, dacă rămâne; aici se reîncearcă la ora următoare.
  */
@@ -375,9 +375,13 @@ export async function refreshToday(storeId: string): Promise<string> {
   }
   const acc: Account = { customer_id: account.customer_id, login_customer_id: account.login_customer_id }
   const { from, to } = todayWindow(store.ads_synced_at, nowMs)
+  // Pe produs (fișa campaniei), doar ieri și azi: zilele mai vechi le citește trecerea zilnică
+  const productFrom = addDays(dayStr(new Date(nowMs)), -1) > from ? addDays(dayStr(new Date(nowMs)), -1) : from
   let days: CampaignDay[]
+  let products: ProductDay[]
   try {
     days = await fetchCampaignDays(token, acc, from, to)
+    products = await fetchProductDays(token, acc, productFrom, to)
   } catch (err) {
     if (!(err instanceof GoogleAdsApiError)) throw err
     logError('autopilot', 'Cifrele de azi nu s-au putut citi', { storeId, code: err.errorCode, error: err.message })
@@ -385,9 +389,10 @@ export async function refreshToday(storeId: string): Promise<string> {
   }
   const syncedAt = new Date(nowMs).toISOString()
   await saveCampaignDays(supabase, storeId, acc, days, syncedAt)
+  await saveProductDays(supabase, storeId, products)
   await supabase.from('stores').update({ ads_today_at: syncedAt }).eq('id', storeId)
   // i18n-ignore: rezumat tehnic pentru jurnalul cronului
-  return `ok days=${days.length}`
+  return `ok days=${days.length} products=${products.length}`
 }
 
 /**
