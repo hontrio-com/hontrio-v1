@@ -364,9 +364,11 @@ export async function runAutopilot(storeId: string, opts: { deadline?: number; f
 export async function refreshToday(storeId: string): Promise<string> {
   const supabase = createAdminClient()
   const nowMs = Date.now()
-  const { data: store } = await supabase.from('stores').select('id, user_id, google_ads_customer_id, ads_synced_at')
-    .eq('id', storeId).maybeSingle<{ id: string; user_id: string; google_ads_customer_id: string | null; ads_synced_at: string | null }>()
+  const { data: store } = await supabase.from('stores').select('id, user_id, google_ads_customer_id, ads_synced_at, billing_suspended_at')
+    .eq('id', storeId).maybeSingle<{ id: string; user_id: string; google_ads_customer_id: string | null; ads_synced_at: string | null; billing_suspended_at: string | null }>()
   if (!store) return 'no_store'
+  // Factură neplătită (Termeni, art. 13): ca pilotul, nici cifrele nu se mai citesc până la plată
+  if (store.billing_suspended_at) return 'billing_suspended'
   // Prima trecere citește istoricul (90 de zile) și vine prima la rând: până atunci nu e nimic de completat
   if (!store.ads_synced_at) return 'no_pass'
   const account = await storeAdsAccount(supabase, store.user_id, store.google_ads_customer_id)
