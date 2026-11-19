@@ -27,10 +27,12 @@ import type { Mode, Plan } from '@/lib/campaigns/plan'
 
 type Metric = 'value' | 'cost'
 
-export function OverviewTab({ plan, views, series, mode, proposals, journal, f, onOpen, onTab, onNew }: {
+export function OverviewTab({ plan, views, series, liveAt, mode, proposals, journal, f, onOpen, onTab, onNew }: {
   plan: Plan
   views: CampaignView[]
   series: SeriesPoint[]
+  /** Când s-au citit cifrele de azi (ultima zi din serie), dacă seria ajunge până azi. */
+  liveAt: string | null
   mode: Mode
   proposals: ActionItem[]
   journal: ActionItem[]
@@ -50,7 +52,7 @@ export function OverviewTab({ plan, views, series, mode, proposals, journal, f, 
     return { cur: sum(series.slice(half)), prev: sum(series.slice(0, half)), points: series.slice(half) }
   }, [series])
 
-  // Google raportează ziua de ieri: în primele zile după lansare nu e încă nimic de arătat
+  // Până la primele afișări ale reclamelor (și prima citire de după ele) nu e nimic de arătat
   const noData = series.every(p => p.cost === 0 && p.value === 0)
   const delta = (a: number | null, b: number | null) => (noData || a === null || b === null || b === 0 ? null : (a - b) / Math.abs(b))
   const roas = (p: { cost: number; value: number }) => (p.cost > 0 ? p.value / p.cost : null)
@@ -80,7 +82,9 @@ export function OverviewTab({ plan, views, series, mode, proposals, journal, f, 
         <FadeIn delay={0.05} className="lg:col-span-2">
           <Card className="flex h-full flex-col">
             <CardHeader title={t('campaigns.trend_title')}
-              description={points.length ? t('campaigns.trend_hint', { from: f.shortDate.format(day(points[0].date)), to: f.shortDate.format(day(points[points.length - 1].date)) }) : undefined}
+              description={points.length ? t(liveAt ? 'campaigns.trend_hint_live' : 'campaigns.trend_hint', {
+                from: f.shortDate.format(day(points[0].date)), to: f.shortDate.format(day(points[points.length - 1].date)), ago: liveAt ? ago(liveAt) : '',
+              }) : undefined}
               action={noData ? undefined : <Segmented id="trend-metric" size="sm" value={metric} onChange={setMetric}
                 items={[{ value: 'value', label: t('campaigns.trend_value') }, { value: 'cost', label: t('campaigns.trend_cost') }]} />} />
             {noData ? (

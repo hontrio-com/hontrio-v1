@@ -43,7 +43,7 @@ export async function syncGoogleAdsAccounts(userId: string, connectionId: string
     if (stale.length) {
       await supabase.from('google_ads_accounts').delete().eq('user_id', userId).in('customer_id', stale)
       // Alt cont (sau niciunul): pilotul trece pe magazin la ora următoare, nu peste o zi
-      await supabase.from('stores').update({ google_ads_customer_id: null, ads_synced_at: null }).eq('user_id', userId).in('google_ads_customer_id', stale)
+      await supabase.from('stores').update({ google_ads_customer_id: null, ads_synced_at: null, ads_today_at: null }).eq('user_id', userId).in('google_ads_customer_id', stale)
     }
   }
 
@@ -72,7 +72,7 @@ export async function syncGoogleAdsAccounts(userId: string, connectionId: string
     const { data: store } = await getActiveStore<{ id: string; google_ads_customer_id: string | null }>(supabase, userId, 'id, google_ads_customer_id')
     if (store && !store.google_ads_customer_id) {
       // Prima citire a contului nou: la următoarea oră a cronului (magazinele netrecute sunt primele)
-      await supabase.from('stores').update({ google_ads_customer_id: advertisers[0].customerId, ads_synced_at: null }).eq('id', store.id)
+      await supabase.from('stores').update({ google_ads_customer_id: advertisers[0].customerId, ads_synced_at: null, ads_today_at: null }).eq('id', store.id)
     }
   }
 

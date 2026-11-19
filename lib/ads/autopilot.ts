@@ -14,7 +14,7 @@ import { applyAction, ApplyError, closeGroupIfDone, graduateListing, syncCampaig
 import { CAMPAIGN_COLUMNS, groupItems, listingSize, merchantLabels, parseCampaign, type CampaignRow } from '@/lib/ads/listing'
 import { lossStops, optimize, sumWindows, windowOf, EMPTY, type OptCampaign, type OptimizerInput, type OptProduct, type Proposal, type Window } from '@/lib/ads/optimizer'
 import { readAll } from '@/lib/ads/read-all'
-import { addDays, dayStr, daysBetween, isTransientGoogleError, refreshFrom, DAY_MS, MISSED_PASS_MS, PROPOSAL_TTL_DAYS } from '@/lib/ads/schedule'
+import { addDays, dayStr, daysBetween, isTransientGoogleError, refreshFrom, todayWindow, DAY_MS, MISSED_PASS_MS, PROPOSAL_TTL_DAYS } from '@/lib/ads/schedule'
 import { alertBudgetSpent, alertLossStop, alertPilotBlocked, alertProposals, alertProtectionFailed } from '@/lib/ads/alerts'
 import { loadPlanContext, STORE_PLAN_COLUMNS, type PlanContext, type PlanStore } from '@/lib/campaigns/context'
 import { brandTerms } from '@/lib/campaigns/plan'
@@ -346,6 +346,48 @@ export async function runAutopilot(storeId: string, opts: { deadline?: number; f
     }
     throw err
   }
+}
+
+// ─── Cifrele de azi, din oră în oră ─────────────────────────────────────────
+
+/**
+ * Cifrele campaniilor unui magazin cu campanii pornite, de la ultima trecere zilnică până azi, cu o singură
+ * cerere la Google: paginile arată ziua de azi fără să aștepte trecerea de mâine. Pilotul judecă tot doar zilele
+ * încheiate (citește până ieri), deci oprirea de siguranță nu se schimbă. O eroare nu se scrie pe magazin: o
+ * spune trecerea zilnică, dacă rămâne; aici se reîncearcă la ora următoare.
+ */
+export async function refreshToday(storeId: string): Promise<string> {
+  const supabase = createAdminClient()
+  const nowMs = Date.now()
+  const { data: store } = await supabase.from('stores').select('id, user_id, google_ads_customer_id, ads_synced_at')
+    .eq('id', storeId).maybeSingle<{ id: string; user_id: string; google_ads_customer_id: string | null; ads_synced_at: string | null }>()
+  if (!store) return 'no_store'
+  // Prima trecere citește istoricul (90 de zile) și vine prima la rând: până atunci nu e nimic de completat
+  if (!store.ads_synced_at) return 'no_pass'
+  const account = await storeAdsAccount(supabase, store.user_id, store.google_ads_customer_id)
+  if (!account) return 'no_account'
+  let token: string
+  try {
+    token = await getAccessTokenForUser(store.user_id)
+  } catch (err) {
+    if (err instanceof GoogleAuthError) return 'google_auth'
+    throw err
+  }
+  const acc: Account = { customer_id: account.customer_id, login_customer_id: account.login_customer_id }
+  const { from, to } = todayWindow(store.ads_synced_at, nowMs)
+  let days: CampaignDay[]
+  try {
+    days = await fetchCampaignDays(token, acc, from, to)
+  } catch (err) {
+    if (!(err instanceof GoogleAdsApiError)) throw err
+    logError('autopilot', 'Cifrele de azi nu s-au putut citi', { storeId, code: err.errorCode, error: err.message })
+    return 'google_error'
+  }
+  const syncedAt = new Date(nowMs).toISOString()
+  await saveCampaignDays(supabase, storeId, acc, days, syncedAt)
+  await supabase.from('stores').update({ ads_today_at: syncedAt }).eq('id', storeId)
+  // i18n-ignore: rezumat tehnic pentru jurnalul cronului
+  return `ok days=${days.length}`
 }
 
 /**

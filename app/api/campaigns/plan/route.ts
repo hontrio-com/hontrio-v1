@@ -9,7 +9,7 @@ import { MODES, type Mode } from '@/lib/campaigns/plan'
 import { loadPlanContext, STORE_PLAN_COLUMNS, type PlanStore } from '@/lib/campaigns/context'
 import { CAMPAIGN_COLUMNS, parseCampaign } from '@/lib/ads/listing'
 import { readAllSoft } from '@/lib/ads/read-all'
-import { isExpired } from '@/lib/ads/schedule'
+import { addDays, isExpired, lastFiguresDay } from '@/lib/ads/schedule'
 import { AUDIT_FRESH_MS } from '@/lib/google/audit'
 import { getT } from '@/lib/i18n/server'
 import { storeDisplayName } from '@/lib/commerce/platforms'
@@ -30,15 +30,12 @@ const SERIES_DAYS = 60
 type Supabase = ReturnType<typeof createAdminClient>
 
 /**
- * Planul e al magazinului activ al contului; ultima citire a contului Google spune până când sunt cifrele,
- * iar eroarea ei, de ce pilotul n-a putut lucra.
+ * Planul e al magazinului activ al contului; ultimele citiri ale contului Google (trecerea zilnică, cifrele de azi)
+ * spun până când sunt cifrele, iar eroarea trecerii, de ce pilotul n-a putut lucra.
  */
 function readStore(supabase: Supabase, userId: string) {
-  return getActiveStore<PlanStore & { ads_synced_at: string | null; ads_sync_error: string | null }>(supabase, userId, `${STORE_PLAN_COLUMNS}, ads_synced_at, ads_sync_error`)
+  return getActiveStore<PlanStore & { ads_synced_at: string | null; ads_sync_error: string | null; ads_today_at: string | null }>(supabase, userId, `${STORE_PLAN_COLUMNS}, ads_synced_at, ads_sync_error, ads_today_at`)
 }
-
-const DAY_MS = 86_400_000
-const shiftDay = (day: string, n: number) => new Date(Date.parse(`${day}T00:00:00Z`) + n * DAY_MS).toISOString().slice(0, 10)
 
 export async function GET() {
   const t = await getT()
@@ -74,12 +71,12 @@ export async function GET() {
   const stateOf = new Map(campaignRows.map(r => [String(r.id), { paused_reason: (r.paused_reason as string | null) ?? null, updated_at: (r.updated_at as string | null) ?? null }]))
   const ids = campaigns.map(c => c.google_campaign_id!).filter(Boolean)
   // 60 de zile: ultimele 30 și cele 30 de dinainte, ca cifrele să aibă cu ce se compara. Se termină în ultima
-  // zi completă: ieri sau, dacă contul n-a mai fost citit de atunci, ziua dinaintea ultimei citiri (o zi
-  // necitită nu e o zi fără vânzări)
-  const yesterday = shiftDay(new Date().toISOString().slice(0, 10), -1)
-  const syncedDay = store.ads_synced_at ? shiftDay(store.ads_synced_at.slice(0, 10), -1) : null
-  const lastDay = syncedDay && syncedDay < yesterday ? syncedDay : yesterday
-  const days = Array.from({ length: SERIES_DAYS }, (_, i) => shiftDay(lastDay, i - SERIES_DAYS + 1))
+  // zi citită: azi, cu cifrele citite din oră în oră cât campaniile rulează; altfel ieri sau, dacă contul n-a
+  // mai fost citit de atunci, ziua dinaintea ultimei treceri (o zi necitită nu e o zi fără vânzări)
+  const lastDay = lastFiguresDay(store.ads_synced_at, store.ads_today_at, Date.now())
+  // Ultima zi vine din citirea din oră în oră: pagina spune de când sunt cifrele
+  const liveAt = store.ads_today_at && store.ads_today_at.slice(0, 10) === lastDay ? store.ads_today_at : null
+  const days = Array.from({ length: SERIES_DAYS }, (_, i) => addDays(lastDay, i - SERIES_DAYS + 1))
   const since = days[SERIES_DAYS - 30]
   // Toate rândurile (campaniile încheiate se adună în timp: pot trece de o pagină)
   const { data: metrics, error: metricsError } = ids.length
@@ -132,8 +129,9 @@ export async function GET() {
       currency: store.currency || 'RON',
       connection_status: store.connection_status,
       last_sync_at: store.last_sync_at,
-      // Ultima trecere a pilotului și, dacă n-a putut lucra, de ce (cheie de traducere salvată)
-      pilot: { synced_at: store.ads_synced_at, error: store.ads_sync_error },
+      // Ultima trecere a pilotului și, dacă n-a putut lucra, de ce (cheie de traducere salvată); când s-au citit
+      // cifrele zilei de azi, dacă pagina le arată
+      pilot: { synced_at: store.ads_synced_at, error: store.ads_sync_error, live_at: liveAt },
     },
     plan: context.plan,
     audit: audit ? {

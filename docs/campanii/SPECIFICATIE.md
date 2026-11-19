@@ -212,6 +212,13 @@ citire a unui cont). Google trece conversiile pe ziua clicului, chiar dacă sose
 târziu: altfel o vânzare raportată târziu n-ar mai ajunge în cifre, iar ROAS-ul ar ieși mai mic.
 Citirile din bază se fac pagină cu pagină (API-ul întoarce cel mult 1.000 de rânduri pe cerere).
 
+**Cifrele de azi (migrarea 030):** trecerea citește doar zilele încheiate, o dată la ~20 de ore, așa
+că o campanie lansată azi n-ar avea cifre în pagină până mâine după-amiază. De aceea, în timpul
+rămas din fiecare oră, cronul citește pentru magazinele cu campanii pornite și zilele de după ultima
+trecere, până azi (cel puțin de ieri), cu o singură cerere la Google pe magazin (metricile pe zi și
+pe campanie). Când a făcut-o se scrie în `stores.ads_today_at`. Paginile arată atunci și ziua de
+azi. Pilotul judecă tot doar până ieri, deci oprirea de siguranță și bucla nu se schimbă.
+
 Ferestre: 30 de zile fără ultimele 2, ca evaluare; 14 zile, ca semnal recent.
 
 **Când se socotește trecerea făcută.** `stores.ads_synced_at` (ora de început a trecerii) se
@@ -362,7 +369,7 @@ Toate au RLS pornit și le citește doar serverul, ca `commerce_*`.
 
 ## 11. API intern
 
-- `GET /api/campaigns/plan`: planul, auditul salvat, campaniile lansate, propunerile (fără cele mai vechi de 7 zile), ultimele metrici, ultima trecere a pilotului și eroarea ei.
+- `GET /api/campaigns/plan`: planul, auditul salvat, campaniile lansate, propunerile (fără cele mai vechi de 7 zile), ultimele metrici (până azi, dacă cifrele de azi au fost citite), ultima trecere a pilotului și eroarea ei.
 - `PATCH /api/campaigns/plan`: bugetul, modul, bugetul maxim.
 - `POST /api/campaigns/audit`: rulează auditul acum.
 - `POST /api/campaigns/launch`: lansează treapta din plan (sau campania unei grupe, cu `group_id`), cu alegerea pentru campaniile existente și confirmarea declarației UE.
@@ -374,7 +381,8 @@ Toate au RLS pornit și le citește doar serverul, ca `commerce_*`.
 - `GET/PATCH /api/integrations/google/merchant`: contul Merchant al magazinului; alegerea lui, ca și
   a contului Google Ads (`PATCH /api/integrations/google/accounts`), pune pilotul la rând la ora următoare (§6).
 - Cron `/api/cron/ads-sync`, din oră în oră, o trecere pe zi pe magazin: oprirea de siguranță întâi,
-  apoi auditul, metricile, Merchant Center și bucla (§6). Secretul cronului se compară în timp constant.
+  apoi auditul, metricile, Merchant Center și bucla (§6). În timpul rămas, cifrele de azi ale
+  magazinelor cu campanii pornite (§6). Secretul cronului se compară în timp constant.
 
 ## 12. Ce rămâne de verificat pe primul cont real
 

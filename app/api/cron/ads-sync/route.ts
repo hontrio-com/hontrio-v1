@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { logError } from '@/lib/logger'
 import { COMMERCE_PLATFORMS } from '@/lib/commerce/sync'
-import { runAutopilot } from '@/lib/ads/autopilot'
+import { refreshToday, runAutopilot } from '@/lib/ads/autopilot'
 import { safeEqual } from '@/lib/ads/schedule'
 
 // =============================================
@@ -13,6 +13,8 @@ import { safeEqual } from '@/lib/ads/schedule'
 // cele mai vechi primele. O trecere care n-a ajuns la capăt (timpul cronului,
 // o eroare Google trecătoare) nu se socotește: magazinul revine la ora
 // următoare, primul la rând.
+// În timpul rămas, magazinele cu campanii pornite primesc cifrele de azi
+// (o cerere la Google pe magazin), ca paginile să nu aștepte trecerea zilnică.
 // =============================================
 
 export const maxDuration = 300
@@ -63,5 +65,26 @@ export async function GET(request: Request) {
     }
     first = false
   }
-  return NextResponse.json({ stores: (stores ?? []).length, results })
+
+  // Cifrele de azi: și pentru magazinele trecute acum (trecerea zilnică citește doar până ieri), cele necitite
+  // de cel mai mult timp primele
+  const today: Record<string, string> = {}
+  const { data: live, error: liveError } = await supabase.from('stores')
+    .select('id, ad_campaigns!inner(id)')
+    .in('user_id', users)
+    .eq('ad_campaigns.status', 'active')
+    .not('ad_campaigns.google_campaign_id', 'is', null)
+    .order('ads_today_at', { ascending: true, nullsFirst: true })
+    .limit(200)
+  if (liveError) logError('/api/cron/ads-sync', 'Nu am putut citi magazinele cu campanii pornite', { error: liveError.message })
+  for (const s of live ?? []) {
+    if (Date.now() > deadline) { today[s.id] = 'skipped_time'; continue }
+    try {
+      today[s.id] = await refreshToday(s.id)
+    } catch (err) {
+      logError('/api/cron/ads-sync', 'Cifrele de azi nu s-au putut citi', { storeId: s.id, error: err instanceof Error ? err.message : String(err) })
+      today[s.id] = 'error'
+    }
+  }
+  return NextResponse.json({ stores: (stores ?? []).length, results, today })
 }

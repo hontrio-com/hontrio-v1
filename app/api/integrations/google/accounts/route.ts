@@ -80,7 +80,7 @@ export async function PATCH(request: Request) {
   }
 
   // Alt cont: pilotul îl citește la următoarea oră a cronului (un magazin netrecut e primul la rând), cu tot istoricul
-  const { error } = await supabase.from('stores').update({ google_ads_customer_id: customerId, ads_synced_at: null }).eq('id', store.id)
+  const { error } = await supabase.from('stores').update({ google_ads_customer_id: customerId, ads_synced_at: null, ads_today_at: null }).eq('id', store.id)
   if (error) {
     // Detaliul tehnic merge în jurnal, nu la om
     logApiError('/api/integrations/google/accounts', 500, 'Eroare la alegerea contului Google Ads', { error: error.message })

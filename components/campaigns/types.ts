@@ -27,8 +27,11 @@ export type SeriesPoint = { date: string; cost: number; value: number; conversio
 export type CampaignsData = {
   store: {
     platform: string; supported: boolean; store_name?: string | null; currency?: string
-    /** Ultima trecere a pilotului și, dacă n-a putut lucra (cont necitit, acces pierdut), de ce: cheie salvată. */
-    pilot?: { synced_at: string | null; error: string | null }
+    /**
+     * Ultima trecere a pilotului și, dacă n-a putut lucra (cont necitit, acces pierdut), de ce: cheie salvată.
+     * `live_at`: când s-au citit cifrele ultimei zile din serie, dacă e ziua de azi (citirea din oră în oră).
+     */
+    pilot?: { synced_at: string | null; error: string | null; live_at?: string | null }
   } | null
   plan: Plan | null
   audit?: AuditData | null

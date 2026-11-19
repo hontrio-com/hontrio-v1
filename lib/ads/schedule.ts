@@ -33,6 +33,33 @@ export function refreshFrom(lastSync: string | null, yesterday: string): string 
   return sinceLast < window ? sinceLast : window
 }
 
+/**
+ * Citirea din oră în oră (magazinele cu campanii pornite): zilele pe care trecerea zilnică nu le-a citit încă,
+ * de la ziua ei (ea citește până în ziua dinainte), dar cel puțin de ieri, ca ziua să se încheie și după miezul
+ * nopții; cel mult 33 de zile în urmă. Se termină mâine: Google socotește zilele în fusul orar al contului, unde
+ * poate fi deja ziua următoare (o zi din viitor nu are cifre, dar nici nu e o eroare).
+ */
+export function todayWindow(lastPass: string, nowMs: number): { from: string; to: string } {
+  const today = dayStr(new Date(nowMs))
+  const floor = addDays(today, -(REFRESH_DAYS - 1))
+  const yesterday = addDays(today, -1)
+  const passDay = lastPass.slice(0, 10)
+  const from = passDay < yesterday ? passDay : yesterday
+  return { from: from < floor ? floor : from, to: addDays(today, 1) }
+}
+
+/**
+ * Ultima zi cu cifre citite, pentru pagini (o zi necitită nu e o zi fără vânzări): ziua dinaintea ultimei treceri
+ * zilnice, cel mult ieri; sau ziua ultimei citiri din oră în oră, dacă a ajuns mai departe (azi, de obicei).
+ */
+export function lastFiguresDay(lastPass: string | null, lastToday: string | null, nowMs: number): string {
+  const yesterday = addDays(dayStr(new Date(nowMs)), -1)
+  const passDay = lastPass ? addDays(lastPass.slice(0, 10), -1) : null
+  const daily = passDay && passDay < yesterday ? passDay : yesterday
+  const live = lastToday ? lastToday.slice(0, 10) : null
+  return live && live > daily ? live : daily
+}
+
 /** Propunerile nedecise expiră: cifrele de sub ele s-au schimbat. */
 export const PROPOSAL_TTL_DAYS = 7
 
