@@ -1,307 +1,165 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
-import { toast } from 'sonner'
-import { Bell, CheckCircle2, Search, Send, Trash2, UserCheck, Users } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { Activity, Bell, ChevronRight, Search, ShoppingBag, Store, Users } from 'lucide-react'
 import { useT } from '@/lib/i18n/context'
 import { PageHeader } from '@/components/app/page-header'
 import { Card } from '@/components/app/surface'
-import { DataRow } from '@/components/app/kpi'
-import { Badge } from '@/components/app/badge'
+import { StatCard } from '@/components/app/kpi'
+import { Badge, StatusDot } from '@/components/app/badge'
 import { Button } from '@/components/app/button'
-import { ChoiceCard, Input, Select, Textarea } from '@/components/app/input'
-import { Segmented } from '@/components/app/tabs'
+import { Input, Select } from '@/components/app/input'
 import { Table, Td, Th, Tr } from '@/components/app/table'
-import { Sheet, SheetHeader } from '@/components/app/sheet'
-import { ConfirmDialog, Modal } from '@/components/app/dialog'
-import { Callout, EmptyState, Skeleton } from '@/components/app/feedback'
+import { EmptyState } from '@/components/app/feedback'
 import { FadeIn } from '@/components/app/motion'
 import { useFormats } from '@/components/app/formats'
-import { UserAvatar } from '@/components/admin/parts'
+import { useTimeAgo } from '@/components/app/time'
+import { useAdminData } from '@/components/admin/use-admin-data'
+import { LoadError, PageSkeleton, RefreshButton, UserAvatar } from '@/components/admin/parts'
+import { NotifyModal, sendNotification } from '@/components/admin/notify-modal'
+import { useMoney } from '@/components/admin/money'
+import { platformName } from '@/lib/commerce/platforms'
+import type { AccountRow, AccountsList, Money } from '@/lib/admin/accounts'
 
 // =============================================
-// Utilizatorii: lista lor, cu căutare și filtru după rol. Un rând deschide
-// panoul omului: rolul, notificările și ștergerea contului.
+// Conturile: totalurile, căutarea, filtrele și tabelul cu fiecare cont
+// (magazinul, campaniile pornite, comenzile aduse de campaniile Hontrio în
+// ultimele 30 de zile, ultima activitate). Fără datele Google
+// ale clienților (lib/admin/accounts.ts). Un rând deschide pagina contului.
 // =============================================
 
-type User = {
-  id: string; email: string; name: string | null; role: string
-  onboarding_completed: boolean; created_at: string
-}
+type Filter = 'all' | 'campaigns' | 'no_store' | 'admins'
+type Sort = 'newest' | 'seen' | 'hontrio'
 
-const ROLES = ['user', 'admin']
-
-const post = (url: string, body: unknown) =>
-  fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
-
-function Heading({ children }: { children: React.ReactNode }) {
-  return <h4 className="mb-2.5 text-[13px] font-semibold text-neutral-900">{children}</h4>
-}
-
-/** Fereastra unei notificări (către un om sau către toți). Se deschide de fiecare dată goală. */
-function NotifyModal({ onClose, title, description, icon, titlePlaceholder, messagePlaceholder, submitLabel, onSend }: {
-  onClose: () => void
-  title: string
-  description: React.ReactNode
-  icon?: React.ReactNode
-  titlePlaceholder: string
-  messagePlaceholder: string
-  submitLabel: string
-  onSend: (n: { title: string; message: string; type: string }) => Promise<boolean>
-}) {
-  const { t } = useT()
-  const [subject, setSubject] = useState('')
-  const [message, setMessage] = useState('')
-  const [type, setType] = useState('info')
-  const [sending, setSending] = useState(false)
-
-  const send = async () => {
-    setSending(true)
-    const sent = await onSend({ title: subject, message, type })
-    setSending(false)
-    if (sent) onClose()
-  }
-
-  return (
-    <Modal open onOpenChange={o => { if (!o) onClose() }} title={title} description={description} icon={icon}
-      footer={(
-        <>
-          <Button onClick={onClose}>{t('common.cancel')}</Button>
-          <Button variant="primary" loading={sending} disabled={!subject || !message} onClick={send}>{!sending && <Send />}{submitLabel}</Button>
-        </>
-      )}>
-      <div className="space-y-4">
-        <div>
-          <label htmlFor="notify-title" className="mb-1.5 block text-[13px] font-medium text-neutral-700">{t('admin.field_title')}</label>
-          <Input id="notify-title" value={subject} onChange={e => setSubject(e.target.value)} placeholder={titlePlaceholder} />
-        </div>
-        <div>
-          <label htmlFor="notify-message" className="mb-1.5 block text-[13px] font-medium text-neutral-700">{t('admin.field_message')}</label>
-          <Textarea id="notify-message" value={message} onChange={e => setMessage(e.target.value)} placeholder={messagePlaceholder} rows={4} />
-        </div>
-        <div>
-          <p className="mb-1.5 text-[13px] font-medium text-neutral-700">{t('admin.field_type')}</p>
-          <Segmented id="notify-type" size="sm" value={type} onChange={setType} items={['info', 'success', 'warning', 'error'].map(v => ({ value: v, label: t(`admin.notif_type_${v}`) }))} />
-        </div>
-      </div>
-    </Modal>
-  )
-}
+/** Suma pentru sortare: monedele adunate ca numere (doar ordinea contează). */
+const total = (m: Money) => Object.values(m).reduce((s, v) => s + v, 0)
 
 export default function AdminUsersPage() {
-  const { t, intlLocale } = useT()
-  const f = useFormats('USD')
-  const roleLabel = (role: string) => t.has(`admin.users_role_${role}`) ? t(`admin.users_role_${role}`) : role
-
-  const [users, setUsers] = useState<User[]>([])
-  const [loading, setLoading] = useState(true)
+  const { t } = useT()
+  const router = useRouter()
+  const f = useFormats('RON')
+  const money = useMoney()
+  const ago = useTimeAgo()
+  const { data, loading, refresh } = useAdminData<AccountsList>('/api/admin/accounts')
   const [search, setSearch] = useState('')
-  const [roleFilter, setRoleFilter] = useState('all')
-
-  // Panoul unui om
-  const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [sheetOpen, setSheetOpen] = useState(false)
-  const [busy, setBusy] = useState('')
-  const selected = users.find(u => u.id === selectedId) ?? null
-
-  // Ferestrele peste panou
-  const [notifyUser, setNotifyUser] = useState<User | null>(null)
+  const [filter, setFilter] = useState<Filter>('all')
+  const [sort, setSort] = useState<Sort>('newest')
   const [globalOpen, setGlobalOpen] = useState(false)
-  const [deleteUser, setDeleteUser] = useState<User | null>(null)
-  const [deleteConfirm, setDeleteConfirm] = useState('')
-  const [deleting, setDeleting] = useState(false)
-
-  useEffect(() => {
-    let alive = true
-    fetch('/api/admin/users')
-      .then(r => (r.ok ? r.json() : null))
-      .then(d => { if (alive && d) setUsers(d.users ?? []) })
-      .catch(() => {})
-      .finally(() => { if (alive) setLoading(false) })
-    return () => { alive = false }
-  }, [])
 
   const shown = useMemo(() => {
-    const q = search.toLowerCase()
-    return users.filter(u =>
-      (!q || u.email.toLowerCase().includes(q) || (u.name ?? '').toLowerCase().includes(q)) &&
-      (roleFilter === 'all' || u.role === roleFilter))
-  }, [users, search, roleFilter])
+    const q = search.trim().toLowerCase()
+    const rows = (data?.accounts ?? []).filter(a =>
+      (!q || a.email.toLowerCase().includes(q) || (a.name ?? '').toLowerCase().includes(q) || a.stores.some(s => s.name.toLowerCase().includes(q)))
+      && (filter === 'all'
+        || (filter === 'campaigns' && a.campaigns.active > 0)
+        || (filter === 'no_store' && a.stores.length === 0)
+        || (filter === 'admins' && a.role === 'admin')))
+    const key = (a: AccountRow): number | string => sort === 'seen' ? a.last_seen_at ?? '' : sort === 'hontrio' ? total(a.d30.sales) : a.created_at
+    return [...rows].sort((a, b) => { const x = key(a); const y = key(b); return x < y ? 1 : x > y ? -1 : 0 })
+  }, [data, search, filter, sort])
 
-  const patchUser = (id: string, patch: Partial<User>) => setUsers(prev => prev.map(u => u.id === id ? { ...u, ...patch } : u))
-
-  const openUser = (user: User) => {
-    setSelectedId(user.id)
-    setSheetOpen(true)
-  }
-
-  const changeRole = async (user: User, role: string) => {
-    setBusy(`role-${role}`)
-    try {
-      const res = await post('/api/admin/users/role', { user_id: user.id, role })
-      const data = await res.json()
-      if (!res.ok) { toast.error(data.error || t('admin.users_change_role_error')); return }
-      toast.success(t('admin.users_role_changed', { role: roleLabel(role) }))
-      patchUser(user.id, { role })
-    } catch { toast.error(t('admin.users_change_role_error')) } finally { setBusy('') }
-  }
-
-  const removeUser = async () => {
-    if (!deleteUser || deleteConfirm !== deleteUser.email) return
-    setDeleting(true)
-    try {
-      const res = await post('/api/admin/users/delete', { user_id: deleteUser.id })
-      const data = await res.json()
-      if (!res.ok) { toast.error(data.error || t('admin.users_delete_error')); return }
-      toast.success(data.message || t('admin.users_deleted'))
-      setUsers(prev => prev.filter(u => u.id !== deleteUser.id))
-      setDeleteUser(null)
-      setSheetOpen(false)
-    } catch { toast.error(t('admin.users_delete_error')) } finally { setDeleting(false) }
-  }
-
-  const sendNotification = async (body: Record<string, unknown>, okMessage: string) => {
-    try {
-      const res = await post('/api/notifications', body)
-      const data = await res.json()
-      if (!res.ok) { toast.error(data.error || t('admin.notification_send_error')); return false }
-      toast.success(okMessage)
-      return true
-    } catch {
-      toast.error(t('admin.notification_send_error'))
-      return false
-    }
-  }
+  if (loading && !data) return <PageSkeleton tiles={4} />
+  if (!data?.accounts) return <LoadError />
+  const totals = data.totals
 
   return (
     <FadeIn className="space-y-6">
-      <PageHeader title={t('admin.nav_users')} description={t('admin.users_registered_count', { count: users.length })}
-        actions={<Button variant="primary" onClick={() => setGlobalOpen(true)}><Bell />{t('admin.users_global_notification')}</Button>} />
+      <PageHeader title={t('admin.nav_users')} description={t('admin.accounts_description')}
+        actions={<>
+          <RefreshButton loading={loading} onClick={refresh} />
+          <Button variant="primary" onClick={() => setGlobalOpen(true)}><Bell />{t('admin.users_global_notification')}</Button>
+        </>} />
+
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <StatCard label={t('admin.accounts_total')} value={f.int.format(totals.accounts)} icon={<Users />}
+          footnote={t('admin.accounts_new_this_month', { count: totals.new_this_month })} />
+        <StatCard label={t('admin.accounts_active_7d')} value={f.int.format(totals.active_7d)} icon={<Activity />} footnote={t('admin.accounts_active_7d_hint')} />
+        <StatCard label={t('admin.accounts_stores')} value={f.int.format(totals.stores)} icon={<Store />}
+          footnote={t('admin.accounts_campaigns_active', { count: totals.campaigns_active })} />
+        <StatCard label={t('admin.accounts_hontrio_sales_30')} value={money.many(totals.d30.sales)} icon={<ShoppingBag />}
+          footnote={t('admin.accounts_orders', { count: totals.d30.orders })} />
+      </div>
 
       <div className="flex flex-col gap-2 sm:flex-row">
-        <Input icon={<Search />} wrapperClassName="flex-1" value={search} onChange={e => setSearch(e.target.value)} placeholder={t('admin.users_search_placeholder')} />
-        <Select value={roleFilter} onChange={e => setRoleFilter(e.target.value)} wrapperClassName="sm:w-40" aria-label={t('admin.users_role')}>
-          <option value="all">{t('admin.users_role')}: {t('common.all')}</option>
-          {ROLES.map(r => <option key={r} value={r}>{roleLabel(r)}</option>)}
+        <Input icon={<Search />} wrapperClassName="flex-1" value={search} onChange={e => setSearch(e.target.value)} placeholder={t('admin.accounts_search')} />
+        <Select value={filter} onChange={e => setFilter(e.target.value as Filter)} wrapperClassName="sm:w-52" aria-label={t('admin.accounts_filter')}>
+          {(['all', 'campaigns', 'no_store', 'admins'] as const).map(v => <option key={v} value={v}>{t(`admin.accounts_filter_${v}`)}</option>)}
+        </Select>
+        <Select value={sort} onChange={e => setSort(e.target.value as Sort)} wrapperClassName="sm:w-52" aria-label={t('admin.accounts_sort')}>
+          {(['newest', 'seen', 'hontrio'] as const).map(v => <option key={v} value={v}>{t(`admin.accounts_sort_${v}`)}</option>)}
         </Select>
       </div>
 
       <Card className="overflow-hidden">
-        {loading ? (
-          <div className="space-y-3 p-5">{[1, 2, 3, 4, 5].map(i => <Skeleton key={i} className="h-10" />)}</div>
-        ) : shown.length === 0 ? (
+        {shown.length === 0 ? (
           <EmptyState icon={<Users />} title={t('admin.users_empty')} />
         ) : (
           <Table>
             <thead>
               <tr>
-                <Th>{t('admin.users_role_user')}</Th>
-                <Th className="hidden md:table-cell">{t('admin.users_registered')}</Th>
-                <Th><span className="sr-only">{t('admin.actions')}</span></Th>
+                <Th className="min-w-[220px]">{t('admin.col_account')}</Th>
+                <Th className="hidden md:table-cell">{t('admin.col_store')}</Th>
+                <Th className="hidden lg:table-cell">{t('admin.col_campaigns')}</Th>
+                <Th align="right">{t('admin.col_hontrio_sales_30')}</Th>
+                <Th className="hidden lg:table-cell">{t('admin.col_last_seen')}</Th>
+                <Th className="w-8" />
               </tr>
             </thead>
             <tbody>
-              {shown.map(user => (
-                <Tr key={user.id} clickable onClick={() => openUser(user)}>
-                  <Td>
-                    <div className="flex items-center gap-3">
-                      <UserAvatar name={user.name} email={user.email} admin={user.role === 'admin'} />
-                      <div className="min-w-0">
-                        <p className="flex items-center gap-2 font-medium text-neutral-900">
-                          <span className="truncate">{user.name || t('admin.users_no_name')}</span>
-                          {user.role === 'admin' && <Badge tone="brand" className="h-[18px] px-1 text-[10px]">{t('admin.users_role_admin')}</Badge>}
-                        </p>
-                        <p className="truncate text-[12px] text-neutral-500">{user.email}</p>
+              {shown.map(a => {
+                const open = () => router.push(`/admin/users/${a.id}`)
+                return (
+                  <Tr key={a.id} clickable tabIndex={0} onClick={open} onKeyDown={e => { if (e.key === 'Enter') open() }}>
+                    <Td>
+                      <div className="flex items-center gap-3">
+                        <UserAvatar name={a.name} email={a.email} admin={a.role === 'admin'} />
+                        <div className="min-w-0">
+                          <p className="flex items-center gap-2 font-medium text-neutral-900">
+                            <span className="truncate">{a.name || t('admin.users_no_name')}</span>
+                            {a.role === 'admin' && <Badge tone="brand" className="h-[18px] px-1 text-[10px]">{t('admin.users_role_admin')}</Badge>}
+                            {!a.email_verified && <Badge tone="amber" className="h-[18px] px-1 text-[10px]">{t('admin.badge_unverified')}</Badge>}
+                          </p>
+                          <p className="truncate text-[12px] text-neutral-500">{a.email}</p>
+                        </div>
                       </div>
-                    </div>
-                  </Td>
-                  <Td className="hidden whitespace-nowrap text-neutral-500 md:table-cell">{f.date.format(new Date(user.created_at))}</Td>
-                  <Td align="right">
-                    <Button size="icon" variant="ghost" title={t('admin.send_notification')} aria-label={t('admin.send_notification')}
-                      onClick={e => { e.stopPropagation(); setNotifyUser(user) }}>
-                      <Bell />
-                    </Button>
-                  </Td>
-                </Tr>
-              ))}
+                    </Td>
+                    <Td className="hidden md:table-cell">
+                      {a.stores.length ? (
+                        <div className="min-w-0">
+                          <p className="flex items-center gap-1.5 truncate text-neutral-800">
+                            <StatusDot tone={a.stores[0].status === 'active' ? 'green' : 'amber'} />
+                            <span className="truncate">{a.stores[0].name}</span>
+                            {a.stores.length > 1 && <span className="text-neutral-400">+{a.stores.length - 1}</span>}
+                          </p>
+                          <p className="text-[12px] text-neutral-500">{platformName(a.stores[0].platform)}</p>
+                        </div>
+                      ) : <span className="text-neutral-300">{t('admin.no_store')}</span>}
+                    </Td>
+                    <Td className="hidden lg:table-cell">
+                      {a.campaigns.total ? <span className="text-neutral-700">{t('admin.accounts_campaigns_active', { count: a.campaigns.active })}</span> : <span className="text-neutral-300">—</span>}
+                    </Td>
+                    <Td align="right" className="tabular-nums text-neutral-900">
+                      {money.many(a.d30.sales, '—')}
+                      {a.d30.orders > 0 && <span className="block text-[12px] text-neutral-400">{t('admin.accounts_orders', { count: a.d30.orders })}</span>}
+                    </Td>
+                    <Td className="hidden whitespace-nowrap text-neutral-500 lg:table-cell">{a.last_seen_at ? ago(a.last_seen_at) : '—'}</Td>
+                    <Td><ChevronRight className="size-4 text-neutral-300" /></Td>
+                  </Tr>
+                )
+              })}
             </tbody>
           </Table>
         )}
       </Card>
-
-      {/* Panoul omului */}
-      <Sheet open={sheetOpen && !!selected} onOpenChange={setSheetOpen} width={480}>
-        {selected && (
-          <>
-            <SheetHeader title={selected.name || t('admin.users_no_name')} description={selected.email} onClose={() => setSheetOpen(false)}
-              icon={<span className="text-[15px] font-semibold">{(selected.name?.[0] ?? selected.email[0]).toUpperCase()}</span>} />
-            <div className="flex-1 space-y-6 overflow-y-auto px-6 py-5">
-              <section>
-                <Heading>{t('admin.users_change_role')}</Heading>
-                <div className="grid grid-cols-2 gap-2">
-                  {ROLES.map(role => (
-                    <ChoiceCard key={role} active={selected.role === role} disabled={busy === `role-${role}`} onClick={() => { if (selected.role !== role) changeRole(selected, role) }} title={roleLabel(role)} />
-                  ))}
-                </div>
-              </section>
-
-              <section>
-                <Heading>{t('admin.users_quick_actions')}</Heading>
-                <div className="flex gap-2">
-                  <Button className="flex-1" onClick={() => setNotifyUser(selected)}><Bell />{t('admin.send_notification')}</Button>
-                  <Button variant="danger" aria-label={t('admin.users_delete_title')} title={t('admin.users_delete_title')}
-                    onClick={() => { setDeleteUser(selected); setDeleteConfirm('') }}><Trash2 /></Button>
-                </div>
-              </section>
-
-              <section>
-                <Heading>{t('admin.users_details')}</Heading>
-                <dl className="divide-y divide-neutral-100">
-                  <DataRow label={t('admin.users_id')} value={<code className="text-[12px]">{selected.id.slice(0, 16)}…</code>} />
-                  <DataRow label={t('admin.users_registered')} value={new Date(selected.created_at).toLocaleDateString(intlLocale, { day: 'numeric', month: 'long', year: 'numeric' })} />
-                  <DataRow label={t('admin.users_onboarding')} value={(
-                    selected.onboarding_completed
-                      ? <Badge tone="green"><CheckCircle2 className="size-3" />{t('admin.users_onboarding_complete')}</Badge>
-                      : <Badge tone="amber">{t('admin.users_onboarding_incomplete')}</Badge>
-                  )} />
-                </dl>
-              </section>
-            </div>
-          </>
-        )}
-      </Sheet>
-
-      {notifyUser && (
-        <NotifyModal onClose={() => setNotifyUser(null)} title={t('admin.send_notification')}
-          description={<>{t('admin.users_to')} <span className="font-medium text-neutral-700">{notifyUser.name || notifyUser.email}</span></>}
-          icon={<UserCheck />} titlePlaceholder={t('admin.users_notification_title_placeholder')} messagePlaceholder={t('admin.users_notification_message_placeholder')}
-          submitLabel={t('admin.send_notification')}
-          onSend={n => sendNotification({ ...n, user_id: notifyUser.id, is_global: false }, t('admin.users_notification_sent', { name: notifyUser.name || notifyUser.email }))} />
-      )}
 
       {globalOpen && (
         <NotifyModal onClose={() => setGlobalOpen(false)} title={t('admin.users_global_notification')}
           description={<>{t('admin.users_global_desc_before')} <span className="font-medium text-neutral-700">{t('admin.users_global_desc_all')}</span> {t('admin.users_global_desc_after')}</>}
           icon={<Bell />} titlePlaceholder={t('admin.users_global_title_placeholder')} messagePlaceholder={t('admin.users_global_message_placeholder')}
           submitLabel={t('admin.users_send_to_all')}
-          onSend={n => sendNotification({ ...n, is_global: true }, t('admin.users_global_sent'))} />
+          onSend={n => sendNotification(t, { ...n, is_global: true }, t('admin.users_global_sent'))} />
       )}
-
-      <ConfirmDialog open={!!deleteUser} onOpenChange={o => { if (!o) setDeleteUser(null) }} title={t('admin.users_delete_title')} description={t('admin.users_delete_permanent')}
-        confirmLabel={t('admin.delete_permanently')} loading={deleting} disabled={deleteConfirm !== deleteUser?.email} onConfirm={removeUser}>
-        <Callout tone="danger" title={t('admin.users_delete_list_title')}>
-          <ul className="list-inside list-disc">
-            <li>{t('admin.users_delete_item_account')}</li>
-            <li>{t('admin.users_delete_item_products')}</li>
-            <li>{t('admin.users_delete_item_stores')}</li>
-            <li>{t('admin.users_delete_item_notifications')}</li>
-          </ul>
-        </Callout>
-        <label htmlFor="delete-confirm" className="mb-1.5 mt-4 block text-[13px] text-neutral-600">
-          {t('admin.users_delete_confirm_prompt')} <span className="font-medium text-neutral-900">{deleteUser?.email}</span>
-        </label>
-        <Input id="delete-confirm" value={deleteConfirm} onChange={e => setDeleteConfirm(e.target.value)} placeholder={deleteUser?.email} autoComplete="off" />
-      </ConfirmDialog>
     </FadeIn>
   )
 }

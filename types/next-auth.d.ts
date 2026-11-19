@@ -17,5 +17,7 @@ declare module 'next-auth/jwt' {
   interface JWT {
     id: string
     role: 'user' | 'admin'
+    /** Când s-a scris ultima oară users.last_seen_at (ms). */
+    seenAt?: number
   }
 }

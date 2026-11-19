@@ -29,6 +29,8 @@ if (!process.env.NEXTAUTH_SECRET) {
 //   din cont, la cel mult un minut după schimbare.
 // - Sesiunea poartă și `termsAccepted`: un cont fără acord înregistrat (făcut
 //   cu Google sau de dinainte de acord) este trimis de proxy la /accept-terms.
+// - users.last_seen_at: la intrare și apoi cel mult o dată pe oră (pentru
+//   panoul de administrare).
 // Erorile aruncate din `authorize` ajung la pagina de intrare ca `error`.
 // =============================================
 
@@ -42,6 +44,8 @@ type Profile = {
 
 /** Cât de des se recitește contul în sesiune (rolul, versiunea, numele). */
 const REFRESH_MS = 60 * 1000
+/** Cât de des se scrie ultima folosire a platformei. */
+const SEEN_MS = 60 * 60 * 1000
 
 const defaultName = (locale: unknown) => tFor(isLocale(locale) ? locale : 'ro')('settings.default_user')
 
@@ -193,6 +197,8 @@ export const authOptions: NextAuthOptions = {
         token.provider = account?.provider ?? 'credentials'
         token.authAt = Date.now()
         token.refreshedAt = Date.now()
+        token.seenAt = Date.now()
+        await supabase.from('users').update({ last_seen_at: new Date().toISOString() }).eq('id', profile.id)
         return token
       }
 
@@ -217,6 +223,11 @@ export const authOptions: NextAuthOptions = {
         token.termsAccepted = !!profile.terms_accepted_at
         token.locale = profile.ui_locale ?? null
         token.refreshedAt = Date.now()
+        // Ultima folosire, cel mult o dată pe oră
+        if (Date.now() - (Number(token.seenAt) || 0) > SEEN_MS) {
+          await supabase.from('users').update({ last_seen_at: new Date().toISOString() }).eq('id', token.id)
+          token.seenAt = Date.now()
+        }
       }
       return token
     },
