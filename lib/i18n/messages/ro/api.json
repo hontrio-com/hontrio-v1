@@ -62,5 +62,6 @@
   "reply_empty": "Scrie un mesaj sau adaugă un atașament.",
   "reply_send_failed": "Nu am putut trimite răspunsul.",
   "too_many_tickets": "Ai trimis prea multe tichete. Așteaptă puțin.",
-  "too_many_messages": "Ai trimis prea multe mesaje. Așteaptă puțin."
+  "too_many_messages": "Ai trimis prea multe mesaje. Așteaptă puțin.",
+  "impersonation_blocked": "În contul unui client, ca administrator, nu poți face asta. Doar clientul o poate face."
 }

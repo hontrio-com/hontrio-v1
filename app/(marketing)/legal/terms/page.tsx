@@ -153,6 +153,7 @@ const RO: LegalDoc = {
         <Clause n="10.2"><P>Datele cumpărătorilor din magazinul tău le prelucrăm ca persoană împuternicită, după <L href="/legal/dpa">Acordul de prelucrare a datelor</L>, care face parte din acest contract.</P></Clause>
         <Clause n="10.3"><P>Datele magazinului și ale conturilor tale rămân ale tale. Ne dai dreptul să le folosim doar cât este nevoie ca să-ți furnizăm Hontrio.</P></Clause>
         <Clause n="10.4"><P>Datele primite de la Google le folosim după Politica Google privind datele utilizatorilor din API-uri (Google API Services User Data Policy), inclusiv cerințele Limited Use.</P></Clause>
+        <Clause n="10.5"><P>Pentru suport, un administrator Hontrio poate intra în contul tău, cel mult 60 de minute o dată, fără să-ți ceară de fiecare dată acces. În acest timp vede ce vezi și tu, inclusiv datele din Google Ads și Merchant Center, și poate lucra în locul tău, de exemplu la campanii. Nu îți poate schimba parola, datele contului sau ale firmei, nu poate exporta datele, nu poate accepta Termenii în locul tău și nu poate lega ori deconecta conturi. Fiecare intrare și ieșire rămâne în jurnal, iar tu le vezi în Setări, la Securitate. Acceptând această versiune a Termenilor, îți dai acordul pentru acest acces.</P></Clause>
       </>,
     },
     {
@@ -388,6 +389,7 @@ const EN: LegalDoc = {
         <Clause n="10.2"><P>We process your store’s buyers’ data as a processor, under the <L href="/legal/dpa">Data Processing Agreement</L>, which is part of this contract.</P></Clause>
         <Clause n="10.3"><P>The data of your store and your accounts remains yours. You grant us the right to use it only as far as needed to provide Hontrio to you.</P></Clause>
         <Clause n="10.4"><P>We use the data received from Google under the Google API Services User Data Policy, including the Limited Use requirements.</P></Clause>
+        <Clause n="10.5"><P>For support, a Hontrio admin may enter your account for up to 60 minutes at a time, without asking you for access each time. During that time, they see what you see, including your Google Ads and Merchant Center data, and can work on your behalf, for example on campaigns. They cannot change your password, your account or company details, export your data, accept the Terms for you, or link or disconnect accounts. Every entry and exit is kept in a log, which you see in Settings, under Security. By accepting this version of the Terms, you agree to this access.</P></Clause>
       </>,
     },
     {

@@ -32,6 +32,7 @@ import MerchantCard from '@/components/integrations/merchant-card'
 import { EdinioConnectCard, EdinioStoreCard, type EdinioStore } from '@/components/integrations/edinio-card'
 import { KEY_PLATFORM_ICONS, KeyStoreForm, type KeyStorePlatform } from '@/components/integrations/key-store-form'
 import { platformName } from '@/lib/commerce/platforms'
+import { SupportAccess } from '@/components/settings/support-access'
 
 const KEY_FORMS: KeyStorePlatform[] = ['gomag', 'merchantpro', 'opencart']
 
@@ -650,6 +651,8 @@ function SettingsView() {
                 </div>
               </Card>
             </Section>
+
+            <SupportAccess />
           </div>
         )}
 

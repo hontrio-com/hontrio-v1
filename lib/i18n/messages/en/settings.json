@@ -134,5 +134,14 @@
   "platform_active": "{{platform}} active",
   "store_reconnected_msg": "The store’s keys were updated.",
   "disconnect_confirm_remove": "Disconnect the store? Hontrio permanently deletes the campaigns it created for it from Google Ads, with their budgets, and its products, orders and campaign history are removed from Hontrio.",
-  "delete_campaigns_warning_remove": "The campaigns created by Hontrio are permanently deleted from your Google Ads account together with your account and can't be started again. Your other campaigns stay as they are."
+  "delete_campaigns_warning_remove": "The campaigns created by Hontrio are permanently deleted from your Google Ads account together with your account and can't be started again. Your other campaigns stay as they are.",
+  "support_access_title": "Hontrio team access",
+  "support_access_desc": "For support, a Hontrio admin can enter your account for up to 60 minutes at a time. They see what you see, including your Google Ads figures, but can’t change your password or company details or link or disconnect accounts (Terms, section 10.5). Every entry appears below.",
+  "support_access_failed": "We couldn’t load the access log.",
+  "support_access_off": "The Hontrio team can’t enter your account. The rule applies only after you accept the Terms of 22 November 2026.",
+  "support_access_terms": "Read and accept the Terms",
+  "support_access_none": "The Hontrio team hasn’t entered your account yet.",
+  "support_access_entry": "The Hontrio team entered on {{start}}",
+  "support_access_open": "In the account now",
+  "support_access_ended": "left on {{end}}"
 }

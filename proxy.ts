@@ -3,7 +3,9 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { LOCALE_COOKIE, LOCALE_COOKIE_MAX_AGE, SOURCE_LOCALE, detectLocale, isLocale } from '@/lib/i18n/config'
 import { MESSAGES } from '@/lib/i18n/dictionaries'
-import { createT } from '@/lib/i18n/translate'
+import { createT, type TFunction } from '@/lib/i18n/translate'
+import { blockedWhileImpersonating, impersonationBlockedMessage } from '@/lib/auth/impersonation-rules'
+import { TERMS_VERSION } from '@/lib/auth/validation'
 
 // ─── Hostname detection ──────────────────────────────────────────────────────
 // hontrio.com (no subdomain) → landing/marketing pages
@@ -25,11 +27,11 @@ function getHostType(request: NextRequest): 'landing' | 'app' {
 }
 
 /** Mesajul de refuz, în limba cererii (alegerea din cookie, altfel țara și browserul). */
-function forbidden(request: NextRequest) {
+function forbidden(request: NextRequest, message: (t: TFunction) => string = t => t('api.forbidden')) {
   const chosen = request.cookies.get(LOCALE_COOKIE)?.value
   const locale = isLocale(chosen) ? chosen : detectLocale(request.headers.get('x-vercel-ip-country'), request.headers.get('accept-language'))
   const t = createT(locale, MESSAGES[locale], locale === SOURCE_LOCALE ? undefined : MESSAGES[SOURCE_LOCALE])
-  return NextResponse.json({ error: t('api.forbidden') }, { status: 403 })
+  return NextResponse.json({ error: message(t) }, { status: 403 })
 }
 
 // Paginile de cont: deschise fără sesiune
@@ -76,6 +78,11 @@ export async function proxy(request: NextRequest) {
   // O sesiune retrasă (parolă schimbată, cont șters) rămâne în cookie fără `id`
   const authed = typeof token?.id === 'string' && token.id.length > 0
   const response = NextResponse.next()
+
+  // Administratorul în contul unui client: ce rămâne doar al clientului (lib/auth/impersonation-rules.ts)
+  if (authed && token?.impersonator && blockedWhileImpersonating(pathname, request.method)) {
+    return forbidden(request, impersonationBlockedMessage)
+  }
 
   // ===== CORS for API routes =====
   if (pathname.startsWith('/api/')) {
@@ -136,8 +143,10 @@ export async function proxy(request: NextRequest) {
   // /accept-terms; până atunci nu are acces la nicio pagină și niciun API al platformei.
   // Sesiunile mai vechi nu au câmpul și îl primesc la prima reîmprospătare (cel mult un minut).
   const needsTerms = token?.termsAccepted === false
+  // O versiune nouă a Termenilor, încă neacceptată: pagina o arată la cerere (din anunțul din aplicație), fără să oprească nimic
+  const outdatedTerms = typeof token?.termsVersion === 'string' && token.termsVersion < TERMS_VERSION
   if (pathname === '/accept-terms') {
-    return needsTerms ? response : NextResponse.redirect(new URL('/dashboard', request.url))
+    return needsTerms || outdatedTerms ? response : NextResponse.redirect(new URL('/dashboard', request.url))
   }
   if (needsTerms) {
     if (pathname.startsWith('/api/')) return forbidden(request)
@@ -193,6 +202,9 @@ export const config = {
     '/api/admin/:path*',
     '/api/search/:path*',
     '/api/shopify/:path*',
+    // Doar ca să fie refuzate administratorului din contul unui client (rutele își verifică singure sesiunea)
+    '/api/auth/accept-terms',
+    '/api/billing/profile',
     '/login',
     '/register',
     '/forgot-password',

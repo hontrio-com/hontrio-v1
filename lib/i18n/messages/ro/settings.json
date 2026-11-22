@@ -135,5 +135,14 @@
   "platform_active": "{{platform}} activ",
   "store_reconnected_msg": "Cheile magazinului au fost actualizate.",
   "disconnect_confirm_remove": "Deconectezi magazinul? Hontrio șterge definitiv din Google Ads campaniile create pentru el, cu bugetele lor, iar produsele, comenzile și istoricul campaniilor lui se șterg din Hontrio.",
-  "delete_campaigns_warning_remove": "Campaniile create de Hontrio se șterg definitiv din contul tău Google Ads odată cu contul și nu mai pot fi pornite din nou. Celelalte campanii din cont rămân cum sunt."
+  "delete_campaigns_warning_remove": "Campaniile create de Hontrio se șterg definitiv din contul tău Google Ads odată cu contul și nu mai pot fi pornite din nou. Celelalte campanii din cont rămân cum sunt.",
+  "support_access_title": "Accesul echipei Hontrio",
+  "support_access_desc": "Pentru suport, un administrator Hontrio poate intra în contul tău cel mult 60 de minute o dată. Vede ce vezi și tu, inclusiv cifrele din Google Ads, dar nu-ți poate schimba parola sau datele firmei și nu poate lega ori deconecta conturi (Termeni, art. 10.5). Fiecare intrare apare mai jos.",
+  "support_access_failed": "Nu am putut încărca jurnalul accesului.",
+  "support_access_off": "Echipa Hontrio nu poate intra în contul tău. Regula se aplică doar după ce accepți Termenii din 22 noiembrie 2026.",
+  "support_access_terms": "Citește și acceptă Termenii",
+  "support_access_none": "Echipa Hontrio nu a intrat încă în contul tău.",
+  "support_access_entry": "Echipa Hontrio a intrat pe {{start}}",
+  "support_access_open": "În cont acum",
+  "support_access_ended": "a ieșit pe {{end}}"
 }

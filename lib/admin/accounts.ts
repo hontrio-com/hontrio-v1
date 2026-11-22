@@ -155,6 +155,8 @@ export type AccountDetail = {
   actions: { id: string; kind: string; status: string; source: string; created_at: string; campaign: string | null; error: string | null }[]
   tickets: { id: string; subject: string; status: string; priority: string | null; created_at: string }[]
   notifications: { id: string; title: string; type: string | null; is_read: boolean; created_at: string }[]
+  /** Intrările administratorilor în acest cont („Conectare”), din admin_impersonations. */
+  impersonations: { id: string; admin_email: string; started_at: string; expires_at: string; ended_at: string | null; ended_by: string | null }[]
 }
 
 const STORE_COLUMNS = 'id, user_id, platform, store_name, store_url, connection_status, sync_status, last_sync_at, last_error, orders_count, currency, timezone, country, created_at, google_ads_customer_id, merchant_center_id, ads_synced_at, ads_sync_error, ads_today_at, billing_suspended_at'
@@ -166,7 +168,7 @@ export async function accountDetail(supabase: Supabase, userId: string, nowMs: n
   if (!u) return null
 
   const starts: Record<Period, string> = { month: periodStart('month', nowMs), d30: periodStart('d30', nowMs), all: periodStart('all', nowMs) }
-  const [storesRes, connRes, campaignsRes, groupsRes, actionsRes, proposalsRes, ticketsRes, notifRes, drafts, month, d30, all] = await Promise.all([
+  const [storesRes, connRes, campaignsRes, groupsRes, actionsRes, proposalsRes, ticketsRes, notifRes, drafts, impRes, month, d30, all] = await Promise.all([
     supabase.from('stores').select(STORE_COLUMNS).eq('user_id', userId).order('created_at'),
     supabase.from('google_connections').select('status, last_error, created_at').eq('user_id', userId).maybeSingle(),
     supabase.from('ad_campaigns').select('id, store_id, name, type, status, stage, daily_budget, currency, launched_at, paused_reason, last_error, product_group_id')
@@ -177,6 +179,7 @@ export async function accountDetail(supabase: Supabase, userId: string, nowMs: n
     supabase.from('tickets').select('id, subject, status, priority, created_at').eq('user_id', userId).order('created_at', { ascending: false }).limit(10),
     supabase.from('notifications').select('id, title, type, is_read, created_at').eq('user_id', userId).order('created_at', { ascending: false }).limit(10),
     supabase.from('ad_campaigns').select('store_id, mode').eq('user_id', userId).eq('status', 'draft'),
+    supabase.from('admin_impersonations').select('id, admin_email, started_at, expires_at, ended_at, ended_by').eq('user_id', userId).order('started_at', { ascending: false }).limit(20),
     storeSales(supabase, starts.month, userId),
     storeSales(supabase, starts.d30, userId),
     storeSales(supabase, starts.all, userId),
@@ -269,6 +272,10 @@ export async function accountDetail(supabase: Supabase, userId: string, nowMs: n
     })),
     notifications: ((notifRes.data ?? []) as Record<string, unknown>[]).map(n => ({
       id: String(n.id), title: String(n.title), type: (n.type as string | null) ?? null, is_read: !!n.is_read, created_at: String(n.created_at),
+    })),
+    impersonations: ((impRes.data ?? []) as Record<string, unknown>[]).map(i => ({
+      id: String(i.id), admin_email: String(i.admin_email), started_at: String(i.started_at), expires_at: String(i.expires_at),
+      ended_at: (i.ended_at as string | null) ?? null, ended_by: (i.ended_by as string | null) ?? null,
     })),
   }
 }

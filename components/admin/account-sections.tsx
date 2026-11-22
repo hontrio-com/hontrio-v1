@@ -12,7 +12,7 @@ import { Table, Td, Th, Tr } from '@/components/app/table'
 import { TrendChart } from '@/components/app/charts'
 import { EmptyState } from '@/components/app/feedback'
 import { day, type Formats } from '@/components/app/formats'
-import { useTimeAgo } from '@/components/app/time'
+import { useNow, useTimeAgo } from '@/components/app/time'
 import { useMoney } from '@/components/admin/money'
 import { platformName } from '@/lib/commerce/platforms'
 import type { AccountDetail, Period, StoreDetail } from '@/lib/admin/accounts'
@@ -254,12 +254,49 @@ export function AccountCampaigns({ data, f }: { data: AccountDetail; f: Formats 
 
 // ─── Activitatea ────────────────────────────────────────────────────────────
 
-export function AccountActivity({ data }: { data: AccountDetail }) {
+export function AccountActivity({ data, f }: { data: AccountDetail; f: Formats }) {
   const { t } = useT()
   const ago = useTimeAgo()
+  const when = useWhen(f)
+  const now = useNow()
 
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      {/* Intrările echipei în acest cont („Conectare”); clientul le vede și el, în Setări */}
+      <Card className="overflow-hidden lg:col-span-2">
+        <CardHeader title={t('admin.imp_title')} description={t('admin.imp_hint')} />
+        {data.impersonations.length === 0 ? (
+          <p className="px-5 pb-5 pt-3 text-[13px] text-neutral-500">{t('admin.imp_none')}</p>
+        ) : (
+          <div className="mt-3">
+            <Table>
+              <thead>
+                <tr>
+                  <Th>{t('admin.imp_col_admin')}</Th>
+                  <Th>{t('admin.imp_col_started')}</Th>
+                  <Th>{t('admin.imp_col_ended')}</Th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.impersonations.map(i => {
+                  const open = !i.ended_at && (!now || Date.parse(i.expires_at) > now)
+                  return (
+                    <Tr key={i.id}>
+                      <Td className="text-neutral-800">{i.admin_email}</Td>
+                      <Td className="whitespace-nowrap text-neutral-600">{when(i.started_at)}</Td>
+                      <Td className="whitespace-nowrap">
+                        {open ? <Badge tone="brand" dot live>{t('admin.imp_open')}</Badge>
+                          : <span className="text-neutral-600">{when(i.ended_at ?? i.expires_at)}<span className="text-neutral-400"> · {t(`admin.imp_ended_${i.ended_by ?? 'expired'}`)}</span></span>}
+                      </Td>
+                    </Tr>
+                  )
+                })}
+              </tbody>
+            </Table>
+          </div>
+        )}
+      </Card>
+
       <Card>
         <CardHeader title={t('admin.acc_tickets_title')} />
         <div className="px-5 pb-4 pt-2">

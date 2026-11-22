@@ -62,5 +62,6 @@
   "reply_empty": "Write a message or add an attachment.",
   "reply_send_failed": "We couldn't send your reply.",
   "too_many_tickets": "You've sent too many tickets. Please wait a bit.",
-  "too_many_messages": "You've sent too many messages. Please wait a bit."
+  "too_many_messages": "You've sent too many messages. Please wait a bit.",
+  "impersonation_blocked": "As an admin in a client’s account, you can’t do this. Only the client can."
 }

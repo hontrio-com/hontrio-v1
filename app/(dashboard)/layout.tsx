@@ -13,6 +13,7 @@ import { Sidebar } from '@/components/app/shell/sidebar'
 import { CommandMenu } from '@/components/app/shell/command-menu'
 import { Toaster } from '@/components/app/toaster'
 import { useStores } from '@/components/app/shell/stores'
+import { TermsUpdateBanner } from '@/components/app/shell/terms-update-banner'
 
 // =============================================
 // Rama platformei, în designul Bezeno: meniul fix în stânga (pe telefon, o
@@ -101,7 +102,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </AnimatePresence>
 
         <main className="min-w-0 flex-1 px-4 pb-16 pt-20 sm:px-6 lg:px-10 lg:pt-8">
-          <div className="mx-auto w-full max-w-6xl">{children}</div>
+          <div className="mx-auto w-full max-w-6xl">
+            <TermsUpdateBanner />
+            {children}
+          </div>
         </main>
 
         <CommandMenu open={searchOpen} onOpenChange={setSearchOpen} admin={admin} stores={stores} activeStoreId={active?.id ?? null} onChooseStore={choose} />

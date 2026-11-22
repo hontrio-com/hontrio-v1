@@ -4,7 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { ArrowLeft, Bell, History, LayoutGrid, Megaphone, Receipt, ShoppingBag, Store, Trash2, UserCheck } from 'lucide-react'
+import { ArrowLeft, Bell, History, LayoutGrid, LogIn, Megaphone, Receipt, ShoppingBag, Store, Trash2, UserCheck } from 'lucide-react'
 import { useSession } from 'next-auth/react'
 import { useT } from '@/lib/i18n/context'
 import { PageHeader } from '@/components/app/page-header'
@@ -26,20 +26,23 @@ import { AccountActivity, AccountCampaigns, AccountOverview, AccountStores } fro
 import { AccountBillingTab } from '@/components/admin/account-billing'
 import type { AccountDetail, Period } from '@/lib/admin/accounts'
 import type { AccountBilling } from '@/lib/admin/billing'
+import { allowsSupportAccess, type ImpersonationRefusal } from '@/lib/auth/impersonation-rules'
 
 // =============================================
 // Un cont, pe larg: cine e, comenzile aduse de campaniile Hontrio (luna
 // aceasta, 30 de zile, de la început), ce are de plată, magazinele,
 // campaniile, facturarea și activitatea. Fără datele Google ale clientului
-// (politica de confidențialitate, lib/admin/accounts.ts). Rolul și ștergerea
+// (politica de confidențialitate, lib/admin/accounts.ts). „Conectare” deschide
+// platforma ca acest client, cel mult o oră, doar dacă a acceptat Termenii cu
+// accesul echipei pentru suport (lib/auth/impersonation.ts). Rolul și ștergerea
 // contului sunt jos, în prezentare.
 // =============================================
 
 type Tab = 'overview' | 'stores' | 'campaigns' | 'billing' | 'activity'
 const ROLES = ['user', 'admin'] as const
 
-const post = (url: string, body: unknown) =>
-  fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+const post = (url: string, body?: unknown) =>
+  fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body) })
 
 export default function AccountPage() {
   const { id } = useParams<{ id: string }>()
@@ -53,6 +56,8 @@ export default function AccountPage() {
   const [period, setPeriod] = useState<Period>('d30')
   const [tab, setTab] = useState<Tab>('overview')
   const [notify, setNotify] = useState(false)
+  const [impersonate, setImpersonate] = useState(false)
+  const [entering, setEntering] = useState(false)
   const [busy, setBusy] = useState('')
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState('')
@@ -66,6 +71,23 @@ export default function AccountPage() {
   const roleLabel = (role: string) => t.has(`admin.users_role_${role}`) ? t(`admin.users_role_${role}`) : role
   const connected = data.stores.filter(s => s.connection_status === 'active').length
   const live = data.campaigns.filter(c => c.status === 'active').length
+  // De ce nu se poate intra în cont (aceleași reguli ca serverul, lib/auth/impersonation-rules.ts)
+  const cannotEnter: ImpersonationRefusal | null = self ? 'self' : u.role === 'admin' ? 'admin' : !u.email_verified_at ? 'unverified'
+    : !u.terms_accepted_at || !allowsSupportAccess(u.terms_version) ? 'terms' : null
+
+  async function enter() {
+    setEntering(true)
+    try {
+      const r = await post(`/api/admin/accounts/${u.id}/impersonate`)
+      const body = await r.json().catch(() => ({}))
+      if (!r.ok) { toast.error(body.error || t('admin.impersonate_error')); setEntering(false); return }
+      // O pagină nouă, întreagă: sesiunea din browser este acum a clientului
+      window.location.href = typeof body.redirect === 'string' ? body.redirect : '/dashboard'
+    } catch {
+      toast.error(t('admin.impersonate_error'))
+      setEntering(false)
+    }
+  }
 
   async function changeRole(role: string) {
     setBusy(`role-${role}`)
@@ -107,8 +129,12 @@ export default function AccountPage() {
         </div>}
         actions={<>
           <RefreshButton loading={loading} onClick={() => { refresh(); billing.refresh() }} />
-          <Button variant="primary" onClick={() => setNotify(true)}><Bell />{t('admin.send_notification')}</Button>
+          <Button onClick={() => setNotify(true)}><Bell />{t('admin.send_notification')}</Button>
+          <Button variant="primary" disabled={!!cannotEnter} title={cannotEnter ? t(`admin.impersonate_refused_${cannotEnter}`) : undefined}
+            onClick={() => setImpersonate(true)}><LogIn />{t('admin.impersonate')}</Button>
         </>} />
+
+      {cannotEnter === 'terms' && <Callout tone="info">{t('admin.impersonate_refused_terms')}</Callout>}
 
       <Segmented id="acc-period" value={period} onChange={setPeriod} items={(['month', 'd30', 'all'] as const).map(p => ({ value: p, label: t(`admin.period_${p}`) }))} />
 
@@ -137,7 +163,7 @@ export default function AccountPage() {
       {tab === 'stores' && <AccountStores data={data} period={period} f={f} />}
       {tab === 'campaigns' && <AccountCampaigns data={data} f={f} />}
       {tab === 'billing' && <AccountBillingTab data={billing.data} loading={billing.loading} f={f} />}
-      {tab === 'activity' && <AccountActivity data={data} />}
+      {tab === 'activity' && <AccountActivity data={data} f={f} />}
 
       {tab === 'overview' && (
         <Card>
@@ -170,6 +196,17 @@ export default function AccountPage() {
           submitLabel={t('admin.send_notification')}
           onSend={n => sendNotification(t, { ...n, user_id: u.id, is_global: false }, t('admin.users_notification_sent', { name: u.name || u.email }))} />
       )}
+
+      <ConfirmDialog open={impersonate} onOpenChange={setImpersonate} tone="primary" title={t('admin.impersonate_title', { name: u.name || u.email })}
+        description={t('admin.impersonate_description')} confirmLabel={<><LogIn />{t('admin.impersonate')}</>} loading={entering} onConfirm={enter}>
+        <Callout tone="info" title={t('admin.impersonate_limits_title')}>
+          <ul className="list-inside list-disc space-y-1">
+            <li>{t('admin.impersonate_limit_time')}</li>
+            <li>{t('admin.impersonate_limit_actions')}</li>
+            <li>{t('admin.impersonate_limit_log')}</li>
+          </ul>
+        </Callout>
+      </ConfirmDialog>
 
       <ConfirmDialog open={deleteOpen} onOpenChange={setDeleteOpen} title={t('admin.users_delete_title')} description={t('admin.users_delete_permanent')}
         confirmLabel={t('admin.delete_permanently')} loading={deleting} disabled={deleteConfirm !== u.email} onConfirm={remove}>

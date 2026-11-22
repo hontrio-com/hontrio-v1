@@ -5,12 +5,11 @@ import CredentialsProvider from 'next-auth/providers/credentials'
 import GoogleProvider from 'next-auth/providers/google'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { clientIp, rateLimitAll } from '@/lib/security/rate-limit'
-import { tFor } from '@/lib/i18n/server'
-import { isLocale } from '@/lib/i18n/config'
 import { logError, logWarn } from '@/lib/logger'
 import { bumpSessionVersion } from './account'
 import { verifyPassword } from './password'
 import { checkName } from './validation'
+import { defaultName, profileToken, PROFILE_COLUMNS, type Profile } from './session-token'
 
 if (!process.env.NEXTAUTH_SECRET) {
   throw new Error('NEXTAUTH_SECRET environment variable is not set');
@@ -29,25 +28,41 @@ if (!process.env.NEXTAUTH_SECRET) {
 //   din cont, la cel mult un minut după schimbare.
 // - Sesiunea poartă și `termsAccepted`: un cont fără acord înregistrat (făcut
 //   cu Google sau de dinainte de acord) este trimis de proxy la /accept-terms.
+// - Administratorul poate intra în contul unui client (lib/auth/impersonation.ts):
+//   sesiunea e a clientului, cu `impersonator` în ea, cel mult o oră. Apoi, sau
+//   dacă sesiunea clientului nu mai e valabilă, redevine a administratorului.
 // - users.last_seen_at: la intrare și apoi cel mult o dată pe oră (pentru
-//   panoul de administrare).
+//   panoul de administrare; nu și cât administratorul e în contul clientului).
 // Erorile aruncate din `authorize` ajung la pagina de intrare ca `error`.
 // =============================================
 
-/** Ce citim din users pentru sesiune. */
-const PROFILE_COLUMNS = 'id, email, name, role, onboarding_completed, ui_locale, session_version, email_verified_at, terms_accepted_at'
-
-type Profile = {
-  id: string; email: string; name: string | null; role: string | null; onboarding_completed: boolean | null
-  ui_locale: string | null; session_version: number | null; email_verified_at: string | null; terms_accepted_at: string | null
-}
+type Supabase = ReturnType<typeof createAdminClient>
 
 /** Cât de des se recitește contul în sesiune (rolul, versiunea, numele). */
 const REFRESH_MS = 60 * 1000
 /** Cât de des se scrie ultima folosire a platformei. */
 const SEEN_MS = 60 * 60 * 1000
 
-const defaultName = (locale: unknown) => tFor(isLocale(locale) ? locale : 'ro')('settings.default_user')
+/** O sesiune fără identitate: pentru NextAuth, nimeni intrat în cont. */
+const signedOut = () => ({}) as JWT
+
+/**
+ * Administratorul iese din contul clientului (a ales să iasă, a trecut ora sau sesiunea clientului nu mai e
+ * valabilă): ieșirea se scrie în jurnal, iar sesiunea redevine a lui, dacă e tot administrator. Altfel, nimeni.
+ */
+export async function adminTokenBack(supabase: Supabase, token: JWT, endedBy: 'admin' | 'expired' | 'session'): Promise<JWT> {
+  const now = Date.now()
+  if (token.impersonation?.id) {
+    await supabase.from('admin_impersonations').update({ ended_at: new Date(now).toISOString(), ended_by: endedBy })
+      .eq('id', token.impersonation.id).is('ended_at', null)
+  }
+  const admin = token.impersonator
+  if (!admin?.id) return signedOut()
+  const { data, error } = await supabase.from('users').select(PROFILE_COLUMNS).eq('id', admin.id).maybeSingle()
+  const profile = data as Profile | null
+  if (error || !profile || profile.role !== 'admin' || !profile.email_verified_at) return signedOut()
+  return { ...profileToken(profile, admin.provider || 'credentials', now), seenAt: now }
+}
 
 /** Profilul contului; dacă lipsește (cont Supabase fără rând în users), se face unul, neconfirmat. */
 async function loadProfile(id: string, email: string): Promise<Profile | null> {
@@ -68,9 +83,6 @@ async function loadProfile(id: string, email: string): Promise<Profile | null> {
   }
   return created as Profile
 }
-
-/** O sesiune fără identitate: pentru NextAuth, nimeni intrat în cont. */
-const signedOut = () => ({}) as JWT
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -187,28 +199,22 @@ export const authOptions: NextAuthOptions = {
         const { data, error } = await supabase.from('users').select(PROFILE_COLUMNS).eq('id', user.id).maybeSingle()
         const profile = data as Profile | null
         if (error || !profile || !profile.email_verified_at) return signedOut()
-        token.id = profile.id
-        token.name = profile.name || defaultName(profile.ui_locale)
-        token.role = profile.role === 'admin' ? 'admin' : 'user'
-        token.onboardingCompleted = !!profile.onboarding_completed
-        token.termsAccepted = !!profile.terms_accepted_at
-        token.locale = profile.ui_locale ?? null
-        token.sv = profile.session_version ?? 0
-        token.provider = account?.provider ?? 'credentials'
-        token.authAt = Date.now()
-        token.refreshedAt = Date.now()
-        token.seenAt = Date.now()
-        await supabase.from('users').update({ last_seen_at: new Date().toISOString() }).eq('id', profile.id)
+        const now = Date.now()
+        Object.assign(token, profileToken(profile, account?.provider ?? 'credentials', now), { seenAt: now })
+        await supabase.from('users').update({ last_seen_at: new Date(now).toISOString() }).eq('id', profile.id)
         return token
       }
 
       // O sesiune retrasă rămâne retrasă
       if (!token.id) return token
 
+      // Administratorul în contul unui client: ora s-a terminat, sesiunea redevine a lui
+      if (token.impersonator && Date.now() > (token.impersonation?.until ?? 0)) return adminTokenBack(supabase, token, 'expired')
+
       const elapsed = Date.now() - (Number(token.refreshedAt) || 0)
       if (trigger === 'update' || elapsed > REFRESH_MS) {
         const { data, error } = await supabase.from('users')
-          .select('name, role, onboarding_completed, ui_locale, session_version, email_verified_at, terms_accepted_at')
+          .select('name, role, onboarding_completed, ui_locale, session_version, email_verified_at, terms_accepted_at, terms_version')
           .eq('id', token.id)
           .maybeSingle()
         // Baza nu răspunde: sesiunea rămâne cum e (o pană nu scoate pe toată lumea din cont)
@@ -216,15 +222,18 @@ export const authOptions: NextAuthOptions = {
         const profile = data as Omit<Profile, 'id' | 'email'> | null
         // Cont șters, versiune schimbată sau adresă neconfirmată: sesiunea nu mai e valabilă.
         // Sesiunile de dinainte de versiuni n-au `sv`: contează ca 0
-        if (!profile || (profile.session_version ?? 0) !== (Number(token.sv) || 0) || !profile.email_verified_at) return signedOut()
+        if (!profile || (profile.session_version ?? 0) !== (Number(token.sv) || 0) || !profile.email_verified_at) {
+          return token.impersonator ? adminTokenBack(supabase, token, 'session') : signedOut()
+        }
         token.name = profile.name || defaultName(profile.ui_locale)
         token.role = profile.role === 'admin' ? 'admin' : 'user'
         token.onboardingCompleted = !!profile.onboarding_completed
         token.termsAccepted = !!profile.terms_accepted_at
+        token.termsVersion = profile.terms_version ?? null
         token.locale = profile.ui_locale ?? null
         token.refreshedAt = Date.now()
-        // Ultima folosire, cel mult o dată pe oră
-        if (Date.now() - (Number(token.seenAt) || 0) > SEEN_MS) {
+        // Ultima folosire, cel mult o dată pe oră; administratorul din contul clientului nu contează
+        if (!token.impersonator && Date.now() - (Number(token.seenAt) || 0) > SEEN_MS) {
           await supabase.from('users').update({ last_seen_at: new Date().toISOString() }).eq('id', token.id)
           token.seenAt = Date.now()
         }
@@ -241,6 +250,11 @@ export const authOptions: NextAuthOptions = {
         session.user.role = token.role
         ;(session.user as { onboardingCompleted?: unknown }).onboardingCompleted = token.onboardingCompleted
         ;(session.user as { locale?: unknown }).locale = token.locale ?? null
+        ;(session.user as { termsVersion?: unknown }).termsVersion = token.termsVersion ?? null
+      }
+      // Administratorul în contul acestui client (bara de jos îl arată, cu drumul înapoi)
+      if (token.impersonator) {
+        session.impersonator = { name: token.impersonator.name, email: token.impersonator.email, until: token.impersonation?.until ?? 0 }
       }
       return session
     },
