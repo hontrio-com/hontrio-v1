@@ -208,14 +208,23 @@ export default function DashboardPage() {
   if (piloting) {
     const s14 = (campaigns?.series ?? []).slice(-14)
     const roasOf = (p: { value: number; cost: number }) => (p.cost > 0 ? p.value / p.cost : 0)
+    // Google nu vede toate vânzările (în UE, conversia pleacă doar cu acordul vizitatorului pentru cookie-uri).
+    // Când magazinul are mai multe comenzi venite din Google Ads, cifrele le iau pe ele, ca pilotul
+    // (lib/ads/store-sales.ts), iar fraza de sub cifră spune de unde vin
+    const cost = ads?.cost ?? 0
+    const storeOrders = cur?.google_ads_orders ?? 0
+    const sales = Math.max(ads?.value ?? 0, cur?.google_ads_revenue ?? 0)
+    const conversions = Math.max(ads?.conversions ?? 0, storeOrders)
+    const unseen = conversions > (ads?.conversions ?? 0) || sales > (ads?.value ?? 0)
+    const fromStore = unseen ? t('home.stat_store_unseen', { count: storeOrders }) : period
     stats = [
-      { key: 'sales', icon: ShoppingBag, label: t('home.stat_sales'), value: ads?.value ?? 0, format: n => f.money.format(Math.round(n)), hint: period,
+      { key: 'sales', icon: ShoppingBag, label: t('home.stat_sales'), value: sales, format: n => f.money.format(Math.round(n)), hint: fromStore,
         series: s14.map(p => p.value), axis, trend: trend(weekChange(s14.map(p => p.value))) },
-      { key: 'spend', icon: Wallet, label: t('overview.ads_spend'), value: ads?.cost ?? 0, format: n => f.money.format(Math.round(n)), hint: period,
+      { key: 'spend', icon: Wallet, label: t('overview.ads_spend'), value: cost, format: n => f.money.format(Math.round(n)), hint: period,
         series: s14.map(p => p.cost), axis, trend: trend(weekChange(s14.map(p => p.cost))) },
-      { key: 'roas', icon: Target, label: 'ROAS', value: ads?.roas ?? 0, format: n => f.num.format(n), hint: period,
+      { key: 'roas', icon: Target, label: 'ROAS', value: cost > 0 ? Math.round((sales / cost) * 100) / 100 : 0, format: n => f.num.format(n), hint: period,
         series: s14.map(roasOf), axis, trend: trend(weekChange(s14.map(roasOf))) },
-      { key: 'conversions', icon: ShoppingCart, label: t('campaigns.kpi_conversions'), value: ads?.conversions ?? 0, format: n => f.num.format(Math.round(n * 10) / 10), hint: period,
+      { key: 'conversions', icon: ShoppingCart, label: t('campaigns.kpi_conversions'), value: conversions, format: n => f.num.format(Math.round(n * 10) / 10), hint: fromStore,
         series: s14.map(p => p.conversions), axis, trend: trend(weekChange(s14.map(p => p.conversions))) },
     ]
   } else {

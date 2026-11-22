@@ -43,5 +43,8 @@
   "chart_orders": "Comenzile pe zile",
   "chart_orders_weekly": "Comenzile pe săptămâni",
   "chart_aov": "Valoarea medie a comenzii, pe zile",
-  "chart_aov_weekly": "Valoarea medie a comenzii, pe săptămâni"
+  "chart_aov_weekly": "Valoarea medie a comenzii, pe săptămâni",
+  "stat_store_unseen_one": "{{count}} comandă în magazin, mai mult decât a numărat Google",
+  "stat_store_unseen_few": "{{count}} comenzi în magazin, mai mult decât a numărat Google",
+  "stat_store_unseen_other": "{{count}} de comenzi în magazin, mai mult decât a numărat Google"
 }

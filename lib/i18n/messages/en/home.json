@@ -40,5 +40,7 @@
   "chart_orders": "Orders by day",
   "chart_orders_weekly": "Orders by week",
   "chart_aov": "Average order value by day",
-  "chart_aov_weekly": "Average order value by week"
+  "chart_aov_weekly": "Average order value by week",
+  "stat_store_unseen_one": "{{count}} order in your store, more than Google counted",
+  "stat_store_unseen_other": "{{count}} orders in your store, more than Google counted"
 }
