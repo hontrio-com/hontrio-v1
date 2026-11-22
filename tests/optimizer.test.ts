@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { budgetRoom, lossStops, optimize, squash, windowOf, type OptCampaign, type OptimizerInput, type OptProduct, type Window } from '@/lib/ads/optimizer'
+import { budgetRoom, lossStops, optimize, squash, windowOf, withStoreSales, type OptCampaign, type OptimizerInput, type OptProduct, type Window } from '@/lib/ads/optimizer'
 
 // Bucla de optimizare, fără marje: oprirea de siguranță (ROAS sub 1), trecerea
 // la Performance Max, bugetul (doar propus), produsele și termenii de căutare,
@@ -53,6 +53,25 @@ test('oprirea de siguranță: o comandă medie fără vânzări, sau vânzări s
   assert.ok(!kinds(input({ campaigns: [campaign({ since_loss_check: w(950, 3, 1200) })] })).includes('pause_loss_limit'))
   // Fără comandă medie nu există limită
   assert.ok(!kinds(input({ loss_limit: null, campaigns: [campaign({ since_loss_check: w(5000, 0, 0) })] })).includes('pause_loss_limit'))
+})
+
+test('oprirea de siguranță numără și vânzările din magazin pe care Google nu le-a numărat', () => {
+  // VetDepo, 21.11.2026: o comandă de 29,80 lei din campanie, 0 conversii în Google
+  const google = w(160, 0, 0)
+  const seen = withStoreSales(google, { orders: 1, value: 29.8 })
+  assert.deepEqual(seen, { cost: 160, conversions: 1, value: 29.8, clicks: 100 })
+  // Cu vânzarea din magazin, campania nu mai este „fără vânzări”; sub trei comenzi medii nu se oprește
+  assert.ok(!kinds(input({ loss_limit: { no_conversions: 155, low_roas: 465 }, campaigns: [campaign({ since_loss_check: seen })] })).includes('pause_loss_limit'))
+  // Fără ea, oprirea rămâne cum era
+  assert.ok(kinds(input({ loss_limit: { no_conversions: 155, low_roas: 465 }, campaigns: [campaign({ since_loss_check: google })] })).includes('pause_loss_limit'))
+  // Peste trei comenzi medii, cu vânzări sub costul reclamei, se oprește oricum
+  assert.ok(kinds(input({ loss_limit: { no_conversions: 155, low_roas: 465 }, campaigns: [campaign({ since_loss_check: withStoreSales(w(470, 0, 0), { orders: 1, value: 29.8 }) })] })).includes('pause_loss_limit'))
+  // Aceleași comenzi văzute de ambele surse: cea mai mare, nu suma
+  assert.deepEqual(withStoreSales(w(300, 2, 400), { orders: 1, value: 250 }), w(300, 2, 400))
+  assert.deepEqual(withStoreSales(w(300, 1, 200), { orders: 3, value: 650 }), w(300, 3, 650))
+  // Fără comenzi din magazin, fereastra rămâne a Google
+  assert.deepEqual(withStoreSales(google, undefined), google)
+  assert.deepEqual(withStoreSales(google, { orders: 0, value: 0 }), google)
 })
 
 test('pornirea trece la Performance Max după 14 zile și 15 conversii în cont, fără țintă', () => {

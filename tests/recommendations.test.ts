@@ -67,6 +67,23 @@ test('conversiile de cumpărare principale duplicate au recomandarea lor, cu lin
   assert.ok(!ids(input({ audit: evaluateAudit(auditRaw(), ctx) })).includes('purchase_duplicate'))
 })
 
+test('comenzi din campaniile Hontrio în magazin, dar nicio conversie în Google: conversia nu se măsoară', () => {
+  const recs = buildRecommendations(input({ campaign_sales: { orders: 1, value: 29.8, conversions: 0 } }))
+  const gap = recs.find(r => r.id === 'conversions_unrecorded')!
+  assert.equal(gap.severity, 'high')
+  assert.deepEqual(gap.body, [
+    { key: 'recs.conversions_unrecorded_body', params: { count: 1, value: 29.8 }, money: ['value'] },
+    { key: 'recs.conversions_unrecorded_fix' },
+  ])
+  assert.equal(gap.action?.label_key, 'recs.action_open_edinio')
+  // Google a numărat vânzări, nu există comenzi din campanii sau nu se poate spune (Gomag): nimic
+  assert.ok(!ids(input({ campaign_sales: { orders: 2, value: 300, conversions: 1 } })).includes('conversions_unrecorded'))
+  assert.ok(!ids(input({ campaign_sales: { orders: 0, value: 0, conversions: 0 } })).includes('conversions_unrecorded'))
+  assert.ok(!ids(input({ campaign_sales: null })).includes('conversions_unrecorded'))
+  // Conversia lipsește cu totul: are deja recomandarea ei
+  assert.ok(!ids(input({ campaign_sales: { orders: 1, value: 29.8, conversions: 0 }, setup: setup({ conversion: { status: 'missing', via: null, href: 'x' } }) })).includes('conversions_unrecorded'))
+})
+
 test('Merchant Center la WooCommerce: respinsele cu mesajul Google, cele retrogradate, netrimisele', () => {
   const woo = setup({ platform: 'woocommerce', platformName: 'WooCommerce', googleStatusKnown: false })
   const recs = buildRecommendations(input({

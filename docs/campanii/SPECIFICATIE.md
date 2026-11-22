@@ -185,6 +185,14 @@ Unitatea de măsură e **comanda medie** (`economics.aov`): totalul comenzilor d
   - campania a cheltuit ≥ 1 × comanda medie fără nicio vânzare;
   - sau ≥ 3 × comanda medie, cu vânzări sub costul reclamei (ROAS sub 1).
 
+  Vânzările (22.11.2026) sunt conversiile Google sau comenzile din magazin aduse de campanie
+  (sursa `hontrio-<ID>`, neanulate, plasate după lansare sau repornire), care sunt mai multe,
+  la număr și la valoare. Așa o conversie nemăsurată (eticheta stricată, cookie-urile refuzate)
+  nu oprește o campanie care vinde. Prima comandă VetDepo din campanie (21.11.2026) nu a ajuns
+  în Google. Când magazinul are comenzi din campanii, iar Google nicio conversie, recomandarea
+  `conversions_unrecorded` îi spune omului să verifice conversia. Trecerea pe Performance Max și
+  restul buclei rămân pe conversiile Google, pentru că după ele licitează Google.
+
   La campania unei grupe, comanda medie (deci și limita) e a grupei (§13), nu a magazinului.
   Oprirea se face și în modul cu aprobare, fiindcă e protecție, iar omul primește
   notificare și e-mail (§6, „Ce află omul”). Dacă o repornește, socoteala începe de la zero.

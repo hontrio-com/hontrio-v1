@@ -47,7 +47,10 @@ export type OptCampaign = {
   group?: boolean
   days_since_budget_change: number | null
   google: { reasons: string[]; recommended_budget: number | null } | null
-  /** De la lansare sau de la ultima repornire (oprirea de siguranță). */
+  /**
+   * De la lansare sau de la ultima repornire (oprirea de siguranță): cifrele Google, cu vânzările campaniei
+   * văzute și în magazin (`withStoreSales`).
+   */
   since_loss_check: Window
   /** Ultimele 30 de zile, fără ultimele 2 (conversiile întârziate). */
   eval30: Window
@@ -119,6 +122,19 @@ export function sumWindows(ws: Window[]): Window {
   return ws.reduce((a, w) => ({ cost: a.cost + w.cost, conversions: a.conversions + w.conversions, value: a.value + w.value, clicks: a.clicks + w.clicks }), EMPTY)
 }
 
+/** Comenzile din magazin aduse de o campanie (sursa „hontrio-<ID>”), neanulate: câte și cât valorează, cu TVA. */
+export type StoreSales = { orders: number; value: number }
+
+/**
+ * Fereastra opririi de siguranță, cu vânzările văzute în magazin: o campanie care a vândut nu e „fără vânzări”,
+ * chiar dacă Google n-a numărat vânzarea (conversia măsurată greșit, vizitatorul a refuzat cookie-urile).
+ * Cele două surse văd de obicei aceleași comenzi, deci se ia cea mai mare, nu suma lor.
+ */
+export function withStoreSales(w: Window, sales: StoreSales | undefined): Window {
+  if (!sales || (sales.orders <= 0 && sales.value <= 0)) return w
+  return { ...w, conversions: Math.max(w.conversions, sales.orders), value: Math.max(w.value, sales.value) }
+}
+
 /** Fereastra dintre două date (incluse), din rândurile pe zi. */
 export function windowOf(days: { date: string; cost: number; conversions: number; value: number; clicks: number }[], from: string, to: string): Window {
   return sumWindows(days.filter(d => d.date >= from && d.date <= to))
@@ -129,8 +145,9 @@ const limitOf = (c: OptCampaign, store: LossLimit | null): LossLimit | null => (
 
 /**
  * 1. Oprirea de siguranță (§5): de la lansare sau de la ultima repornire, campania a cheltuit cât o comandă
- * medie fără nicio vânzare, sau de trei ori cât o comandă medie cu vânzări sub costul reclamei. Protecție:
- * se aplică în ambele moduri. Pilotul o rulează înaintea a orice altceva.
+ * medie fără nicio vânzare, sau de trei ori cât o comandă medie cu vânzări sub costul reclamei. Vânzările sunt
+ * conversiile Google sau comenzile din magazin aduse de campanie, care sunt mai multe. Protecție: se aplică în
+ * ambele moduri. Pilotul o rulează înaintea a orice altceva.
  */
 export function lossStops(campaigns: OptCampaign[], storeLimit: LossLimit | null): Proposal[] {
   const out: Proposal[] = []

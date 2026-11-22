@@ -10,6 +10,7 @@ import { loadPlanContext, STORE_PLAN_COLUMNS, statusesKnown, type PlanStore } fr
 import { merchantIdForStore, type BestSellerRow, type PriceCompetitivenessRow, type PriceInsightRow } from '@/lib/merchant/sync'
 import { getT } from '@/lib/i18n/server'
 import { storeDisplayName } from '@/lib/commerce/platforms'
+import { campaignSalesCheck } from '@/lib/ads/campaign-sales'
 
 // =============================================
 // GET /api/recommendations
@@ -38,9 +39,13 @@ export async function GET() {
     return NextResponse.json({ store: { platform: store.platform, supported: false }, recommendations: [] })
   }
 
-  const [{ context, errors }, insightsRes] = await Promise.all([
+  const [{ context, errors }, insightsRes, campaignSales] = await Promise.all([
     loadPlanContext(supabase, userId, store),
     supabase.from('merchant_insights').select('kind, rows').eq('store_id', store.id),
+    campaignSalesCheck(supabase, store).catch(err => {
+      logApiError(ROUTE, 500, 'Eroare la citirea vânzărilor din campanii', { userId, error: err instanceof Error ? err.message : String(err) })
+      return null
+    }),
   ])
   for (const error of errors) logApiError(ROUTE, 500, 'Eroare la citirea datelor magazinului', { userId, error })
   if (!context) return NextResponse.json({ error: t('sync.products_read_failed') }, { status: 500 })
@@ -56,6 +61,7 @@ export async function GET() {
     sales90: context.data.sales90,
     orders90: context.data.orders90,
     audit: context.audit?.result ?? null,
+    campaign_sales: context.googleConnected && context.account ? campaignSales : null,
     merchant: {
       id: merchantIdForStore(store, context.audit?.result?.merchant_id ?? null),
       from_merchant: store.platform !== 'edinio' && statusesKnown(context.setup, store),

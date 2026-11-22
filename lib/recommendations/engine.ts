@@ -49,6 +49,11 @@ export type EngineInput = {
   orders90: OrderTotals
   /** Ultimul audit al contului Google Ads (null = încă nefăcut). */
   audit?: AuditResult | null
+  /**
+   * Comenzile din magazin aduse de campaniile Hontrio în 30 de zile, față de conversiile Google pentru ele
+   * (lib/ads/campaign-sales.ts); null = nu se poate spune (Gomag, fără campanii lansate).
+   */
+  campaign_sales?: { orders: number; value: number; conversions: number } | null
   merchant?: {
     /** ID-ul contului Merchant Center, dacă îl știm. */
     id: string | null
@@ -205,6 +210,21 @@ export function buildRecommendations(input: EngineInput): Recommendation[] {
         action: { href: 'https://ads.google.com/', external: true, label_key: 'recs.action_open_google_ads' },
       })
     }
+  }
+
+  // Comenzi din campaniile Hontrio în magazin, dar nicio conversie în Google: conversia nu se măsoară
+  const cs = input.campaign_sales ?? null
+  if (cs && cs.orders > 0 && cs.conversions === 0 && setup.conversion.status !== 'missing') {
+    recs.push({
+      id: 'conversions_unrecorded', severity: 'high',
+      title: { key: 'recs.conversions_unrecorded_title' },
+      body: [
+        { key: 'recs.conversions_unrecorded_body', params: { count: cs.orders, value: cs.value }, money: ['value'] },
+        { key: 'recs.conversions_unrecorded_fix' },
+      ],
+      impact_revenue: null, items: [], total_items: 0,
+      action: { href: setup.conversion.href, external: true, label_key: openInStore },
+    })
   }
 
   // ── Ofertele care nu pot rula la Google ──────────────────────────────────

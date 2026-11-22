@@ -12,7 +12,8 @@ import { runAudit } from '@/lib/ads/audit-run'
 import { logAction, notify, type ActionKind } from '@/lib/ads/journal'
 import { applyAction, ApplyError, closeGroupIfDone, graduateListing, syncCampaignProducts } from '@/lib/ads/apply'
 import { CAMPAIGN_COLUMNS, groupItems, listingSize, merchantLabels, parseCampaign, type CampaignRow } from '@/lib/ads/listing'
-import { lossStops, optimize, sumWindows, windowOf, EMPTY, type OptCampaign, type OptimizerInput, type OptProduct, type Proposal, type Window } from '@/lib/ads/optimizer'
+import { lossStops, optimize, sumWindows, windowOf, withStoreSales, EMPTY, type OptCampaign, type OptimizerInput, type OptProduct, type Proposal, type StoreSales, type Window } from '@/lib/ads/optimizer'
+import { hontrioCampaignId, HONTRIO_UTM_PREFIX } from '@/lib/commerce/attribution'
 import { readAll } from '@/lib/ads/read-all'
 import { addDays, dayStr, daysBetween, isTransientGoogleError, refreshFrom, todayWindow, DAY_MS, MISSED_PASS_MS, PROPOSAL_TTL_DAYS } from '@/lib/ads/schedule'
 import { alertBudgetSpent, alertLossStop, alertPilotBlocked, alertProposals, alertProtectionFailed } from '@/lib/ads/alerts'
@@ -483,6 +484,29 @@ const toDay = (r: { date: string; cost: unknown; clicks: unknown; conversions: u
 })
 
 /**
+ * Comenzile din magazin aduse de fiecare campanie (sursa „hontrio-<ID>”), neanulate, plasate de la începutul
+ * socotelii ei (lansarea sau ultima repornire). La Gomag, fără sursa comenzii, lista rămâne goală.
+ */
+export async function storeSalesByCampaign(supabase: Supabase, storeId: string, startOf: Map<string, string>): Promise<Map<string, StoreSales>> {
+  const out = new Map<string, StoreSales>()
+  const starts = [...startOf.values()].map(v => Date.parse(v)).filter(Number.isFinite)
+  if (!starts.length) return out
+  const earliest = new Date(Math.min(...starts)).toISOString()
+  const orders = await readAll<{ utm_campaign: string | null; placed_at: string; total: unknown }>((a, b) => supabase.from('commerce_orders')
+    .select('utm_campaign, placed_at, total')
+    .eq('store_id', storeId).ilike('utm_campaign', `${HONTRIO_UTM_PREFIX}%`).not('state', 'in', '(cancelled,refunded)')
+    .gte('placed_at', earliest).order('placed_at').order('id').range(a, b))
+  for (const o of orders) {
+    const id = hontrioCampaignId(o.utm_campaign)
+    const start = id ? startOf.get(id) : undefined
+    if (!id || !start || Date.parse(o.placed_at) < Date.parse(start)) continue
+    const s = out.get(id) ?? { orders: 0, value: 0 }
+    out.set(id, { orders: s.orders + 1, value: s.value + (Number(o.total) || 0) })
+  }
+  return out
+}
+
+/**
  * Campaniile, cum le vede bucla: ferestrele de cifre (de la lansare sau ultima repornire pentru oprirea de
  * siguranță, oricât de demult; 30 de zile fără ultimele 2; ultimele 14), limita de pierdere a fiecăreia
  * (a grupei, din comanda medie a produselor ei) și dacă pornirea ar încăpea ca Performance Max.
@@ -494,10 +518,15 @@ async function campaignInputs(supabase: Supabase, store: PlanStore, ctx: PlanCon
   const recentFrom = addDays(yesterday, -13)
   const lossFromOf = (c: CampaignRow) => (c.loss_check_from ?? c.launched_at ?? evalFrom).slice(0, 10)
   const since = campaigns.map(lossFromOf).reduce((a, b) => (b < a ? b : a), evalFrom < recentFrom ? evalFrom : recentFrom)
-  const rows = await readAll<DayRow>((a, b) => supabase.from('ad_metrics_daily')
-    .select('google_campaign_id, date, cost, clicks, conversions, conversions_value')
-    .eq('store_id', store.id).in('google_campaign_id', campaigns.map(c => c.google_campaign_id!)).gte('date', since).lte('date', yesterday)
-    .order('google_campaign_id').order('date').range(a, b))
+  // Oprirea de siguranță numără și vânzările văzute în magazin, de la momentul exact al lansării sau al repornirii
+  const lossStartOf = new Map(campaigns.filter(c => c.status === 'active').map(c => [c.google_campaign_id!, c.loss_check_from ?? c.launched_at ?? `${evalFrom}T00:00:00Z`]))
+  const [rows, storeSales] = await Promise.all([
+    readAll<DayRow>((a, b) => supabase.from('ad_metrics_daily')
+      .select('google_campaign_id, date, cost, clicks, conversions, conversions_value')
+      .eq('store_id', store.id).in('google_campaign_id', campaigns.map(c => c.google_campaign_id!)).gte('date', since).lte('date', yesterday)
+      .order('google_campaign_id').order('date').range(a, b)),
+    storeSalesByCampaign(supabase, store.id, lossStartOf),
+  ])
   const byCampaign = new Map<string, ReturnType<typeof toDay>[]>()
   for (const r of rows) {
     const list = byCampaign.get(r.google_campaign_id)
@@ -521,7 +550,7 @@ async function campaignInputs(supabase: Supabase, store: PlanStore, ctx: PlanCon
       group: !!c.product_group_id,
       days_since_budget_change: daysSince(c.budget_changed_at, nowMs),
       google: state ? { reasons: state.reasons, recommended_budget: state.recommended_budget } : null,
-      since_loss_check: windowOf(own, lossFromOf(c), yesterday),
+      since_loss_check: withStoreSales(windowOf(own, lossFromOf(c), yesterday), storeSales.get(c.google_campaign_id!)),
       eval30: windowOf(own, evalFrom, evalTo),
       recent14: windowOf(own, recentFrom, yesterday),
     }
