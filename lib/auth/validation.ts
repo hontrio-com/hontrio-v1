@@ -10,8 +10,12 @@ export const PASSWORD_MIN = 8
 export const PASSWORD_MAX = 72
 export const EMAIL_MAX = 254
 
-/** Versiunea Termenilor, a Politicii de confidențialitate și a DPA-ului acceptate la înscriere (sau pe /accept-terms, după Google). */
-export const TERMS_VERSION = '2026-11-16'
+/**
+ * Versiunea Termenilor, a Politicii de confidențialitate și a DPA-ului acceptate la înscriere (sau pe /accept-terms,
+ * după Google). 2026-11-22: regula Gomag de la art. 9.2 (taxa din conversiile Google Ads, lib/billing/statement.ts,
+ * CONVERSIONS_TERMS_VERSION).
+ */
+export const TERMS_VERSION = '2026-11-22'
 
 /**
  * Numele: 2–60 de litere (cu spații, cratimă, apostrof, punct), fără cifre,

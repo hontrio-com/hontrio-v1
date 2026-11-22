@@ -1,7 +1,8 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  billable, buildStatement, convert, fromHontrio, lastDay, neededRates, nextPeriod, orderValue, periodBounds,
+  billable, buildConversionStatement, buildStatement, conversionDayId, conversionDayOf, convert, countsConversions, CONVERSIONS_TERMS_VERSION,
+  fromHontrio, isConversionDay, lastDay, neededRates, netShare, nextPeriod, orderValue, periodBounds,
   previousPeriod, refundCredit, statementCurrency, type BillingOrder,
 } from '@/lib/billing/statement'
 import { addDays, billingActive, countFrom, daysBetween, dunningStep, earliestStart, periodToClose, todayRo } from '@/lib/billing/schedule'
@@ -122,6 +123,78 @@ test('situația lunii: comenzile numărate, taxa din grilă, creditul și restul
   const missing = buildStatement({ period: '2026-11', storeCurrency: 'RON', timeZone: 'Europe/Bucharest', orders: [order('x', { currency: 'USD' })], excluded: new Set(), startDate: '2026-11-01', rates: {}, credit: 0 })
   assert.deepEqual(missing.missingRates, ['USD'])
   assert.equal(missing.sales, 0)
+})
+
+test('Gomag: partea netă a comenzilor de pe site, din totalul lor', () => {
+  // 1.210 cu TVA, transport 0: 1.000 net; anulata de 1.210 rămâne în total, nu și în parte
+  const { share, net } = netShare([order('a', { utm_campaign: null }), order('b', { state: 'cancelled', utm_campaign: null })])
+  assert.equal(net, 1000)
+  assert.equal(Math.round(share * 10000) / 10000, Math.round((1000 / 2420) * 10000) / 10000)
+  // Cu transport: 1.210 produse + 30 transport, totalul 1.240
+  assert.equal(netShare([order('c', { subtotal: 1210, tax: 210, total: 1240 })]).net, Math.round(1210 * (1030 / 1240) * 100) / 100)
+  // Fără comenzi pe site nu se numără nimic
+  assert.deepEqual(netShare([]), { share: 0, net: 0 })
+})
+
+test('Gomag: din conversiile Google Ads, cu partea netă, plafonul și zilele contestate', () => {
+  const base = { period: '2026-11', storeCurrency: 'RON', timeZone: 'Europe/Bucharest', startDate: '2026-11-01', rates: {}, credit: 0, excludedDays: new Set<string>() }
+  // Site: 2 comenzi livrate de câte 1.210 (1.000 net fiecare), una anulată de 1.210 → partea 2.000 / 3.630
+  const websiteOrders = [order('a', { utm_campaign: null }), order('b', { utm_campaign: null }), order('c', { state: 'cancelled', utm_campaign: null })]
+  const days = [
+    { date: '2026-11-03', conversions: 1, value: 1210 },
+    { date: '2026-11-07', conversions: 1.5, value: 605 },
+    { date: '2026-11-09', conversions: 0, value: 0 },
+    { date: '2026-10-31', conversions: 4, value: 9999 },  // altă lună
+  ]
+  const s = buildConversionStatement({ ...base, days, websiteOrders })
+  const share = 2000 / 3630
+  assert.deepEqual(s.orders.map(o => o.id), ['gads:2026-11-03', 'gads:2026-11-07'])
+  assert.equal(s.orders[0].value, Math.round(1210 * share * 100) / 100)
+  assert.equal(s.orders[0].source, 'google_ads')
+  assert.equal(s.orders[0].reported, 1210)
+  assert.equal(s.orders[1].conversions, 1.5)
+  assert.equal(s.count, 3, '2,5 conversii, rotunjit')
+  assert.equal(s.sales, Math.round((s.orders[0].value + s.orders[1].value) * 100) / 100)
+  assert.equal(s.fee, 0, 'sub pragul gratuit')
+
+  // Plafonul: niciodată peste vânzările plătite sau livrate de pe site (aici 1.000 net)
+  const capped = buildConversionStatement({ ...base, days: [{ date: '2026-11-03', conversions: 3, value: 6000 }], websiteOrders: [order('a', { utm_campaign: null })] })
+  assert.equal(capped.sales, 1000)
+
+  // Ziua contestată iese
+  const excluded = buildConversionStatement({ ...base, days, websiteOrders, excludedDays: new Set(['2026-11-03']) })
+  assert.deepEqual(excluded.orders.map(o => o.id), ['gads:2026-11-07'])
+  // Zilele de dinaintea pornirii facturării nu se numără, iar partea vine doar din comenzile de după ea
+  // (anulata din 2 noiembrie rămâne afară: partea devine 2.000 / 2.420)
+  const late = buildConversionStatement({
+    ...base, days, startDate: '2026-11-05',
+    websiteOrders: [order('a', { utm_campaign: null }), order('b', { utm_campaign: null }), order('c', { state: 'cancelled', utm_campaign: null, placed_at: '2026-11-02T08:00:00.000Z' })],
+  })
+  assert.deepEqual(late.orders.map(o => o.id), ['gads:2026-11-07'])
+  assert.equal(late.sales, Math.round(605 * (2000 / 2420) * 100) / 100)
+
+  // Fără comenzi pe site, conversiile nu se numără
+  assert.equal(buildConversionStatement({ ...base, days, websiteOrders: [] }).sales, 0)
+
+  // Magazin în euro, peste prag: taxa din grila în euro
+  const eur = buildConversionStatement({
+    ...base, storeCurrency: 'EUR', days: [{ date: '2026-11-03', conversions: 20, value: 3000 }],
+    websiteOrders: [order('e', { currency: 'EUR', subtotal: 3630, tax: 630, total: 3630, utm_campaign: null })],
+  })
+  assert.equal(eur.currency, 'EUR')
+  assert.equal(eur.sales, 2479.34, '3.000 × 3.000/3.630')
+  assert.equal(eur.fee, Math.round(2479.34 * 0.02 * 100) / 100)
+})
+
+test('Gomag: datele Google se folosesc la taxă doar după acceptarea Termenilor care o spun', () => {
+  assert.equal(CONVERSIONS_TERMS_VERSION, '2026-11-22')
+  assert.equal(countsConversions('2026-11-22'), true)
+  assert.equal(countsConversions('2026-12-01'), true)
+  assert.equal(countsConversions('2026-11-16'), false)
+  assert.equal(countsConversions(null), false)
+  assert.equal(isConversionDay('gads:2026-11-03'), true)
+  assert.equal(isConversionDay('3f2c0c9e-0000-4000-8000-000000000000'), false)
+  assert.equal(conversionDayOf(conversionDayId('2026-11-03')), '2026-11-03')
 })
 
 test('calendarul: factura pe 15, pornirea după 30 de zile, amintirile și suspendarea', () => {

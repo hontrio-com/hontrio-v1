@@ -50,7 +50,7 @@ export function InvoiceSheet({ invoice: s, today, f, onClose, onChanged }: {
   const [resolving, setResolving] = useState(false)
   const [series, setSeries] = useState('')
   const [number, setNumber] = useState('')
-  const [exclude, setExclude] = useState<{ id: string; number: string } | null>(null)
+  const [exclude, setExclude] = useState<{ id: string; number: string; day: boolean } | null>(null)
   const [reason, setReason] = useState('')
 
   async function run(key: string, body: Record<string, unknown>, success: string) {
@@ -118,22 +118,27 @@ export function InvoiceSheet({ invoice: s, today, f, onClose, onChanged }: {
             <Heading>{t('admin.inv_section_orders', { count: s.orders.length })}</Heading>
             {s.orders.length === 0 ? <p className="py-2 text-[13px] text-neutral-500">{t('admin.inv_orders_none')}</p> : (
               <ul className="divide-y divide-neutral-100">
-                {s.orders.map(o => (
-                  <li key={o.id} className="flex items-center justify-between gap-3 py-2 text-[13px]">
-                    <span className="min-w-0">
-                      <span className="font-medium text-neutral-900">#{o.number}</span>
-                      <span className="text-neutral-400"> · {f.date.format(new Date(o.placed_at))}</span>
-                      {o.original && <span className="block text-[12px] text-neutral-400">{money.one(o.original.value, o.original.currency)}</span>}
-                    </span>
-                    <span className="flex shrink-0 items-center gap-2">
-                      <span className="tabular-nums text-neutral-800">{money.one(o.value, s.currency)}</span>
-                      {s.status !== 'void' && (
-                        <Button size="icon" variant="ghost" title={t('billing.admin_exclude')} aria-label={t('billing.admin_exclude')}
-                          onClick={() => { setExclude({ id: o.id, number: o.number }); setReason('') }}><MinusCircle /></Button>
-                      )}
-                    </span>
-                  </li>
-                ))}
+                {s.orders.map(o => {
+                  // Gomag: ziua cu conversiile Google Ads ale campaniilor Hontrio (art. 9.2), nu o comandă
+                  const isDay = o.source === 'google_ads'
+                  return (
+                    <li key={o.id} className="flex items-center justify-between gap-3 py-2 text-[13px]">
+                      <span className="min-w-0">
+                        <span className="font-medium text-neutral-900">{isDay ? t('billing.row_conversions', { n: f.num.format(o.conversions ?? 0) }) : `#${o.number}`}</span>
+                        <span className="text-neutral-400"> · {f.date.format(new Date(o.placed_at))}</span>
+                        {o.original && <span className="block text-[12px] text-neutral-400">{money.one(o.original.value, o.original.currency)}</span>}
+                        {isDay && o.reported !== undefined && <span className="block text-[12px] text-neutral-400">{t('billing.reported_note', { value: money.one(o.reported, o.original?.currency ?? s.currency) })}</span>}
+                      </span>
+                      <span className="flex shrink-0 items-center gap-2">
+                        <span className="tabular-nums text-neutral-800">{money.one(o.value, s.currency)}</span>
+                        {s.status !== 'void' && (
+                          <Button size="icon" variant="ghost" title={t('billing.admin_exclude')} aria-label={t('billing.admin_exclude')}
+                            onClick={() => { setExclude({ id: o.id, number: isDay ? f.date.format(new Date(o.placed_at)) : o.number, day: isDay }); setReason('') }}><MinusCircle /></Button>
+                        )}
+                      </span>
+                    </li>
+                  )
+                })}
               </ul>
             )}
             {s.adjusted_orders.length > 0 && (
@@ -173,11 +178,14 @@ export function InvoiceSheet({ invoice: s, today, f, onClose, onChanged }: {
             </div>
           </Modal>
 
-          <Modal open={!!exclude} onOpenChange={o => { if (!o) setExclude(null) }} title={t('billing.admin_exclude_title', { number: exclude?.number ?? '' })} description={t('billing.admin_exclude_desc')}
+          <Modal open={!!exclude} onOpenChange={o => { if (!o) setExclude(null) }}
+            title={exclude?.day ? t('billing.admin_exclude_title_day', { date: exclude.number }) : t('billing.admin_exclude_title', { number: exclude?.number ?? '' })} description={t('billing.admin_exclude_desc')}
             footer={<>
               <Button variant="secondary" onClick={() => setExclude(null)}>{t('billing.cancel')}</Button>
               <Button variant="primary" disabled={reason.trim().length < 3} loading={busy === 'exclude'}
-                onClick={async () => { if (exclude && await run('exclude', { action: 'exclude', order_id: exclude.id, reason }, t('billing.admin_excluded'))) setExclude(null) }}>{t('billing.admin_exclude_btn')}</Button>
+                onClick={async () => {
+                  if (exclude && await run('exclude', { action: 'exclude', order_id: exclude.id, statement_id: s.id, reason }, t(exclude.day ? 'billing.admin_excluded_day' : 'billing.admin_excluded'))) setExclude(null)
+                }}>{t('billing.admin_exclude_btn')}</Button>
             </>}>
             <Input value={reason} onChange={e => setReason(e.target.value)} placeholder={t('billing.admin_exclude_reason')} />
           </Modal>

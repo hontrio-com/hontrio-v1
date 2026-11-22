@@ -10,6 +10,7 @@ import { CAMPAIGN_COLUMNS, parseCampaign } from '@/lib/ads/listing'
 import { readAll } from '@/lib/ads/read-all'
 import { getT } from '@/lib/i18n/server'
 import { storeDisplayName } from '@/lib/commerce/platforms'
+import { salesSource } from '@/lib/commerce/attribution'
 
 // =============================================
 // GET /api/reports?days=7|30|90
@@ -123,6 +124,8 @@ export async function GET(request: Request) {
     const hasAds = metrics.length > 0
     return NextResponse.json({
       store: { platform: store.platform, supported: true, store_name: storeDisplayName(store), currency: store.currency || 'RON' },
+      // Gomag nu dă sursa comenzii: vânzările aduse de Hontrio se văd din conversiile Google Ads (ads.hontrio)
+      sales_source: salesSource(store.platform),
       period: { days, from, to },
       google: {
         connected: !!context?.googleConnected,

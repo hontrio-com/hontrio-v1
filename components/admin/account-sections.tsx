@@ -147,10 +147,15 @@ function StoreCard({ store: s, period, f }: { store: StoreDetail; period: Period
 
         <div>
           <Heading>{t(`admin.period_${period}`)}</Heading>
-          <Rows>
-            <DataRow label={t('admin.store_fig_hontrio')} value={money.one(sales.sales, s.currency)} strong />
-            <DataRow label={t('admin.store_fig_hontrio_orders')} value={f.int.format(sales.orders)} />
-          </Rows>
+          {/* Gomag nu dă sursa comenzii: vânzările din campanii vin din Google Ads, care nu se arată aici */}
+          {s.platform === 'gomag' ? (
+            <p className="py-2 text-[13px] leading-relaxed text-neutral-500">{t('admin.store_fig_from_google')}</p>
+          ) : (
+            <Rows>
+              <DataRow label={t('admin.store_fig_hontrio')} value={money.one(sales.sales, s.currency)} strong />
+              <DataRow label={t('admin.store_fig_hontrio_orders')} value={f.int.format(sales.orders)} />
+            </Rows>
+          )}
 
           <Heading>{t('admin.store_section_pilot')}</Heading>
           <Rows>

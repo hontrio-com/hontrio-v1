@@ -364,6 +364,7 @@
   "store_setup_ads": "Google Ads account chosen",
   "store_setup_merchant": "Merchant Center chosen",
   "store_fig_hontrio_orders": "Orders from Hontrio campaigns",
+  "store_fig_from_google": "Gomag doesn’t pass on the source of orders. Sales brought by Hontrio campaigns are counted from Google Ads conversions, only for billing, and Google data isn’t shown in the panel.",
   "col_launched": "Launched",
   "camp_unnamed": "Unnamed campaign",
   "kpi_stores": "Stores",

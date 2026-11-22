@@ -373,6 +373,7 @@
   "store_setup_ads": "Cont Google Ads ales",
   "store_setup_merchant": "Merchant Center ales",
   "store_fig_hontrio_orders": "Comenzi din campaniile Hontrio",
+  "store_fig_from_google": "Gomag nu transmite sursa comenzilor. Vânzările aduse de campaniile Hontrio se numără din conversiile Google Ads, doar la facturare, iar datele Google nu se arată în panou.",
   "col_launched": "Lansată",
   "camp_unnamed": "Campanie fără nume",
   "kpi_stores": "Magazine",

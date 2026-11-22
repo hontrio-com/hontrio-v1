@@ -6,7 +6,8 @@ import { getT } from '@/lib/i18n/server'
 import { logApiError } from '@/lib/logger'
 import { addDays, billingActive, DUE_DAYS, earliestStart, todayRo } from '@/lib/billing/schedule'
 import { invoiceSeries, smartBillConfig } from '@/lib/billing/smartbill'
-import { billingConfig, computeStatement, issueStatement, parseStatement, startBilling, STATEMENT_COLUMNS } from '@/lib/billing/run'
+import { billingConfig, computeStatement, issueStatement, parseStatement, startBilling, STATEMENT_COLUMNS, STORE_COLUMNS, type StoreRow } from '@/lib/billing/run'
+import { conversionDayOf, isConversionDay } from '@/lib/billing/statement'
 
 // =============================================
 // /api/admin/billing — facturarea, pentru administrator.
@@ -14,9 +15,10 @@ import { billingConfig, computeStatement, issueStatement, parseStatement, startB
 // POST { action }:
 //   start { start_date }   pornește facturarea și trimite anunțul de 30 de zile
 //   stop                   oprește o pornire programată (încă neîncepută)
-//   exclude { order_id, reason }  scoate o comandă contestată; situația
-//                                 nefacturată se recalculează, cea facturată
-//                                 dă credit în luna următoare
+//   exclude { order_id, reason, statement_id? }  scoate o comandă contestată
+//                                 (la Gomag, ziua „gads:AAAA-LL-ZZ” din situația
+//                                 dată); situația nefacturată se recalculează,
+//                                 cea facturată dă credit în luna următoare
 //   retry { statement_id }         emite din nou o factură refuzată de SmartBill
 //   resolve { statement_id, series?, number?, view_url? }
 //                                  factura cu rezultat necunoscut: există în
@@ -98,19 +100,32 @@ export async function POST(request: Request) {
       const orderId = str('order_id')
       const reason = str('reason').slice(0, 500)
       if (!orderId || !reason) return NextResponse.json({ error: t('api.invalid_request') }, { status: 400 })
-      const { error } = await supabase.from('billing_exclusions').upsert({ order_id: orderId, reason, created_by: user.id }, { onConflict: 'order_id' })
-      if (error) throw new Error(error.message)
+      // La Gomag rândul e o zi a magazinului din situația dată („gads:AAAA-LL-ZZ”), nu o comandă
+      let dayStore: string | null = null
+      if (isConversionDay(orderId)) {
+        const { data: owner } = await supabase.from('billing_statements').select('store_id, orders').eq('id', str('statement_id')).maybeSingle()
+        const day = conversionDayOf(orderId)
+        if (!owner?.store_id || !DAY_RE.test(day) || !(owner.orders as { id: string }[] | null)?.some(o => o.id === orderId)) {
+          return NextResponse.json({ error: t('api.invalid_request') }, { status: 400 })
+        }
+        dayStore = owner.store_id as string
+        const { error } = await supabase.from('billing_day_exclusions').upsert({ store_id: dayStore, day, reason, created_by: user.id }, { onConflict: 'store_id,day' })
+        if (error) throw new Error(error.message)
+      } else {
+        const { error } = await supabase.from('billing_exclusions').upsert({ order_id: orderId, reason, created_by: user.id }, { onConflict: 'order_id' })
+        if (error) throw new Error(error.message)
+      }
       // Situația încă nefacturată care o conține se recalculează; una facturată dă credit luna următoare
       const { data: rows } = await supabase.from('billing_statements').select(STATEMENT_COLUMNS).in('status', ['pending', 'needs_profile', 'error', 'free'])
       const cfg = await billingConfig(supabase)
       for (const raw of rows ?? []) {
         const s = parseStatement(raw as Record<string, unknown>)
-        if (!s.orders.some(o => o.id === orderId) || !s.store_id || !cfg.start_date) continue
-        const { data: store } = await supabase.from('stores').select('id, user_id, store_name, store_url, currency, timezone, billing_suspended_at').eq('id', s.store_id).maybeSingle()
+        if (!s.orders.some(o => o.id === orderId) || !s.store_id || !cfg.start_date || (dayStore && s.store_id !== dayStore)) continue
+        const { data: store } = await supabase.from('stores').select(STORE_COLUMNS).eq('id', s.store_id).maybeSingle()
         if (!store) continue
-        const { statement, adjusted } = await computeStatement(supabase, store, s.period, cfg.start_date, { ignoreStatementId: s.id })
+        const { statement, adjusted } = await computeStatement(supabase, store as StoreRow, s.period, cfg.start_date, { ignoreStatementId: s.id })
         await supabase.from('billing_statements').update({
-          sales: statement.sales, orders_count: statement.orders.length, fee: statement.fee, adjustment: statement.adjustment,
+          sales: statement.sales, orders_count: statement.count, fee: statement.fee, adjustment: statement.adjustment,
           amount: statement.amount, credit_carry: statement.credit_carry, orders: statement.orders, adjusted_orders: adjusted,
           status: statement.amount > 0 ? (s.status === 'free' ? 'pending' : s.status) : 'free', updated_at: new Date().toISOString(),
         }).eq('id', s.id)

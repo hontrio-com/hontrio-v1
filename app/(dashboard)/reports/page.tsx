@@ -28,6 +28,8 @@ import { campaignKindKey } from '@/components/campaigns/live-campaigns'
 type Kpi = { cost: number; clicks: number; impressions: number; conversions: number; value: number; roas: number | null }
 type Data = {
   store: { platform: string; supported: boolean; store_name?: string | null; currency?: string } | null
+  /** Gomag nu dă sursa comenzii: vânzările din campaniile Hontrio vin din conversiile Google Ads. */
+  sales_source?: 'store_orders' | 'google_ads'
   period?: { days: number; from: string; to: string }
   /** `synced_at` = ultima citire a contului de către pilot; `sync_error` = de ce n-a mers ultima (cheie salvată). */
   google?: { connected: boolean; account: { id: string; name: string | null } | null; synced_at: string | null; sync_error?: string | null }
@@ -121,6 +123,7 @@ export default function ReportsPage() {
 
   const ads = data.ads ?? null
   const sales = data.sales ?? null
+  const noSource = data.sales_source === 'google_ads'
   // „Fără cheltuieli" doar după o citire reușită a contului; până atunci (sau cât timp nu reușește), cifrele vin
   const syncError = data.google?.sync_error ?? null
   const noAdsReason = !data.google?.connected ? 'reports.no_ads_google' : !data.google.account ? 'reports.no_ads_account'
@@ -265,18 +268,31 @@ export default function ReportsPage() {
             <CardHeader title={t('reports.sales_title')}
               description={<>
                 {t('reports.sales_hint', { revenue: f.money.format(Number(sales.total.revenue)), orders: t('common.orders_count', { count: Number(sales.total.orders) }) })}
-                {Number(sales.hontrio.orders) > 0 && ` ${t('reports.sales_hontrio', { revenue: f.money.format(Number(sales.hontrio.revenue)), orders: t('common.orders_count', { count: Number(sales.hontrio.orders) }) })}`}
+                {!noSource && Number(sales.hontrio.orders) > 0 && ` ${t('reports.sales_hontrio', { revenue: f.money.format(Number(sales.hontrio.revenue)), orders: t('common.orders_count', { count: Number(sales.hontrio.orders) }) })}`}
               </>}
-              action={<ChartLegend items={[{ label: t('reports.source_google_ads'), className: 'bg-neutral-900' }, { label: t('reports.sales_other'), className: 'bg-neutral-300' }]} />} />
+              action={noSource
+                ? <ChartLegend items={[{ label: t('reports.sales_site'), className: 'bg-neutral-900' }]} />
+                : <ChartLegend items={[{ label: t('reports.source_google_ads'), className: 'bg-neutral-900' }, { label: t('reports.sales_other'), className: 'bg-neutral-300' }]} />} />
+            {noSource && (
+              <p className="mx-5 mt-3 rounded-lg bg-neutral-50 px-3.5 py-2.5 text-[13px] leading-relaxed text-neutral-600">
+                {ads?.hontrio
+                  ? t('reports.sales_gomag_hontrio', { value: f.money.format(ads.hontrio.value), conversions: f.num.format(ads.hontrio.conversions) })
+                  : t('reports.sales_gomag')}
+              </p>
+            )}
             {sales.daily.length === 0 ? (
               <p className="px-5 py-12 text-center text-[13px] text-neutral-400">{t('reports.sales_empty')}</p>
             ) : (
               <div className="px-3 pb-2 pt-4">
-                <StackedBars data={sales.daily.map(d => ({ label: label(d.day), a: Number(d.google_ads), b: Math.max(0, Number(d.revenue) - Number(d.google_ads)) }))}
-                  names={{ a: t('reports.source_google_ads'), b: t('reports.sales_other') }} format={n => f.money.format(n)} axisFormat={n => f.compact.format(n)} />
+                {/* Fără sursa comenzii (Gomag), vânzările nu se pot împărți pe surse */}
+                <StackedBars data={sales.daily.map(d => noSource
+                  ? { label: label(d.day), a: Number(d.revenue), b: 0 }
+                  : { label: label(d.day), a: Number(d.google_ads), b: Math.max(0, Number(d.revenue) - Number(d.google_ads)) })}
+                  names={noSource ? { a: t('reports.sales_site'), b: t('reports.sales_other') } : { a: t('reports.source_google_ads'), b: t('reports.sales_other') }}
+                  format={n => f.money.format(n)} axisFormat={n => f.compact.format(n)} />
               </div>
             )}
-            {sales.sources.length > 0 && (
+            {!noSource && sales.sources.length > 0 && (
               <ul className="mx-5 mb-5 mt-2 divide-y divide-neutral-100 border-t border-neutral-100">
                 {sales.sources.map(s => (
                   <li key={s.source} className="flex items-center justify-between gap-3 py-2.5 text-[13px]">

@@ -71,9 +71,29 @@ Clientul tratează toate acestea ca erori clare (`sync.gomag_*`); `Nothing Here!
 **Sursa comenzii** (UTM, gclid) nu există în `order/read`. Deci vânzările aduse de
 campaniile Hontrio nu se pot număra din comenzile Gomag, cum se face la WooCommerce,
 Shopify, MerchantPro și OpenCart: comenzile Gomag intră fără atribuire
-(`platform_data.order_attribution = "unavailable"`). De hotărât: atribuirea din
-conversiile Google Ads pentru magazinele Gomag, sau o cerere către Gomag să expună
-sursa comenzii în API.
+(`platform_data.order_attribution = "unavailable"`).
+
+**Hotărât pe 14.11.2026, construit pe 22.11.2026: numărăm din conversiile Google Ads.**
+`lib/commerce/attribution.ts` (`salesSource('gomag') = 'google_ads'`) spune peste tot de
+unde vin vânzările aduse de Hontrio:
+
+- **Facturarea** (Termeni, art. 9.2, versiunea 2026-11-22): `buildConversionStatement` în
+  `lib/billing/statement.ts`. Pe fiecare zi a lunii, valoarea conversiilor campaniilor
+  Hontrio (din `ad_metrics_daily`) × partea netă a lunii (`netShare`): produsele comenzilor
+  de pe site plătite sau livrate, după reduceri, fără transport și TVA, din totalul tuturor
+  comenzilor de pe site (cu TVA, transport și cele anulate). Luna nu trece de vânzările
+  plătite sau livrate de pe site. Rândurile situației sunt zilele (`gads:AAAA-LL-ZZ`), iar o
+  zi contestată intră în `billing_day_exclusions` (migrarea 035).
+- Regula folosește datele Google la calculul taxei, deci se aplică doar contului care a
+  acceptat Termenii din 2026-11-22 (`CONVERSIONS_TERMS_VERSION`, art. 18.2). Până atunci,
+  la un magazin Gomag nu se numără nimic.
+- Pe factura SmartBill nu trec cifre din Google Ads, doar taxa
+  (`billing.invoice_mentions_conversions`).
+- **Rapoartele**: cardul „Vânzările de pe site” nu mai împarte vânzările pe surse și arată
+  vânzările campaniilor Hontrio din conversiile Google Ads.
+- **Panoul de administrare** nu arată datele Google (politica de confidențialitate): la un
+  magazin Gomag, cifrele Hontrio din fila Magazine sunt înlocuite de o notă.
+- **Oprirea de siguranță** rămâne pe conversiile Google: comenzile Gomag n-au sursă.
 
 Netestat încă pe un magazin Gomag real (doar pe simularea după documentație): sensul
 exact al filtrelor `updated` și `startDate`, răspunsul la un `id` inexistent.

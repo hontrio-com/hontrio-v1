@@ -1,5 +1,6 @@
 import { monthlyFee, type PricingCurrency } from '@/lib/pricing'
 import { localToUtcIso } from '@/lib/commerce/time'
+import { isHontrioUtm } from '@/lib/commerce/attribution'
 
 // =============================================
 // Situația lunară a unui magazin, după Termeni, art. 9: ce comenzi se
@@ -13,6 +14,11 @@ import { localToUtcIso } from '@/lib/commerce/time'
 // prețurile magazinului o includ, ca la Edinio), iar `total` și `tax` sunt
 // comanda întreagă cu TVA și TVA-ul ei. TVA-ul se scoate cu raportul
 // (total − TVA) / total, deci o cotă la fel pe toată comanda.
+//
+// Gomag nu dă sursa comenzii (lib/commerce/attribution.ts): acolo se numără
+// conversiile Google Ads ale campaniilor Hontrio, pe zile, înmulțite cu partea
+// netă din comenzile site-ului din aceeași lună (`netShare`) și cel mult cât
+// vânzările plătite sau livrate de pe site (`buildConversionStatement`).
 // =============================================
 
 export type BillingOrder = {
@@ -28,9 +34,14 @@ export type BillingOrder = {
   tax: number
   total: number
   utm_campaign: string | null
+  /** De unde vine comanda: `store` = site-ul (eMAG, Trendyol și celelalte au canalul lor). */
+  channel?: string | null
 }
 
-/** O comandă numărată, cum apare în lista lunii (valoarea în moneda situației). */
+/**
+ * Un rând numărat, cum apare în lista lunii (valoarea în moneda situației): o comandă din magazin sau, la Gomag,
+ * ziua cu conversiile Google Ads ale campaniilor Hontrio (`source: 'google_ads'`, id-ul „gads:AAAA-LL-ZZ”).
+ */
 export type CountedOrder = {
   id: string
   number: string
@@ -38,7 +49,29 @@ export type CountedOrder = {
   value: number
   /** Valoarea și moneda comenzii, când ea s-a transformat în moneda situației. */
   original?: { value: number; currency: string }
+  source?: 'google_ads'
+  /** Ziua Gomag: câte conversii și ce valoare a raportat Google, înainte de partea netă. */
+  conversions?: number
+  reported?: number
 }
+
+/** Conversiile Google Ads ale campaniilor Hontrio într-o zi (ziua contului Google Ads). */
+export type ConversionDay = { date: string; conversions: number; value: number }
+
+/**
+ * Versiunea Termenilor care cuprinde regula Gomag (art. 9.2): datele Google se folosesc la calculul taxei doar
+ * pentru cine a acceptat-o (art. 18.2, Politica de confidențialitate). Până atunci, la Gomag nu se numără nimic.
+ */
+export const CONVERSIONS_TERMS_VERSION = '2026-11-22'
+
+/** Taxa unui magazin Gomag se poate calcula din conversiile Google Ads pentru contul cu această versiune acceptată? */
+export function countsConversions(termsVersion: string | null | undefined): boolean {
+  return !!termsVersion && termsVersion >= CONVERSIONS_TERMS_VERSION
+}
+
+export const conversionDayId = (date: string) => `gads:${date}`
+export const isConversionDay = (id: string) => id.startsWith('gads:')
+export const conversionDayOf = (id: string) => id.slice('gads:'.length)
 
 /** Cursurile BCE: câte unități din monedă face 1 euro (EUR = 1). */
 export type EurRates = Record<string, number>
@@ -48,7 +81,7 @@ const num = (v: unknown) => { const n = Number(v); return Number.isFinite(n) ? n
 
 /** Venită dintr-o campanie Hontrio, după ultimul clic: sursa începe cu „hontrio-” (art. 9.2 a). */
 export function fromHontrio(o: Pick<BillingOrder, 'utm_campaign'>): boolean {
-  return (o.utm_campaign ?? '').trim().toLowerCase().startsWith('hontrio-')
+  return isHontrioUtm(o.utm_campaign)
 }
 
 /**
@@ -174,6 +207,8 @@ export type Statement = {
   currency: PricingCurrency
   sales: number
   orders: CountedOrder[]
+  /** Câte comenzi s-au numărat (la Gomag: câte conversii, rotunjit). */
+  count: number
   fee: number
   adjustment: number
   amount: number
@@ -204,18 +239,96 @@ export function buildStatement(input: StatementInput): Statement {
     })
   }
   counted.sort((a, b) => a.placed_at.localeCompare(b.placed_at))
+  return finish(currency, counted, counted.length, input.credit, missing)
+}
+
+/** Taxa din grilă, creditul folosit și cel rămas, pentru rândurile numărate ale lunii. */
+function finish(currency: PricingCurrency, counted: CountedOrder[], count: number, creditIn: number, missing: Set<string>): Statement {
   const sales = round2(counted.reduce((s, o) => s + o.value, 0))
   const fee = monthlyFee(sales, currency)
-  const credit = round2(Math.max(0, input.credit))
+  const credit = round2(Math.max(0, creditIn))
   const used = Math.min(fee, credit)
   return {
     currency,
     sales,
     orders: counted,
+    count,
     fee,
     adjustment: round2(-used),
     amount: round2(fee - used),
     credit_carry: round2(credit - used),
     missingRates: [...missing],
   }
+}
+
+// ─── Gomag: din conversiile Google Ads (art. 9.2) ────────────────────────────
+
+/**
+ * Partea netă a comenzilor de pe site dintr-o lună: produsele comenzilor plătite sau livrate, după reduceri, fără
+ * transport și fără TVA (art. 9.2 b–c), din totalul tuturor comenzilor (cu TVA, transport și cele anulate). Google
+ * raportează conversia la plasarea comenzii, cu totalul ei, deci partea scoate ce n-ar trebui numărat. Fără comenzi
+ * pe site, 0: o conversie fără nicio comandă în magazin nu se numără.
+ */
+export function netShare(orders: Pick<BillingOrder, 'state' | 'payment_status' | 'subtotal' | 'discount' | 'tax' | 'total'>[]): { share: number; net: number } {
+  let gross = 0
+  let net = 0
+  for (const o of orders) {
+    gross += Math.max(0, num(o.total))
+    if (billable(o)) net += orderValue(o)
+  }
+  return { share: gross > 0 ? Math.min(1, net / gross) : 0, net: round2(net) }
+}
+
+export type ConversionStatementInput = {
+  period: string
+  storeCurrency: string | null
+  timeZone: string
+  /** Conversiile campaniilor Hontrio pe zile, în moneda contului Google Ads (aceeași cu a magazinului). */
+  days: ConversionDay[]
+  /** Comenzile de pe site ale lunii (canalul `store`), toate, pentru partea netă și plafon. */
+  websiteOrders: BillingOrder[]
+  /** Zilele scoase din calcul după o contestație. */
+  excludedDays: Set<string>
+  startDate: string
+  rates: EurRates
+  credit: number
+}
+
+/**
+ * Situația unui magazin Gomag: fiecare zi cu conversii numără valoarea raportată × partea netă a lunii, iar luna
+ * întreagă nu trece de vânzările plătite sau livrate de pe site (dacă ar trece, toate zilele scad la fel).
+ */
+export function buildConversionStatement(input: ConversionStatementInput): Statement {
+  const currency = statementCurrency(input.storeCurrency)
+  const from = (input.storeCurrency || currency).toUpperCase()
+  const startMs = Date.parse(localToUtcIso(`${input.startDate} 00:00:00`, input.timeZone) ?? `${input.startDate}T00:00:00Z`)
+  const { share, net } = netShare(input.websiteOrders.filter(o => Date.parse(o.placed_at) >= startMs))
+  const days = input.days
+    .filter(d => d.date.startsWith(input.period) && d.date >= input.startDate && !input.excludedDays.has(d.date) && num(d.value) > 0)
+    .sort((a, b) => a.date.localeCompare(b.date))
+  let values = days.map(d => round2(num(d.value) * share))
+  const total = values.reduce((s, v) => s + v, 0)
+  if (total > net && total > 0) values = values.map(v => round2((v * net) / total))
+
+  const counted: CountedOrder[] = []
+  const missing = new Set<string>()
+  let conversions = 0
+  days.forEach((d, i) => {
+    const value = values[i]
+    if (value <= 0) return
+    const converted = convert(value, from, currency, input.rates)
+    if (converted === null) { missing.add(from); return }
+    conversions += num(d.conversions)
+    counted.push({
+      id: conversionDayId(d.date),
+      number: d.date,
+      placed_at: `${d.date}T12:00:00.000Z`,
+      value: converted,
+      source: 'google_ads',
+      conversions: round2(num(d.conversions)),
+      reported: round2(num(d.value)),
+      ...(from !== currency ? { original: { value, currency: from } } : {}),
+    })
+  })
+  return finish(currency, counted, Math.round(conversions), input.credit, missing)
 }

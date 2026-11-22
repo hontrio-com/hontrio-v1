@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { getLocale } from '@/lib/i18n/server'
+import { TERMS_VERSION } from '@/lib/auth/validation'
 import { A, Clause, Code, Company, L, LegalPage, Mail, OL, P, UL, type LegalDoc } from '../legal-page'
 
 // =============================================
@@ -137,6 +138,7 @@ const RO: LegalDoc = {
             'vânzările în altă monedă decât leul sau euro, transformate în euro la cursul BCE din ultima zi a lunii, după grila în euro.',
           ]} />
           <P>În Hontrio vezi lista comenzilor numărate și poți contesta oricare dintre ele; o comandă care nu îndeplinește aceste reguli o scoatem din calcul.</P>
+          <P>La magazinele Gomag, platforma nu transmite sursa comenzii, așa că în locul comenzilor se numără, pe zile, valoarea conversiilor raportate de Google Ads pentru campaniile Hontrio. Ca regulile de la punctele b) și c) să se aplice și aici, din valoarea raportată păstrăm partea pe care o au, în comenzile de pe site ale magazinului din aceeași lună, produsele comenzilor plătite sau livrate, după reduceri, fără transport și fără TVA, din totalul acestor comenzi. Suma numărată nu depășește vânzările plătite sau livrate de pe site din acea lună. Partea se socotește o dată, la închiderea lunii. În Hontrio vezi zilele numărate și poți contesta oricare dintre ele. Regula se aplică doar dacă ai acceptat această versiune a Termenilor; până atunci, la un magazin Gomag nu se numără nimic.</P>
         </Clause>
         <Clause n="9.3"><P>Luna se închide în ultima ei zi. Factura se emite pe 15 ale lunii următoare, după cele 14 zile în care cumpărătorii pot returna produsele, și se plătește în termenul scris pe ea. O rambursare făcută după emiterea facturii se scade în luna următoare. Prețurile sunt finale, pentru că VOID SFT GAMES SRL nu este plătitoare de TVA.</P></Clause>
         <Clause n="9.4"><P>Nu există abonament, taxă de pornire sau perioadă minimă: o lună fără vânzări aduse de Hontrio nu costă nimic. Taxa este separată de costul reclamelor, pe care îl plătești direct la Google și care nu trece niciodată prin Hontrio.</P></Clause>
@@ -242,7 +244,7 @@ const RO: LegalDoc = {
         'Niciuna dintre părți nu răspunde pentru neexecutarea cauzată de forța majoră (art. 1351 Cod civil).',
         'Comunicările ți le trimitem la adresa de e-mail a contului; nouă ne scrii la contact@hontrio.com sau la support@hontrio.com.',
         'Termenii sunt disponibili în română și în engleză; dacă versiunile diferă, prevalează cea în română.',
-        'Versiunea în vigoare: 2026-11-16. Versiunile anterioare le poți cere la contact@hontrio.com.',
+        'Versiunea în vigoare: 2026-11-22. Versiunile anterioare le poți cere la contact@hontrio.com.',
       ]} />,
     },
   ],
@@ -371,6 +373,7 @@ const EN: LegalDoc = {
             'sales in a currency other than lei or euros, converted to euros at the ECB rate of the month’s last day, under the euro grid.',
           ]} />
           <P>In Hontrio you see the list of counted orders and can contest any of them; we remove from the calculation any order that does not meet these rules.</P>
+          <P>For Gomag stores, the platform does not pass on the source of an order, so instead of orders we count, per day, the value of the conversions Google Ads reports for Hontrio campaigns. So that the rules in points b) and c) apply here too, of the reported value we keep the share that the products of paid or delivered orders, after discounts, without shipping and without VAT, have in the total of the store’s website orders from the same month. The counted amount does not exceed the paid or delivered website sales of that month. The share is worked out once, when the month closes. In Hontrio you see the counted days and can contest any of them. The rule applies only if you have accepted this version of the Terms; until then, nothing is counted for a Gomag store.</P>
         </Clause>
         <Clause n="9.3"><P>The month closes on its last day. The invoice is issued on the 15th of the next month, after the 14 days in which buyers can return products, and is payable within the term written on it. A refund made after the invoice is issued is subtracted in the following month. Prices are final because VOID SFT GAMES SRL is not registered for VAT.</P></Clause>
         <Clause n="9.4"><P>There is no subscription, setup fee or minimum term: a month without sales from Hontrio costs nothing. The fee is separate from the cost of the ads, which you pay directly to Google and which never goes through Hontrio.</P></Clause>
@@ -476,7 +479,7 @@ const EN: LegalDoc = {
         'Neither party is liable for non-performance caused by force majeure (Art. 1351 of the Romanian Civil Code).',
         'We send notices to the account’s email address; you write to us at contact@hontrio.com or support@hontrio.com.',
         'The Terms are available in Romanian and English; if the versions differ, the Romanian version prevails.',
-        'Version in force: 2026-11-16. You can ask for previous versions at contact@hontrio.com.',
+        'Version in force: 2026-11-22. You can ask for previous versions at contact@hontrio.com.',
       ]} />,
     },
   ],
@@ -495,5 +498,5 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function TermsPage() {
   const locale = await getLocale()
-  return <LegalPage kind="terms" locale={locale} doc={locale === 'ro' ? RO : EN} contact="contact@hontrio.com" />
+  return <LegalPage kind="terms" locale={locale} doc={locale === 'ro' ? RO : EN} contact="contact@hontrio.com" version={TERMS_VERSION} />
 }

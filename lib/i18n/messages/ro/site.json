@@ -272,7 +272,7 @@
   "faq_a8": "În perioada de lansare, Hontrio este gratuit. După aceea, plătești în funcție de vânzările aduse de Hontrio într-o lună. Până la 5.000 de lei nu plătești nimic, până la 10.000 de lei plătești 199 de lei, iar peste această sumă plătești 2% din vânzări. Nu există abonament și nici perioadă minimă.",
   "faq_a8_link": "Vezi prețurile",
   "faq_q9": "Cum știți ce vânzări a adus Hontrio?",
-  "faq_a9": "Fiecare reclamă Hontrio are în adresă o etichetă care arată că vizitatorul vine de la Hontrio. Magazinul salvează eticheta pe comandă, iar Hontrio o citește de acolo. Se numără doar comenzile al căror ultim clic a venit dintr-o campanie Hontrio, iar lista lor o vezi în contul tău.",
+  "faq_a9": "Fiecare reclamă Hontrio are în adresă o etichetă care arată că vizitatorul vine de la Hontrio. Magazinul salvează eticheta pe comandă, iar Hontrio o citește de acolo. Se numără doar comenzile al căror ultim clic a venit dintr-o campanie Hontrio, iar lista lor o vezi în contul tău. Gomag nu transmite eticheta comenzii, așa că la magazinele Gomag numărăm conversiile raportate de Google Ads pentru campaniile Hontrio, fără partea de transport, TVA și comenzi anulate.",
   "faq_q10": "Ce date citește Hontrio?",
   "faq_a10": "Din magazin citește produsele, prețurile, stocul și comenzile, împreună cu sursa lor. Din Google citește campaniile, rezultatele lor și starea produselor în Merchant Center. Din comenzi nu păstrăm numele, e-mailul, telefonul sau adresa cumpărătorului și nu vindem niciun fel de date.",
   "faq_a10_link": "Politica de confidențialitate",

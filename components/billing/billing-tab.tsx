@@ -21,14 +21,24 @@ import { Label, Section } from '@/components/settings/layout'
 // fiecăreia (art. 9.2), trimisă ca tichet de suport.
 // =============================================
 
-type Order = { id: string; number: string; placed_at: string; value: number; original?: { value: number; currency: string } }
+/** Un rând numărat: o comandă sau, la Gomag, ziua cu conversiile Google Ads (`source`, `conversions`, `reported`). */
+type Order = {
+  id: string; number: string; placed_at: string; value: number; original?: { value: number; currency: string }
+  source?: 'google_ads'; conversions?: number; reported?: number
+}
+type Source = 'store_orders' | 'google_ads'
 type Profile = { name: string; vat_code: string; reg_com: string | null; is_vat_payer: boolean; address: string; city: string; county: string | null; country: string; email: string }
 type Statement = {
   id: string; store_name: string; period: string; currency: 'RON' | 'EUR'; sales: number; orders_count: number
   fee: number; adjustment: number; amount: number; status: string; invoice: string | null; invoice_url: string | null
-  payment_url: string | null; due_date: string | null; paid_at: string | null; orders: Order[]
+  payment_url: string | null; due_date: string | null; paid_at: string | null; orders: Order[]; source: Source
 }
-type Preview = { store_id: string; store_name: string; period: string; currency: 'RON' | 'EUR'; sales: number; fee: number; orders: Order[] }
+type Preview = {
+  store_id: string; store_name: string; period: string; currency: 'RON' | 'EUR'; sales: number; fee: number; orders: Order[]
+  source: Source
+  /** Gomag fără Termenii care spun regula acceptați: nu se numără nimic. */
+  counted: boolean
+}
 type BillingData = {
   active: boolean; start_date: string | null; notice_sent_at: string | null; profile: Profile | null
   statements: Statement[]; preview: Preview[]; suspended: { store_id: string; store_name: string }[]
@@ -58,6 +68,7 @@ export default function BillingTab() {
 
   const fmt = useMemo(() => ({
     money: (n: number, currency: string) => new Intl.NumberFormat(intlLocale, { style: 'currency', currency, maximumFractionDigits: 2 }).format(n),
+    num: (n: number) => new Intl.NumberFormat(intlLocale, { maximumFractionDigits: 2 }).format(n),
     day: (d: string) => new Intl.DateTimeFormat(intlLocale, { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${d.slice(0, 10)}T00:00:00Z`)),
     month: (p: string) => new Intl.DateTimeFormat(intlLocale, { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${p}-01T00:00:00Z`)),
   }), [intlLocale])
@@ -87,6 +98,7 @@ export default function BillingTab() {
             <p>{t('billing.grid_ron')}</p>
             <p>{t('billing.grid_eur')}</p>
             <p>{t('billing.how_counted')} <Link href="/legal/terms#tarife" className={linkStyles}>{t('billing.terms_link')}</Link></p>
+            {data.preview.some(p => p.source === 'google_ads') && <p>{t('billing.how_counted_gomag')}</p>}
           </div>
         </Card>
       </Section>
@@ -110,7 +122,7 @@ export default function BillingTab() {
   )
 }
 
-type Fmt = { money: (n: number, c: string) => string; day: (d: string) => string; month: (p: string) => string }
+type Fmt = { money: (n: number, c: string) => string; num: (n: number) => string; day: (d: string) => string; month: (p: string) => string }
 
 function PreviewCard({ p, active, fmt }: { p: Preview; active: boolean; fmt: Fmt }) {
   const { t } = useT()
@@ -128,25 +140,32 @@ function PreviewCard({ p, active, fmt }: { p: Preview; active: boolean; fmt: Fmt
         </div>
       </div>
       <div className="border-t border-neutral-100 px-5 py-3 text-[13px] text-neutral-600">
-        <button type="button" onClick={() => setOpen(o => !o)} className="inline-flex items-center gap-1.5 font-medium text-neutral-900 hover:text-neutral-600">
-          <ChevronDown className={cn('size-3.5 transition-transform', open && 'rotate-180')} />
-          {t('billing.month_orders', { count: p.orders.length, sales: fmt.money(p.sales, p.currency) })}
-        </button>
-        {open && <OrdersTable orders={p.orders} currency={p.currency} fmt={fmt} />}
+        {p.source === 'google_ads' && !p.counted ? <p>{t('billing.not_counted_terms')}</p> : (
+          <>
+            <button type="button" onClick={() => setOpen(o => !o)} className="inline-flex items-center gap-1.5 font-medium text-neutral-900 hover:text-neutral-600">
+              <ChevronDown className={cn('size-3.5 transition-transform', open && 'rotate-180')} />
+              {p.source === 'google_ads'
+                ? t('billing.month_conversions', { sales: fmt.money(p.sales, p.currency) })
+                : t('billing.month_orders', { count: p.orders.length, sales: fmt.money(p.sales, p.currency) })}
+            </button>
+            {open && <OrdersTable orders={p.orders} currency={p.currency} source={p.source} fmt={fmt} />}
+          </>
+        )}
       </div>
     </Card>
   )
 }
 
-function OrdersTable({ orders, currency, fmt, onDispute }: { orders: Order[]; currency: string; fmt: Fmt; onDispute?: (o: Order) => void }) {
+function OrdersTable({ orders, currency, source, fmt, onDispute }: { orders: Order[]; currency: string; source: Source; fmt: Fmt; onDispute?: (o: Order) => void }) {
   const { t } = useT()
-  if (!orders.length) return <p className="mt-3 text-[12px] text-neutral-500">{t('billing.orders_none')}</p>
+  const days = source === 'google_ads'
+  if (!orders.length) return <p className="mt-3 text-[12px] text-neutral-500">{t(days ? 'billing.days_none' : 'billing.orders_none')}</p>
   return (
     <div className="mt-3 overflow-x-auto">
       <table className="w-full min-w-[420px] text-left text-[12.5px]">
         <thead>
           <tr className="text-neutral-500">
-            <th className="py-1.5 pr-3 font-medium">{t('billing.col_order')}</th>
+            <th className="py-1.5 pr-3 font-medium">{t(days ? 'billing.col_day_conversions' : 'billing.col_order')}</th>
             <th className="py-1.5 pr-3 font-medium">{t('billing.col_date')}</th>
             <th className="py-1.5 pr-3 text-right font-medium">{t('billing.col_value')}</th>
             {onDispute && <th className="py-1.5" />}
@@ -155,11 +174,16 @@ function OrdersTable({ orders, currency, fmt, onDispute }: { orders: Order[]; cu
         <tbody className="divide-y divide-neutral-100">
           {orders.map(o => (
             <tr key={o.id}>
-              <td className="py-2 pr-3 font-medium text-neutral-900">#{o.number}</td>
+              <td className="py-2 pr-3 font-medium text-neutral-900">
+                {o.source === 'google_ads' ? t('billing.row_conversions', { n: fmt.num(o.conversions ?? 0) }) : `#${o.number}`}
+              </td>
               <td className="py-2 pr-3 text-neutral-600">{fmt.day(o.placed_at)}</td>
               <td className="py-2 pr-3 text-right tabular-nums text-neutral-900">
                 {fmt.money(o.value, currency)}
                 {o.original && <span className="block text-[11px] text-neutral-500">{fmt.money(o.original.value, o.original.currency)}</span>}
+                {o.source === 'google_ads' && o.reported !== undefined && (
+                  <span className="block text-[11px] text-neutral-500">{t('billing.reported_note', { value: fmt.money(o.reported, o.original?.currency ?? currency) })}</span>
+                )}
               </td>
               {onDispute && (
                 <td className="py-2 text-right">
@@ -194,13 +218,15 @@ function StatementCard({ s, fmt }: { s: Statement; fmt: Fmt }) {
         </div>
       </div>
       <div className="space-y-1 border-t border-neutral-100 px-5 py-3 text-[12.5px] text-neutral-600">
-        <p>{t('billing.statement_sales', { count: s.orders_count, sales: fmt.money(s.sales, s.currency), fee: fmt.money(s.fee, s.currency) })}</p>
+        <p>{s.source === 'google_ads'
+          ? t('billing.statement_conversions', { sales: fmt.money(s.sales, s.currency), fee: fmt.money(s.fee, s.currency) })
+          : t('billing.statement_sales', { count: s.orders_count, sales: fmt.money(s.sales, s.currency), fee: fmt.money(s.fee, s.currency) })}</p>
         {s.adjustment < 0 && <p>{t('billing.statement_credit', { amount: fmt.money(-s.adjustment, s.currency) })}</p>}
         <button type="button" onClick={() => setOpen(o => !o)} className="inline-flex items-center gap-1.5 pt-1 font-medium text-neutral-900 hover:text-neutral-600">
           <ChevronDown className={cn('size-3.5 transition-transform', open && 'rotate-180')} />
-          {t('billing.statement_orders')}
+          {t(s.source === 'google_ads' ? 'billing.statement_days' : 'billing.statement_orders')}
         </button>
-        {open && <OrdersTable orders={s.orders} currency={s.currency} fmt={fmt} onDispute={setDispute} />}
+        {open && <OrdersTable orders={s.orders} currency={s.currency} source={s.source} fmt={fmt} onDispute={setDispute} />}
       </div>
       {(s.invoice_url || s.payment_url) && (
         <CardFooter>
@@ -221,16 +247,24 @@ function DisputeModal({ order, statement, fmt, onClose }: { order: Order | null;
   const [message, setMessage] = useState('')
   const [sending, setSending] = useState(false)
 
+  // La Gomag se contestă ziua cu conversiile ei, nu o comandă
+  const day = order?.source === 'google_ads'
   async function send() {
     if (!order || message.trim().length < 5) return
     setSending(true)
     try {
+      const month = fmt.month(statement.period)
+      const value = fmt.money(order.value, statement.currency)
       const r = await fetch('/api/tickets', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           category: 'billing',
-          subject: t('billing.dispute_subject', { number: order.number, month: fmt.month(statement.period), store: statement.store_name }).slice(0, 200),
-          message: `${t('billing.dispute_context', { number: order.number, invoice: statement.invoice ?? '—', value: fmt.money(order.value, statement.currency) })}\n\n${message.trim()}`.slice(0, 5000),
+          subject: (day
+            ? t('billing.dispute_subject_day', { date: fmt.day(order.placed_at), month, store: statement.store_name })
+            : t('billing.dispute_subject', { number: order.number, month, store: statement.store_name })).slice(0, 200),
+          message: `${day
+            ? t('billing.dispute_context_day', { date: fmt.day(order.placed_at), invoice: statement.invoice ?? '—', value })
+            : t('billing.dispute_context', { number: order.number, invoice: statement.invoice ?? '—', value })}\n\n${message.trim()}`.slice(0, 5000),
         }),
       })
       const d = await r.json().catch(() => ({}))
@@ -248,7 +282,7 @@ function DisputeModal({ order, statement, fmt, onClose }: { order: Order | null;
   return (
     <Modal
       open={!!order} onOpenChange={o => { if (!o) onClose() }} icon={<MessageSquareWarning />}
-      title={t('billing.dispute_title', { number: order?.number ?? '' })} description={t('billing.dispute_desc')}
+      title={day && order ? t('billing.dispute_title_day', { date: fmt.day(order.placed_at) }) : t('billing.dispute_title', { number: order?.number ?? '' })} description={t('billing.dispute_desc')}
       footer={<>
         <Button variant="secondary" onClick={onClose}>{t('billing.cancel')}</Button>
         <Button variant="primary" loading={sending} disabled={message.trim().length < 5} onClick={send}>{t('billing.dispute_send')}</Button>

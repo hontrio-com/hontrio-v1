@@ -6,9 +6,11 @@ import { notify } from '@/lib/ads/journal'
 import { moneyIn, tIn } from '@/lib/ads/emails'
 import { readAll } from '@/lib/ads/read-all'
 import { COMMERCE_PLATFORMS } from '@/lib/commerce/platforms'
+import { salesSource } from '@/lib/commerce/attribution'
 import {
-  buildStatement, billable, lastDay, neededRates, periodBounds, periodDate, refundCredit, statementCurrency,
-  type BillingOrder, type CountedOrder, type Statement,
+  buildConversionStatement, buildStatement, billable, conversionDayId, conversionDayOf, countsConversions, fromHontrio, isConversionDay,
+  lastDay, neededRates, periodBounds, periodDate, refundCredit, statementCurrency,
+  type BillingOrder, type ConversionDay, type CountedOrder, type Statement,
 } from '@/lib/billing/statement'
 import { eurRatesOn } from '@/lib/billing/ecb'
 import { createInvoice, paymentStatus, smartBillConfig, SmartBillError, type InvoiceClient, type SmartBillConfig } from '@/lib/billing/smartbill'
@@ -30,7 +32,7 @@ import {
 
 type Supabase = ReturnType<typeof createAdminClient>
 
-const ORDER_COLUMNS = 'id, order_number, external_id, placed_at, state, payment_status, currency, subtotal, discount, tax, total, utm_campaign'
+const ORDER_COLUMNS = 'id, order_number, external_id, placed_at, state, payment_status, currency, subtotal, discount, tax, total, utm_campaign, channel'
 export const STATEMENT_COLUMNS = 'id, user_id, store_id, store_name, period, currency, sales, orders_count, fee, adjustment, amount, credit_carry, orders, adjusted_orders, status, invoice_series, invoice_number, invoice_url, payment_url, invoice_total, issued_at, due_date, paid_at, reminders, error'
 const OPEN_STATUSES = ['pending', 'needs_profile', 'error']
 /** Pauza dintre două apeluri SmartBill (limita: 30 la 10 secunde, apoi blocare 10 minute). */
@@ -44,8 +46,8 @@ export type StatementRow = {
   invoice_total: number | null; issued_at: string | null; due_date: string | null; paid_at: string | null; reminders: number; error: string | null
 }
 
-type StoreRow = { id: string; user_id: string; store_name: string | null; store_url: string; currency: string | null; timezone: string | null; billing_suspended_at: string | null }
-const STORE_COLUMNS = 'id, user_id, store_name, store_url, currency, timezone, billing_suspended_at'
+export type StoreRow = { id: string; user_id: string; platform: string; store_name: string | null; store_url: string; currency: string | null; timezone: string | null; billing_suspended_at: string | null }
+export const STORE_COLUMNS = 'id, user_id, platform, store_name, store_url, currency, timezone, billing_suspended_at'
 
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
 const num = (v: unknown) => { const n = Number(v); return Number.isFinite(n) ? n : 0 }
@@ -95,48 +97,97 @@ export async function computeStatement(supabase: Supabase, store: StoreRow, peri
   const { from, to } = periodBounds(period, tz)
   const orders = await readAll<BillingOrder>((a, b) => supabase.from('commerce_orders').select(ORDER_COLUMNS)
     .eq('store_id', store.id).gte('placed_at', from).lt('placed_at', to).order('placed_at', { ascending: true }).range(a, b))
+  const { credit, adjusted } = await priorCredit(supabase, store.id, period, opts.ignoreStatementId)
+  const currency = statementCurrency(store.currency)
+  const countStart = countFrom(period, startDate)
 
-  const hontrioIds = orders.filter(o => (o.utm_campaign ?? '').toLowerCase().startsWith('hontrio-')).map(o => o.id)
+  // Gomag: din conversiile Google Ads ale campaniilor Hontrio, doar cu Termenii care o spun acceptați
+  if (salesSource(store.platform) === 'google_ads') {
+    const { data: owner } = await supabase.from('users').select('terms_version').eq('id', store.user_id).maybeSingle()
+    const [days, excludedDays] = countsConversions(owner?.terms_version as string | null)
+      ? await Promise.all([conversionDays(supabase, store.id, period), excludedDaysOf(supabase, store.id, period)])
+      : [[] as ConversionDay[], new Set<string>()]
+    const rates = await eurRatesOn(neededRates([{ currency: store.currency || currency }], currency), lastDay(period))
+    const statement = buildConversionStatement({
+      period, storeCurrency: store.currency, timeZone: tz, days, excludedDays,
+      websiteOrders: orders.filter(o => o.channel === 'store'), startDate: countStart, rates, credit,
+    })
+    return { statement, adjusted }
+  }
+
+  const hontrioIds = orders.filter(fromHontrio).map(o => o.id)
   const excluded = new Set<string>()
   for (let i = 0; i < hontrioIds.length; i += 500) {
     const { data } = await supabase.from('billing_exclusions').select('order_id').in('order_id', hontrioIds.slice(i, i + 500))
     for (const r of data ?? []) excluded.add(r.order_id as string)
   }
+  const rates = await eurRatesOn(neededRates(orders, currency), lastDay(period))
+  const statement = buildStatement({
+    period, storeCurrency: store.currency, timeZone: tz, orders, excluded,
+    startDate: countStart, rates, credit,
+  })
+  return { statement, adjusted }
+}
 
-  // Lunile de dinainte ale magazinului: creditul din rambursări și cel rămas
+/**
+ * Lunile de dinainte ale magazinului: creditul rămas și cel din rândurile facturate care între timp nu mai trebuiau
+ * numărate (comenzi rambursate, anulate sau contestate; la Gomag, zile contestate).
+ */
+async function priorCredit(supabase: Supabase, storeId: string, period: string, ignoreStatementId?: string): Promise<{ credit: number; adjusted: { id: string; value: number }[] }> {
   const { data: priorRows } = await supabase.from('billing_statements').select(STATEMENT_COLUMNS)
-    .eq('store_id', store.id).lt('period', periodDate(period)).order('period', { ascending: true })
-  const priors = (priorRows ?? []).map(r => parseStatement(r as Record<string, unknown>)).filter(r => r.id !== opts.ignoreStatementId)
+    .eq('store_id', storeId).lt('period', periodDate(period)).order('period', { ascending: true })
+  const priors = (priorRows ?? []).map(r => parseStatement(r as Record<string, unknown>)).filter(r => r.id !== ignoreStatementId)
   const adjustedBefore = new Set(priors.flatMap(p => p.adjusted_orders.map(a => a.id)))
   const adjusted: { id: string; value: number }[] = []
   let credit = priors.length ? priors[priors.length - 1].credit_carry : 0
   for (const p of priors.filter(r => r.status === 'invoiced' || r.status === 'paid')) {
     const open = p.orders.filter(o => !adjustedBefore.has(o.id))
     if (!open.length) continue
-    const ids = open.map(o => o.id)
-    const [{ data: now }, { data: contested }] = await Promise.all([
-      supabase.from('commerce_orders').select('id, state, payment_status').in('id', ids),
-      supabase.from('billing_exclusions').select('order_id').in('order_id', ids),
-    ])
-    // Rambursată, anulată sau scoasă din calcul după o contestație: se întoarce ca și credit
-    const gone = new Set([
-      ...(now ?? []).filter(o => !billable(o as { state: string; payment_status: string | null })).map(o => o.id as string),
-      ...(contested ?? []).map(r => r.order_id as string),
-    ])
+    const ids = open.filter(o => !isConversionDay(o.id)).map(o => o.id)
+    const dayDates = open.filter(o => isConversionDay(o.id)).map(o => conversionDayOf(o.id))
+    const gone = new Set<string>()
+    if (ids.length) {
+      const [{ data: now }, { data: contested }] = await Promise.all([
+        supabase.from('commerce_orders').select('id, state, payment_status').in('id', ids),
+        supabase.from('billing_exclusions').select('order_id').in('order_id', ids),
+      ])
+      // Rambursată, anulată sau scoasă din calcul după o contestație: se întoarce ca și credit
+      for (const o of now ?? []) if (!billable(o as { state: string; payment_status: string | null })) gone.add(o.id as string)
+      for (const r of contested ?? []) gone.add(r.order_id as string)
+    }
+    if (dayDates.length) {
+      const { data: days } = await supabase.from('billing_day_exclusions').select('day').eq('store_id', storeId).in('day', dayDates)
+      for (const r of days ?? []) gone.add(conversionDayId(String(r.day).slice(0, 10)))
+    }
     const refunds = open.filter(o => gone.has(o.id))
     if (!refunds.length) continue
     const alreadyRefunded = p.orders.filter(o => adjustedBefore.has(o.id)).reduce((s, o) => s + o.value, 0)
     credit += refundCredit({ id: p.id, currency: p.currency, sales: p.sales, refunded_value: alreadyRefunded, new_refunds: refunds.reduce((s, o) => s + o.value, 0) })
     adjusted.push(...refunds.map(o => ({ id: o.id, value: o.value })))
   }
+  return { credit, adjusted }
+}
 
-  const currency = statementCurrency(store.currency)
-  const rates = await eurRatesOn(neededRates(orders, currency), lastDay(period))
-  const statement = buildStatement({
-    period, storeCurrency: store.currency, timeZone: tz, orders, excluded,
-    startDate: countFrom(period, startDate), rates, credit,
-  })
-  return { statement, adjusted }
+/** Conversiile campaniilor Hontrio ale magazinului, pe zilele lunii (din cifrele citite zilnic de pilot). */
+export async function conversionDays(supabase: Supabase, storeId: string, period: string): Promise<ConversionDay[]> {
+  const { data: campaigns } = await supabase.from('ad_campaigns').select('google_campaign_id').eq('store_id', storeId).not('google_campaign_id', 'is', null)
+  const ids = [...new Set((campaigns ?? []).map(c => String(c.google_campaign_id)))]
+  if (!ids.length) return []
+  const rows = await readAll<{ date: string; conversions: unknown; conversions_value: unknown }>((a, b) => supabase.from('ad_metrics_daily')
+    .select('date, conversions, conversions_value').eq('store_id', storeId).in('google_campaign_id', ids)
+    .gte('date', `${period}-01`).lte('date', lastDay(period)).order('date').order('google_campaign_id').range(a, b))
+  const byDay = new Map<string, ConversionDay>()
+  for (const r of rows) {
+    const d = byDay.get(r.date) ?? { date: r.date, conversions: 0, value: 0 }
+    byDay.set(r.date, { date: r.date, conversions: d.conversions + num(r.conversions), value: d.value + num(r.conversions_value) })
+  }
+  return [...byDay.values()]
+}
+
+/** Zilele unui magazin Gomag scoase din calcul după o contestație, în luna dată. */
+export async function excludedDaysOf(supabase: Supabase, storeId: string, period: string): Promise<Set<string>> {
+  const { data } = await supabase.from('billing_day_exclusions').select('day').eq('store_id', storeId).gte('day', `${period}-01`).lte('day', lastDay(period))
+  return new Set((data ?? []).map(r => String(r.day).slice(0, 10)))
 }
 
 // ─── Emiterea ────────────────────────────────────────────────────────────────
@@ -172,8 +223,10 @@ export async function issueStatement(supabase: Supabase, row: StatementRow, cfg:
   const money = moneyIn(invoiceLocale, row.currency)
   const month = monthLabel(row.period, invoiceLocale)
   const dueDate = addDays(today, DUE_DAYS)
+  // Gomag: cifrele vin din Google Ads și nu pleacă spre SmartBill; pe factură rămâne doar de unde e taxa
+  const fromGoogle = row.orders.some(o => o.source === 'google_ads')
   const mentions = [
-    t('billing.invoice_mentions', { count: row.orders_count, sales: money(row.sales), month }),
+    fromGoogle ? t('billing.invoice_mentions_conversions', { month }) : t('billing.invoice_mentions', { count: row.orders_count, sales: money(row.sales), month }),
     ...(row.adjustment < 0 ? [t('billing.invoice_credit', { amount: money(-row.adjustment) })] : []),
     t('billing.invoice_list', { url: 'app.hontrio.com/settings?tab=billing' }),
   ].join(' ')
@@ -237,7 +290,7 @@ export async function closeMonth(supabase: Supabase, today: string, deadline: nu
         if (statement.missingRates.length) { summary.errors.push(`${store.id}: curs BCE lipsă ${statement.missingRates.join(',')}`); continue }
         const { data: inserted, error: eIns } = await supabase.from('billing_statements').insert({
           user_id: store.user_id, store_id: store.id, store_name: storeLabel(store), period: periodDate(period), currency: statement.currency,
-          sales: statement.sales, orders_count: statement.orders.length, fee: statement.fee, adjustment: statement.adjustment,
+          sales: statement.sales, orders_count: statement.count, fee: statement.fee, adjustment: statement.adjustment,
           amount: statement.amount, credit_carry: statement.credit_carry, orders: statement.orders, adjusted_orders: adjusted,
           status: statement.amount > 0 ? 'pending' : 'free',
         }).select(STATEMENT_COLUMNS).single()

@@ -272,7 +272,7 @@
   "faq_a8": "During the launch period, Hontrio is free. After that, what you pay depends on the sales Hontrio brings you in a month. Up to €1,000 you pay nothing, up to €2,000 you pay €39, and above that you pay 2% of sales. Stores that sell in lei have their own grid. There is no subscription and no minimum term.",
   "faq_a8_link": "See pricing",
   "faq_q9": "How do you know which sales Hontrio brought?",
-  "faq_a9": "Every Hontrio ad carries a tag in its address that shows the visitor came from Hontrio. Your store saves the tag on the order, and Hontrio reads it from there. Only orders whose last click came from a Hontrio campaign count, and you can see the list in your account.",
+  "faq_a9": "Every Hontrio ad carries a tag in its address that shows the visitor came from Hontrio. Your store saves the tag on the order, and Hontrio reads it from there. Only orders whose last click came from a Hontrio campaign count, and you can see the list in your account. Gomag doesn’t pass on the order’s tag, so for Gomag stores we count the conversions Google Ads reports for Hontrio campaigns, without the share of shipping, VAT and cancelled orders.",
   "faq_q10": "What data does Hontrio read?",
   "faq_a10": "From your store, it reads products, prices, stock and orders, along with their source. From Google, it reads campaigns, their results and the products' status in Merchant Center. We don't keep the buyer's name, email, phone number or address from orders, and we never sell data.",
   "faq_a10_link": "Privacy policy",
