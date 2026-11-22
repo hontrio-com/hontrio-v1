@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import { Command } from 'cmdk'
+import { Dialog } from 'radix-ui'
 import { ArrowRight, CornerDownLeft, Package, Plus, Search, Store } from 'lucide-react'
 import { useLocale } from '@/lib/i18n/context'
 import { Kbd } from '@/components/app/badge'
@@ -61,6 +62,9 @@ export function CommandMenu({ open, onOpenChange, admin, stores, activeStoreId, 
     <Command.Dialog open={open} onOpenChange={onOpenChange} label={t('sidebar.search')} loop
       overlayClassName="fixed inset-0 z-[60] bg-neutral-950/20 backdrop-blur-[2px] data-[state=open]:animate-in data-[state=open]:fade-in-0"
       contentClassName="app fixed left-1/2 top-[12vh] z-[61] w-[min(640px,calc(100vw-2rem))] -translate-x-1/2 overflow-hidden rounded-2xl bg-white shadow-pop data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-[0.98]">
+      {/* Radix cere un titlu (și o descriere) în fereastră, pentru cititoarele de ecran; cmdk nu le pune */}
+      <Dialog.Title className="sr-only">{t('sidebar.search')}</Dialog.Title>
+      <Dialog.Description className="sr-only">{t('sidebar.command_placeholder')}</Dialog.Description>
       <div className="flex items-center gap-3 border-b border-neutral-100 px-4">
         <Search className="size-[18px] shrink-0 text-neutral-400" />
         <Command.Input value={query} onValueChange={setQuery} placeholder={t('sidebar.command_placeholder')}
