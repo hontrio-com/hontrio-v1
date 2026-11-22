@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { budgetRoom, lossStops, optimize, squash, windowOf, withStoreSales, type OptCampaign, type OptimizerInput, type OptProduct, type Window } from '@/lib/ads/optimizer'
+import { budgetRoom, googleCoverage, lossStops, optimize, squash, windowOf, withStoreSales, type OptCampaign, type OptimizerInput, type OptProduct, type Window } from '@/lib/ads/optimizer'
 
 // Bucla de optimizare, fără marje: oprirea de siguranță (ROAS sub 1), trecerea
 // la Performance Max, bugetul (doar propus), produsele și termenii de căutare,
@@ -142,6 +142,55 @@ test('termenii de căutare: au costat cât o comandă medie fără vânzări; ni
   assert.deepEqual((p.params.terms as { term: string }[]).map(t => t.term), ['lampa ieftina'])
   // Fără comandă medie nu propunem cuvinte negative
   assert.ok(!kinds(input({ economics: { aov: null }, searchTerms: [{ campaign_id: 'c1', term: 'x', cost: 5000, conversions: 0, clicks: 9 }] })).includes('add_negatives'))
+})
+
+test('produsele care se vând în magazin nu ies din campanii, chiar dacă Google n-a numărat vânzarea', () => {
+  const prod = (id: string, over: Partial<OptProduct> = {}): OptProduct => ({
+    item_id: id, offer_id: id, title: id, price: 300, included_by_user: false, excluded: false, window: w(0, 0, 0), days: 30, ...over,
+  })
+  const picks = (products: OptProduct[]) => {
+    const p = optimize(input({ products })).find(x => x.kind === 'exclude_products')
+    return p ? (p.params.products as { item_id: string; why: string; conversions: number }[]).map(x => `${x.item_id}:${x.why}:${x.conversions}`) : []
+  }
+  // 320 cheltuiți, 0 conversii Google, dar 2 comenzi din campanie de 700 în magazin: se vinde, rămâne
+  assert.deepEqual(picks([prod('sells', { window: w(320, 0, 0), store: { orders: 2, value: 700 } })]), [])
+  // O comandă din magazin, dar sub costul reclamei: tot pierdere, iese ca „vinde sub cost”
+  assert.deepEqual(picks([prod('cheap', { window: w(320, 0, 0), store: { orders: 1, value: 29.8 } })]), ['cheap:unprofitable:1'])
+  // Fără comenzi în magazin, regula rămâne cea de dinainte
+  assert.deepEqual(picks([prod('none', { window: w(320, 0, 0), store: { orders: 0, value: 0 } })]), ['none:no_sales:0'])
+})
+
+test('bugetul vede și vânzările din magazin, dar trecerea pe Performance Max rămâne pe conversiile Google', () => {
+  const limited = { google: { reasons: ['BUDGET_CONSTRAINED'], recommended_budget: null } }
+  // Google: 0 conversii; magazinul: 6 comenzi de 2.400 la 2.000 cheltuiți, deci ROAS 1,2
+  const unseen = campaign({ ...limited, eval30: w(2000, 0, 0), store30: { orders: 6, value: 2400 } })
+  const budget = optimize(input({ campaigns: [unseen] })).find(x => x.kind === 'set_budget')!
+  assert.deepEqual(budget.params, { from: 100, to: 120 })
+  assert.deepEqual(budget.reason.params, { actual: 1.2, from: 100, to: 120 })
+  // Fără vânzările din magazin, Google singur n-ar fi propus nimic
+  assert.ok(!kinds(input({ campaigns: [campaign({ ...limited, eval30: w(2000, 0, 0) })] })).includes('set_budget'))
+  // O grupă cu 20 de comenzi în magazin, dar 3 conversii Google, nu trece pe PMax: Google licitează după ale lui
+  const group = campaign({ id: 'g1', type: 'shopping', stage: 'starter', group: true, days_live: 30, eval30: w(500, 3, 600), store30: { orders: 20, value: 4000 } })
+  assert.ok(!kinds(input({ campaigns: [group] })).includes('graduate'))
+})
+
+test('căutările: când Google vede doar o parte din comenzi, pragul pentru negative crește pe măsură', () => {
+  // Google a numărat 1 din cele 4 comenzi ale campaniei: acoperire 25%, deci pragul este de 4 ori comanda medie
+  assert.equal(googleCoverage({ eval30: w(1000, 1, 300), store30: { orders: 4, value: 1200 } }), 0.25)
+  assert.equal(googleCoverage({ eval30: w(1000, 2, 300), store30: { orders: 4, value: 1200 } }), 0.5)
+  assert.equal(googleCoverage({ eval30: w(1000, 0, 0), store30: { orders: 9, value: 900 } }), 0.25, 'cel puțin 25%')
+  assert.equal(googleCoverage({ eval30: w(1000, 5, 900), store30: { orders: 3, value: 900 } }), 1)
+  assert.equal(googleCoverage({ eval30: w(1000, 5, 900) }), 1)
+  const terms = [
+    { campaign_id: 'c1', term: 'lampa ieftina', cost: 610, conversions: 0, clicks: 90 },
+    { campaign_id: 'c1', term: 'veioza veche', cost: 1300, conversions: 0, clicks: 120 },
+  ]
+  // Comanda medie 300, acoperire 50%: pragul este 600, deci ambele
+  const half = optimize(input({ campaigns: [campaign({ eval30: w(2000, 2, 8200), store30: { orders: 4, value: 9000 } })], searchTerms: terms })).find(x => x.kind === 'add_negatives')!
+  assert.deepEqual((half.params.terms as { term: string }[]).map(t => t.term), ['veioza veche', 'lampa ieftina'])
+  // Acoperire 25%: pragul este 1.200, deci doar cea de 1.300
+  const quarter = optimize(input({ campaigns: [campaign({ eval30: w(2000, 1, 8200), store30: { orders: 4, value: 9000 } })], searchTerms: terms })).find(x => x.kind === 'add_negatives')!
+  assert.deepEqual((quarter.params.terms as { term: string }[]).map(t => t.term), ['veioza veche'])
 })
 
 test('pilotul nu mai propune ținte și nici împărțiri pe marje', () => {

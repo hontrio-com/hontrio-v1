@@ -1,7 +1,9 @@
 import { round1 } from '@/lib/ads/economics'
 
 // =============================================
-// Bucla de optimizare — ce ar schimba pilotul azi, din cifrele Google Ads.
+// Bucla de optimizare — ce ar schimba pilotul azi, din cifrele Google Ads și
+// din comenzile magazinului aduse de campanii (Google nu le vede pe toate: în
+// UE conversia pleacă doar cu acordul vizitatorului pentru marketing).
 // Funcție pură: primește campaniile, ferestrele de metrici, produsele și
 // termenii de căutare și întoarce propuneri. Ce se aplică singur și ce
 // așteaptă aprobarea hotărăște apelantul (modul ales).
@@ -26,6 +28,11 @@ export const PRODUCT_NO_SALES_PRICES = 1
 /** O căutare care a costat cât o comandă medie fără nicio vânzare. */
 export const TERM_NO_SALES_AOV = 1
 export const MAX_TERMS_PER_PROPOSAL = 20
+/**
+ * Cât din vânzările campaniei vede Google, cel puțin: cu Google văzând jumătate din comenzile din magazin, o căutare
+ * trebuie să coste de două ori mai mult fără vânzări ca să devină negativă; cel mult de patru ori.
+ */
+export const MIN_GOOGLE_COVERAGE = 0.25
 
 export type Window = { cost: number; conversions: number; value: number; clicks: number }
 export const EMPTY: Window = { cost: 0, conversions: 0, value: 0, clicks: 0 }
@@ -56,6 +63,11 @@ export type OptCampaign = {
   eval30: Window
   recent14: Window
   /**
+   * Comenzile din magazin aduse de campanie în aceeași fereastră ca `eval30` (lib/ads/store-sales.ts). Bugetul și
+   * căutările le pun lângă cifrele Google; trecerea pe Performance Max rămâne pe conversiile Google, după care licitează.
+   */
+  store30?: StoreSales
+  /**
    * Limita de pierdere a campaniei: a grupei (din comanda medie a produselor ei, §13); lipsă = a magazinului
    * (`OptimizerInput.loss_limit`); null = fără limită (fără comandă medie).
    */
@@ -73,6 +85,8 @@ export type OptProduct = {
   included_by_user: boolean
   excluded: boolean
   window: Window
+  /** Comenzile din magazin aduse de campaniile Hontrio în aceeași fereastră, în care apare produsul (cumpărat sau pagina de intrare). */
+  store?: StoreSales
   /** De câte zile are produsul cifre în campaniile Hontrio (de la primul clic sau prima afișare). */
   days: number
 }
@@ -133,6 +147,16 @@ export type StoreSales = { orders: number; value: number }
 export function withStoreSales(w: Window, sales: StoreSales | undefined): Window {
   if (!sales || (sales.orders <= 0 && sales.value <= 0)) return w
   return { ...w, conversions: Math.max(w.conversions, sales.orders), value: Math.max(w.value, sales.value) }
+}
+
+/**
+ * Cât din vânzările campaniei a văzut Google în fereastra de evaluare: conversiile Google față de comenzile din
+ * magazin aduse de ea. 1 când magazinul nu vede mai mult (sau nu poate spune, ca la Gomag); cel puțin MIN_GOOGLE_COVERAGE.
+ */
+export function googleCoverage(c: Pick<OptCampaign, 'eval30' | 'store30'>): number {
+  const store = c.store30?.orders ?? 0
+  if (store <= c.eval30.conversions) return 1
+  return Math.max(MIN_GOOGLE_COVERAGE, c.eval30.conversions / store)
 }
 
 /** Fereastra dintre două date (incluse), din rândurile pe zi. */
@@ -197,7 +221,9 @@ export function optimize(input: OptimizerInput): Proposal[] {
   let reserved = 0
   for (const c of active) {
     if (stopped.has(c.id)) continue
-    const actual = roas(c.eval30)
+    // Bugetul vede și vânzările din magazin pe care Google nu le-a numărat
+    const judged = withStoreSales(c.eval30, c.store30)
+    const actual = roas(judged)
 
     // 2. Pornirea trece la Performance Max: cea principală după cumpărările contului, a unei grupe după ale ei
     if (c.stage === 'starter' && c.can_graduate !== false) {
@@ -216,7 +242,7 @@ export function optimize(input: OptimizerInput): Proposal[] {
     //    banii îi decide omul. Bugetul maxim e pentru toate campaniile Hontrio care rulează, împreună.
     const limited = !!c.google && (c.google.reasons.includes('BUDGET_CONSTRAINED') || (c.google.recommended_budget ?? 0) > c.daily_budget * 1.05)
     const minAge = c.type === 'performance_max' ? LEARNING_DAYS : STARTER_MIN_DAYS
-    if (limited && actual !== null && actual >= 1 && c.eval30.conversions > 0
+    if (limited && actual !== null && actual >= 1 && judged.conversions > 0
       && c.days_live >= minAge
       && (c.days_since_budget_change === null || c.days_since_budget_change >= BUDGET_MIN_GAP_DAYS)) {
       const ceiling = budgetRoom(input.max_daily_budget, c.id, input.campaigns, reserved)
@@ -233,18 +259,19 @@ export function optimize(input: OptimizerInput): Proposal[] {
     }
   }
 
-  // 4. Produsele care cheltuie fără să vândă sau costă mai mult decât vând
+  // 4. Produsele care cheltuie fără să vândă sau costă mai mult decât vând (vânzările: Google sau magazinul, care vede mai mult)
   const picks: { item_id: string; offer_id: string; title: string; cost: number; conversions: number; roas: number | null; why: 'no_sales' | 'unprofitable' }[] = []
   for (const p of input.products) {
     if (p.excluded || p.included_by_user || p.days < PRODUCT_MIN_DAYS || input.rejected.items.has(p.item_id)) continue
     // O vânzare aduce cam prețul produsului; fără preț, comanda medie
     const unit = p.price > 0 ? p.price : input.economics.aov ?? 0
     if (unit <= 0) continue
-    const r = roas(p.window)
-    if (p.window.conversions === 0 && p.window.cost >= PRODUCT_NO_SALES_PRICES * unit) {
-      picks.push({ item_id: p.item_id, offer_id: p.offer_id, title: p.title, cost: round1(p.window.cost), conversions: 0, roas: null, why: 'no_sales' })
-    } else if (p.window.conversions > 0 && r !== null && r < 1) {
-      picks.push({ item_id: p.item_id, offer_id: p.offer_id, title: p.title, cost: round1(p.window.cost), conversions: p.window.conversions, roas: round1(r), why: 'unprofitable' })
+    const w = withStoreSales(p.window, p.store)
+    const r = roas(w)
+    if (w.conversions === 0 && w.cost >= PRODUCT_NO_SALES_PRICES * unit) {
+      picks.push({ item_id: p.item_id, offer_id: p.offer_id, title: p.title, cost: round1(w.cost), conversions: 0, roas: null, why: 'no_sales' })
+    } else if (w.conversions > 0 && r !== null && r < 1) {
+      picks.push({ item_id: p.item_id, offer_id: p.offer_id, title: p.title, cost: round1(w.cost), conversions: w.conversions, roas: round1(r), why: 'unprofitable' })
     }
   }
   if (picks.length) {
@@ -257,14 +284,17 @@ export function optimize(input: OptimizerInput): Proposal[] {
     })
   }
 
-  // 5. Termenii de căutare care au costat cât o comandă medie, fără vânzări (niciodată numele magazinului)
+  // 5. Termenii de căutare care au costat cât o comandă medie, fără vânzări (niciodată numele magazinului).
+  //    Când Google n-a numărat toate comenzile din magazin ale campaniei, „fără vânzări” e mai puțin sigur: pragul
+  //    crește cu partea pe care n-o vede Google (o căutare nu se poate lega de o comandă din magazin)
   const aov = input.economics.aov
   if (aov !== null && aov > 0) {
     const brands = input.brand.map(squash).filter(Boolean)
     const byCampaign = new Map<string, OptSearchTerm[]>()
+    const thresholdOf = new Map(active.map(c => [c.id, TERM_NO_SALES_AOV * aov / googleCoverage(c)]))
     for (const t of input.searchTerms) {
       const term = t.term.toLowerCase().trim()
-      if (!term || t.conversions > 0 || t.cost < TERM_NO_SALES_AOV * aov) continue
+      if (!term || t.conversions > 0 || t.cost < (thresholdOf.get(t.campaign_id) ?? TERM_NO_SALES_AOV * aov)) continue
       // Numele magazinului, scris oricum (fără diacritice, legat, cu cratimă)
       if (brands.some(b => squash(term).includes(b)) || input.rejected.terms.has(term)) continue
       if (input.negatives.get(t.campaign_id)?.has(term)) continue

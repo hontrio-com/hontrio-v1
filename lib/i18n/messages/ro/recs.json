@@ -104,5 +104,5 @@
   "not_sent_body_opencart": "Merchant Center este legat, dar aceste oferte nu apar acolo. Verifică extensia de feed Google din OpenCart și filtrele ei.",
   "conversions_unrecorded_title": "Google Ads nu numără vânzările aduse de campanii",
   "conversions_unrecorded_body": "Comenzi din campaniile Hontrio în ultimele 30 de zile: {{count}}, în valoare de {{value}}. Google Ads nu a înregistrat nicio conversie pentru ele, așa că nu știe ce produse vând, iar campania nu poate trece pe Performance Max.",
-  "conversions_unrecorded_fix": "Verifică dacă eticheta de conversie a magazinului se declanșează pe pagina de după comandă, inclusiv la plata ramburs. O cauză des întâlnită este bannerul de cookie-uri: fără acordul pentru marketing, Google nu primește conversia. Până se rezolvă, oprirea de siguranță ține cont și de comenzile din magazin."
+  "conversions_unrecorded_fix": "Verifică dacă eticheta de conversie a magazinului se declanșează pe pagina de după comandă, inclusiv la plata ramburs. O cauză des întâlnită este bannerul de cookie-uri: fără acordul pentru marketing, Google nu primește conversia. Până atunci, pilotul ține cont și de comenzile din magazin: nu oprește campania și nu scoate din ea produsele care se vând."
 }

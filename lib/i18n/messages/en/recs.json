@@ -104,5 +104,5 @@
   "not_sent_body_opencart": "Merchant Center is linked, but these offers aren’t there. Check the Google feed extension in OpenCart and its filters.",
   "conversions_unrecorded_title": "Google Ads isn’t counting the sales from your campaigns",
   "conversions_unrecorded_body": "Orders from Hontrio campaigns in the last 30 days: {{count}}, worth {{value}}. Google Ads recorded no conversion for them, so it doesn’t know which products sell, and the campaign can’t move to Performance Max.",
-  "conversions_unrecorded_fix": "Check that the store’s conversion tag fires on the page after checkout, cash on delivery included. A common cause is the cookie banner: without consent for marketing, Google doesn’t receive the conversion. Until it’s fixed, the safety stop also counts the orders in your store."
+  "conversions_unrecorded_fix": "Check that the store’s conversion tag fires on the page after checkout, cash on delivery included. A common cause is the cookie banner: without consent for marketing, Google doesn’t receive the conversion. Meanwhile, the autopilot also counts the orders in your store: it doesn’t stop the campaign or remove products that sell."
 }

@@ -252,6 +252,16 @@ tot istoricul de 90 de zile.
   în aceeași trecere se adună). La aprobare se verifică din nou, cu bugetele de atunci: noul buget
   se micșorează până încape, iar dacă nu mai încape nimic peste cel de acum, propunerea nu se aplică.
 
+**Vânzările din magazin (22.11.2026, `lib/ads/store-sales.ts`).** Google nu vede toate vânzările:
+în UE conversia pleacă doar de la vizitatorii care acceptă cookie-urile de marketing (Edinio o
+trimite doar atunci), iar o etichetă se poate strica. Comenzile magazinului cu sursa `hontrio-<ID>`,
+neanulate, se pun lângă cifrele Google, iar la fiecare judecată se ia sursa care vede mai mult
+(`withStoreSales`: cea mai mare, la număr și la valoare, nu suma). Pe produs, o comandă se leagă de
+ofertele cumpărate și de oferta paginii de intrare din reclamă (`landing_path`), ca Google, care dă
+conversia produsului pe care s-a dat clic. Se aplică la oprirea de siguranță, la buget și la produse;
+trecerea pe Performance Max rămâne pe conversiile Google, după care licitează Google. La Gomag,
+fără sursa comenzii, rămân doar cifrele Google.
+
 **Reguli (în ordine):**
 1. **Oprirea de siguranță** (§5): oprește campania.
 2. **Trecerea la creștere**: campania de pornire are ≥ 14 zile și contul ≥ 15 cumpărări în 30
@@ -264,16 +274,20 @@ tot istoricul de 90 de zile.
    - Dacă arborele PMax-ului ar trece de 990 de produse, pornirea rămâne pornire: pilotul nici nu
      propune trecerea.
 3. **Bugetul**: campania e limitată de buget (`BUDGET_CONSTRAINED` sau buget recomandat peste
-   cel actual), are vânzări și ROAS ≥ 1 în fereastra de evaluare → propune +20%, până la bugetul
-   maxim. **Mereu cu aprobarea omului**, și în modul automat.
+   cel actual), are vânzări și ROAS ≥ 1 în fereastra de evaluare (Google sau magazinul, care vede
+   mai mult) → propune +20%, până la bugetul maxim. **Mereu cu aprobarea omului**, și în modul automat.
 4. **Produsele** (≥ 21 de zile de date ale produsului: de la prima lui zi cu cifre în campaniile
-   Hontrio, nu de la lansarea campaniei; un produs nou n-are cum să fie judecat după o zi):
+   Hontrio, nu de la lansarea campaniei; un produs nou n-are cum să fie judecat după o zi), cu
+   vânzările din Google sau din magazin, care sunt mai multe:
    - produsul a cheltuit ≥ prețul lui fără nicio vânzare → exclude;
    - produsul are vânzări, dar ROAS sub 1 → exclude.
 
    Fără preț, unitatea e comanda medie. Omul îl poate include la loc.
 5. **Termenii de căutare**: termenii cu cost ≥ comanda medie și nicio conversie în 30 de zile
-   devin cuvânt negativ exact.
+   devin cuvânt negativ exact. O căutare nu se poate lega de o comandă din magazin, așa că, atunci
+   când Google a numărat doar o parte din comenzile campaniei (`googleCoverage` = conversiile Google
+   ÷ comenzile din magazin, cel puțin 25%), pragul crește pe măsură: la jumătate, de două ori
+   comanda medie; cel mult de patru ori.
    - Numele magazinului nu devine niciodată negativ, scris oricum: comparația e fără diacritice,
      spații și semne („Lumină Design” = „lumina design” = „luminadesign.ro”).
    - Textul trimis la Google trece prin `cleanKeyword`: doar litere, cifre și `& ' . -`, cel mult

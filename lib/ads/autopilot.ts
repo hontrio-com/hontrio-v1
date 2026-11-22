@@ -12,8 +12,9 @@ import { runAudit } from '@/lib/ads/audit-run'
 import { logAction, notify, type ActionKind } from '@/lib/ads/journal'
 import { applyAction, ApplyError, closeGroupIfDone, graduateListing, syncCampaignProducts } from '@/lib/ads/apply'
 import { CAMPAIGN_COLUMNS, groupItems, listingSize, merchantLabels, parseCampaign, type CampaignRow } from '@/lib/ads/listing'
-import { lossStops, optimize, sumWindows, windowOf, withStoreSales, EMPTY, type OptCampaign, type OptimizerInput, type OptProduct, type Proposal, type StoreSales, type Window } from '@/lib/ads/optimizer'
-import { hontrioCampaignId, HONTRIO_UTM_PREFIX } from '@/lib/commerce/attribution'
+import { lossStops, optimize, sumWindows, windowOf, withStoreSales, EMPTY, type OptCampaign, type OptimizerInput, type OptProduct, type Proposal, type Window } from '@/lib/ads/optimizer'
+import { hontrioOrders, salesByCampaign, storeSalesByOffer } from '@/lib/ads/store-sales'
+import { localToUtcIso, ROMANIA_TZ } from '@/lib/commerce/time'
 import { readAll } from '@/lib/ads/read-all'
 import { addDays, dayStr, daysBetween, isTransientGoogleError, refreshFrom, todayWindow, DAY_MS, MISSED_PASS_MS, PROPOSAL_TTL_DAYS } from '@/lib/ads/schedule'
 import { alertBudgetSpent, alertLossStop, alertPilotBlocked, alertProposals, alertProtectionFailed } from '@/lib/ads/alerts'
@@ -483,27 +484,13 @@ const toDay = (r: { date: string; cost: unknown; clicks: unknown; conversions: u
   date: r.date, cost: Number(r.cost) || 0, clicks: Number(r.clicks) || 0, conversions: Number(r.conversions) || 0, value: Number(r.conversions_value) || 0,
 })
 
-/**
- * Comenzile din magazin aduse de fiecare campanie (sursa „hontrio-<ID>”), neanulate, plasate de la începutul
- * socotelii ei (lansarea sau ultima repornire). La Gomag, fără sursa comenzii, lista rămâne goală.
- */
-export async function storeSalesByCampaign(supabase: Supabase, storeId: string, startOf: Map<string, string>): Promise<Map<string, StoreSales>> {
-  const out = new Map<string, StoreSales>()
-  const starts = [...startOf.values()].map(v => Date.parse(v)).filter(Number.isFinite)
-  if (!starts.length) return out
-  const earliest = new Date(Math.min(...starts)).toISOString()
-  const orders = await readAll<{ utm_campaign: string | null; placed_at: string; total: unknown }>((a, b) => supabase.from('commerce_orders')
-    .select('utm_campaign, placed_at, total')
-    .eq('store_id', storeId).ilike('utm_campaign', `${HONTRIO_UTM_PREFIX}%`).not('state', 'in', '(cancelled,refunded)')
-    .gte('placed_at', earliest).order('placed_at').order('id').range(a, b))
-  for (const o of orders) {
-    const id = hontrioCampaignId(o.utm_campaign)
-    const start = id ? startOf.get(id) : undefined
-    if (!id || !start || Date.parse(o.placed_at) < Date.parse(start)) continue
-    const s = out.get(id) ?? { orders: 0, value: 0 }
-    out.set(id, { orders: s.orders + 1, value: s.value + (Number(o.total) || 0) })
+/** Fereastra de evaluare a buclei (30 de zile, fără ultimele 2), ca momente UTC în fusul magazinului, pentru comenzi. */
+function evalBounds(store: PlanStore, evalFrom: string, evalTo: string): { fromIso: string; toIso: string } {
+  const tz = store.timezone || ROMANIA_TZ
+  return {
+    fromIso: localToUtcIso(`${evalFrom} 00:00:00`, tz) ?? `${evalFrom}T00:00:00Z`,
+    toIso: localToUtcIso(`${addDays(evalTo, 1)} 00:00:00`, tz) ?? `${addDays(evalTo, 1)}T00:00:00Z`,
   }
-  return out
 }
 
 /**
@@ -518,15 +505,20 @@ async function campaignInputs(supabase: Supabase, store: PlanStore, ctx: PlanCon
   const recentFrom = addDays(yesterday, -13)
   const lossFromOf = (c: CampaignRow) => (c.loss_check_from ?? c.launched_at ?? evalFrom).slice(0, 10)
   const since = campaigns.map(lossFromOf).reduce((a, b) => (b < a ? b : a), evalFrom < recentFrom ? evalFrom : recentFrom)
-  // Oprirea de siguranță numără și vânzările văzute în magazin, de la momentul exact al lansării sau al repornirii
+  // Comenzile din magazin aduse de campanii: oprirea de siguranță le numără de la momentul exact al lansării sau al
+  // repornirii, bugetul și căutările în fereastra de evaluare
   const lossStartOf = new Map(campaigns.filter(c => c.status === 'active').map(c => [c.google_campaign_id!, c.loss_check_from ?? c.launched_at ?? `${evalFrom}T00:00:00Z`]))
-  const [rows, storeSales] = await Promise.all([
+  const { fromIso: evalFromIso, toIso: evalToIso } = evalBounds(store, evalFrom, evalTo)
+  const ordersFrom = new Date(Math.min(Date.parse(evalFromIso), ...[...lossStartOf.values()].map(v => Date.parse(v)).filter(Number.isFinite))).toISOString()
+  const [rows, orders] = await Promise.all([
     readAll<DayRow>((a, b) => supabase.from('ad_metrics_daily')
       .select('google_campaign_id, date, cost, clicks, conversions, conversions_value')
       .eq('store_id', store.id).in('google_campaign_id', campaigns.map(c => c.google_campaign_id!)).gte('date', since).lte('date', yesterday)
       .order('google_campaign_id').order('date').range(a, b)),
-    storeSalesByCampaign(supabase, store.id, lossStartOf),
+    hontrioOrders(supabase, store.id, ordersFrom),
   ])
+  const lossSales = salesByCampaign(orders, lossStartOf)
+  const evalSales = salesByCampaign(orders, new Map(campaigns.map(c => [c.google_campaign_id!, evalFromIso])), Date.parse(evalToIso))
   const byCampaign = new Map<string, ReturnType<typeof toDay>[]>()
   for (const r of rows) {
     const list = byCampaign.get(r.google_campaign_id)
@@ -550,9 +542,10 @@ async function campaignInputs(supabase: Supabase, store: PlanStore, ctx: PlanCon
       group: !!c.product_group_id,
       days_since_budget_change: daysSince(c.budget_changed_at, nowMs),
       google: state ? { reasons: state.reasons, recommended_budget: state.recommended_budget } : null,
-      since_loss_check: withStoreSales(windowOf(own, lossFromOf(c), yesterday), storeSales.get(c.google_campaign_id!)),
+      since_loss_check: withStoreSales(windowOf(own, lossFromOf(c), yesterday), lossSales.get(c.google_campaign_id!)),
       eval30: windowOf(own, evalFrom, evalTo),
       recent14: windowOf(own, recentFrom, yesterday),
+      store30: evalSales.get(c.google_campaign_id!),
     }
     // Campania unei grupe: oprirea de siguranță din comanda medie a produselor ei (§13)
     if (c.product_group_id && groupLimit.has(c.product_group_id)) opt.loss_limit = groupLimit.get(c.product_group_id)!
@@ -577,7 +570,8 @@ async function optimizerInput(supabase: Supabase, store: PlanStore, ctx: PlanCon
   type ProductRow = DayRow & { item_id: string }
   type TermRow = { google_campaign_id: string; search_term: string; cost: unknown; conversions: unknown; clicks: unknown }
   type ActionRow = { kind: string; params: unknown; ad_campaign_id: string | null }
-  const [optCampaigns, productRows, termRows, appliedNegatives, rejectedRows] = await Promise.all([
+  const { fromIso: evalFromIso, toIso: evalToIso } = evalBounds(store, evalFrom, evalTo)
+  const [optCampaigns, productRows, termRows, appliedNegatives, rejectedRows, offerSales] = await Promise.all([
     campaignInputs(supabase, store, ctx, campaigns, google, yesterday, nowMs),
     readAll<ProductRow>((a, b) => supabase.from('ad_product_metrics_daily')
       .select('google_campaign_id, date, item_id, cost, clicks, conversions, conversions_value')
@@ -594,6 +588,8 @@ async function optimizerInput(supabase: Supabase, store: PlanStore, ctx: PlanCon
       .eq('store_id', storeId).eq('kind', 'add_negatives').eq('status', 'applied').order('created_at').order('id').range(a, b)),
     readAll<ActionRow>((a, b) => supabase.from('ad_actions').select('kind, params, ad_campaign_id')
       .eq('store_id', storeId).eq('status', 'rejected').gte('decided_at', recentIso).order('decided_at').order('id').range(a, b)),
+    // Pe produs, comenzile din magazin aduse de campanii în aceeași fereastră: un produs care se vinde nu iese din campanii
+    storeSalesByOffer(supabase, storeId, evalFromIso, evalToIso),
   ])
 
   // Produsele: cât au cheltuit și adus în campaniile noastre (fereastra de evaluare) și de când au cifre
@@ -617,6 +613,7 @@ async function optimizerInput(supabase: Supabase, store: PlanStore, ctx: PlanCon
       // Produsele grupelor rulează, în campaniile lor: pilotul le judecă la fel
       excluded: o.reason !== null && o.reason !== 'in_group',
       window: byItem.get(id)!,
+      store: offerSales.get(o.offer_id),
       // Zilele cu cifre ale produsului (de la prima zi citită; cele mai vechi decât fereastra au oricum destule)
       days: first ? daysBetween(first, yesterday) + 1 : 0,
     }
