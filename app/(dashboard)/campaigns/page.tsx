@@ -230,7 +230,7 @@ function CampaignsView() {
       )}
 
       {tab === 'overview' && (live.length > 0 ? (
-        <OverviewTab plan={plan} views={views} series={data.series ?? []} liveAt={data.store.pilot?.live_at ?? null} mode={mode} proposals={proposals} journal={data.journal ?? []}
+        <OverviewTab plan={plan} views={views} series={data.series ?? []} storeCounted={!!data.store_counted} liveAt={data.store.pilot?.live_at ?? null} mode={mode} proposals={proposals} journal={data.journal ?? []}
           f={f} onOpen={openView} onTab={next => goTab(next)} onNew={() => openEditor(null)} />
       ) : (
         <div className="space-y-6">

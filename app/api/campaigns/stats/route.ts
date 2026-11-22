@@ -7,6 +7,10 @@ import { readAll } from '@/lib/ads/read-all'
 import { addRow, emptyTotals, isStatsPeriod, type Totals } from '@/lib/campaigns/stats'
 import { getT } from '@/lib/i18n/server'
 import { logApiError } from '@/lib/logger'
+import { salesSource } from '@/lib/commerce/attribution'
+import { localToUtcIso, ROMANIA_TZ } from '@/lib/commerce/time'
+import { mergeStoreSales, storeSalesByCampaignDay, storeSalesByItem, storeSalesByOffer, type DaySales } from '@/lib/ads/store-sales'
+import type { StoreSales } from '@/lib/ads/optimizer'
 
 // =============================================
 // GET /api/campaigns/stats?ids=…&days=7|30|90 — cifrele din fișa unei campanii
@@ -14,9 +18,13 @@ import { logApiError } from '@/lib/logger'
 // celei de dinainte, evoluția pe zi, produsele cu cele mai multe clicuri și
 // căutările oamenilor. Perioada se termină în ultima zi citită (azi, cu
 // cifrele din oră în oră); produsele și căutările vin din trecerea zilnică.
+// Unde Google a numărat mai puține vânzări decât magazinul (comenzile cu sursa
+// campaniei), conversiile și valoarea vin din magazin (lib/ads/store-sales.ts);
+// căutările rămân ale Google, fiindcă o comandă nu se poate lega de o căutare.
 // =============================================
 
 const ROUTE = '/api/campaigns/stats'
+const num = (v: unknown) => { const n = Number(v); return Number.isFinite(n) ? n : 0 }
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const TOP = 10
 
@@ -51,7 +59,7 @@ export async function GET(request: Request) {
     const storeId = campaigns[0].store_id
     const googleIds = campaigns.filter(c => c.store_id === storeId).map(c => String(c.google_campaign_id))
 
-    const { data: store } = await supabase.from('stores').select('ads_synced_at, ads_today_at').eq('id', storeId).maybeSingle()
+    const { data: store } = await supabase.from('stores').select('platform, timezone, ads_synced_at, ads_today_at').eq('id', storeId).maybeSingle()
     const to = lastFiguresDay(store?.ads_synced_at ?? null, store?.ads_today_at ?? null, Date.now())
     const from = addDays(to, -(days - 1))
     const prevFrom = addDays(from, -days)
@@ -70,11 +78,34 @@ export async function GET(request: Request) {
     ])
     if (products.error) logApiError(ROUTE, 500, 'Produsele campaniei nu s-au putut citi', { userId, error: products.error.message })
 
+    // Comenzile din magazin aduse de campanie, pe zi, și pe produs în perioadă (nu și la Gomag, fără sursa comenzii)
+    const tz = (store?.timezone as string | null) || ROMANIA_TZ
+    const window = (start: string) => Array.from({ length: days }, (_, i) => addDays(start, i))
+    let storeDays = new Map<string, DaySales>()
+    let storeItems = new Map<string, StoreSales>()
+    if (salesSource(store?.platform as string | null) === 'store_orders') {
+      try {
+        storeDays = await storeSalesByCampaignDay(supabase, storeId, tz, prevFrom, to)
+        if (storeDays.size) {
+          const byOffer = await storeSalesByOffer(supabase, storeId, localToUtcIso(`${from} 00:00:00`, tz) ?? `${from}T00:00:00Z`,
+            localToUtcIso(`${addDays(to, 1)} 00:00:00`, tz) ?? `${addDays(to, 1)}T00:00:00Z`, googleIds)
+          storeItems = await storeSalesByItem(supabase, storeId, byOffer)
+        }
+      } catch (err) {
+        logApiError(ROUTE, 500, 'Comenzile din campanie nu s-au putut citi', { userId, error: err instanceof Error ? err.message : String(err) })
+      }
+    }
+    const merged = mergeStoreSales(
+      dayRows.map(r => ({ google_campaign_id: r.google_campaign_id, date: r.date, cost: num(r.cost), clicks: num(r.clicks), impressions: num(r.impressions), conversions: num(r.conversions), value: num(r.conversions_value) })),
+      googleIds, [window(prevFrom), window(from)], storeDays,
+      (id, date) => ({ google_campaign_id: id, date, cost: 0, clicks: 0, impressions: 0, conversions: 0, value: 0 }),
+    )
+
     // Perioada, cea de dinainte și fiecare zi a perioadei (și zilele fără cifre)
     const totals = emptyTotals()
     const previous = emptyTotals()
     const byDay = new Map<string, Totals>()
-    for (const r of dayRows) {
+    for (const r of merged.rows) {
       if (r.date >= from) {
         addRow(totals, r)
         addRow(bucket(byDay, r.date), r)
@@ -88,10 +119,22 @@ export async function GET(request: Request) {
     const topTerms = [...terms].sort((a, b) => b[1].clicks - a[1].clicks || b[1].cost - a[1].cost).slice(0, TOP).map(([term, s]) => ({ term, ...s }))
 
     const p = (products.data ?? { total: 0, top: [] }) as { total: number; top: Record<string, unknown>[] }
+    // Produsele: conversiile și valoarea, cele din magazin când sunt mai multe
+    let productsFromStore = false
+    const top = (p.top ?? []).map(r => {
+      const g = addRow(emptyTotals(), r)
+      const s = storeItems.get(String(r.item_id).trim().toLowerCase())
+      if (s && (s.orders > g.conversions || s.value > g.value)) {
+        productsFromStore = true
+        return { item_id: String(r.item_id), ...g, conversions: Math.max(g.conversions, s.orders), value: Math.max(g.value, s.value) }
+      }
+      return { item_id: String(r.item_id), ...g }
+    })
     return NextResponse.json({
       days, from, to, live_at: liveAt, currency: campaigns[0].currency,
       totals, previous, daily,
-      products: { total: Number(p.total) || 0, top: (p.top ?? []).map(r => ({ item_id: String(r.item_id), ...addRow(emptyTotals(), r) })) },
+      store_counted: merged.used || productsFromStore,
+      products: { total: Number(p.total) || 0, top },
       terms: { total: terms.size, from: termRows[0]?.period_start ?? null, to: termRows[0]?.period_end ?? null, top: topTerms },
     })
   } catch (err) {

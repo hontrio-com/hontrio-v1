@@ -11,13 +11,18 @@ import { readAll } from '@/lib/ads/read-all'
 import { getT } from '@/lib/i18n/server'
 import { storeDisplayName } from '@/lib/commerce/platforms'
 import { salesSource } from '@/lib/commerce/attribution'
+import { localToUtcIso, ROMANIA_TZ } from '@/lib/commerce/time'
+import { mergeStoreSales, storeSalesByCampaignDay, storeSalesByItem, storeSalesByOffer, type DaySales } from '@/lib/ads/store-sales'
+import type { StoreSales } from '@/lib/ads/optimizer'
 
 // =============================================
 // GET /api/reports?days=7|30|90
 // Rapoartele: cheltuiala și valoarea din Google Ads (din cronul zilnic), pe
 // zi, campanie, produs și termen de căutare; plus vânzările de pe site pe
 // sursă. Verdictul pe produs e regula pilotului: fără vânzări, sau vânzări
-// sub costul reclamei (ROAS sub 1).
+// sub costul reclamei (ROAS sub 1). La campaniile Hontrio, unde Google a numărat
+// mai puține vânzări decât magazinul, conversiile și valoarea vin din magazin
+// (lib/ads/store-sales.ts), la fel ca la pilot; căutările rămân ale Google.
 // =============================================
 
 const ROUTE = '/api/reports'
@@ -27,13 +32,14 @@ const TOP_TERMS = 30
 
 type Sum = { cost: number; clicks: number; impressions: number; conversions: number; value: number }
 const ZERO: Sum = { cost: 0, clicks: 0, impressions: 0, conversions: 0, value: 0 }
-const add = (a: Sum, r: { cost: unknown; clicks: unknown; impressions?: unknown; conversions: unknown; conversions_value: unknown }): Sum => ({
+const add = (a: Sum, r: { cost: unknown; clicks: unknown; impressions?: unknown; conversions: unknown; conversions_value?: unknown; value?: unknown }): Sum => ({
   cost: a.cost + (Number(r.cost) || 0),
   clicks: a.clicks + (Number(r.clicks) || 0),
   impressions: a.impressions + (Number(r.impressions) || 0),
   conversions: a.conversions + (Number(r.conversions) || 0),
-  value: a.value + (Number(r.conversions_value) || 0),
+  value: a.value + (Number(r.conversions_value ?? r.value) || 0),
 })
+const num = (v: unknown) => { const n = Number(v); return Number.isFinite(n) ? n : 0 }
 const round2 = (n: number) => Math.round(n * 100) / 100
 const roasOf = (s: Sum) => (s.cost > 0 ? Math.round((s.value / s.cost) * 100) / 100 : null)
 
@@ -88,12 +94,43 @@ export async function GET(request: Request) {
     const ours = new Set(campaignRows.map(c => String(c.google_campaign_id)))
     const kindOf = new Map(campaignRows.map(c => [String(c.google_campaign_id), { type: c.type, segment: c.segment }]))
 
+    // Comenzile din magazin aduse de campaniile Hontrio, pe zi și pe produs (nu și la Gomag, fără sursa comenzii)
+    const tz = store.timezone || ROMANIA_TZ
+    let storeDays = new Map<string, DaySales>()
+    let storeItems = new Map<string, StoreSales>()
+    if (ours.size && salesSource(store.platform) === 'store_orders') {
+      try {
+        storeDays = await storeSalesByCampaignDay(supabase, store.id, tz, from, to)
+        if (storeDays.size) {
+          const byOffer = await storeSalesByOffer(supabase, store.id, localToUtcIso(`${from} 00:00:00`, tz) ?? `${from}T00:00:00Z`,
+            localToUtcIso(`${to} 23:59:59`, tz) ?? `${to}T23:59:59Z`, [...ours])
+          storeItems = await storeSalesByItem(supabase, store.id, byOffer)
+        }
+      } catch (err) {
+        logApiError(ROUTE, 500, 'Eroare la citirea comenzilor din campanii', { userId, error: err instanceof Error ? err.message : String(err) })
+      }
+    }
+    const window = Array.from({ length: days }, (_, i) => new Date(Date.parse(`${from}T00:00:00Z`) + i * 86_400_000).toISOString().slice(0, 10))
+    const nameOf = new Map(metrics.map(m => [m.google_campaign_id, { campaign_name: m.campaign_name, channel_type: m.channel_type }]))
+    const merged = mergeStoreSales(
+      metrics.map(m => ({ ...m, cost: num(m.cost), clicks: num(m.clicks), impressions: num(m.impressions), conversions: num(m.conversions), value: num(m.conversions_value) })),
+      [...ours], [window], storeDays,
+      (id, date) => {
+        const c = campaignRows.find(x => String(x.google_campaign_id) === id)
+        return {
+          google_campaign_id: id, date, cost: 0, clicks: 0, impressions: 0, conversions: 0, value: 0, conversions_value: 0,
+          campaign_name: nameOf.get(id)?.campaign_name ?? c?.name ?? id,
+          channel_type: nameOf.get(id)?.channel_type ?? (c?.type === 'performance_max' ? 'PERFORMANCE_MAX' : 'SHOPPING'),
+        }
+      },
+    )
+
     // ── Google Ads ─────────────────────────────────────────────────────────
     let total = ZERO
     let hontrio = ZERO
     const daily = new Map<string, Sum>()
     const byCampaign = new Map<string, Sum & { name: string; channel: string }>()
-    for (const m of metrics) {
+    for (const m of merged.rows) {
       total = add(total, m)
       if (ours.has(m.google_campaign_id)) hontrio = add(hontrio, m)
       daily.set(m.date, add(daily.get(m.date) ?? ZERO, m))
@@ -104,6 +141,14 @@ export async function GET(request: Request) {
     const offers = new Map((plan?.offers ?? []).filter(o => o.item_id).map(o => [o.item_id!.toLowerCase(), o]))
     const byItem = new Map<string, Sum>()
     for (const r of productRows) byItem.set(r.item_id, add(byItem.get(r.item_id) ?? ZERO, r))
+    // Pe produs, comenzile din magazin când sunt mai multe decât conversiile Google (ca pilotul)
+    let productsFromStore = false
+    for (const [item, g] of byItem) {
+      const st = storeItems.get(item.trim().toLowerCase())
+      if (!st || (st.orders <= g.conversions && st.value <= g.value)) continue
+      productsFromStore = true
+      byItem.set(item, { ...g, conversions: Math.max(g.conversions, st.orders), value: Math.max(g.value, st.value) })
+    }
     const products = [...byItem.entries()]
       .sort((a, b) => b[1].cost - a[1].cost)
       .slice(0, TOP_PRODUCTS)
@@ -121,7 +166,7 @@ export async function GET(request: Request) {
         }
       })
 
-    const hasAds = metrics.length > 0
+    const hasAds = merged.rows.length > 0
     return NextResponse.json({
       store: { platform: store.platform, supported: true, store_name: storeDisplayName(store), currency: store.currency || 'RON' },
       // Gomag nu dă sursa comenzii: vânzările aduse de Hontrio se văd din conversiile Google Ads (ads.hontrio)
@@ -148,6 +193,8 @@ export async function GET(request: Request) {
         })),
       } : null,
       sales: salesRes.data ?? null,
+      // Cifrele de vânzări au luat comenzile din magazin acolo unde Google a numărat mai puține
+      store_counted: merged.used || productsFromStore,
     })
   } catch (err) {
     logApiError(ROUTE, 500, 'Eroare la citirea rapoartelor', { userId, error: err instanceof Error ? err.message : String(err) })

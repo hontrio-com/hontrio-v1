@@ -13,6 +13,9 @@ import { addDays, isExpired, lastFiguresDay } from '@/lib/ads/schedule'
 import { AUDIT_FRESH_MS } from '@/lib/google/audit'
 import { getT } from '@/lib/i18n/server'
 import { storeDisplayName } from '@/lib/commerce/platforms'
+import { salesSource } from '@/lib/commerce/attribution'
+import { ROMANIA_TZ } from '@/lib/commerce/time'
+import { mergeStoreSales, storeSalesByCampaignDay, type DaySales } from '@/lib/ads/store-sales'
 
 // =============================================
 // GET   /api/campaigns/plan — planul, socotit acum din datele magazinului, cu
@@ -85,10 +88,23 @@ export async function GET() {
         .gte('date', days[0]).lte('date', lastDay).order('google_campaign_id').order('date').range(a, b))
     : { data: [], error: null }
   if (metricsError) logApiError(ROUTE, 500, 'Eroare la citirea cifrelor campaniilor', { userId, error: metricsError })
-  const rows = metrics.map(m => ({
+  const googleRows = metrics.map(m => ({
     google_campaign_id: m.google_campaign_id as string, date: m.date as string,
     cost: Number(m.cost) || 0, clicks: Number(m.clicks) || 0, conversions: Number(m.conversions) || 0, value: Number(m.conversions_value) || 0,
   }))
+  // Comenzile din magazin aduse de campanii: unde Google a numărat mai puține vânzări, cifrele le iau pe ele, pe
+  // fiecare fereastră de 30 de zile (lib/ads/store-sales.ts). Gomag n-are sursa comenzii: acolo rămâne Google
+  let storeDays = new Map<string, DaySales>()
+  if (ids.length && salesSource(store.platform) === 'store_orders') {
+    try {
+      storeDays = await storeSalesByCampaignDay(supabase, store.id, store.timezone || ROMANIA_TZ, days[0], lastDay)
+    } catch (err) {
+      logApiError(ROUTE, 500, 'Eroare la citirea comenzilor din campanii', { userId, error: err instanceof Error ? err.message : String(err) })
+    }
+  }
+  const merged = mergeStoreSales(googleRows, ids, [days.slice(0, SERIES_DAYS - 30), days.slice(SERIES_DAYS - 30)], storeDays,
+    (id, date) => ({ google_campaign_id: id, date, cost: 0, clicks: 0, conversions: 0, value: 0 }))
+  const rows = merged.rows
   const recent = rows.filter(r => r.date >= since)
   const totals = new Map<string, { cost: number; clicks: number; conversions: number; value: number }>()
   for (const m of recent) {
@@ -152,6 +168,8 @@ export async function GET() {
     })),
     // Pe zi, ultimele 60 de zile, toate campaniile Hontrio la un loc
     series,
+    // Cifrele de vânzări au luat comenzile din magazin acolo unde Google a numărat mai puține
+    store_counted: merged.used,
     // O propunere mai veche de 7 zile a expirat, chiar dacă pilotul n-a apucat s-o treacă așa
     proposals: actions.filter(a => a.status === 'proposed' && !isExpired(a.created_at)),
     journal: actions.filter(a => a.status !== 'proposed').slice(0, JOURNAL),

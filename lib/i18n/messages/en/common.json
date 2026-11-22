@@ -36,5 +36,6 @@
   "cookie_decline": "Decline",
   "cookie_accept": "Accept",
   "redirecting": "Redirecting…",
-  "more_info": "More details"
+  "more_info": "More details",
+  "store_counted_note": "Where Google counted fewer sales than your store, the sales and conversion figures use the store orders brought by Hontrio campaigns. Google doesn’t receive the conversion from visitors who refuse cookies."
 }

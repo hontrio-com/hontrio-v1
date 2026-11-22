@@ -27,10 +27,12 @@ import type { Mode, Plan } from '@/lib/campaigns/plan'
 
 type Metric = 'value' | 'cost'
 
-export function OverviewTab({ plan, views, series, liveAt, mode, proposals, journal, f, onOpen, onTab, onNew }: {
+export function OverviewTab({ plan, views, series, storeCounted, liveAt, mode, proposals, journal, f, onOpen, onTab, onNew }: {
   plan: Plan
   views: CampaignView[]
   series: SeriesPoint[]
+  /** Vânzările și conversiile au luat comenzile din magazin acolo unde Google a numărat mai puține. */
+  storeCounted?: boolean
   /** Când s-au citit cifrele de azi (ultima zi din serie), dacă seria ajunge până azi. */
   liveAt: string | null
   mode: Mode
@@ -75,6 +77,7 @@ export function OverviewTab({ plan, views, series, liveAt, mode, proposals, jour
           <KpiCard label={t('campaigns.kpi_conversions')} value={cur.conversions} format={n => f.num.format(Math.round(n * 10) / 10)} delta={delta(cur.conversions, prev.conversions)}
             series={line('conversions')} help={t('campaigns.kpi_conversions_help')} footnote={t('campaigns.kpi_last30')} />
         </div>
+        {storeCounted && <p className="mt-2 text-[12px] leading-relaxed text-neutral-500">{t('common.store_counted_note')}</p>}
       </FadeIn>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">

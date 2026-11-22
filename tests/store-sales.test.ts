@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { pagePath, salesByCampaign, salesByOffer, type HontrioOrder, type OrderLine } from '@/lib/ads/store-sales'
+import { mergeStoreSales, pagePath, salesByCampaign, salesByCampaignDay, salesByOffer, withStoreDays, type HontrioOrder, type OrderLine } from '@/lib/ads/store-sales'
 
 // Vânzările din magazin aduse de campaniile Hontrio, pentru pilot: pe campanie
 // (sursa „hontrio-<ID>”), într-o fereastră, și pe ofertă (rândurile comenzii și
@@ -63,4 +63,57 @@ test('pe ofertă: ce s-a cumpărat, plus oferta paginii de intrare când n-a fos
     'lampa-alba': { orders: 1, value: 150 },
     'lampa-neagra': { orders: 1, value: 150 },
   })
+})
+
+test('pe campanie și pe ziua magazinului (ora României), în zilele cerute', () => {
+  const orders = [
+    order('a'),                                                     // 21.11, 19:42 în România
+    order('b', { placed_at: '2026-11-21T22:30:00Z', total: 50 }),  // 22.11, 00:30 în România
+    order('c', { placed_at: '2026-11-25T08:00:00Z' }),             // în afara zilelor
+    order('d', { utm_campaign: 'google-shopping' }),               // nu e Hontrio
+  ]
+  const byDay = salesByCampaignDay(orders, 'Europe/Bucharest', '2026-11-19', '2026-11-22')
+  assert.deepEqual([...byDay.keys()], ['111'])
+  assert.deepEqual(Object.fromEntries(byDay.get('111')!), {
+    '2026-11-21': { orders: 1, value: 29.8 },
+    '2026-11-22': { orders: 1, value: 50 },
+  })
+})
+
+test('o fereastră de zile ia cifra magazinului doar când acolo sunt mai multe vânzări, pentru toate zilele ei', () => {
+  const day = (date: string, conversions: number, value: number, cost = 10) => ({ date, cost, conversions, value })
+  const store = new Map([['2026-11-21', { orders: 1, value: 29.8 }]])
+  // VetDepo: Google n-a numărat nimic; magazinul are comanda din 21.11
+  const vet = withStoreDays([day('2026-11-20', 0, 0), day('2026-11-21', 0, 0)], store)
+  assert.equal(vet.used, true)
+  assert.deepEqual(vet.days, [day('2026-11-20', 0, 0), day('2026-11-21', 1, 29.8)])
+  // Google a văzut aceeași vânzare cu o zi înainte (clicul seara): nu se numără de două ori
+  const both = withStoreDays([day('2026-11-20', 1, 29.8), day('2026-11-21', 0, 0)], store)
+  assert.equal(both.used, false)
+  assert.deepEqual(both.days, [day('2026-11-20', 1, 29.8), day('2026-11-21', 0, 0)])
+  // Fiecare măsură separat: Google are mai multe conversii, magazinul o valoare mai mare
+  const mixed = withStoreDays([day('2026-11-21', 2, 20)], store)
+  assert.deepEqual(mixed.days, [day('2026-11-21', 2, 29.8)])
+  // Fără comenzi din magazin, nimic de schimbat
+  assert.equal(withStoreDays([day('2026-11-21', 0, 0)], undefined).used, false)
+})
+
+test('rândurile mai multor campanii: doar ale Hontrio, pe fiecare fereastră; zilele goale nu se întorc', () => {
+  const row = (id: string, date: string, cost: number, conversions = 0, value = 0) => ({ google_campaign_id: id, date, cost, conversions, value })
+  const rows = [row('111', '2026-11-20', 10), row('111', '2026-11-21', 12), row('999', '2026-11-21', 30, 0, 0)]
+  const store = new Map([
+    ['111', new Map([['2026-11-21', { orders: 1, value: 29.8 }], ['2026-11-18', { orders: 1, value: 40 }]])],
+    ['999', new Map([['2026-11-21', { orders: 5, value: 500 }]])],
+  ])
+  const merged = mergeStoreSales(rows, ['111'], [['2026-11-17', '2026-11-18'], ['2026-11-20', '2026-11-21']], store, (id, date) => row(id, date, 0))
+  assert.equal(merged.used, true)
+  const key = (r: { google_campaign_id: string; date: string }) => `${r.google_campaign_id}|${r.date}`
+  assert.deepEqual(merged.rows.map(r => `${key(r)}|${r.cost}|${r.conversions}|${r.value}`).sort(), [
+    '111|2026-11-18|0|1|40',       // o comandă fără cheltuială în ziua ei: fereastra de dinainte
+    '111|2026-11-20|10|0|0',
+    '111|2026-11-21|12|1|29.8',
+    '999|2026-11-21|30|0|0',       // campania omului (nu Hontrio) rămâne a Google
+  ])
+  // Fără comenzi din magazin, rândurile rămân aceleași
+  assert.deepEqual(mergeStoreSales(rows, ['111'], [['2026-11-20', '2026-11-21']], new Map(), (id, date) => row(id, date, 0)), { rows, used: false })
 })

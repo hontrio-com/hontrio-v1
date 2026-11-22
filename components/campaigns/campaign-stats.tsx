@@ -25,6 +25,8 @@ type StatsData = {
   daily: (Totals & { date: string })[]
   products: { total: number; top: (Totals & { item_id: string })[] }
   terms: { total: number; from: string | null; to: string | null; top: (Totals & { term: string })[] }
+  /** Conversiile și valoarea au luat comenzile din magazin acolo unde Google a numărat mai puține. */
+  store_counted?: boolean
 }
 
 type Metric = 'clicks' | 'cost' | 'value' | 'impressions'
@@ -109,6 +111,7 @@ export function CampaignStats({ ids, plan, f }: { ids: string[]; plan: Plan; f: 
           ))}
         </dl>
         <p className="mt-2 text-[12px] text-neutral-400">{t('campaigns.st_compare', { count: data.days })}</p>
+        {data.store_counted && <p className="mt-1 text-[12px] leading-relaxed text-neutral-500">{t('common.store_counted_note')}</p>}
       </div>
 
       {!empty && (

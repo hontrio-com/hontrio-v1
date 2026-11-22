@@ -30,6 +30,8 @@ type Data = {
   store: { platform: string; supported: boolean; store_name?: string | null; currency?: string } | null
   /** Gomag nu dă sursa comenzii: vânzările din campaniile Hontrio vin din conversiile Google Ads. */
   sales_source?: 'store_orders' | 'google_ads'
+  /** Vânzările și conversiile au luat comenzile din magazin acolo unde Google a numărat mai puține. */
+  store_counted?: boolean
   period?: { days: number; from: string; to: string }
   /** `synced_at` = ultima citire a contului de către pilot; `sync_error` = de ce n-a mers ultima (cheie salvată). */
   google?: { connected: boolean; account: { id: string; name: string | null } | null; synced_at: string | null; sync_error?: string | null }
@@ -166,6 +168,7 @@ export default function ReportsPage() {
               {t('reports.hontrio_line', { spend: f.money.format(ads.hontrio.cost), value: f.money.format(ads.hontrio.value), roas: ads.hontrio.roas === null ? '—' : f.num.format(ads.hontrio.roas) })}
             </p>
           )}
+          {data.store_counted && <p className="-mt-2 text-[12px] leading-relaxed text-neutral-500">{t('common.store_counted_note')}</p>}
 
           {/* Pe zile: valoarea vânzărilor față de cheltuială */}
           <FadeIn delay={0.04}>

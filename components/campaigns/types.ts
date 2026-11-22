@@ -41,4 +41,6 @@ export type CampaignsData = {
   groups?: GroupPlan[]
   today?: string
   series?: SeriesPoint[]
+  /** Cifrele de vânzări au luat comenzile din magazin acolo unde Google a numărat mai puține. */
+  store_counted?: boolean
 }

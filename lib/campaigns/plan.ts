@@ -87,7 +87,10 @@ export type PlanOffer = {
   orders: number
   /** Comenzile aduse de Google Ads (gclid sau UTM) cu produsul, în ultimele 30 de zile. */
   google30: number
-  /** Ce a raportat Google pentru produs în ultimele 30 de zile, din toate campaniile Shopping și PMax. */
+  /**
+   * Ce a raportat Google pentru produs în ultimele 30 de zile, din toate campaniile Shopping și PMax; conversiile și
+   * valoarea sunt cele din magazin (comenzile venite din Google Ads) când acolo sunt mai multe.
+   */
   ads30: { cost: number; conversions: number; value: number } | null
   mode: AdsMode
   /** De ce nu intră în campania principală; null = intră. */
@@ -293,7 +296,13 @@ export function buildPlan(input: PlanInput): Plan {
       revenue: s.revenue,
       orders: s.orders ?? 0,
       google30: input.googleSales30?.get(o.offer_id)?.orders ?? 0,
-      ads30: ads ? { cost: ads.cost, conversions: ads.conversions, value: ads.value } : null,
+      // Vândut din reclame: comenzile din magazin venite din Google Ads, când sunt mai multe decât a numărat Google
+      // (în UE, conversia pleacă doar cu acordul vizitatorului pentru cookie-uri)
+      ads30: ads ? {
+        cost: ads.cost,
+        conversions: Math.max(ads.conversions, input.googleSales30?.get(o.offer_id)?.orders ?? 0),
+        value: Math.max(ads.value, input.googleSales30?.get(o.offer_id)?.revenue ?? 0),
+      } : null,
       mode: o.ads_mode,
       reason: reason === null && groupId && input.groups?.live.has(groupId) ? 'in_group' : reason,
       group_id: groupId,

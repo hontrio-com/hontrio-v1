@@ -40,5 +40,6 @@
   "cookie_decline": "Refuz",
   "cookie_accept": "Accept",
   "redirecting": "Te redirecționăm…",
-  "more_info": "Mai multe detalii"
+  "more_info": "Mai multe detalii",
+  "store_counted_note": "Unde Google a numărat mai puține vânzări decât magazinul, cifrele de vânzări și conversii iau comenzile din magazin aduse de campaniile Hontrio. Google nu primește conversia de la vizitatorii care refuză cookie-urile."
 }
