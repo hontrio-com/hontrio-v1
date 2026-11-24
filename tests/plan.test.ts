@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { brandTerms, buildPlan, cpcCeilingOf, lossLimitOf, MIN_AOV_ORDERS, niceBudget, startBudget, type PlanInput } from '@/lib/campaigns/plan'
+import { brandTerms, buildPlan, cpcCeilingOf, lossLimitOf, MIN_AOV_ORDERS, niceBudget, planForPage, reasonCounts, startBudget, type PlanInput } from '@/lib/campaigns/plan'
 import { evaluateAudit } from '@/lib/google/audit'
 import { auditRaw, offer, setup } from './fixtures'
 
@@ -224,4 +224,23 @@ test('produsele din Merchant Center care nu sunt ale magazinului se exclud; pe e
   // Fără produse străine nu se schimbă nimic
   const clean = buildPlan(input())
   assert.equal(clean.exclusions.foreign, 0)
+})
+
+test('cifrele planului: câte oferte pe fiecare motiv, și planul fără listă pentru Dashboard', () => {
+  const p = buildPlan(input({ offers: [offer('a'), offer('b'), offer('mine', { ads_mode: 'exclude' }), offer('gone', { available: false })] }))
+  assert.equal(p.summary.offers, 4)
+  assert.deepEqual(p.summary.by_reason, reasonCounts(p.offers))
+  assert.equal(p.summary.by_reason.included, 2)
+  assert.equal(p.summary.by_reason.manual, 1)
+  assert.equal(p.summary.by_reason.out_of_stock, 1)
+  assert.equal(p.exclusions.count, p.exclusions.item_ids.length)
+
+  // Dashboard-ul: fără oferte și fără ID-urile excluse, dar cu aceleași cifre
+  const lite = planForPage(p, false)
+  assert.deepEqual(lite.offers, [])
+  assert.deepEqual(lite.exclusions.item_ids, [])
+  assert.equal(lite.exclusions.count, p.exclusions.count)
+  assert.deepEqual(lite.summary, p.summary)
+  assert.deepEqual(lite.counts, p.counts)
+  assert.equal(planForPage(p, true), p)
 })

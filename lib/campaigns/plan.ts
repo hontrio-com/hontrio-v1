@@ -203,10 +203,16 @@ export type Plan = {
    * Ce se exclude în campanie, după ID-ul din Merchant Center. `foreign` = câte dintre ele sunt
    * produse din Merchant Center care nu sunt ale magazinului.
    */
-  exclusions: { item_ids: string[]; unmatched: number; foreign: number; mode: 'items' | 'label' | 'too_many' }
+  exclusions: { item_ids: string[]; count: number; unmatched: number; foreign: number; mode: 'items' | 'label' | 'too_many' }
+  /**
+   * Ofertele, una câte una. La un catalog mare nu ajung în pagină (ar trece de limita Vercel de 4,5 MB):
+   * paginile folosesc `summary` și cer ofertele pe pagini.
+   */
   offers: PlanOffer[]
   /** `in_groups` = produsele care pot rula, dar sunt în campaniile grupelor lansate. */
   counts: { included: number; excluded: number; in_groups: number }
+  /** Câte oferte are magazinul și câte pe fiecare motiv (`included` = intră în campania principală). */
+  summary: { offers: number; by_reason: Partial<Record<Reason | 'included', number>> }
 }
 
 const REJECTED = ['disapproved', 'error', 'expirat']
@@ -421,8 +427,28 @@ export function buildPlan(input: PlanInput): Plan {
       roas30: historical === null ? null : Math.round(historical * 100) / 100,
       product_data: (input.products30?.size ?? 0) > 0,
     },
-    exclusions: { item_ids: itemIds, unmatched, foreign: foreignIds.length, mode: exclusionMode },
+    exclusions: { item_ids: itemIds, count: itemIds.length, unmatched, foreign: foreignIds.length, mode: exclusionMode },
     offers,
     counts: { included: included.length, excluded: offers.length - eligible.length, in_groups: eligible.length - included.length },
+    summary: { offers: offers.length, by_reason: reasonCounts(offers) },
   }
+}
+
+/** Câte oferte pe fiecare motiv; `included` = cele care intră în campania principală. */
+export function reasonCounts(offers: Pick<PlanOffer, 'reason'>[]): Plan['summary']['by_reason'] {
+  const out: Plan['summary']['by_reason'] = {}
+  for (const o of offers) {
+    const key = o.reason ?? 'included'
+    out[key] = (out[key] ?? 0) + 1
+  }
+  return out
+}
+
+/**
+ * Planul cum pleacă spre pagină: fără lista ofertelor și a ID-urilor excluse când pagina are nevoie doar de
+ * cifre (Dashboard-ul). Un catalog de zeci de mii de oferte ar face răspunsul de zeci de MB.
+ */
+export function planForPage(plan: Plan, withOffers: boolean): Plan {
+  if (withOffers) return plan
+  return { ...plan, offers: [], exclusions: { ...plan.exclusions, item_ids: [] } }
 }

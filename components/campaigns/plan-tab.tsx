@@ -130,7 +130,7 @@ export function PlanTab({ plan, audit, running, currency, groupNames, f, onSaveS
     },
     {
       label: t('campaigns.row_exclusions'),
-      value: t('campaigns.exclusions_value', { count: plan.exclusions.item_ids.length }),
+      value: t('campaigns.exclusions_value', { count: plan.exclusions.count }),
       hint: plan.exclusions.unmatched > 0
         ? t('campaigns.exclusions_unmatched', { count: plan.exclusions.unmatched })
         : plan.exclusions.foreign > 0 ? t('campaigns.exclusions_foreign', { count: plan.exclusions.foreign })

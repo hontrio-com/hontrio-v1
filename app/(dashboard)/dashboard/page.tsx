@@ -100,7 +100,8 @@ export default function DashboardPage() {
       .finally(() => setLoading(false)), [])
 
   const loadPlan = useCallback((): Promise<Plan | null> =>
-    fetch('/api/campaigns/plan')
+    // Doar cifrele planului: lista ofertelor nu se arată aici (la un catalog mare ar fi zeci de MB)
+    fetch('/api/campaigns/plan?offers=0')
       .then(r => { if (!r.ok) throw new Error(); return r.json() as Promise<CampaignsData> })
       .then(body => { setCampaigns(body); return body.plan })
       .catch(() => null)
