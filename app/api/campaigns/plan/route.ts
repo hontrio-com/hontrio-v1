@@ -5,7 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { logApiError } from '@/lib/logger'
 import { isCommercePlatform } from '@/lib/commerce/sync'
 import { getActiveStore } from '@/lib/stores/active'
-import { MODES, planForPage, type Mode } from '@/lib/campaigns/plan'
+import { MAIN_TYPES, MODES, planForPage, type MainType, type Mode } from '@/lib/campaigns/plan'
 import { groupPlanForPage } from '@/lib/campaigns/groups'
 import { loadPlanContext, STORE_PLAN_COLUMNS, type PlanStore } from '@/lib/campaigns/context'
 import { CAMPAIGN_COLUMNS, parseCampaign } from '@/lib/ads/listing'
@@ -23,8 +23,8 @@ import { mergeStoreSales, storeSalesByCampaignDay, type DaySales } from '@/lib/a
 //       auditul contului, campaniile lansate, propunerile pilotului și jurnalul.
 //       Fără lista ofertelor (la un catalog mare, zeci de MB): cifrele sunt în
 //       `plan.summary`, iar ofertele se cer pe pagini (POST /api/campaigns/plan/offers)
-// PATCH /api/campaigns/plan — bugetul zilnic, modul pilotului și bugetul maxim
-//       (ciorna din ad_campaigns, una pe magazin)
+// PATCH /api/campaigns/plan — bugetul zilnic, modul pilotului, bugetul maxim și tipul
+//       campaniei principale (ciorna din ad_campaigns, una pe magazin)
 // =============================================
 
 const ROUTE = '/api/campaigns/plan'
@@ -188,7 +188,7 @@ export async function PATCH(request: Request) {
   if (!session?.user) return NextResponse.json({ error: t('api.unauthorized') }, { status: 401 })
   const userId = session.user.id
 
-  let body: { daily_budget?: unknown; mode?: unknown; max_daily_budget?: unknown }
+  let body: { daily_budget?: unknown; mode?: unknown; max_daily_budget?: unknown; campaign_type?: unknown }
   try {
     body = await request.json()
   } catch {
@@ -202,7 +202,7 @@ export async function PATCH(request: Request) {
     return Math.round(n * 100) / 100
   }
 
-  const fields: { daily_budget?: number | null; mode?: Mode; max_daily_budget?: number | null } = {}
+  const fields: { daily_budget?: number | null; mode?: Mode; max_daily_budget?: number | null; chosen_type?: MainType } = {}
   if (body.daily_budget !== undefined) {
     // null = bugetul propus de Hontrio
     const v = amount(body.daily_budget)
@@ -219,6 +219,11 @@ export async function PATCH(request: Request) {
     if (v === 'invalid') return NextResponse.json({ error: t('campaigns.budget_invalid') }, { status: 400 })
     fields.max_daily_budget = v
   }
+  if (body.campaign_type !== undefined) {
+    // Tipul campaniei principale, pentru lansare: „auto" = după conversii, sau Performance Max de la început
+    if (!MAIN_TYPES.includes(body.campaign_type as MainType)) return NextResponse.json({ error: t('campaigns.group_type_invalid') }, { status: 400 })
+    fields.chosen_type = body.campaign_type as MainType
+  }
   if (!Object.keys(fields).length) return NextResponse.json({ error: t('sync.nothing_to_save') }, { status: 400 })
 
   const supabase = createAdminClient()
@@ -230,7 +235,7 @@ export async function PATCH(request: Request) {
   if (!store || !isCommercePlatform(store.platform)) return NextResponse.json({ error: t('sync.platform_unsupported') }, { status: 400 })
 
   const now = new Date().toISOString()
-  const columns = 'daily_budget, mode, max_daily_budget'
+  const columns = 'daily_budget, mode, max_daily_budget, chosen_type'
   const update = () => supabase.from('ad_campaigns')
     .update({ ...fields, updated_at: now })
     .eq('store_id', store.id).eq('status', 'draft')
@@ -253,5 +258,5 @@ export async function PATCH(request: Request) {
 
   const saved = rows[0]
   const n = (v: unknown) => (v === null || v === undefined ? null : Number(v))
-  return NextResponse.json({ daily_budget: n(saved.daily_budget), mode: saved.mode, max_daily_budget: n(saved.max_daily_budget) })
+  return NextResponse.json({ daily_budget: n(saved.daily_budget), mode: saved.mode, max_daily_budget: n(saved.max_daily_budget), campaign_type: saved.chosen_type })
 }

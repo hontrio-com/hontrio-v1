@@ -413,7 +413,7 @@ function LaunchStep({ plan, audit, setup, step, f, intlLocale, busy, text, overl
 
       {/* Ce se lansează */}
       <Chips items={[
-        t(plan.stage.id === 'starter' ? 'campaigns.type_shopping' : 'campaigns.type_pmax'),
+        t(plan.structure.type === 'shopping' ? 'campaigns.type_shopping' : 'campaigns.type_pmax'),
         t('wizard.summary_products', { count: f.int.format(plan.counts.included) }),
         ...(place ? [place] : []),
       ]} />

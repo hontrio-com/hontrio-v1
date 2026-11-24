@@ -177,6 +177,29 @@ test('prea multe excluderi pentru lista din PMax: eticheta Hontrio sau pas de f�
   assert.equal(buildPlan(input({ offers: [offer('a'), ...offers] })).exclusions.mode, 'items')
 })
 
+test('Performance Max ales de om: de la lansare, fără plafon pe click, cu limitele PMax la excluderi', () => {
+  const settings = { daily_budget: null, mode: 'approve' as const, max_daily_budget: null, campaign_type: 'performance_max' as const }
+  const p = buildPlan(input({ settings }))
+  // Treapta rămâne a contului (sub 15 cumpărări); tipul e alegerea omului
+  assert.equal(p.stage.id, 'starter')
+  assert.equal(p.structure.type, 'performance_max')
+  assert.equal(p.settings.campaign_type, 'performance_max')
+  assert.equal(p.structure.cpc_ceiling, null)
+  assert.equal(p.structure.cpc_ceiling_low, false)
+  // Oprirea de siguranță rămâne
+  assert.deepEqual(p.structure.loss_limit, { no_conversions: 300, low_roas: 900 })
+  // Lista din PMax ține cel mult 1.000 de produse: peste ele, eticheta Hontrio sau pas de făcut, chiar și la pornire
+  const offers = Array.from({ length: 1000 }, (_, i) => offer(`x${i}`, { ads_mode: 'exclude' }))
+  assert.equal(buildPlan(input({ settings, offers: [offer('a'), ...offers] })).exclusions.mode, 'label')
+  const noLabel = buildPlan(input({ settings, offers: [offer('a'), ...offers], merchant: { id: '555', feed_label: 'RO', statuses_known: true, label_index: null } }))
+  assert.equal(noLabel.exclusions.mode, 'too_many')
+  assert.ok(noLabel.blockers.some(b => b.id === 'too_many_exclusions'))
+  // Automat (sau nimic ales): după treaptă, ca înainte
+  assert.equal(buildPlan(input()).settings.campaign_type, 'auto')
+  assert.equal(buildPlan(input({ settings: { ...settings, campaign_type: 'auto' } })).structure.type, 'shopping')
+  assert.equal(buildPlan(input({ audit: growthAudit, settings: { ...settings, campaign_type: 'auto' } })).structure.type, 'performance_max')
+})
+
 test('numele magazinului devine negativ doar când contul are o campanie Search', () => {
   assert.deepEqual(buildPlan(input()).structure.brand_negatives, [])
   const withSearch = { ...starterAudit, search_active: true }

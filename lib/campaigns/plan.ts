@@ -24,8 +24,14 @@ import { EXCLUDE_LABEL, MAX_LISTING_ITEMS } from '@/lib/google/operations'
 
 export type Mode = 'approve' | 'auto'
 export type Stage = 'starter' | 'growth'
+/**
+ * Tipul campaniei principale, ales de om: `auto` = după treaptă (Shopping standard sub 15 cumpărări în 30 de zile,
+ * apoi Performance Max); `performance_max` = Performance Max de la lansare, oricâte conversii ar avea contul.
+ */
+export type MainType = 'auto' | 'performance_max'
 
 export const MODES: Mode[] = ['approve', 'auto']
+export const MAIN_TYPES: MainType[] = ['auto', 'performance_max']
 
 /** Minimul Google pentru licitarea pe valoare la Shopping: 15 conversii în ultimele 30 de zile. */
 export const GROWTH_MIN_CONVERSIONS = 15
@@ -144,7 +150,8 @@ export type PlanInput = {
    * lansate, ale căror produse ies din campania principală.
    */
   groups?: { assigned: Map<string, string>; live: Set<string> }
-  settings: { daily_budget: number | null; mode: Mode; max_daily_budget: number | null }
+  /** `campaign_type` lipsă = `auto`. */
+  settings: { daily_budget: number | null; mode: Mode; max_daily_budget: number | null; campaign_type?: MainType }
 }
 
 export type Plan = {
@@ -155,7 +162,10 @@ export type Plan = {
    * Center, conversia); „groups" când toate produsele sunt în grupe.
    */
   blockers: { id: BlockerId; href: string; external: boolean; variant?: string; params?: Record<string, string | number> }[]
-  /** Pornire = Shopping standard cu „Maximizează clicurile"; creștere = Performance Max doar pe feed. */
+  /**
+   * Pornire = Shopping standard cu „Maximizează clicurile"; creștere = Performance Max doar pe feed. Treapta spune
+   * cât știe contul; tipul campaniei (`structure.type`) o urmează, afară de cazul în care omul a ales Performance Max.
+   */
   stage: { id: Stage; conversions30: number; basis: 'google_ads' | 'store' }
   campaign: {
     country: string | null
@@ -190,7 +200,7 @@ export type Plan = {
    * altfel o cincime din comanda medie (`basis` „aov”).
    */
   budget: { suggested: number | null; basis: 'history' | 'aov' | null; chosen: number | null; daily: number | null }
-  settings: { mode: Mode; max_daily_budget: number | null }
+  settings: { mode: Mode; max_daily_budget: number | null; campaign_type: MainType }
   history: {
     google_ads_orders: number
     google_ads_total: number
@@ -342,6 +352,9 @@ export function buildPlan(input: PlanInput): Plan {
   // Doar cumpărările: Performance Max licitează numai pe PURCHASE~WEBSITE (un „adaugă în coș" principal nu contează)
   const conversions30 = audit ? purchaseConversions30(audit) : input.googleAds30.orders
   const stageId: Stage = conversions30 >= GROWTH_MIN_CONVERSIONS ? 'growth' : 'starter'
+  // Tipul urmează treapta, afară de cazul în care omul a ales Performance Max de la început
+  const campaignType: MainType = input.settings.campaign_type === 'performance_max' ? 'performance_max' : 'auto'
+  const type: Plan['structure']['type'] = campaignType === 'performance_max' || stageId === 'growth' ? 'performance_max' : 'shopping'
 
   // ROAS-ul pe care contul îl face acum (Shopping/PMax, altfel tot contul), doar ca informație
   let historical: number | null = null
@@ -358,7 +371,7 @@ export function buildPlan(input: PlanInput): Plan {
   const chosen = input.settings.daily_budget
   const daily = chosen ?? suggested
 
-  const cpcCeiling = stageId === 'starter' ? cpcCeilingOf(aov) : null
+  const cpcCeiling = type === 'shopping' ? cpcCeilingOf(aov) : null
 
   // ── Excluderile din campanie, după ID-ul din Merchant Center ─────────────
   const excludedOffers = offers.filter(o => o.reason !== null && CAMPAIGN_EXCLUSIONS.includes(o.reason))
@@ -368,7 +381,7 @@ export function buildPlan(input: PlanInput): Plan {
   const itemIds = [...new Set([...excludedOffers.map(o => o.item_id).filter((x): x is string => !!x), ...foreignIds])]
   const unmatched = excludedOffers.filter(o => !o.item_id).length
   // Shopping standard duce 20.000 de noduri; PMax 1.000 pe grup, iar peste ele trece pe eticheta Hontrio
-  const exclusionMode: Plan['exclusions']['mode'] = stageId === 'starter' || itemIds.length <= MAX_LISTING_ITEMS
+  const exclusionMode: Plan['exclusions']['mode'] = type === 'shopping' || itemIds.length <= MAX_LISTING_ITEMS
     ? 'items' : input.merchant.label_index !== null ? 'label' : 'too_many'
 
   // ── Ce lipsește până la lansare ──────────────────────────────────────────
@@ -421,7 +434,7 @@ export function buildPlan(input: PlanInput): Plan {
       conversion: { status: setup.conversion.status, via: setup.conversion.via },
     },
     structure: {
-      type: stageId === 'starter' ? 'shopping' : 'performance_max',
+      type,
       cpc_ceiling: cpcCeiling,
       cpc_ceiling_low: cpcCeiling !== null && cpcCeiling < LOW_CPC,
       loss_limit: lossLimitOf(aov),
@@ -431,7 +444,7 @@ export function buildPlan(input: PlanInput): Plan {
     },
     economics: { aov, aov_basis: aovBasis, value_ratio: enoughOrders ? econ.valueRatio : 1 },
     budget: { suggested, basis, chosen, daily },
-    settings: { mode: input.settings.mode, max_daily_budget: input.settings.max_daily_budget },
+    settings: { mode: input.settings.mode, max_daily_budget: input.settings.max_daily_budget, campaign_type: campaignType },
     history: {
       google_ads_orders: input.googleAds90.orders,
       google_ads_total: input.googleAds90.total,

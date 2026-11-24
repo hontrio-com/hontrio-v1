@@ -4,7 +4,7 @@ import { storeSetup, type StoreSetup } from '@/lib/commerce/setup'
 import { storeAdsAccount, type StoreAdsAccount } from '@/lib/google/accounts'
 import type { AuditResult } from '@/lib/google/audit'
 import { feedLabelForStore, merchantIdForStore } from '@/lib/merchant/sync'
-import { buildPlan, MODES, type Mode, type Plan } from '@/lib/campaigns/plan'
+import { buildPlan, MAIN_TYPES, MODES, type MainType, type Mode, type Plan } from '@/lib/campaigns/plan'
 import { assignGroups, buildGroupPlans, groupOfferOf, parseGroup, todayIn, type GroupPlan, type ProductGroup } from '@/lib/campaigns/groups'
 import { planChanges, savePlanOffers } from '@/lib/campaigns/plan-store'
 
@@ -34,7 +34,7 @@ export type StoredAudit = {
   error: string | null
 }
 
-export type Draft = { id: string | null; daily_budget: number | null; mode: Mode; max_daily_budget: number | null }
+export type Draft = { id: string | null; daily_budget: number | null; mode: Mode; max_daily_budget: number | null; campaign_type: MainType }
 
 export type PlanContext = {
   setup: StoreSetup
@@ -89,7 +89,7 @@ export async function loadPlanContext(supabase: Supabase, userId: string, store:
 
   const [ads, draftRes, account, auditRes, groupsRes, liveRes, foreignRes] = await Promise.all([
     loadAdsData(supabase, store.id),
-    supabase.from('ad_campaigns').select('id, daily_budget, mode, max_daily_budget').eq('store_id', store.id).eq('status', 'draft').maybeSingle(),
+    supabase.from('ad_campaigns').select('id, daily_budget, mode, max_daily_budget, chosen_type').eq('store_id', store.id).eq('status', 'draft').maybeSingle(),
     // Contul Google Ads e al magazinului
     googleConnected ? storeAdsAccount(supabase, userId, store.google_ads_customer_id) : null,
     supabase.from('google_audits').select('checked_at, customer_id, result').eq('store_id', store.id).maybeSingle(),
@@ -118,6 +118,7 @@ export async function loadPlanContext(supabase: Supabase, userId: string, store:
     daily_budget: d?.daily_budget === null || d?.daily_budget === undefined ? null : Number(d.daily_budget),
     mode: MODES.includes(d?.mode as Mode) ? (d!.mode as Mode) : 'approve',
     max_daily_budget: d?.max_daily_budget === null || d?.max_daily_budget === undefined ? null : Number(d.max_daily_budget),
+    campaign_type: MAIN_TYPES.includes(d?.chosen_type as MainType) ? (d!.chosen_type as MainType) : 'auto',
   }
 
   // Un audit făcut pe alt cont (omul a schimbat contul magazinului) nu mai spune nimic
@@ -147,7 +148,7 @@ export async function loadPlanContext(supabase: Supabase, userId: string, store:
     googleSales30: ads.data.googleSales30,
     products30: ads.data.products30,
     groups: { assigned, live: liveGroups },
-    settings: { daily_budget: draft.daily_budget, mode: draft.mode, max_daily_budget: draft.max_daily_budget },
+    settings: { daily_budget: draft.daily_budget, mode: draft.mode, max_daily_budget: draft.max_daily_budget, campaign_type: draft.campaign_type },
   })
 
   // Ce a hotărât planul, lângă fiecare ofertă: listele din pagini se cer pe pagini, din baza de date.

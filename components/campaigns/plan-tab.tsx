@@ -5,23 +5,24 @@ import { ArrowRight, CircleCheck, Info, Layers, Loader2 } from 'lucide-react'
 import { useT } from '@/lib/i18n/context'
 import { cn } from '@/lib/utils'
 import { Card, CardHeader, Field } from '@/components/app/surface'
+import { Badge } from '@/components/app/badge'
 import { Button, linkStyles } from '@/components/app/button'
 import { Callout } from '@/components/app/feedback'
-import { Input } from '@/components/app/input'
+import { ChoiceCard, Input } from '@/components/app/input'
 import { FadeIn } from '@/components/app/motion'
 import { LaunchCard } from '@/components/campaigns/launch-card'
 import { PlanProducts } from '@/components/campaigns/plan-products'
 import type { AuditData } from '@/components/campaigns/types'
 import type { Formats } from '@/components/app/formats'
-import type { Plan } from '@/lib/campaigns/plan'
+import { MAIN_TYPES, type MainType, type Plan } from '@/lib/campaigns/plan'
 
 // =============================================
 // Planul campaniei principale (tot ce nu e într-o campanie pe grupă):
-// lansarea, ce va crea Hontrio în cont (cu bugetul) și produsele, cu ce
-// intră și ce rămâne afară.
+// lansarea, ce va crea Hontrio în cont (tipul, cu bugetul) și produsele,
+// cu ce intră și ce rămâne afară.
 // =============================================
 
-type Settings = { daily_budget?: number | null }
+type Settings = { daily_budget?: number | null; campaign_type?: MainType }
 
 /** 1234567890 → 123-456-7890, cum îl arată Google Ads. */
 function customerId(id: string): string {
@@ -53,7 +54,8 @@ export function PlanTab({ plan, audit, running, currency, groupNames, f, onSaveS
 }) {
   const { t, intlLocale } = useT()
   const { economics: econ, campaign, budget, structure } = plan
-  const starter = plan.stage.id === 'starter'
+  // Ce se lansează: Shopping standard (pornirea) sau Performance Max (după conversii sau ales de om)
+  const shopping = structure.type === 'shopping'
 
   /** RO → România, ro → română; codul așa cum e dacă browserul nu-l știe. */
   const nameOf = (type: 'region' | 'language', code: string | null) => {
@@ -72,7 +74,16 @@ export function PlanTab({ plan, audit, running, currency, groupNames, f, onSaveS
   const muted = (text: string) => <span className="font-normal text-neutral-400">{text}</span>
 
   const rows: { label: string; value: ReactNode; hint?: ReactNode }[] = [
-    { label: t('campaigns.row_type'), value: t(starter ? 'campaigns.type_shopping' : 'campaigns.type_pmax'), hint: t(starter ? 'campaigns.type_shopping_hint' : 'campaigns.type_pmax_hint') },
+    {
+      label: t('campaigns.row_type'),
+      value: (
+        <>
+          {t(shopping ? 'campaigns.type_shopping' : 'campaigns.type_pmax')}
+          <p className="mt-0.5 text-[12px] font-normal leading-relaxed text-neutral-500">{t(shopping ? 'campaigns.type_shopping_hint' : 'campaigns.type_pmax_hint')}</p>
+          <TypeChoice plan={plan} f={f} onSave={campaign_type => onSaveSettings({ campaign_type })} />
+        </>
+      ),
+    },
     { label: t('campaigns.row_products'), value: t('campaigns.products_value', { included: f.int.format(plan.counts.included), count: plan.summary.offers }) },
     { label: t('campaigns.row_where'), value: place || '—' },
     {
@@ -97,7 +108,7 @@ export function PlanTab({ plan, audit, running, currency, groupNames, f, onSaveS
           : t('campaigns.conversion_unverified_unknown'),
       hint: campaign.conversion.status === 'unverified' ? t(launchCheck, { platform: plan.platform.name }) : undefined,
     },
-    starter ? {
+    shopping ? {
       label: t('campaigns.row_bidding'),
       value: structure.cpc_ceiling !== null ? t('campaigns.bidding_clicks', { cpc: f.money2.format(structure.cpc_ceiling) }) : t('campaigns.bidding_clicks_no_cap'),
       hint: structure.cpc_ceiling !== null
@@ -119,7 +130,7 @@ export function PlanTab({ plan, audit, running, currency, groupNames, f, onSaveS
       label: t('campaigns.row_settings'),
       value: (
         <ul className="space-y-1 font-normal">
-          {['settings_presence', 'settings_eu', 'settings_utm', ...(starter ? ['settings_no_partners'] : ['settings_no_expansion', 'settings_feed_only'])].map(k => (
+          {['settings_presence', 'settings_eu', 'settings_utm', ...(shopping ? ['settings_no_partners'] : ['settings_no_expansion', 'settings_feed_only'])].map(k => (
             <li key={k} className="flex items-start gap-2"><CircleCheck className="mt-0.5 size-3.5 shrink-0 text-emerald-500" />{t(`campaigns.${k}`)}</li>
           ))}
           {structure.brand_negatives.length > 0 && (
@@ -198,6 +209,43 @@ export function PlanTab({ plan, audit, running, currency, groupNames, f, onSaveS
       <p className="flex items-start gap-2 text-[12px] leading-relaxed text-neutral-400">
         <Info className="mt-0.5 size-3.5 shrink-0" />{t('campaigns.footer')}
       </p>
+    </div>
+  )
+}
+
+/**
+ * Tipul campaniei principale: după conversii (Shopping standard până la 15 pe lună, apoi Performance Max, recomandat)
+ * sau Performance Max de la început. Se salvează pe loc; planul îl socotește serverul.
+ */
+function TypeChoice({ plan, f, onSave }: { plan: Plan; f: Formats; onSave: (type: MainType) => Promise<boolean> }) {
+  const { t } = useT()
+  const [saving, setSaving] = useState<MainType | null>(null)
+  const chosen = saving ?? plan.settings.campaign_type
+  const conversions = f.num.format(plan.stage.conversions30)
+
+  async function choose(type: MainType) {
+    if (saving || type === plan.settings.campaign_type) return
+    setSaving(type)
+    // Dacă salvarea cade, pagina arată de ce
+    await onSave(type)
+    setSaving(null)
+  }
+
+  return (
+    <div className="mt-3 font-normal">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        {MAIN_TYPES.map(k => (
+          <ChoiceCard key={k} active={chosen === k} disabled={!!saving} onClick={() => choose(k)} title={t(`campaigns.g_type_${k}`)}
+            aside={saving === k ? <Loader2 className="size-3.5 animate-spin text-neutral-400" /> : k === 'auto' ? <Badge tone="brand">{t('campaigns.recommended')}</Badge> : undefined}
+            description={k === 'auto'
+              ? t(plan.stage.id === 'starter' ? 'campaigns.g_type_auto_shopping' : 'campaigns.g_type_auto_pmax', { conversions })
+              : t('campaigns.g_type_performance_max_desc')} />
+        ))}
+      </div>
+      {/* Performance Max cu puține vânzări: Google licitează pe valoare abia de la 15 pe lună */}
+      {plan.settings.campaign_type === 'performance_max' && plan.stage.id === 'starter' && (
+        <Callout tone="warning" className="mt-3">{t('campaigns.g_warn_pmax_low_data', { conversions })}</Callout>
+      )}
     </div>
   )
 }

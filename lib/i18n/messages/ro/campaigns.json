@@ -107,6 +107,7 @@
   "launch_failed": "Lansarea nu a reușit. Încearcă din nou.",
   "stage_starter_hint": "Conversii în cont în ultimele 30 de zile: {{conversions}}, sub cele 15 de care Google are nevoie ca să liciteze singur pe valoare. Pornim cu o campanie Shopping standard, cu „Maximizează clicurile” și oprire de siguranță. Când apar destule vânzări, pilotul propune trecerea la Performance Max.",
   "stage_growth_hint": "Conversii în cont în ultimele 30 de zile: {{conversions}}, destule ca Google să liciteze singur pe valoare. Campania este Performance Max, doar cu produsele din feed, iar Google urmărește cea mai mare valoare a vânzărilor din buget.",
+  "stage_pmax_chosen_hint": "Ai ales Performance Max de la început. Conversii în cont în ultimele 30 de zile: {{conversions}}, sub cele 15 de care Google are nevoie ca să liciteze singur pe valoare, așa că primele săptămâni sunt de învățare. Oprirea de siguranță se aplică la fel.",
   "type_shopping": "Shopping standard, din catalogul Merchant Center",
   "type_shopping_hint": "Doar reclame cu produse, în Căutare și în fila Shopping. Google licitează singur ca să aducă cât mai multe clicuri din buget, iar termenii de căutare rămân vizibili. Așa învățăm ieftin, până apar destule vânzări pentru Performance Max.",
   "bidding_cpc_low": "Plafonul este foarte mic, deci campania va aduce puțin trafic. La comenzi mai mari, plafonul crește.",

@@ -80,6 +80,17 @@ puțin precis, dar în aceeași direcție.
 Trecerea **pornire → creștere** e o acțiune propusă (vezi §6): Hontrio creează PMax fără
 țintă, cu același buget, apoi o oprește pe cea de pornire.
 
+**Tipul ales de om (24.11.2026).** Pe ciorna campaniei principale, `chosen_type`
+(migrations/038): `auto` (implicit, recomandat) urmează treptele de mai sus;
+`performance_max` lansează direct Performance Max (§3.2), oricâte cumpărări ar avea contul.
+Pagina îl avertizează sub 15 cumpărări: Google licitează pe valoare abia de la ele, deci
+campania învață greu. Treapta (`stage.id`) rămâne a contului; tipul e în `structure.type`, iar
+plafonul pe click și modul excluderilor (lista de ID-uri până la 990, apoi eticheta) urmează
+tipul. Campania lansată se salvează cu `stage = growth`, ca pilotul să nu propună o „trecere”
+a unui PMax. Alegerea contează doar la lansare: o campanie care rulează nu-și schimbă tipul.
+Verificat cu `validateOnly` pe contul VetDepo (24.11.2026): PMax-ul principal, trecerea
+pilotului, o grupă PMax și arborele cu excluderi plus cuvinte negative au fost acceptate.
+
 ## 3. Structura campaniilor (câmpurile exacte, REST v26)
 
 ### 3.1 Pornire — Shopping standard
@@ -378,7 +389,7 @@ SEE, cu linkul către pagina Google despre CSS.
 - `commerce_offers`: `merchant_offer_id`, `merchant_issues`, `merchant_cogs_pushed`, `merchant_label_pushed`.
 - `ad_campaigns`:
   - `type` acceptă și `shopping`; `status` acceptă și `ended`;
-  - pe ciornă (setările): `mode`, `max_daily_budget`;
+  - pe ciornă (setările): `mode`, `max_daily_budget`, `chosen_type` (tipul campaniei principale, §2);
   - pe campaniile lansate:
     - legătura cu Google: `stage`, `segment`, `merchant_center_id`, `feed_label`, `google_budget_id`, `google_asset_group_id`, `google_ad_group_id`;
     - ce s-a aplicat: `target_roas`, `cpc_ceiling`, `excluded_item_ids`;
@@ -403,9 +414,9 @@ Toate au RLS pornit și le citește doar serverul, ca `commerce_*`.
   socotește din ele planul grupei cu aceeași funcție ca serverul (`groupPlanFromTotals`). Regulile din SQL
   sunt cele din `lib/campaigns/groups.ts` (verificate pe magazine reale, migrarea 037).
 - `GET /api/catalog`: pagina Produse, pe pagini, cu filtrele, căutarea și ordinea în SQL (`catalog_page`).
-- `PATCH /api/campaigns/plan`: bugetul, modul, bugetul maxim.
+- `PATCH /api/campaigns/plan`: bugetul, modul, bugetul maxim și tipul campaniei principale (`campaign_type`: `auto` sau `performance_max`, §2).
 - `POST /api/campaigns/audit`: rulează auditul acum.
-- `POST /api/campaigns/launch`: lansează treapta din plan (sau campania unei grupe, cu `group_id`), cu alegerea pentru campaniile existente și confirmarea declarației UE.
+- `POST /api/campaigns/launch`: lansează tipul din plan (treapta sau Performance Max ales de om; sau campania unei grupe, cu `group_id`), cu alegerea pentru campaniile existente și confirmarea declarației UE.
 - `POST /api/campaigns/groups`, `PATCH/DELETE /api/campaigns/groups/{id}`: grupele de produse ale omului (§13).
 - `POST /api/campaigns/actions`: aprobă sau respinge o propunere (verifică vârsta ei, o ia o singură cerere, iar bugetul se verifică din nou față de bugetul maxim, §6).
 - `PATCH /api/campaigns/{id}`: pauză sau repornire, cerute de om.

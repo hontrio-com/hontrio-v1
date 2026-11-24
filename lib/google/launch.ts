@@ -245,6 +245,8 @@ export async function launchFromPlan(supabase: Supabase, userId: string, store: 
     if (!country) return failWith('geo_unknown', storedMessage('sync.launch_geo_unknown', { country: '?' }))
     const targeting = await resolveTargeting(token, acc, country, plan.campaign.language)
     const kind = plan.structure.type
+    // Treapta campaniei e tipul ei: un Performance Max ales de om cu puține conversii nu mai are în ce „trece"
+    const stage = kind === 'shopping' ? 'starter' : 'growth'
     const name = campaignName(kind, store.store_name)
     const common = {
       customerId: acc.customer_id,
@@ -277,7 +279,7 @@ export async function launchFromPlan(supabase: Supabase, userId: string, store: 
       customer_id: acc.customer_id,
       google_campaign_id: ids.campaign,
       launched_at: now,
-      stage: plan.stage.id,
+      stage,
       segment: 'all',
       name,
       merchant_center_id: merchantId,
@@ -298,7 +300,7 @@ export async function launchFromPlan(supabase: Supabase, userId: string, store: 
     await logAction(supabase, {
       user_id: userId, store_id: store.id, ad_campaign_id: row.id, kind: 'launch', status: 'applied', source: 'user',
       params: {
-        type: kind, stage: plan.stage.id, daily_budget: daily,
+        type: kind, stage, chosen: plan.settings.campaign_type, daily_budget: daily,
         cpc_ceiling: spec.kind === 'shopping' ? spec.cpcCeiling : null, excluded: plan.exclusions.item_ids.length, google_campaign_id: ids.campaign,
       },
     })

@@ -26,7 +26,7 @@ import { CampaignSheet } from '@/components/campaigns/campaign-sheet'
 import { GroupEditor, type Step } from '@/components/campaigns/group-editor'
 import type { CampaignsData } from '@/components/campaigns/types'
 import { MAX_GROUPS, type ProductGroup } from '@/lib/campaigns/groups'
-import type { Mode } from '@/lib/campaigns/plan'
+import type { MainType, Mode } from '@/lib/campaigns/plan'
 
 // =============================================
 // Campanii — patru file, de la ce contează cel mai des la detalii:
@@ -39,7 +39,7 @@ import type { Mode } from '@/lib/campaigns/plan'
 
 type Tab = 'overview' | 'campaigns' | 'pilot' | 'plan'
 const TABS: Tab[] = ['overview', 'campaigns', 'pilot', 'plan']
-type Settings = { daily_budget?: number | null; mode?: Mode; max_daily_budget?: number | null }
+type Settings = { daily_budget?: number | null; mode?: Mode; max_daily_budget?: number | null; campaign_type?: MainType }
 
 /** Schimbă adresa fără să reîncarce pagina (Next.js ține pasul cu useSearchParams). */
 function setQuery(change: (q: URLSearchParams) => void, push: boolean) {

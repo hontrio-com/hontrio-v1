@@ -49,7 +49,10 @@ export function LaunchCard({ plan, audit, f, onChanged, onLaunched }: {
   const hasAccount = !!plan.campaign.account
   const ready = plan.blockers.length === 0 && !!result && !audit?.error
   const choicesDone = choicesMade(result, overlap, declareEu)
-  const starter = plan.stage.id === 'starter'
+  // Ce se lansează: Shopping standard (pornirea) sau Performance Max (după conversii sau ales de om)
+  const shopping = plan.structure.type === 'shopping'
+  const stageHint = shopping ? 'campaigns.stage_starter_hint'
+    : plan.stage.id === 'starter' ? 'campaigns.stage_pmax_chosen_hint' : 'campaigns.stage_growth_hint'
   const checks = (result?.checks ?? []).filter(c => c.id !== 'currency_mismatch')
 
   async function runAudit() {
@@ -120,18 +123,18 @@ export function LaunchCard({ plan, audit, f, onChanged, onLaunched }: {
               {plan.blockers.length ? t('campaigns.blockers_title', { count: String(plan.blockers.length) }) : t('campaigns.ready_title')}
             </h3>
             <p className="mt-0.5 max-w-xl text-[13px] leading-relaxed text-neutral-500">
-              {t(starter ? 'campaigns.launch_card_starter' : 'campaigns.launch_card_growth', {
+              {t(shopping ? 'campaigns.launch_card_starter' : 'campaigns.launch_card_growth', {
                 products: f.int.format(plan.counts.included),
                 budget: plan.budget.daily !== null ? f.money.format(plan.budget.daily) : '—',
               })}
               {' '}
-              <InfoTip>{t(starter ? 'campaigns.stage_starter_hint' : 'campaigns.stage_growth_hint', { conversions: String(Math.round(plan.stage.conversions30)) })}</InfoTip>
+              <InfoTip>{t(stageHint, { conversions: String(Math.round(plan.stage.conversions30)) })}</InfoTip>
             </p>
           </div>
         </div>
         <div className="flex shrink-0 flex-col items-stretch gap-1.5 sm:items-end">
           <Button variant="primary" size="lg" loading={launching} disabled={!ready || !choicesDone} onClick={launch}>
-            {!launching && <Rocket />}{t(starter ? 'campaigns.launch_starter' : 'campaigns.launch_growth')}
+            {!launching && <Rocket />}{t(shopping ? 'campaigns.launch_starter' : 'campaigns.launch_growth')}
           </Button>
           {waiting && <p className="text-[12px] text-neutral-400 sm:text-right">{t(waiting)}</p>}
         </div>
