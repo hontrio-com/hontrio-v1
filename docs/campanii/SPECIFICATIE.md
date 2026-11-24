@@ -392,6 +392,17 @@ Toate au RLS pornit și le citește doar serverul, ca `commerce_*`.
 ## 11. API intern
 
 - `GET /api/campaigns/plan`: planul, auditul salvat, campaniile lansate, propunerile (fără cele mai vechi de 7 zile), ultimele metrici (până azi, dacă cifrele de azi au fost citite), ultima trecere a pilotului și eroarea ei.
+  Planul pleacă **fără lista ofertelor** (`planForPage`), iar grupele fără membri și ID-uri: un catalog
+  de 42.000 de oferte (eSAFE.ro) făcea 21 MB, peste limita de 4,5 MB a funcțiilor Vercel. Cifrele
+  paginilor sunt în `plan.summary` (câte oferte pe fiecare motiv, categoriile, brandurile, prețurile).
+- `POST /api/campaigns/plan/offers`: o pagină din produsele planului (fila din Campanii, sau produsele
+  grupei în lucru), din SQL (`plan_offer_page`, migrarea 037). Fiecare socotire a planului scrie lângă
+  ofertă motivul, grupa și ID-ul din Merchant Center (`plan_reason`, `plan_group`, `plan_item_id`, doar
+  schimbările), deci paginile nu socotesc planul din nou.
+- `POST /api/campaigns/groups/preview`: totalurile grupei în lucru, din SQL (`plan_group_preview`); pagina
+  socotește din ele planul grupei cu aceeași funcție ca serverul (`groupPlanFromTotals`). Regulile din SQL
+  sunt cele din `lib/campaigns/groups.ts` (verificate pe magazine reale, migrarea 037).
+- `GET /api/catalog`: pagina Produse, pe pagini, cu filtrele, căutarea și ordinea în SQL (`catalog_page`).
 - `PATCH /api/campaigns/plan`: bugetul, modul, bugetul maxim.
 - `POST /api/campaigns/audit`: rulează auditul acum.
 - `POST /api/campaigns/launch`: lansează treapta din plan (sau campania unei grupe, cu `group_id`), cu alegerea pentru campaniile existente și confirmarea declarației UE.

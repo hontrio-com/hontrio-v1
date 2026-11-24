@@ -1,10 +1,10 @@
 'use client'
 
-import { Fragment, useMemo, useRef, useState, type ReactNode } from 'react'
+import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react'
 import { useT } from '@/lib/i18n/context'
 import {
   ArrowLeft, ArrowRight, BadgePercent, CalendarRange, Check, ChevronLeft, ChevronRight, Coins, FolderTree, ImageIcon, Info,
-  ListChecks, Rocket, Search, ShieldCheck, Sparkles, Tag, type LucideIcon,
+  ListChecks, Loader2, Rocket, Search, ShieldCheck, Sparkles, Tag, type LucideIcon,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Sheet, SheetHeader } from '@/components/app/sheet'
@@ -16,9 +16,10 @@ import { Segmented } from '@/components/app/tabs'
 import { NumberTicker } from '@/components/app/motion'
 import type { Plan, PlanOffer } from '@/lib/campaigns/plan'
 import {
-  accountBlockers, assignedAsDraft, assignGroups, buildGroupPlan, canRun, EMPTY_RULES, GROUP_TYPES, isEmptyRules, otherBudgetsFor,
-  type GroupPlan, type GroupRules, type GroupType, type ProductGroup,
+  accountBlockers, canRun, EMPTY_RULES, EMPTY_TOTALS, GROUP_TYPES, groupPlanFromTotals, isEmptyRules, matchesFilters, otherBudgetsFor, precedingGroupIds,
+  type GroupPlan, type GroupRules, type GroupTotals, type GroupType, type ProductGroup,
 } from '@/lib/campaigns/groups'
+import type { PageOffer } from '@/lib/campaigns/plan-store'
 import type { AuditData } from '@/components/campaigns/types'
 import type { LiveCampaign } from '@/components/campaigns/live-campaigns'
 import { day, type Formats } from '@/components/app/formats'
@@ -93,12 +94,6 @@ export function noteParams(params: Record<string, string | number> | undefined, 
 
 const sameRules = (a: GroupRules, b: GroupRules) => JSON.stringify(a) === JSON.stringify(b)
 
-/** Categoriile (sau brandurile) din catalog, cu câte oferte are fiecare, de la cea mai mare. */
-function facetOf(offers: PlanOffer[], key: 'category' | 'brand'): [string, number][] {
-  const counts = new Map<string, number>()
-  for (const o of offers) if (o[key]) counts.set(o[key]!, (counts.get(o[key]!) ?? 0) + 1)
-  return [...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-}
 const short = (xs: string[]) => (xs.length <= 2 ? xs.join(', ') : `${xs.slice(0, 2).join(', ')} +${xs.length - 2}`)
 
 export function GroupEditor({ session, ...props }: Props) {
@@ -164,26 +159,42 @@ function EditorBody({ group, initialStep = 1, plan, groups, campaigns, audit, to
     status: group?.status ?? 'draft',
     launched_at: group?.launched_at ?? null,
   }
-  // Ieftin și la mii de produse (câteva grupe): se socotește la fiecare schimbare. O grupă încheiată
-  // se vede ca la relansare: o ciornă care ia ce au lăsat celelalte
-  const assigned = draft.status === 'ended'
-    ? assignedAsDraft(plan.offers, others.map(g => g.group).filter(g => g.status !== 'ended'), draft)
-    : assignGroups(plan.offers, [...others.map(g => g.group), draft])
+  // Grupele dinaintea ei își păstrează produsele; o grupă încheiată se vede ca la relansare (după celelalte)
+  const preceding = precedingGroupIds(others.map(g => g.group), draft)
+  // Totalurile grupei vin din baza de date (un catalog mare nu stă în pagină), după o scurtă pauză la fiecare
+  // schimbare de reguli; restul planului (buget, tip, perioadă) se socotește pe loc, cu aceeași funcție ca serverul
+  const totalsKey = JSON.stringify({ rules, preceding })
+  const [totals, setTotals] = useState<{ key: string; value: GroupTotals } | null>(null)
+  const [totalsFailed, setTotalsFailed] = useState<string | null>(null)
+  useEffect(() => {
+    let alive = true
+    const id = setTimeout(() => {
+      fetch('/api/campaigns/groups/preview', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: totalsKey })
+        .then(r => { if (!r.ok) throw new Error(); return r.json() as Promise<{ totals: GroupTotals }> })
+        .then(d => { if (alive) { setTotals({ key: totalsKey, value: d.totals }); setTotalsFailed(null) } })
+        .catch(() => { if (alive) setTotalsFailed(totalsKey) })
+    }, 250)
+    return () => { alive = false; clearTimeout(id) }
+  }, [totalsKey])
+  const totalsReady = totals?.key === totalsKey
   const liveBudgets = campaigns.filter(c => c.status === 'active').map(c => ({ group_id: c.group_id, daily_budget: c.daily_budget ?? 0 }))
   const drafts = others.filter(g => g.group.status === 'draft').map(g => ({ id: g.group.id, daily: g.budget.daily }))
-  const preview = buildGroupPlan(draft, {
-    plan,
-    assigned,
-    otherConversions: others.filter(g => g.group.status !== 'ended').reduce((s, g) => s + g.conversions30, 0),
-    otherBudgets: otherBudgetsFor(draft.id, liveBudgets, drafts),
-    today,
-  })
+  const preview: GroupPlan = {
+    ...groupPlanFromTotals(draft, totals?.value ?? EMPTY_TOTALS, {
+      plan,
+      otherConversions: others.filter(g => g.group.status !== 'ended').reduce((s, g) => s + g.conversions30, 0),
+      otherBudgets: otherBudgetsFor(draft.id, liveBudgets, drafts),
+      today,
+    }),
+    members: [],
+    item_ids: [],
+  }
   const noValue = !!audit?.result?.checks.some(c => c.id === 'purchase_no_value')
   const account = accountBlockers(plan, noValue)
   const ownerName = new Map(others.map(g => [g.group.id, g.group.name]))
 
   // ── Ce poate face omul la fiecare pas ─────────────────────────────────────
-  const step1Ok = !isEmptyRules(rules) && preview.counts.included > 0
+  const step1Ok = !isEmptyRules(rules) && totalsReady && preview.counts.included > 0
   const periodOk = period === 'always' || (!!endsOn && endsOn >= today && (!startsOn || startsOn <= endsOn))
   const step2Ok = shownName.trim().length > 0 && budget !== 'invalid' && periodOk
   const auditResult = audit?.result ?? null
@@ -336,7 +347,8 @@ function EditorBody({ group, initialStep = 1, plan, groups, campaigns, audit, to
         <div ref={body} className="min-w-0 flex-1 overflow-y-auto px-6 py-6">
           {step === 1 && (
             <ProductsStep plan={plan} rules={rules} setRules={setRules} active={active} toggleFilter={toggleFilter}
-              assigned={assigned} groupId={draft.id} ownerName={ownerName} preview={preview} toggleOffer={toggleOffer} f={f} currency={currency} />
+              groupId={draft.id} preceding={preceding} ownerName={ownerName} preview={preview} previewFailed={totalsFailed === totalsKey}
+              toggleOffer={toggleOffer} f={f} currency={currency} />
           )}
           {step === 2 && (
             <div className="space-y-8">
@@ -518,38 +530,50 @@ type ProductsProps = {
   setRules: (fn: (r: GroupRules) => GroupRules) => void
   active: Set<Filter>
   toggleFilter: (f: Filter) => void
-  assigned: Map<string, string>
   groupId: string
+  /** Grupele dinaintea celei în lucru (își păstrează produsele). */
+  preceding: string[]
   ownerName: Map<string, string>
   preview: GroupPlan
+  /** Totalurile grupei nu s-au putut citi pentru regulile de acum. */
+  previewFailed: boolean
   toggleOffer: (o: PlanOffer, inGroup: boolean) => void
   f: Formats
   currency: string
 }
 
-function ProductsStep({ plan, rules, setRules, active, toggleFilter, assigned, groupId, ownerName, preview, toggleOffer, f, currency }: ProductsProps) {
+function ProductsStep({ plan, rules, setRules, active, toggleFilter, groupId, preceding, ownerName, preview, previewFailed, toggleOffer, f, currency }: ProductsProps) {
   const { t } = useT()
   const [scope, setScope] = useState<'group' | 'all'>('group')
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
 
-  const categories = useMemo(() => facetOf(plan.offers, 'category'), [plan.offers])
-  const brands = useMemo(() => facetOf(plan.offers, 'brand'), [plan.offers])
-  const prices = plan.offers.map(o => o.price).filter(p => p > 0)
-  const onSale = plan.offers.filter(o => o.on_sale).length
+  // Ce se poate alege, din tot catalogul (cifrele planului: pagina nu primește lista ofertelor)
+  const { categories, brands, on_sale: onSale } = plan.summary.facets
 
   // Fără filtre (doar produse alese de mână) lista arată tot catalogul
   const forcedAll = active.size === 0 || (active.size === 1 && active.has('manual') && !rules.include.length)
   const shownScope = forcedAll ? 'all' : scope
-  const list = useMemo(() => {
-    const q = search.trim().toLowerCase()
-    return plan.offers.filter(o => (shownScope === 'all' || assigned.get(o.offer_id) === groupId)
-      && (!q || o.title.toLowerCase().includes(q) || (o.variant_title ?? '').toLowerCase().includes(q) || (o.category ?? '').toLowerCase().includes(q) || (o.brand ?? '').toLowerCase().includes(q)))
-  }, [plan.offers, shownScope, assigned, groupId, search])
-  const pages = Math.max(1, Math.ceil(list.length / PER_PAGE))
+  // O pagină din produse, din baza de date: ale grupei (cu regulile de acum) sau tot catalogul
+  const listKey = JSON.stringify({ filter: shownScope === 'all' ? 'all' : 'group', rules, group: groupId, preceding, q: search.trim(), page, per_page: PER_PAGE })
+  const [list, setList] = useState<{ key: string; total: number; offers: PageOffer[] } | null>(null)
+  const [listFailed, setListFailed] = useState<string | null>(null)
+  useEffect(() => {
+    let alive = true
+    const id = setTimeout(() => {
+      fetch('/api/campaigns/plan/offers', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: listKey })
+        .then(r => { if (!r.ok) throw new Error(); return r.json() as Promise<{ total: number; offers: PageOffer[] }> })
+        .then(d => { if (alive) { setList({ key: listKey, total: d.total, offers: d.offers }); setListFailed(null) } })
+        .catch(() => { if (alive) setListFailed(listKey) })
+    }, 250)
+    return () => { alive = false; clearTimeout(id) }
+  }, [listKey])
+  const total = list?.total ?? 0
+  const pages = Math.max(1, Math.ceil(total / PER_PAGE))
   const current = Math.min(page, pages)
-  const visible = list.slice((current - 1) * PER_PAGE, current * PER_PAGE)
-
+  const visible = list?.offers ?? []
+  const listLoading = !list && listFailed !== listKey
+  const listPending = !!list && list.key !== listKey && listFailed !== listKey
   const pick = (key: 'categories' | 'brands', value: string) => setRules(r => {
     const set = new Set(r[key])
     if (set.has(value)) set.delete(value)
@@ -600,7 +624,8 @@ function ProductsStep({ plan, rules, setRules, active, toggleFilter, assigned, g
       )}
       {active.has('price') && (
         <FilterBox icon={Coins} title={t('campaigns.g_filter_price')}
-          hint={prices.length ? t('campaigns.g_price_hint', { min: f.money.format(Math.min(...prices)), max: f.money.format(Math.max(...prices)) }) : undefined}>
+          hint={plan.summary.facets.price_min !== null && plan.summary.facets.price_max !== null
+            ? t('campaigns.g_price_hint', { min: f.money.format(plan.summary.facets.price_min), max: f.money.format(plan.summary.facets.price_max) }) : undefined}>
           <div className="flex items-center gap-2">
             {(['price_min', 'price_max'] as const).map((k, i) => (
               <div key={k} className="flex items-center gap-2">
@@ -620,10 +645,10 @@ function ProductsStep({ plan, rules, setRules, active, toggleFilter, assigned, g
       <section className="overflow-hidden rounded-xl border border-neutral-200/80 bg-white">
         <div className="flex flex-col gap-3 border-b border-neutral-100 bg-neutral-50/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           {forcedAll ? (
-            <p className="text-[13px] font-medium text-neutral-700">{t('campaigns.g_scope_all', { count: f.int.format(plan.offers.length) })}</p>
+            <p className="text-[13px] font-medium text-neutral-700">{t('campaigns.g_scope_all', { count: f.int.format(plan.summary.offers) })}</p>
           ) : (
             <Segmented id="group-scope" size="sm" value={shownScope} onChange={k => { setScope(k); setPage(1) }} items={(['group', 'all'] as const).map(k => ({
-              value: k, label: t(`campaigns.g_scope_${k}`, { count: f.int.format(k === 'group' ? preview.counts.members : plan.offers.length) }),
+              value: k, label: t(`campaigns.g_scope_${k}`, { count: f.int.format(k === 'group' ? preview.counts.members : plan.summary.offers) }),
             }))} />
           )}
           <Input icon={<Search />} wrapperClassName="sm:w-64" className="h-8" value={search} placeholder={t('campaigns.search_placeholder')}
@@ -649,14 +674,25 @@ function ProductsStep({ plan, rules, setRules, active, toggleFilter, assigned, g
           </p>
         )}
 
-        {visible.length === 0 ? (
-          <p className="px-6 py-12 text-center text-[13px] text-neutral-400">{search ? t('catalog.no_results') : t('campaigns.g_list_empty')}</p>
+        {previewFailed && (
+          <p className="flex items-start gap-2 border-b border-neutral-100 bg-amber-50/50 px-4 py-2.5 text-[12px] text-amber-800">
+            <Info className="mt-px size-3.5 shrink-0" />{t('catalog.load_error')}
+          </p>
+        )}
+
+        {listLoading ? (
+          <p className="flex justify-center px-6 py-12"><Loader2 className="size-5 animate-spin text-neutral-300" /></p>
+        ) : visible.length === 0 ? (
+          <p className="px-6 py-12 text-center text-[13px] text-neutral-400">{listFailed === listKey ? t('catalog.load_error') : search ? t('catalog.no_results') : t('campaigns.g_list_empty')}</p>
         ) : (
-          <ul className="divide-y divide-neutral-100">
+          <ul className={cn('divide-y divide-neutral-100 transition-opacity', listPending && 'opacity-60')}>
             {visible.map(o => {
-              const owner = assigned.get(o.offer_id)
-              const inGroup = owner === groupId
-              const elsewhere = !!owner && !inGroup
+              // Luată de o grupă dinaintea ei (știe doar baza de date); altfel bifa urmează pe loc regulile de acum,
+              // fără să aștepte lista nouă
+              const taken = !o.in_draft && !!o.group_id && preceding.includes(o.group_id)
+              const inGroup = !taken && !rules.exclude.includes(o.offer_id) && (rules.include.includes(o.offer_id) || matchesFilters(o, rules))
+              const owner = inGroup ? groupId : o.in_draft ? null : o.group_id
+              const elsewhere = !inGroup && !!owner && owner !== groupId
               const blocked = !canRun(o)
               return (
                 <li key={o.offer_id} className={cn('flex items-center gap-3 px-4 py-2.5 transition-colors', inGroup ? 'bg-white' : 'bg-neutral-50/40', !elsewhere && 'hover:bg-brand-50/30')}>
@@ -697,7 +733,7 @@ function ProductsStep({ plan, rules, setRules, active, toggleFilter, assigned, g
         )}
         {pages > 1 && (
           <div className="flex items-center justify-between gap-2 border-t border-neutral-100 px-4 py-2.5 text-[12px] text-neutral-500">
-            <span className="tabular-nums">{t('catalog.page_of', { from: f.int.format((current - 1) * PER_PAGE + 1), to: f.int.format(Math.min(current * PER_PAGE, list.length)), total: f.int.format(list.length) })}</span>
+            <span className="tabular-nums">{t('catalog.page_of', { from: f.int.format((current - 1) * PER_PAGE + 1), to: f.int.format(Math.min(current * PER_PAGE, total)), total: f.int.format(total) })}</span>
             <div className="flex items-center gap-1">
               <Button size="icon" variant="ghost" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={current === 1} aria-label={t('catalog.prev')}><ChevronLeft /></Button>
               <Button size="icon" variant="ghost" onClick={() => setPage(p => Math.min(pages, p + 1))} disabled={current === pages} aria-label={t('catalog.next')}><ChevronRight /></Button>

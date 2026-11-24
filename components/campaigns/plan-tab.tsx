@@ -73,7 +73,7 @@ export function PlanTab({ plan, audit, running, currency, groupNames, f, onSaveS
 
   const rows: { label: string; value: ReactNode; hint?: ReactNode }[] = [
     { label: t('campaigns.row_type'), value: t(starter ? 'campaigns.type_shopping' : 'campaigns.type_pmax'), hint: t(starter ? 'campaigns.type_shopping_hint' : 'campaigns.type_pmax_hint') },
-    { label: t('campaigns.row_products'), value: t('campaigns.products_value', { included: f.int.format(plan.counts.included), count: plan.offers.length }) },
+    { label: t('campaigns.row_products'), value: t('campaigns.products_value', { included: f.int.format(plan.counts.included), count: plan.summary.offers }) },
     { label: t('campaigns.row_where'), value: place || '—' },
     {
       label: t('campaigns.row_account'),

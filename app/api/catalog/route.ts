@@ -7,20 +7,23 @@ import { storeSetup } from '@/lib/commerce/setup'
 import { getActiveStore } from '@/lib/stores/active'
 import { getT } from '@/lib/i18n/server'
 import { storeDisplayName } from '@/lib/commerce/platforms'
+import { likePattern } from '@/lib/campaigns/plan-store'
 
 // =============================================
-// GET /api/catalog?days=30|90|365
-// Ofertele magazinului pe noul model (commerce_offers), cu vânzările de pe
-// site din perioada aleasă. Le au Edinio, WooCommerce și Shopify.
+// GET /api/catalog?days=30|90|365&quick=all|out|google_issue&q=&sort=sales|revenue|price|name&page=1
+// O pagină din ofertele magazinului (commerce_offers), cu vânzările de pe site
+// din perioada aleasă și cifrele filtrelor rapide (pe tot magazinul). Filtrarea,
+// căutarea și ordinea se fac în baza de date (catalog_page, migrations/037): un
+// catalog de zeci de mii de oferte nu mai pleacă întreg spre pagină.
 // `store.last_error` e un mesaj salvat ca cheie de traducere (translateStored).
 // =============================================
 
 const ROUTE = '/api/catalog'
 const PERIOADE = [30, 90, 365]
-// PostgREST întoarce cel mult 1000 de rânduri pe cerere
-const PAGINA = 1000
-
-const COLOANE = 'offer_id, external_product_id, item_group_id, title, product_name, variant_title, category, url, image_url, price, compare_at_price, currency, available, stock, sku, gtin, brand, google_status, synced_at'
+const QUICKS = ['all', 'out', 'google_issue']
+const SORTS = ['sales', 'revenue', 'price', 'name']
+const PE_PAGINA = 50
+const MAX_PAGINA = 10_000
 
 export async function GET(request: Request) {
   const t = await getT()
@@ -28,8 +31,12 @@ export async function GET(request: Request) {
   if (!session?.user) return NextResponse.json({ error: t('api.unauthorized') }, { status: 401 })
   const userId = session.user.id
 
-  const daysParam = Number(new URL(request.url).searchParams.get('days'))
+  const params = new URL(request.url).searchParams
+  const daysParam = Number(params.get('days'))
   const days = PERIOADE.includes(daysParam) ? daysParam : 30
+  const quick = QUICKS.includes(params.get('quick') ?? '') ? params.get('quick')! : 'all'
+  const sort = SORTS.includes(params.get('sort') ?? '') ? params.get('sort')! : 'sales'
+  const page = Math.min(MAX_PAGINA, Math.max(1, Math.floor(Number(params.get('page')) || 1)))
 
   const supabase = createAdminClient()
   const { data: store, error: eStore } = await getActiveStore<{
@@ -41,7 +48,8 @@ export async function GET(request: Request) {
     logApiError(ROUTE, 500, 'Eroare la citirea magazinului', { userId, error: eStore.message })
     return NextResponse.json({ error: t('sync.store_read_failed') }, { status: 500 })
   }
-  if (!store) return NextResponse.json({ store: null, offers: [], days })
+  const empty = { offers: [], total: 0, counts: { all: 0, out: 0, google_issue: 0 }, page: 1, per_page: PE_PAGINA, days }
+  if (!store) return NextResponse.json({ store: null, ...empty })
 
   // Doar platformele mutate pe modelul comun au oferte de arătat
   const setup = storeSetup(store)
@@ -60,50 +68,35 @@ export async function GET(request: Request) {
     google_status_known: setup?.googleStatusKnown ?? false,
     supported: !!setup,
   }
-  if (!storeOut.supported) return NextResponse.json({ store: storeOut, offers: [], days })
+  if (!storeOut.supported) return NextResponse.json({ store: storeOut, ...empty })
 
-  async function readOffers(): Promise<Record<string, unknown>[] | null> {
-    const all: Record<string, unknown>[] = []
-    for (let from = 0; ; from += PAGINA) {
-      const { data, error } = await supabase
-        .from('commerce_offers')
-        .select(COLOANE)
-        .eq('store_id', store!.id)
-        .order('product_name', { ascending: true })
-        .order('offer_id', { ascending: true })
-        .range(from, from + PAGINA - 1)
-      if (error) {
-        logApiError(ROUTE, 500, 'Eroare la citirea ofertelor', { userId, error: error.message })
-        return null
-      }
-      all.push(...(data ?? []))
-      if (!data || data.length < PAGINA) return all
-    }
-  }
-
-  // Ofertele și vânzările nu depind una de alta: un singur drum până la bază, nu două
   const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString()
-  const [offers, { data: sales, error: eSales }] = await Promise.all([
-    readOffers(),
-    supabase.rpc('commerce_offer_sales', { p_store_id: store.id, p_since: since }),
-  ])
-  if (!offers) return NextResponse.json({ error: t('sync.products_read_failed') }, { status: 500 })
-  if (eSales) logApiError(ROUTE, 500, 'Eroare la vânzările pe ofertă', { userId, error: eSales.message })
-  const salesByOffer = new Map(
-    ((sales ?? []) as { offer_id: string; units: number; revenue: number; orders: number }[])
-      .map(s => [s.offer_id, { units: Number(s.units) || 0, revenue: Number(s.revenue) || 0, orders: Number(s.orders) || 0 }]),
-  )
+  const { data, error } = await supabase.rpc('catalog_page', {
+    p_store_id: store.id, p_since: since, p_quick: quick, p_q: likePattern(params.get('q')), p_sort: sort,
+    p_offset: (page - 1) * PE_PAGINA, p_limit: PE_PAGINA,
+  })
+  if (error) {
+    logApiError(ROUTE, 500, 'Eroare la citirea ofertelor', { userId, error: error.message })
+    return NextResponse.json({ error: t('sync.products_read_failed') }, { status: 500 })
+  }
+  const res = (data ?? {}) as { total?: unknown; counts?: Record<string, unknown>; rows?: Record<string, unknown>[] }
+  const n = (v: unknown) => Number(v) || 0
 
   return NextResponse.json({
     store: storeOut,
     days,
-    // Vânzările lipsă (eroare la funcție) apar ca 0, nu opresc pagina; se vede în jurnal
-    sales_available: !eSales,
-    offers: offers.map(o => ({
-      ...o,
-      price: Number(o.price),
-      compare_at_price: o.compare_at_price === null ? null : Number(o.compare_at_price),
-      sales: salesByOffer.get(o.offer_id as string) ?? { units: 0, revenue: 0, orders: 0 },
-    })),
+    page,
+    per_page: PE_PAGINA,
+    total: n(res.total),
+    counts: { all: n(res.counts?.all), out: n(res.counts?.out), google_issue: n(res.counts?.google_issue) },
+    offers: (Array.isArray(res.rows) ? res.rows : []).map(o => {
+      const sales = (o.sales ?? {}) as Record<string, unknown>
+      return {
+        ...o,
+        price: n(o.price),
+        compare_at_price: o.compare_at_price === null || o.compare_at_price === undefined ? null : n(o.compare_at_price),
+        sales: { units: n(sales.units), revenue: n(sales.revenue), orders: n(sales.orders) },
+      }
+    }),
   })
 }

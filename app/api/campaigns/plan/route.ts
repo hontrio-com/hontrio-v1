@@ -6,6 +6,7 @@ import { logApiError } from '@/lib/logger'
 import { isCommercePlatform } from '@/lib/commerce/sync'
 import { getActiveStore } from '@/lib/stores/active'
 import { MODES, planForPage, type Mode } from '@/lib/campaigns/plan'
+import { groupPlanForPage } from '@/lib/campaigns/groups'
 import { loadPlanContext, STORE_PLAN_COLUMNS, type PlanStore } from '@/lib/campaigns/context'
 import { CAMPAIGN_COLUMNS, parseCampaign } from '@/lib/ads/listing'
 import { readAllSoft } from '@/lib/ads/read-all'
@@ -20,7 +21,8 @@ import { mergeStoreSales, storeSalesByCampaignDay, type DaySales } from '@/lib/a
 // =============================================
 // GET   /api/campaigns/plan — planul, socotit acum din datele magazinului, cu
 //       auditul contului, campaniile lansate, propunerile pilotului și jurnalul.
-//       `?offers=0`: fără lista ofertelor, doar cifrele (Dashboard-ul)
+//       Fără lista ofertelor (la un catalog mare, zeci de MB): cifrele sunt în
+//       `plan.summary`, iar ofertele se cer pe pagini (POST /api/campaigns/plan/offers)
 // PATCH /api/campaigns/plan — bugetul zilnic, modul pilotului și bugetul maxim
 //       (ciorna din ad_campaigns, una pe magazin)
 // =============================================
@@ -41,7 +43,7 @@ function readStore(supabase: Supabase, userId: string) {
   return getActiveStore<PlanStore & { ads_synced_at: string | null; ads_sync_error: string | null; ads_today_at: string | null }>(supabase, userId, `${STORE_PLAN_COLUMNS}, ads_synced_at, ads_sync_error, ads_today_at`)
 }
 
-export async function GET(request: Request) {
+export async function GET() {
   const t = await getT()
   const session = await getServerSession(authOptions)
   if (!session?.user) return NextResponse.json({ error: t('api.unauthorized') }, { status: 401 })
@@ -150,7 +152,7 @@ export async function GET(request: Request) {
       // cifrele zilei de azi, dacă pagina le arată
       pilot: { synced_at: store.ads_synced_at, error: store.ads_sync_error, live_at: liveAt },
     },
-    plan: planForPage(context.plan, new URL(request.url).searchParams.get('offers') !== '0'),
+    plan: planForPage(context.plan),
     audit: audit ? {
       checked_at: audit.checked_at,
       fresh: Date.now() - Date.parse(audit.checked_at) < AUDIT_FRESH_MS,
@@ -175,7 +177,7 @@ export async function GET(request: Request) {
     proposals: actions.filter(a => a.status === 'proposed' && !isExpired(a.created_at)),
     journal: actions.filter(a => a.status !== 'proposed').slice(0, JOURNAL),
     // Grupele omului, cu planul fiecăreia; ziua de azi a magazinului, pentru perioadele lor
-    groups: context.groupPlans,
+    groups: context.groupPlans.map(groupPlanForPage),
     today: context.today,
   })
 }

@@ -212,7 +212,18 @@ export type Plan = {
   /** `in_groups` = produsele care pot rula, dar sunt în campaniile grupelor lansate. */
   counts: { included: number; excluded: number; in_groups: number }
   /** Câte oferte are magazinul și câte pe fiecare motiv (`included` = intră în campania principală). */
-  summary: { offers: number; by_reason: Partial<Record<Reason | 'included', number>> }
+  summary: { offers: number; by_reason: Partial<Record<Reason | 'included', number>>; facets: PlanFacets }
+}
+
+export type PlanFacets = {
+  /** Categoriile și brandurile din catalog, cu câte oferte are fiecare, de la cea mai mare. */
+  categories: [string, number][]
+  brands: [string, number][]
+  /** Cel mai mic și cel mai mare preț (doar cele peste 0); null fără produse. */
+  price_min: number | null
+  price_max: number | null
+  /** Câte oferte sunt la reducere. */
+  on_sale: number
 }
 
 const REJECTED = ['disapproved', 'error', 'expirat']
@@ -430,7 +441,7 @@ export function buildPlan(input: PlanInput): Plan {
     exclusions: { item_ids: itemIds, count: itemIds.length, unmatched, foreign: foreignIds.length, mode: exclusionMode },
     offers,
     counts: { included: included.length, excluded: offers.length - eligible.length, in_groups: eligible.length - included.length },
-    summary: { offers: offers.length, by_reason: reasonCounts(offers) },
+    summary: { offers: offers.length, by_reason: reasonCounts(offers), facets: facetsOf(offers) },
   }
 }
 
@@ -444,11 +455,33 @@ export function reasonCounts(offers: Pick<PlanOffer, 'reason'>[]): Plan['summary
   return out
 }
 
+/** Categoriile (sau brandurile) din catalog, cu câte oferte are fiecare, de la cea mai mare. */
+function facetOf(offers: PlanOffer[], key: 'category' | 'brand'): [string, number][] {
+  const counts = new Map<string, number>()
+  for (const o of offers) if (o[key]) counts.set(o[key]!, (counts.get(o[key]!) ?? 0) + 1)
+  return [...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+}
+
+/** Ce poate alege omul într-o grupă: categoriile, brandurile, prețurile și reducerile din catalog. */
+export function facetsOf(offers: PlanOffer[]): PlanFacets {
+  let min: number | null = null
+  let max: number | null = null
+  let onSale = 0
+  for (const o of offers) {
+    if (o.price > 0) {
+      min = min === null ? o.price : Math.min(min, o.price)
+      max = max === null ? o.price : Math.max(max, o.price)
+    }
+    if (o.on_sale) onSale++
+  }
+  return { categories: facetOf(offers, 'category'), brands: facetOf(offers, 'brand'), price_min: min, price_max: max, on_sale: onSale }
+}
+
 /**
- * Planul cum pleacă spre pagină: fără lista ofertelor și a ID-urilor excluse când pagina are nevoie doar de
- * cifre (Dashboard-ul). Un catalog de zeci de mii de oferte ar face răspunsul de zeci de MB.
+ * Planul cum pleacă spre pagină: fără lista ofertelor și a ID-urilor excluse. Un catalog de zeci de mii de oferte
+ * ar face răspunsul de zeci de MB (peste limita Vercel de 4,5 MB); paginile au cifrele din `summary` și cer
+ * ofertele pe pagini (POST /api/campaigns/plan/offers).
  */
-export function planForPage(plan: Plan, withOffers: boolean): Plan {
-  if (withOffers) return plan
+export function planForPage(plan: Plan): Plan {
   return { ...plan, offers: [], exclusions: { ...plan.exclusions, item_ids: [] } }
 }

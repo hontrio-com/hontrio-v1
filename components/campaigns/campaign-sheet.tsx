@@ -134,7 +134,7 @@ function SheetBody({ view: v, onClose, plan, f, onEdit, onPlan, onChanged }: Omi
         {error && <Callout tone="danger" onClose={() => setError(null)}>{error}</Callout>}
 
         {/* Cifrele: perioada, cele zece cifre, evoluția, produsele și căutările */}
-        {hasNumbers && <CampaignStats ids={v.google.map(c => c.id)} plan={plan} f={f} />}
+        {hasNumbers && <CampaignStats ids={v.google.map(c => c.id)} f={f} />}
 
         {/* O grupă nelansată: planul ei pe scurt și ce trebuie știut */}
         {g && g.group.status !== 'live' && (

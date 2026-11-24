@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ChevronLeft, ChevronRight, ImageIcon, Loader2, Search, X } from 'lucide-react'
 import { useT } from '@/lib/i18n/context'
 import { cn } from '@/lib/utils'
@@ -37,17 +37,38 @@ export function PlanProducts({ plan, groupNames, f, onChanged, onError, onOpenGr
   const { t } = useT()
   const [tab, setTab] = useState<Tab>('included')
   const [search, setSearch] = useState('')
+  // Căutarea pleacă spre server după o scurtă pauză în scris, nu la fiecare literă
+  const [q, setQ] = useState('')
   const [page, setPage] = useState(1)
   const [busy, setBusy] = useState<Set<string>>(new Set())
+  const [result, setResult] = useState<{ key: string; total: number; offers: PlanOffer[] } | null>(null)
+  const [failedKey, setFailedKey] = useState<string | null>(null)
 
-  const list = useMemo(() => {
-    const q = search.trim().toLowerCase()
-    const inTab = (o: PlanOffer) => tab === 'included' ? o.reason === null : tab === 'groups' ? o.reason === 'in_group' : o.reason !== null && o.reason !== 'in_group'
-    return plan.offers.filter(o => inTab(o) && (!q || o.title.toLowerCase().includes(q) || (o.variant_title ?? '').toLowerCase().includes(q)))
-  }, [plan.offers, tab, search])
-  const pages = Math.max(1, Math.ceil(list.length / PER_PAGE))
+  useEffect(() => {
+    const id = setTimeout(() => setQ(search.trim()), 300)
+    return () => clearTimeout(id)
+  }, [search])
+
+  // O pagină din fila aleasă, din baza de date (un catalog mare nu vine întreg). Planul reîncărcat (după o
+  // schimbare) e alt obiect: pagina se recitește
+  const key = JSON.stringify([tab, q, page])
+  useEffect(() => {
+    let alive = true
+    fetch('/api/campaigns/plan/offers', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ filter: tab, q, page, per_page: PER_PAGE }),
+    })
+      .then(r => { if (!r.ok) throw new Error(); return r.json() as Promise<{ total: number; offers: PlanOffer[] }> })
+      .then(d => { if (alive) { setResult({ key, total: d.total, offers: d.offers }); setFailedKey(null) } })
+      .catch(() => { if (alive) setFailedKey(key) })
+    return () => { alive = false }
+  }, [key, tab, q, page, plan])
+
+  const total = result?.total ?? 0
+  const pages = Math.max(1, Math.ceil(total / PER_PAGE))
   const current = Math.min(page, pages)
-  const visible = list.slice((current - 1) * PER_PAGE, current * PER_PAGE)
+  const visible = result?.offers ?? []
+  const loading = !result && failedKey !== key
+  const pending = !!result && result.key !== key && failedKey !== key
 
   async function setMode(offer: PlanOffer, mode: AdsMode) {
     setBusy(s => new Set(s).add(offer.offer_id))
@@ -84,10 +105,12 @@ export function PlanProducts({ plan, groupNames, f, onChanged, onError, onOpenGr
         </div>
       </div>
 
-      {visible.length === 0 ? (
-        <p className="border-t border-neutral-100 py-14 text-center text-[13px] text-neutral-400">{search ? t('catalog.no_results') : t(`campaigns.empty_${tab}`)}</p>
+      {loading ? (
+        <p className="flex justify-center border-t border-neutral-100 py-14"><Loader2 className="size-5 animate-spin text-neutral-300" /></p>
+      ) : visible.length === 0 ? (
+        <p className="border-t border-neutral-100 py-14 text-center text-[13px] text-neutral-400">{q ? t('catalog.no_results') : failedKey === key ? t('catalog.load_error') : t(`campaigns.empty_${tab}`)}</p>
       ) : (
-        <Table className="min-w-[760px]">
+        <Table className={cn('min-w-[760px] transition-opacity', pending && 'opacity-60')}>
           <thead>
             <tr>
               <Th>{t('catalog.col_product')}</Th>
@@ -175,7 +198,7 @@ export function PlanProducts({ plan, groupNames, f, onChanged, onError, onOpenGr
 
       {pages > 1 && (
         <div className="flex items-center justify-between gap-2 border-t border-neutral-100 px-5 py-3 text-[12px] text-neutral-500">
-          <span className="tabular-nums">{t('catalog.page_of', { from: f.int.format((current - 1) * PER_PAGE + 1), to: f.int.format(Math.min(current * PER_PAGE, list.length)), total: f.int.format(list.length) })}</span>
+          <span className="tabular-nums">{t('catalog.page_of', { from: f.int.format((current - 1) * PER_PAGE + 1), to: f.int.format(Math.min(current * PER_PAGE, total)), total: f.int.format(total) })}</span>
           <div className="flex items-center gap-1">
             <Button size="icon" variant="ghost" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={current === 1} aria-label={t('catalog.prev')}><ChevronLeft /></Button>
             <Button size="icon" variant="ghost" onClick={() => setPage(p => Math.min(pages, p + 1))} disabled={current === pages} aria-label={t('catalog.next')}><ChevronRight /></Button>

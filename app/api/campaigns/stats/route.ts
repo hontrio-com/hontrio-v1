@@ -11,6 +11,7 @@ import { salesSource } from '@/lib/commerce/attribution'
 import { localToUtcIso, ROMANIA_TZ } from '@/lib/commerce/time'
 import { mergeStoreSales, storeSalesByCampaignDay, storeSalesByItem, storeSalesByOffer, type DaySales } from '@/lib/ads/store-sales'
 import type { StoreSales } from '@/lib/ads/optimizer'
+import { offersByItems } from '@/lib/campaigns/plan-store'
 
 // =============================================
 // GET /api/campaigns/stats?ids=…&days=7|30|90 — cifrele din fișa unei campanii
@@ -130,11 +131,18 @@ export async function GET(request: Request) {
       }
       return { item_id: String(r.item_id), ...g }
     })
+    // Numele și poza din magazin, doar pentru produsele din listă (pagina nu mai primește tot catalogul)
+    const { offers: named, error: namesError } = await offersByItems(supabase, storeId, top.map(r => r.item_id))
+    if (namesError) logApiError(ROUTE, 500, 'Eroare la numele produselor', { userId, error: namesError })
+    const topNamed = top.map(r => {
+      const o = named.get(r.item_id.trim().toLowerCase())
+      return { ...r, title: o?.title ?? null, variant_title: o?.variant_title ?? null, image_url: o?.image_url ?? null }
+    })
     return NextResponse.json({
       days, from, to, live_at: liveAt, currency: campaigns[0].currency,
       totals, previous, daily,
       store_counted: merged.used || productsFromStore,
-      products: { total: Number(p.total) || 0, top },
+      products: { total: Number(p.total) || 0, top: topNamed },
       terms: { total: terms.size, from: termRows[0]?.period_start ?? null, to: termRows[0]?.period_end ?? null, top: topTerms },
     })
   } catch (err) {

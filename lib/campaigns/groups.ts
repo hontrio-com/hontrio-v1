@@ -225,37 +225,92 @@ export type GroupPlanContext = {
 
 const days = (from: string, to: string) => Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000) + 1
 
-export function buildGroupPlan(group: ProductGroup, ctx: GroupPlanContext): GroupPlan {
-  const { plan } = ctx
+/**
+ * Totalurile unei grupe, din care se socotește planul ei. Pe server vin din oferte (groupTotalsOf); în editorul din
+ * pagină, din baza de date (plan_group_preview, migrations/037), fără ca pagina să primească tot catalogul.
+ */
+export type GroupTotals = {
+  /** Ofertele grupei (cu cele care nu pot rula acum). */
+  members: number
+  /** Pot rula (fără motiv de excludere, sau doar în grupă). */
+  running: number
+  /** Pot rula și sunt găsite în Merchant Center. */
+  matched: number
+  /** ID-uri diferite din Merchant Center ale celor găsite. */
+  items: number
+  /** Le-ar prinde regulile, dar sunt deja în altă grupă (una dinaintea ei). */
+  elsewhere: number
+  /** Vânzările din magazin în 90 de zile ale celor care pot rula, și suma prețurilor lor. */
+  units: number
+  revenue: number
+  orders: number
+  price_sum: number
+  /** Comenzile aduse de Google Ads în 30 de zile (toți membrii). */
+  google_orders: number
+  /** Cifrele Google pe produs în 30 de zile (toți membrii; conversiile și valoarea, cele mai mari dintre Google și magazin). */
+  ads_cost: number
+  ads_conversions: number
+  ads_value: number
+}
+
+export const EMPTY_TOTALS: GroupTotals = {
+  members: 0, running: 0, matched: 0, items: 0, elsewhere: 0, units: 0, revenue: 0, orders: 0, price_sum: 0,
+  google_orders: 0, ads_cost: 0, ads_conversions: 0, ads_value: 0,
+}
+
+/** Totalurile grupei din ofertele planului și grupa fiecărei oferte; cu membrii și ID-urile lor, pentru lansare. */
+export function groupTotalsOf(group: Pick<ProductGroup, 'id' | 'rules'>, offers: PlanOffer[], assigned: Map<string, string>): { totals: GroupTotals; members: string[]; item_ids: string[] } {
   const m = matcher(group)
-  const members = plan.offers.filter(o => ctx.assigned.get(o.offer_id) === group.id)
-  const elsewhere = plan.offers.filter(o => {
-    const owner = ctx.assigned.get(o.offer_id)
+  const members = offers.filter(o => assigned.get(o.offer_id) === group.id)
+  const elsewhere = offers.filter(o => {
+    const owner = assigned.get(o.offer_id)
     return owner !== undefined && owner !== group.id && wants(m, o)
   }).length
   const running = members.filter(canRun)
   const matched = running.filter(o => o.item_id)
   const itemIds = [...new Set(matched.map(o => o.item_id!))]
+  const sum = (list: PlanOffer[], f: (o: PlanOffer) => number) => list.reduce((s, o) => s + f(o), 0)
+  return {
+    totals: {
+      members: members.length, running: running.length, matched: matched.length, items: itemIds.length, elsewhere,
+      units: sum(running, o => o.units), revenue: sum(running, o => o.revenue), orders: sum(running, o => o.orders), price_sum: sum(running, o => o.price),
+      google_orders: sum(members, o => o.google30),
+      ads_cost: sum(members, o => o.ads30?.cost ?? 0), ads_conversions: sum(members, o => o.ads30?.conversions ?? 0), ads_value: sum(members, o => o.ads30?.value ?? 0),
+    },
+    members: members.map(o => o.offer_id),
+    item_ids: itemIds,
+  }
+}
+
+/** Ce trebuie din planul magazinului ca să socotești planul unei grupe (îl are și planul fără lista ofertelor, din pagină). */
+export type GroupPlanBasis = {
+  plan: Pick<Plan, 'economics' | 'history' | 'stage' | 'settings'>
+  /** Conversiile în 30 de zile ale celorlalte grupe care rulează sau sunt plănuite. */
+  otherConversions: number
+  /** Bugetul pe zi al celorlalte campanii Hontrio care rulează sau sunt plănuite. */
+  otherBudgets: number
+  /** Azi, YYYY-MM-DD. */
+  today: string
+}
+
+/** Planul grupei din totalurile ei: aceleași cifre pe server și în editorul din pagină. Fără listele de oferte. */
+export function groupPlanFromTotals(group: ProductGroup, totals: GroupTotals, ctx: GroupPlanBasis): Omit<GroupPlan, 'members' | 'item_ids'> {
+  const { plan } = ctx
+  const t = totals
 
   // Valoarea medie a unei comenzi cu produsele grupei: valoarea lor pe comandă, cu TVA și transport ca la magazin.
   // Din câteva comenzi, una mare ar umfla plafonul și oprirea: atunci se estimează după prețuri, ca la magazin
-  const soldRevenue = running.reduce((s, o) => s + o.revenue, 0)
-  const orders = running.reduce((s, o) => s + o.orders, 0)
   const ratio = plan.economics.value_ratio || 1
-  const fromOrders = orders >= MIN_AOV_ORDERS && soldRevenue > 0 ? (soldRevenue / orders) * ratio : null
-  const fromPrices = running.length ? (running.reduce((s, o) => s + o.price, 0) / running.length) * ratio : null
+  const fromOrders = t.orders >= MIN_AOV_ORDERS && t.revenue > 0 ? (t.revenue / t.orders) * ratio : null
+  const fromPrices = t.running ? (t.price_sum / t.running) * ratio : null
   const aov = fromOrders ?? fromPrices ?? plan.economics.aov
   const aovBasis: AovBasis | null = fromOrders !== null ? 'orders' : fromPrices !== null ? 'prices' : plan.economics.aov_basis
 
   // ── Conversiile: ce a raportat Google pe produs, altfel comenzile aduse de Google din magazin ──
   const googleData = plan.history.product_data
-  const conversions30 = Math.round(members.reduce((s, o) => s + (googleData ? o.ads30?.conversions ?? 0 : o.google30), 0) * 10) / 10
+  const conversions30 = Math.round((googleData ? t.ads_conversions : t.google_orders) * 10) / 10
   let historical: number | null = plan.history.roas30
-  if (googleData) {
-    const cost = members.reduce((s, o) => s + (o.ads30?.cost ?? 0), 0)
-    const value = members.reduce((s, o) => s + (o.ads30?.value ?? 0), 0)
-    if (cost > 0 && conversions30 >= 5) historical = Math.round((value / cost) * 100) / 100
-  }
+  if (googleData && t.ads_cost > 0 && conversions30 >= 5) historical = Math.round((t.ads_value / t.ads_cost) * 100) / 100
 
   // ── Treapta, ca pe magazin; omul poate alege altfel ─────────────────────
   const autoType = conversions30 >= GROWTH_MIN_CONVERSIONS ? 'performance_max' : 'shopping'
@@ -269,10 +324,10 @@ export function buildGroupPlan(group: ProductGroup, ctx: GroupPlanContext): Grou
 
   // ── Ce trebuie știut ────────────────────────────────────────────────────
   const warnings: Note<GroupWarningId>[] = []
-  if (running.length > 0 && running.length < 3) warnings.push({ id: 'few_products', params: { count: running.length } })
-  if (members.length > running.length) warnings.push({ id: 'excluded_members', params: { count: members.length - running.length } })
-  if (running.length > matched.length && matched.length > 0) warnings.push({ id: 'unmatched', params: { count: running.length - matched.length } })
-  if (elsewhere > 0) warnings.push({ id: 'in_other_group', params: { count: elsewhere } })
+  if (t.running > 0 && t.running < 3) warnings.push({ id: 'few_products', params: { count: t.running } })
+  if (t.members > t.running) warnings.push({ id: 'excluded_members', params: { count: t.members - t.running } })
+  if (t.running > t.matched && t.matched > 0) warnings.push({ id: 'unmatched', params: { count: t.running - t.matched } })
+  if (t.elsewhere > 0) warnings.push({ id: 'in_other_group', params: { count: t.elsewhere } })
   if (group.campaign_type === 'performance_max' && conversions30 < GROWTH_MIN_CONVERSIONS) {
     warnings.push({ id: 'pmax_low_data', params: { conversions: Math.round(conversions30) } })
   }
@@ -295,17 +350,15 @@ export function buildGroupPlan(group: ProductGroup, ctx: GroupPlanContext): Grou
   // ── Ce oprește lansarea ─────────────────────────────────────────────────
   const blockers: Note<GroupBlockerId>[] = []
   if (isEmptyRules(group.rules)) blockers.push({ id: 'empty' })
-  else if (!running.length) blockers.push({ id: 'no_products' })
-  else if (!matched.length) blockers.push({ id: 'not_in_merchant' })
-  if (type === 'performance_max' && itemIds.length > MAX_LISTING_ITEMS) blockers.push({ id: 'too_many_items', params: { count: itemIds.length, limit: MAX_LISTING_ITEMS } })
+  else if (!t.running) blockers.push({ id: 'no_products' })
+  else if (!t.matched) blockers.push({ id: 'not_in_merchant' })
+  if (type === 'performance_max' && t.items > MAX_LISTING_ITEMS) blockers.push({ id: 'too_many_items', params: { count: t.items, limit: MAX_LISTING_ITEMS } })
   if (group.ends_on && (group.ends_on < ctx.today || (group.starts_on !== null && group.ends_on < group.starts_on))) blockers.push({ id: 'period' })
 
   return {
     group,
-    members: members.map(o => o.offer_id),
-    counts: { members: members.length, included: matched.length, excluded: members.length - running.length, unmatched: running.length - matched.length, elsewhere },
-    item_ids: itemIds,
-    sales90: { units: running.reduce((s, o) => s + o.units, 0), revenue: soldRevenue },
+    counts: { members: t.members, included: t.matched, excluded: t.members - t.running, unmatched: t.running - t.matched, elsewhere: t.elsewhere },
+    sales90: { units: t.units, revenue: t.revenue },
     conversions30,
     basis: googleData ? 'google_ads' : 'store',
     economics: { aov: aov === null ? null : Math.round(aov * 100) / 100, aov_basis: aov === null ? null : aovBasis, historical_roas: historical },
@@ -319,6 +372,27 @@ export function buildGroupPlan(group: ProductGroup, ctx: GroupPlanContext): Grou
     warnings,
     blockers,
   }
+}
+
+export function buildGroupPlan(group: ProductGroup, ctx: GroupPlanContext): GroupPlan {
+  const { totals, members, item_ids } = groupTotalsOf(group, ctx.plan.offers, ctx.assigned)
+  return { ...groupPlanFromTotals(group, totals, ctx), members, item_ids }
+}
+
+/** Planul grupei cum pleacă spre pagină: fără listele de oferte și ID-uri (la un catalog mare, zeci de mii). */
+export function groupPlanForPage(g: GroupPlan): GroupPlan {
+  return { ...g, members: [], item_ids: [] }
+}
+
+/**
+ * Grupele dinaintea celei în lucru, care își păstrează produsele (ca în assignGroups). O grupă încheiată se
+ * vede ca la relansare: după toate celelalte.
+ */
+export function precedingGroupIds(others: Ordered[], draft: Ordered): string[] {
+  const active = others.filter(g => g.id !== draft.id && g.status !== 'ended')
+  if (draft.status === 'ended') return groupOrder(active).map(g => g.id)
+  const ordered = groupOrder([...active, draft])
+  return ordered.slice(0, ordered.findIndex(g => g.id === draft.id)).map(g => g.id)
 }
 
 /**

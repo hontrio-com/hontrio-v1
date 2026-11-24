@@ -37,6 +37,13 @@ export type Offer = {
   merchant_issues: MerchantIssue[] | null
   /** Scoasă din campanii de pilot, după cifrele din Google Ads. */
   ads_auto_reason: 'no_sales' | 'unprofitable' | null
+  /**
+   * Ce a hotărât ultima socotire a planului (lib/campaigns/plan-store.ts): motivul (`included` = intră în campania
+   * principală), grupa și ID-ul din Merchant Center. Din ele, paginile cer ofertele pe pagini, din baza de date.
+   */
+  plan_reason?: string | null
+  plan_group?: string | null
+  plan_item_id?: string | null
 }
 
 export type Sales = Map<string, { units: number; revenue: number; orders?: number }>
@@ -60,7 +67,9 @@ export type AdsData = {
 
 export const SALES_DAYS = 90
 const PAGE = 1000
-const OFFER_COLUMNS = 'offer_id, title, product_name, variant_title, image_url, category, price, compare_at_price, available, stock, gtin, mpn, brand, google_status, ads_mode, merchant_offer_id, merchant_issues, ads_auto_reason'
+/** Câte pagini de oferte se citesc deodată (fără să încarce baza de date peste măsură). */
+const PARALLEL = 6
+const OFFER_COLUMNS = 'offer_id, title, product_name, variant_title, image_url, category, price, compare_at_price, available, stock, gtin, mpn, brand, google_status, ads_mode, merchant_offer_id, merchant_issues, ads_auto_reason, plan_reason, plan_group, plan_item_id'
 
 /**
  * Citește tot. Fără oferte nu se poate socoti nimic, deci `data` e null; fără
@@ -69,27 +78,56 @@ const OFFER_COLUMNS = 'offer_id, title, product_name, variant_title, image_url, 
 export async function loadAdsData(supabase: Supabase, storeId: string): Promise<{ data: AdsData | null; errors: string[] }> {
   const errors: string[] = []
 
+  // Paginile (câte 1.000 de oferte) se citesc câte PARALLEL deodată: la un catalog de 40.000, de câteva ori
+  // mai repede decât una după alta (funcția Vercel așteaptă mai puțin)
   async function readOffers(): Promise<Offer[] | null> {
-    const all: Offer[] = []
-    for (let from = 0; ; from += PAGE) {
-      const { data, error } = await supabase.from('commerce_offers')
-        .select(OFFER_COLUMNS)
-        .eq('store_id', storeId)
-        .order('offer_id', { ascending: true })
-        .range(from, from + PAGE - 1)
-      if (error) {
-        errors.push(`commerce_offers: ${error.message}`)
+    const pageAt = (from: number, count: boolean) => supabase.from('commerce_offers')
+      .select(OFFER_COLUMNS, count ? { count: 'exact' } : undefined)
+      .eq('store_id', storeId)
+      .order('offer_id', { ascending: true })
+      .range(from, from + PAGE - 1)
+    const first = await pageAt(0, true)
+    if (first.error) {
+      errors.push(`commerce_offers: ${first.error.message}`)
+      return null
+    }
+    const pages: unknown[][] = [first.data ?? []]
+    const total = first.count ?? 0
+    const starts: number[] = []
+    for (let from = PAGE; from < total; from += PAGE) starts.push(from)
+    for (let i = 0; i < starts.length; i += PARALLEL) {
+      const batch = await Promise.all(starts.slice(i, i + PARALLEL).map(from => pageAt(from, false)))
+      for (const r of batch) {
+        if (r.error) {
+          errors.push(`commerce_offers: ${r.error.message}`)
+          return null
+        }
+        pages.push(r.data ?? [])
+      }
+    }
+    // Oferte adăugate între numărare și citire (o sincronizare în curs): restul, una după alta
+    for (let from = Math.max(PAGE, starts.length ? starts[starts.length - 1] + PAGE : PAGE); pages[pages.length - 1].length === PAGE; from += PAGE) {
+      const r = await pageAt(from, false)
+      if (r.error) {
+        errors.push(`commerce_offers: ${r.error.message}`)
         return null
       }
-      for (const o of data ?? []) {
-        all.push({
-          ...(o as Offer),
-          price: Number(o.price),
-          compare_at_price: o.compare_at_price === null ? null : Number(o.compare_at_price),
-        })
-      }
-      if (!data || data.length < PAGE) return all
+      pages.push(r.data ?? [])
     }
+
+    // O ofertă mutată între pagini (sincronizare în curs) s-ar citi de două ori
+    const seen = new Set<string>()
+    const all: Offer[] = []
+    for (const o of pages.flat() as Offer[]) {
+      if (seen.has(o.offer_id)) continue
+      seen.add(o.offer_id)
+      all.push({
+        ...o,
+        price: Number(o.price),
+        compare_at_price: o.compare_at_price === null ? null : Number(o.compare_at_price),
+      })
+    }
+    return all
   }
 
   const since = new Date(Date.now() - SALES_DAYS * 24 * 60 * 60 * 1000).toISOString()

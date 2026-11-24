@@ -5,7 +5,9 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { logApiError } from '@/lib/logger'
 import { isCommercePlatform } from '@/lib/commerce/sync'
 import { getActiveStore } from '@/lib/stores/active'
-import { loadPlanContext, STORE_PLAN_COLUMNS, type PlanStore } from '@/lib/campaigns/context'
+import { STORE_PLAN_COLUMNS, type PlanStore } from '@/lib/campaigns/context'
+import { storeAdsAccount } from '@/lib/google/accounts'
+import { offersByItems } from '@/lib/campaigns/plan-store'
 import { CAMPAIGN_COLUMNS, parseCampaign } from '@/lib/ads/listing'
 import { readAll } from '@/lib/ads/read-all'
 import { getT } from '@/lib/i18n/server'
@@ -68,8 +70,9 @@ export async function GET(request: Request) {
   const customerId = store.google_ads_customer_id
 
   try {
-    const [{ context }, salesRes, campaignsRes, metrics, allProductRows, termsRes] = await Promise.all([
-      loadPlanContext(supabase, userId, store),
+    const [google, salesRes, campaignsRes, metrics, allProductRows, termsRes] = await Promise.all([
+      // Doar contul Google: planul întreg (tot catalogul) nu e necesar pentru rapoarte
+      googleAccountOf(supabase, userId, customerId),
       supabase.rpc('commerce_sales_report', { p_store_id: store.id, p_days: days, p_tz: store.timezone || 'Europe/Bucharest' }),
       supabase.from('ad_campaigns').select(CAMPAIGN_COLUMNS).eq('store_id', store.id).not('google_campaign_id', 'is', null),
       readAll<{ google_campaign_id: string; date: string; campaign_name: string | null; channel_type: string | null; cost: number; clicks: number; impressions: number; conversions: number; conversions_value: number }>((a, b) => {
@@ -89,7 +92,6 @@ export async function GET(request: Request) {
     const accountCampaigns = new Set(metrics.map(m => m.google_campaign_id))
     const productRows = customerId ? allProductRows.filter(r => accountCampaigns.has(r.google_campaign_id)) : allProductRows
 
-    const plan = context?.plan ?? null
     const campaignRows = (campaignsRes.data ?? []).map(r => parseCampaign(r as Record<string, unknown>))
     const ours = new Set(campaignRows.map(c => String(c.google_campaign_id)))
     const kindOf = new Map(campaignRows.map(c => [String(c.google_campaign_id), { type: c.type, segment: c.segment }]))
@@ -137,8 +139,6 @@ export async function GET(request: Request) {
       const prev = byCampaign.get(m.google_campaign_id)
       byCampaign.set(m.google_campaign_id, { ...add(prev ?? ZERO, m), name: m.campaign_name || m.google_campaign_id, channel: m.channel_type || 'UNKNOWN' })
     }
-    // Produsele: legate de ofertele magazinului prin ID-ul din Merchant Center
-    const offers = new Map((plan?.offers ?? []).filter(o => o.item_id).map(o => [o.item_id!.toLowerCase(), o]))
     const byItem = new Map<string, Sum>()
     for (const r of productRows) byItem.set(r.item_id, add(byItem.get(r.item_id) ?? ZERO, r))
     // Pe produs, comenzile din magazin când sunt mai multe decât conversiile Google (ca pilotul)
@@ -149,11 +149,13 @@ export async function GET(request: Request) {
       productsFromStore = true
       byItem.set(item, { ...g, conversions: Math.max(g.conversions, st.orders), value: Math.max(g.value, st.value) })
     }
-    const products = [...byItem.entries()]
-      .sort((a, b) => b[1].cost - a[1].cost)
-      .slice(0, TOP_PRODUCTS)
+    const top = [...byItem.entries()].sort((a, b) => b[1].cost - a[1].cost).slice(0, TOP_PRODUCTS)
+    // Produsele: legate de ofertele magazinului prin ID-ul din Merchant Center (doar cele din listă)
+    const { offers, error: offersError } = await offersByItems(supabase, store.id, top.map(([item]) => item))
+    if (offersError) logApiError(ROUTE, 500, 'Eroare la numele produselor', { userId, error: offersError })
+    const products = top
       .map(([item, s]) => {
-        const o = offers.get(item)
+        const o = offers.get(item.trim().toLowerCase())
         const roas = roasOf(s)
         return {
           item_id: item,
@@ -173,8 +175,8 @@ export async function GET(request: Request) {
       sales_source: salesSource(store.platform),
       period: { days, from, to },
       google: {
-        connected: !!context?.googleConnected,
-        account: context?.account ? { id: context.account.customer_id, name: context.account.descriptive_name } : null,
+        connected: google.connected,
+        account: google.account ? { id: google.account.customer_id, name: google.account.descriptive_name } : null,
         // Prima citire a contului nu s-a încheiat încă (null) sau ultima n-a reușit (sync_error): cifrele vin
         synced_at: store.ads_synced_at,
         sync_error: store.ads_sync_error,
@@ -200,4 +202,11 @@ export async function GET(request: Request) {
     logApiError(ROUTE, 500, 'Eroare la citirea rapoartelor', { userId, error: err instanceof Error ? err.message : String(err) })
     return NextResponse.json({ error: t('reports.load_error') }, { status: 500 })
   }
+}
+
+/** Contul Google al magazinului, ca în planul campaniei: legătura Google activă și contul ales, dacă e încă al omului. */
+async function googleAccountOf(supabase: ReturnType<typeof createAdminClient>, userId: string, customerId: string | null) {
+  const { data } = await supabase.from('google_connections').select('status').eq('user_id', userId).maybeSingle()
+  const connected = data?.status === 'active'
+  return { connected, account: connected ? await storeAdsAccount(supabase, userId, customerId) : null }
 }

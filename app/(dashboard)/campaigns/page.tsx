@@ -236,7 +236,7 @@ function CampaignsView() {
         <div className="space-y-6">
           <FadeIn>
             <LaunchWizard plan={plan} audit={data.audit ?? null} f={f}
-              store={{ name: data.store.store_name ?? null, offers: plan.offers.length, orders: null }}
+              store={{ name: data.store.store_name ?? null, offers: plan.summary.offers, orders: null }}
               onChanged={async () => (await load())?.plan ?? null}
               onLaunched={text => { setNotice(null); setSuccess(text); load() }} />
           </FadeIn>

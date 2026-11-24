@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useCallback, useEffect, useMemo, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { AlertCircle, ChevronLeft, ChevronRight, ExternalLink, ImageIcon, Loader2, Package, RefreshCw, Search, Store, X } from 'lucide-react'
@@ -41,6 +41,11 @@ type StoreInfo = {
   google_status_known: boolean
 }
 type Period = 30 | 90 | 365
+/** Ce trimite GET /api/catalog: o pagină din oferte, câte sunt cu filtrul ales și cifrele filtrelor rapide. */
+type CatalogData = {
+  store: StoreInfo | null; offers: Offer[]; total: number
+  counts: { all: number; out: number; google_issue: number }; page: number; per_page: number; days: number
+}
 type Quick = 'all' | 'out' | 'google_issue'
 type Sort = 'sales' | 'revenue' | 'price' | 'name'
 
@@ -48,8 +53,6 @@ const PER_PAGE = 50
 const PERIODS: Period[] = [30, 90, 365]
 const SORTS: Sort[] = ['sales', 'revenue', 'price', 'name']
 const QUICKS: Quick[] = ['all', 'out', 'google_issue']
-// Stări la Google cu care oferta nu poate rula în reclame
-const GOOGLE_PROBLEMS = ['disapproved', 'error', 'expirat', 'exclus']
 const GOOGLE_TONE: Record<string, Tone> = {
   active: 'green', pending: 'amber', expirat: 'amber', disapproved: 'red', error: 'red', exclus: 'neutral',
 }
@@ -57,22 +60,23 @@ const GOOGLE_TONE: Record<string, Tone> = {
 const viewOf = (v: string | null): Quick | null => (v && QUICKS.includes(v as Quick) ? (v as Quick) : null)
 
 function ProductsView() {
-  const { t, intlLocale } = useT()
+  const { t } = useT()
   // Căutarea din antet trimite aici cu ?search=; recomandările cu ?view= (ex. google_issue)
   const params = useSearchParams()
   const urlSearch = params.get('search')
   const urlView = params.get('view')
 
   const [days, setDays] = useState<Period>(30)
-  const [store, setStore] = useState<StoreInfo | null>(null)
-  const [offers, setOffers] = useState<Offer[]>([])
-  const [loading, setLoading] = useState(true)
-  const [hasData, setHasData] = useState(false)
-  const [loadError, setLoadError] = useState(false)
   const [search, setSearchState] = useState(urlSearch ?? '')
+  // Căutarea pleacă spre server după o scurtă pauză în scris, nu la fiecare literă
+  const [q, setQ] = useState((urlSearch ?? '').trim())
   const [quick, setQuickState] = useState<Quick>(() => viewOf(urlView) ?? 'all')
   const [sort, setSortState] = useState<Sort>('sales')
   const [page, setPage] = useState(1)
+  // Crește ca pagina să se recitească (după sincronizare, la reîncercare, cât rulează prima sincronizare)
+  const [tick, setTick] = useState(0)
+  const [result, setResult] = useState<{ url: string; data: CatalogData } | null>(null)
+  const [failedUrl, setFailedUrl] = useState<string | null>(null)
   const [syncing, setSyncing] = useState(false)
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null)
 
@@ -85,59 +89,52 @@ function ProductsView() {
   const [seenUrl, setSeenUrl] = useState(`${urlSearch}|${urlView}`)
   if (seenUrl !== `${urlSearch}|${urlView}`) {
     setSeenUrl(`${urlSearch}|${urlView}`)
-    if (urlSearch !== null) { setSearchState(urlSearch); setQuickState('all'); setPage(1) }
+    if (urlSearch !== null) { setSearchState(urlSearch); setQ(urlSearch.trim()); setQuickState('all'); setPage(1) }
     const view = viewOf(urlView)
     if (view) { setQuickState(view); setPage(1) }
   }
 
-  // Starea se schimbă doar în callback-urile răspunsului, nu în efectul care pornește încărcarea
-  const load = useCallback((period: Period) =>
-    fetch(`/api/catalog?days=${period}`)
-      .then(r => { if (!r.ok) throw new Error(); return r.json() })
-      .then(d => { setStore(d.store); setOffers(d.offers || []); setHasData(true); setLoadError(false) })
-      .catch(() => setLoadError(true))
-      .finally(() => setLoading(false)), [])
+  useEffect(() => {
+    const id = setTimeout(() => setQ(search.trim()), 300)
+    return () => clearTimeout(id)
+  }, [search])
 
-  useEffect(() => { load(days) }, [days, load])
+  // O pagină din catalog, filtrată și ordonată în baza de date: un magazin mare nu mai vine întreg
+  const url = `/api/catalog?${new URLSearchParams({ days: String(days), quick, sort, page: String(page), ...(q ? { q } : {}) })}`
+  const requestKey = `${url}#${tick}`
+  useEffect(() => {
+    let alive = true
+    fetch(url)
+      .then(r => { if (!r.ok) throw new Error(); return r.json() as Promise<CatalogData> })
+      .then(d => { if (alive) { setResult({ url: requestKey, data: d }); setFailedUrl(null) } })
+      .catch(() => { if (alive) setFailedUrl(requestKey) })
+    return () => { alive = false }
+  }, [url, requestKey])
+
+  const data = result?.data ?? null
+  const store = data?.store ?? null
+  const offers = data?.offers ?? []
+  const counts = data?.counts ?? { all: 0, out: 0, google_issue: 0 }
+  const total = data?.total ?? 0
+  // Prima încărcare: schelet; după aceea, lista veche rămâne (estompată) până vine cea nouă
+  const loading = !result && failedUrl !== requestKey
+  const pending = !!result && result.url !== requestKey && failedUrl !== requestKey
+  const loadError = failedUrl === requestKey
 
   // Prima sincronizare după conectare: pagina o urmărește până apar ofertele
-  const firstSyncRunning = !!store?.supported && offers.length === 0
+  const firstSyncRunning = !!store?.supported && counts.all === 0
     && (store.sync_status === 'syncing' || (!store.last_sync_at && store.connection_status === 'active'))
   useEffect(() => {
     if (!firstSyncRunning) return
-    const id = setInterval(() => load(days), 5000)
+    const id = setInterval(() => setTick(n => n + 1), 5000)
     return () => clearInterval(id)
-  }, [firstSyncRunning, days, load])
+  }, [firstSyncRunning])
 
   const f = useFormats(store?.currency || offers[0]?.currency || 'RON')
 
-  const counts = useMemo(() => ({
-    all: offers.length,
-    out: offers.filter(o => !o.available).length,
-    google_issue: offers.filter(o => o.google_status && GOOGLE_PROBLEMS.includes(o.google_status)).length,
-  }), [offers])
-
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase()
-    const list = offers.filter(o => {
-      if (quick === 'out' && o.available) return false
-      if (quick === 'google_issue' && !(o.google_status && GOOGLE_PROBLEMS.includes(o.google_status))) return false
-      if (!q) return true
-      return [o.title, o.product_name, o.variant_title, o.sku, o.gtin, o.brand, o.category, o.offer_id]
-        .some(v => v && v.toLowerCase().includes(q))
-    })
-    const byName = (a: Offer, b: Offer) => (a.title || '').localeCompare(b.title || '', intlLocale)
-    return list.sort((a, b) => {
-      if (sort === 'name') return byName(a, b)
-      if (sort === 'price') return b.price - a.price || byName(a, b)
-      if (sort === 'revenue') return b.sales.revenue - a.sales.revenue || byName(a, b)
-      return b.sales.units - a.sales.units || b.sales.revenue - a.sales.revenue || byName(a, b)
-    })
-  }, [offers, quick, search, sort, intlLocale])
-
-  const pages = Math.max(1, Math.ceil(filtered.length / PER_PAGE))
+  const pages = Math.max(1, Math.ceil(total / PER_PAGE))
   const current = Math.min(page, pages)
-  const visible = filtered.slice((current - 1) * PER_PAGE, current * PER_PAGE)
+  const visible = offers
 
   async function handleSync() {
     if (!store) return
@@ -148,7 +145,7 @@ function ProductsView() {
       if (!r.ok) setNotice({ ok: false, text: d.error || t('catalog.sync_error') })
       // Un magazin mare nu încape într-o rulare: restul vine la sincronizările următoare
       else setNotice({ ok: true, text: t(d.complete === false ? 'catalog.sync_partial' : 'edinio.sync_done', { offers: t('common.offers_count', { count: Number(d.synced ?? 0) }), orders: t('common.orders_count', { count: Number(d.orders ?? 0) }) }) })
-      await load(days)
+      setTick(n => n + 1)
     } catch {
       setNotice({ ok: false, text: t('catalog.sync_error') })
     } finally {
@@ -156,8 +153,8 @@ function ProductsView() {
     }
   }
 
-  const description = store?.supported && offers.length > 0
-    ? `${t('catalog.subtitle', { count: offers.length, store: store.store_name || '' })}${store.last_sync_at ? ` · ${t('catalog.synced_at', { time: f.dateTime.format(new Date(store.last_sync_at)) })}` : ''}`
+  const description = store?.supported && counts.all > 0
+    ? `${t('catalog.subtitle', { count: counts.all, store: store.store_name || '' })}${store.last_sync_at ? ` · ${t('catalog.synced_at', { time: f.dateTime.format(new Date(store.last_sync_at)) })}` : ''}`
     : t('catalog.subtitle_empty')
   const header = (
     <PageHeader title={t('catalog.title')} description={description}
@@ -182,13 +179,13 @@ function ProductsView() {
     )
   }
 
-  if (loadError && !hasData) {
+  if (loadError && !data) {
     return (
       <div className="space-y-6">
         {header}
         <Card>
           <EmptyState icon={<AlertCircle />} title={t('catalog.load_error')} description={t('campaigns.load_error_hint')}
-            action={<Button variant="primary" onClick={() => load(days)}>{t('catalog.retry')}</Button>} />
+            action={<Button variant="primary" onClick={() => setTick(n => n + 1)}>{t('catalog.retry')}</Button>} />
         </Card>
       </div>
     )
@@ -228,7 +225,7 @@ function ProductsView() {
 
       {notice && <Callout tone={notice.ok ? 'success' : 'warning'} onClose={() => setNotice(null)}>{notice.text}</Callout>}
 
-      {offers.length === 0 ? (
+      {counts.all === 0 ? (
         <Card>
           <EmptyState icon={firstSyncRunning ? <Loader2 className="animate-spin" /> : <Package />}
             title={firstSyncRunning ? t('catalog.first_sync_title') : t('catalog.empty_title')}
@@ -272,10 +269,10 @@ function ProductsView() {
                 </Select>
               </div>
 
-              {filtered.length === 0 ? (
+              {total === 0 ? (
                 <p className="border-t border-neutral-100 py-14 text-center text-[13px] text-neutral-400">{t('catalog.no_results')}</p>
               ) : (
-                <Table className="min-w-[760px]">
+                <Table className={cn('min-w-[760px] transition-opacity', pending && 'opacity-60')}>
                   <thead>
                     <tr>
                       <Th>{t('catalog.col_product')}</Th>
@@ -345,7 +342,7 @@ function ProductsView() {
 
               {pages > 1 && (
                 <div className="flex items-center justify-between gap-2 border-t border-neutral-100 px-5 py-3 text-[12px] text-neutral-500">
-                  <span className="tabular-nums">{t('catalog.page_of', { from: f.int.format((current - 1) * PER_PAGE + 1), to: f.int.format(Math.min(current * PER_PAGE, filtered.length)), total: f.int.format(filtered.length) })}</span>
+                  <span className="tabular-nums">{t('catalog.page_of', { from: f.int.format((current - 1) * PER_PAGE + 1), to: f.int.format(Math.min(current * PER_PAGE, total)), total: f.int.format(total) })}</span>
                   <div className="flex items-center gap-1">
                     <Button size="icon" variant="ghost" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={current === 1} aria-label={t('catalog.prev')}><ChevronLeft /></Button>
                     <Button size="icon" variant="ghost" onClick={() => setPage(p => Math.min(pages, p + 1))} disabled={current === pages} aria-label={t('catalog.next')}><ChevronRight /></Button>

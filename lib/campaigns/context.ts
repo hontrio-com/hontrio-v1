@@ -6,6 +6,7 @@ import type { AuditResult } from '@/lib/google/audit'
 import { feedLabelForStore, merchantIdForStore } from '@/lib/merchant/sync'
 import { buildPlan, MODES, type Mode, type Plan } from '@/lib/campaigns/plan'
 import { assignGroups, buildGroupPlans, groupOfferOf, parseGroup, todayIn, type GroupPlan, type ProductGroup } from '@/lib/campaigns/groups'
+import { planChanges, savePlanOffers } from '@/lib/campaigns/plan-store'
 
 // =============================================
 // Tot ce trebuie ca să socotești planul unui magazin, citit la fel peste
@@ -148,6 +149,14 @@ export async function loadPlanContext(supabase: Supabase, userId: string, store:
     groups: { assigned, live: liveGroups },
     settings: { daily_budget: draft.daily_budget, mode: draft.mode, max_daily_budget: draft.max_daily_budget },
   })
+
+  // Ce a hotărât planul, lângă fiecare ofertă: listele din pagini se cer pe pagini, din baza de date.
+  // Doar schimbările (de obicei niciuna); o eroare nu oprește planul
+  const changes = planChanges(ads.data.offers, plan)
+  if (changes.length) {
+    const saveError = await savePlanOffers(supabase, store.id, changes)
+    if (saveError) errors.push(saveError)
+  }
 
   const today = todayIn(store.timezone)
   const live = ((liveRes.data ?? []) as { product_group_id: string | null; daily_budget: unknown }[])

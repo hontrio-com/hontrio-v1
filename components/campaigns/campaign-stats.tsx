@@ -10,7 +10,6 @@ import { Callout, Skeleton } from '@/components/app/feedback'
 import { day, type Formats } from '@/components/app/formats'
 import { useTimeAgo } from '@/components/app/time'
 import { change, derive, STATS_PERIODS, type StatsPeriod, type Totals } from '@/lib/campaigns/stats'
-import type { Plan } from '@/lib/campaigns/plan'
 
 // =============================================
 // Cifrele din fișa unei campanii: perioada (7, 30 sau 90 de zile), cele zece
@@ -23,7 +22,8 @@ type StatsData = {
   days: number; from: string; to: string; live_at: string | null; currency: string | null
   totals: Totals; previous: Totals
   daily: (Totals & { date: string })[]
-  products: { total: number; top: (Totals & { item_id: string })[] }
+  /** Produsele, cu numele și poza din magazin (serverul le caută după ID-ul din Merchant Center). */
+  products: { total: number; top: (Totals & { item_id: string; title?: string | null; variant_title?: string | null; image_url?: string | null })[] }
   terms: { total: number; from: string | null; to: string | null; top: (Totals & { term: string })[] }
   /** Conversiile și valoarea au luat comenzile din magazin acolo unde Google a numărat mai puține. */
   store_counted?: boolean
@@ -31,14 +31,11 @@ type StatsData = {
 
 type Metric = 'clicks' | 'cost' | 'value' | 'impressions'
 
-/** ID-ul unui produs din Merchant Center, cum îl dă Google în rapoarte (fără litere mari). */
-const itemKey = (id: string) => id.trim().toLowerCase()
-
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return <h3 className="text-[12px] font-semibold uppercase tracking-[0.06em] text-neutral-400">{children}</h3>
 }
 
-export function CampaignStats({ ids, plan, f }: { ids: string[]; plan: Plan; f: Formats }) {
+export function CampaignStats({ ids, f }: { ids: string[]; f: Formats }) {
   const { t, intlLocale } = useT()
   const ago = useTimeAgo()
   const [days, setDays] = useState<StatsPeriod>(30)
@@ -59,8 +56,6 @@ export function CampaignStats({ ids, plan, f }: { ids: string[]; plan: Plan; f: 
   }, [idsKey, days])
 
   const pct = useMemo(() => new Intl.NumberFormat(intlLocale, { style: 'percent', maximumFractionDigits: 2 }), [intlLocale])
-  // Produsele, cu numele și poza din magazin (ID-ul din Merchant Center, fără litere mari)
-  const offers = useMemo(() => new Map(plan.offers.filter(o => o.item_id).map(o => [itemKey(o.item_id!), o])), [plan.offers])
 
   const data = result?.key === key ? result.data : null
   const loading = result?.key !== key
@@ -146,19 +141,18 @@ export function CampaignStats({ ids, plan, f }: { ids: string[]; plan: Plan; f: 
                 </thead>
                 <tbody className="divide-y divide-neutral-100">
                   {data.products.top.map(p => {
-                    const o = offers.get(itemKey(p.item_id))
                     const cpc = derive(p).cpc
                     return (
                       <tr key={p.item_id}>
                         <td className="px-3 py-2">
                           <div className="flex min-w-0 items-center gap-2.5">
-                            {o?.image_url
+                            {p.image_url
                               // eslint-disable-next-line @next/next/no-img-element
-                              ? <img src={o.image_url} alt="" className="size-8 shrink-0 rounded-md object-cover ring-1 ring-neutral-200/70" />
+                              ? <img src={p.image_url} alt="" className="size-8 shrink-0 rounded-md object-cover ring-1 ring-neutral-200/70" />
                               : <span className="size-8 shrink-0 rounded-md bg-neutral-100" />}
                             <span className="min-w-0">
-                              <span className="block max-w-[220px] truncate text-neutral-900">{o ? o.title : p.item_id}</span>
-                              {o?.variant_title && <span className="block max-w-[220px] truncate text-[12px] text-neutral-400">{o.variant_title}</span>}
+                              <span className="block max-w-[220px] truncate text-neutral-900">{p.title || p.item_id}</span>
+                              {p.variant_title && <span className="block max-w-[220px] truncate text-[12px] text-neutral-400">{p.variant_title}</span>}
                             </span>
                           </div>
                         </td>

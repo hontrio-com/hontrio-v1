@@ -235,12 +235,17 @@ test('cifrele planului: câte oferte pe fiecare motiv, și planul fără listă 
   assert.equal(p.summary.by_reason.out_of_stock, 1)
   assert.equal(p.exclusions.count, p.exclusions.item_ids.length)
 
-  // Dashboard-ul: fără oferte și fără ID-urile excluse, dar cu aceleași cifre
-  const lite = planForPage(p, false)
+  // Ce poate alege omul într-o grupă, din tot catalogul
+  assert.equal(p.summary.facets.price_min, Math.min(...p.offers.map(o => o.price).filter(x => x > 0)))
+  assert.equal(p.summary.facets.price_max, Math.max(...p.offers.map(o => o.price)))
+  assert.equal(p.summary.facets.on_sale, p.offers.filter(o => o.on_sale).length)
+  assert.equal(p.summary.facets.categories.reduce((s, [, n]) => s + n, 0), p.offers.filter(o => o.category).length)
+
+  // Spre pagină: fără oferte și fără ID-urile excluse (la un catalog mare, zeci de MB), dar cu aceleași cifre
+  const lite = planForPage(p)
   assert.deepEqual(lite.offers, [])
   assert.deepEqual(lite.exclusions.item_ids, [])
   assert.equal(lite.exclusions.count, p.exclusions.count)
   assert.deepEqual(lite.summary, p.summary)
   assert.deepEqual(lite.counts, p.counts)
-  assert.equal(planForPage(p, true), p)
 })
