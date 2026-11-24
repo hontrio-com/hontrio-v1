@@ -108,6 +108,8 @@
   "launch_group_live": "Campania rulează deja.",
   "launch_group_blocked": "Campania mai are pași de făcut înainte de lansare (vezi rezumatul).",
   "launch_too_many_exclusions": "Campania principală Performance Max ar trebui să lase afară {{count}} de produse, peste limita Google de 990. Pune mai puține produse în campaniile pe grupe.",
+  "launch_type_changed": "Tipul campaniei din plan s-a schimbat de când ai deschis pagina (alegerea ta sau conversiile din cont). Verifică planul și lansează din nou.",
+  "launch_settings_unreadable": "Nu am putut citi setările campaniei (tipul și bugetul). Încearcă din nou peste câteva secunde.",
   "apply_retired": "Propunerea nu mai este valabilă, pentru că Hontrio nu mai schimbă ținta și nu mai împarte campaniile pe marje.",
   "launch_no_budget": "Alege întâi bugetul pe zi al campaniei.",
   "gomag_key_invalid": "Tokenul API nu este valid. Copiază-l din nou, fără spații.",

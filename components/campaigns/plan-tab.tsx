@@ -56,6 +56,16 @@ export function PlanTab({ plan, audit, running, currency, groupNames, f, onSaveS
   const { economics: econ, campaign, budget, structure } = plan
   // Ce se lansează: Shopping standard (pornirea) sau Performance Max (după conversii sau ales de om)
   const shopping = structure.type === 'shopping'
+  // Tipul ales se salvează acum: lansarea așteaptă planul socotit cu el
+  const [savingType, setSavingType] = useState<MainType | null>(null)
+
+  async function chooseType(type: MainType) {
+    if (savingType || type === plan.settings.campaign_type) return
+    setSavingType(type)
+    // Dacă salvarea cade, pagina arată de ce
+    await onSaveSettings({ campaign_type: type })
+    setSavingType(null)
+  }
 
   /** RO → România, ro → română; codul așa cum e dacă browserul nu-l știe. */
   const nameOf = (type: 'region' | 'language', code: string | null) => {
@@ -80,7 +90,7 @@ export function PlanTab({ plan, audit, running, currency, groupNames, f, onSaveS
         <>
           {t(shopping ? 'campaigns.type_shopping' : 'campaigns.type_pmax')}
           <p className="mt-0.5 text-[12px] font-normal leading-relaxed text-neutral-500">{t(shopping ? 'campaigns.type_shopping_hint' : 'campaigns.type_pmax_hint')}</p>
-          <TypeChoice plan={plan} f={f} onSave={campaign_type => onSaveSettings({ campaign_type })} />
+          <TypeChoice plan={plan} f={f} saving={savingType} onChoose={chooseType} />
         </>
       ),
     },
@@ -167,7 +177,7 @@ export function PlanTab({ plan, audit, running, currency, groupNames, f, onSaveS
       {!running && (
         <FadeIn>
           <div className="space-y-3">
-            <LaunchCard plan={plan} audit={audit} f={f} onChanged={onChanged} onLaunched={onLaunched} />
+            <LaunchCard plan={plan} audit={audit} f={f} busy={savingType !== null} onChanged={onChanged} onLaunched={onLaunched} />
             {plan.history.google_ads_orders > 0 && (
               <Callout tone="info">
                 {t('campaigns.existing_ads', { orders: t('common.orders_count', { count: plan.history.google_ads_orders }), total: f.money.format(plan.history.google_ads_total) })}
@@ -215,30 +225,21 @@ export function PlanTab({ plan, audit, running, currency, groupNames, f, onSaveS
 
 /**
  * Tipul campaniei principale: după conversii (Shopping standard până la 15 pe lună, apoi Performance Max, recomandat)
- * sau Performance Max de la început. Se salvează pe loc; planul îl socotește serverul.
+ * sau Performance Max de la început. Se salvează pe loc (`onChoose`); planul îl socotește serverul.
  */
-function TypeChoice({ plan, f, onSave }: { plan: Plan; f: Formats; onSave: (type: MainType) => Promise<boolean> }) {
+function TypeChoice({ plan, f, saving, onChoose }: { plan: Plan; f: Formats; saving: MainType | null; onChoose: (type: MainType) => void }) {
   const { t } = useT()
-  const [saving, setSaving] = useState<MainType | null>(null)
   const chosen = saving ?? plan.settings.campaign_type
   const conversions = f.num.format(plan.stage.conversions30)
-
-  async function choose(type: MainType) {
-    if (saving || type === plan.settings.campaign_type) return
-    setSaving(type)
-    // Dacă salvarea cade, pagina arată de ce
-    await onSave(type)
-    setSaving(null)
-  }
 
   return (
     <div className="mt-3 font-normal">
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         {MAIN_TYPES.map(k => (
-          <ChoiceCard key={k} active={chosen === k} disabled={!!saving} onClick={() => choose(k)} title={t(`campaigns.g_type_${k}`)}
+          <ChoiceCard key={k} active={chosen === k} disabled={!!saving} onClick={() => onChoose(k)} title={t(`campaigns.g_type_${k}`)}
             aside={saving === k ? <Loader2 className="size-3.5 animate-spin text-neutral-400" /> : k === 'auto' ? <Badge tone="brand">{t('campaigns.recommended')}</Badge> : undefined}
             description={k === 'auto'
-              ? t(plan.stage.id === 'starter' ? 'campaigns.g_type_auto_shopping' : 'campaigns.g_type_auto_pmax', { conversions })
+              ? t(plan.stage.id === 'starter' ? 'campaigns.type_auto_shopping' : 'campaigns.type_auto_pmax', { conversions })
               : t('campaigns.g_type_performance_max_desc')} />
         ))}
       </div>

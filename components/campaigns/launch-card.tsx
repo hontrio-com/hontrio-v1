@@ -30,10 +30,12 @@ const LEVEL = {
   info: { icon: Info, cls: 'text-neutral-400' },
 } as const
 
-export function LaunchCard({ plan, audit, f, onChanged, onLaunched }: {
+export function LaunchCard({ plan, audit, f, busy = false, onChanged, onLaunched }: {
   plan: Plan
   audit: AuditData | null
   f: Formats
+  /** Setările planului se salvează chiar acum (tipul campaniei): lansarea așteaptă planul nou. */
+  busy?: boolean
   onChanged: () => Promise<unknown>
   /** După lansare: mesajul de arătat în pagină. */
   onLaunched: (text: string) => void
@@ -76,7 +78,8 @@ export function LaunchCard({ plan, audit, f, onChanged, onLaunched }: {
     try {
       const r = await fetch('/api/campaigns/launch', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ overlap, declare_eu: declareEu }),
+        // Tipul arătat aici: dacă între timp planul spune altul, serverul nu lansează
+        body: JSON.stringify({ overlap, declare_eu: declareEu, expected_type: plan.structure.type }),
       })
       const body = await r.json().catch(() => ({}))
       if (!r.ok) {
@@ -133,7 +136,7 @@ export function LaunchCard({ plan, audit, f, onChanged, onLaunched }: {
           </div>
         </div>
         <div className="flex shrink-0 flex-col items-stretch gap-1.5 sm:items-end">
-          <Button variant="primary" size="lg" loading={launching} disabled={!ready || !choicesDone} onClick={launch}>
+          <Button variant="primary" size="lg" loading={launching} disabled={!ready || !choicesDone || busy} onClick={launch}>
             {!launching && <Rocket />}{t(shopping ? 'campaigns.launch_starter' : 'campaigns.launch_growth')}
           </Button>
           {waiting && <p className="text-[12px] text-neutral-400 sm:text-right">{t(waiting)}</p>}

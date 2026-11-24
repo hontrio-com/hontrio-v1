@@ -109,7 +109,15 @@ export function campaignName(kind: 'shopping' | 'performance_max', storeName: st
   return `Hontrio · ${what}${seg} · ${(storeName || 'store').slice(0, 60)} · ${today()}` // i18n-ignore: numele campaniei în contul Google Ads
 }
 
-export type LaunchOptions = { overlap: 'pause' | 'keep' | null; declareEu: boolean }
+export type LaunchOptions = {
+  overlap: 'pause' | 'keep' | null
+  declareEu: boolean
+  /**
+   * Tipul pe care l-a văzut omul în pagină când a apăsat lansarea. Dacă planul de acum spune altul (alegerea s-a
+   * schimbat între timp, sau auditul proaspăt a mutat treapta), nu se creează nimic: tipul nu se mai schimbă după lansare.
+   */
+  expectedType?: Plan['structure']['type'] | null
+}
 
 export type LaunchResult =
   | { ok: true; ad_campaign_id: string; google_campaign_id: string; warnings: string[] }
@@ -192,12 +200,15 @@ async function lostCampaign(s: Session, campaign: string | null, error: string |
 }
 
 /**
- * Lansarea cerută de om din pagina Campanii: treapta din plan, cu alegerea lui
- * pentru campaniile existente și confirmarea declarației UE.
+ * Lansarea cerută de om din pagina Campanii: tipul din plan (după treaptă sau ales de el), cu
+ * alegerea lui pentru campaniile existente și confirmarea declarației UE.
  */
 export async function launchFromPlan(supabase: Supabase, userId: string, store: PlanStore, ctx: PlanContext, opts: LaunchOptions): Promise<LaunchResult> {
   const { plan, account, audit } = ctx
 
+  // Fără setările omului, tipul și bugetul ar fi cele implicite, nu cele alese
+  if (!ctx.draftLoaded) return failWith('settings_unreadable', storedMessage('sync.launch_settings_unreadable'))
+  if (opts.expectedType && opts.expectedType !== plan.structure.type) return failWith('type_changed', storedMessage('sync.launch_type_changed'))
   if (plan.blockers.length) return failWith('blocked', storedMessage('sync.launch_blocked'))
   if (!account) return failWith('audit_missing', storedMessage('sync.launch_audit_missing'))
   const missing = choicesMissing(audit?.result ?? null, opts)

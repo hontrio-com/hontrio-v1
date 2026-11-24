@@ -2,6 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { brandTerms, buildPlan, cpcCeilingOf, lossLimitOf, MIN_AOV_ORDERS, niceBudget, planForPage, reasonCounts, startBudget, type PlanInput } from '@/lib/campaigns/plan'
 import { evaluateAudit } from '@/lib/google/audit'
+import { MAX_LISTING_ITEMS } from '@/lib/google/operations'
 import { auditRaw, offer, setup } from './fixtures'
 
 // Planul campaniei: treapta, structura, plafonul pe click și oprirea de
@@ -194,10 +195,36 @@ test('Performance Max ales de om: de la lansare, fără plafon pe click, cu limi
   const noLabel = buildPlan(input({ settings, offers: [offer('a'), ...offers], merchant: { id: '555', feed_label: 'RO', statuses_known: true, label_index: null } }))
   assert.equal(noLabel.exclusions.mode, 'too_many')
   assert.ok(noLabel.blockers.some(b => b.id === 'too_many_exclusions'))
+  // Textul pasului spune că „Automat" n-are limita asta
+  assert.deepEqual(noLabel.blockers.find(b => b.id === 'too_many_exclusions'), {
+    id: 'too_many_exclusions', href: '/campaigns?tab=plan', external: false, variant: 'chosen', params: { count: 1000, limit: MAX_LISTING_ITEMS },
+  })
   // Automat (sau nimic ales): după treaptă, ca înainte
   assert.equal(buildPlan(input()).settings.campaign_type, 'auto')
   assert.equal(buildPlan(input({ settings: { ...settings, campaign_type: 'auto' } })).structure.type, 'shopping')
   assert.equal(buildPlan(input({ audit: growthAudit, settings: { ...settings, campaign_type: 'auto' } })).structure.type, 'performance_max')
+})
+
+test('PMax cu grupe lansate: lista lasă afară și produsele grupelor, iar eticheta nu ajută', () => {
+  // 600 de produse scoase de om și 500 într-o grupă lansată: 1.100 de ID-uri, peste cele 990 din PMax
+  const out = Array.from({ length: 600 }, (_, i) => offer(`x${i}`, { ads_mode: 'exclude' }))
+  const inGroup = Array.from({ length: 500 }, (_, i) => offer(`g${i}`))
+  const groups = { assigned: new Map(inGroup.map(o => [o.offer_id, 'grupa'])), live: new Set(['grupa']) }
+  const offers = [offer('a'), ...out, ...inGroup]
+  // Creștere (Automat = PMax): eticheta există, dar cu grupe lansate arborele merge doar pe listă (ca la lansare)
+  const growth = buildPlan(input({ audit: growthAudit, offers, groups }))
+  assert.equal(growth.exclusions.mode, 'too_many')
+  assert.equal(growth.exclusions.count, 600)
+  const blocker = growth.blockers.find(b => b.id === 'too_many_exclusions')!
+  assert.equal(blocker.variant, 'groups')
+  assert.deepEqual(blocker.params, { count: 1100, limit: MAX_LISTING_ITEMS })
+  // Sub 15, cu PMax ales: textul trimite la „Automat"
+  const settings = { daily_budget: null, mode: 'approve' as const, max_daily_budget: null, campaign_type: 'performance_max' as const }
+  assert.equal(buildPlan(input({ offers, groups, settings })).blockers.find(b => b.id === 'too_many_exclusions')?.variant, 'chosen')
+  // Shopping standard (Automat, sub 15) duce lista întreagă
+  assert.equal(buildPlan(input({ offers, groups })).exclusions.mode, 'items')
+  // Fără grupe lansate, cele 600 de excluderi încap în listă
+  assert.equal(buildPlan(input({ audit: growthAudit, offers: [offer('a'), ...out] })).exclusions.mode, 'items')
 })
 
 test('numele magazinului devine negativ doar când contul are o campanie Search', () => {

@@ -331,10 +331,12 @@ export function groupPlanFromTotals(group: ProductGroup, totals: GroupTotals, ct
   if (group.campaign_type === 'performance_max' && conversions30 < GROWTH_MIN_CONVERSIONS) {
     warnings.push({ id: 'pmax_low_data', params: { conversions: Math.round(conversions30) } })
   }
-  // Campania principală pierde conversiile grupelor: sub 15, licitarea ei pe valoare învață greu
+  // Campania principală pierde conversiile grupelor: sub 15, licitarea ei pe valoare învață greu. Licitează pe
+  // valoare când e Performance Max: după treaptă (de la 15) sau aleasă de om de la început
   const total = plan.stage.conversions30
   const remaining = Math.max(0, Math.round(total - conversions30 - ctx.otherConversions))
-  if (total >= GROWTH_MIN_CONVERSIONS && remaining < GROWTH_MIN_CONVERSIONS && conversions30 > 0) {
+  const mainOnValue = total >= GROWTH_MIN_CONVERSIONS || plan.settings.campaign_type === 'performance_max'
+  if (mainOnValue && remaining < GROWTH_MIN_CONVERSIONS && conversions30 > 0) {
     warnings.push({ id: 'main_low_data', params: { remaining } })
   }
   const max = plan.settings.max_daily_budget

@@ -19,7 +19,8 @@ import { getT } from '@/lib/i18n/server'
 // Ads al magazinului activ. Planul se socotește din nou aici (nu se ia de la
 // client), cu un audit proaspăt. După o grupă, campania principală care
 // rulează îi lasă produsele afară.
-// Body: { overlap: 'pause' | 'keep' | null, declare_eu: boolean, group_id?: string }
+// Body: { overlap: 'pause' | 'keep' | null, declare_eu: boolean, group_id?: string,
+//         expected_type?: 'shopping' | 'performance_max' } (tipul văzut în pagină; altul în plan = 409)
 // =============================================
 
 const ROUTE = '/api/campaigns/launch'
@@ -32,7 +33,7 @@ export async function POST(request: Request) {
   if (!session?.user) return NextResponse.json({ error: t('api.unauthorized') }, { status: 401 })
   const userId = session.user.id
 
-  let body: { overlap?: unknown; declare_eu?: unknown; group_id?: unknown }
+  let body: { overlap?: unknown; declare_eu?: unknown; group_id?: unknown; expected_type?: unknown }
   try {
     body = await request.json()
   } catch {
@@ -41,6 +42,7 @@ export async function POST(request: Request) {
   const overlap = body.overlap === 'pause' || body.overlap === 'keep' ? body.overlap : null
   const declareEu = body.declare_eu === true
   const groupId = typeof body.group_id === 'string' && body.group_id ? body.group_id : null
+  const expectedType = body.expected_type === 'shopping' || body.expected_type === 'performance_max' ? body.expected_type : null
 
   const supabase = createAdminClient()
   const { data: store, error } = await getActiveStore<PlanStore>(supabase, userId, STORE_PLAN_COLUMNS)
@@ -65,12 +67,12 @@ export async function POST(request: Request) {
 
   const result = groupId
     ? await launchGroup(supabase, userId, store, context, groupId, { overlap, declareEu })
-    : await launchFromPlan(supabase, userId, store, context, { overlap, declareEu })
+    : await launchFromPlan(supabase, userId, store, context, { overlap, declareEu, expectedType })
   if (!result.ok) {
     if (result.reason === 'google_error' || result.reason === 'save_failed') {
       logApiError(ROUTE, 502, 'Lansarea a eșuat', { userId, reason: result.reason, error: result.error, details: result.details })
     }
-    const conflict = ['blocked', 'group_blocked', 'group_missing', 'audit_missing', 'eu_confirm', 'overlap_choice', 'no_merchant', 'already_active', 'too_many_exclusions']
+    const conflict = ['blocked', 'group_blocked', 'group_missing', 'audit_missing', 'eu_confirm', 'overlap_choice', 'no_merchant', 'already_active', 'too_many_exclusions', 'type_changed']
     return NextResponse.json({
       error: translateStored(t, result.error),
       reason: result.reason,

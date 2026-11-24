@@ -135,7 +135,8 @@ export function LaunchWizard({ plan, audit, store, f, picked: pickedProp, onPick
     try {
       const r = await fetch('/api/campaigns/launch', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ overlap, declare_eu: declareEu }),
+        // Tipul arătat aici: dacă între timp planul spune altul, serverul nu lansează
+        body: JSON.stringify({ overlap, declare_eu: declareEu, expected_type: plan.structure.type }),
       })
       const body = await r.json().catch(() => ({}))
       await minimum

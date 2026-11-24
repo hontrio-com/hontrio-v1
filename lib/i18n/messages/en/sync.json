@@ -108,6 +108,8 @@
   "launch_group_live": "The campaign is already running.",
   "launch_group_blocked": "The campaign still has steps to do before launch (see the summary).",
   "launch_too_many_exclusions": "The main Performance Max campaign would have to leave out {{count}} products, over the Google limit of 990. Put fewer products in your group campaigns.",
+  "launch_type_changed": "The campaign type in the plan changed since you opened the page (your choice or the account's conversions). Check the plan and launch again.",
+  "launch_settings_unreadable": "We couldn't read the campaign settings (type and budget). Try again in a few seconds.",
   "apply_retired": "This proposal no longer applies, because Hontrio no longer changes the target or splits campaigns by margin.",
   "launch_no_budget": "Choose the campaign's daily budget first.",
   "gomag_key_invalid": "The API token isn’t valid. Copy it again, without spaces.",

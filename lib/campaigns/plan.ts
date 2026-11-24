@@ -2,7 +2,7 @@ import { economicsOf, type OrderTotals } from '@/lib/ads/economics'
 import type { AdsMode, Offer, ProductTotals, Sales } from '@/lib/commerce/ads-data'
 import type { SetupStatus, StoreSetup } from '@/lib/commerce/setup'
 import { purchaseConversions30, type AuditResult } from '@/lib/google/audit'
-import { EXCLUDE_LABEL, MAX_LISTING_ITEMS } from '@/lib/google/operations'
+import { EXCLUDE_LABEL, MAX_LISTING_ITEMS, normalizeItemId } from '@/lib/google/operations'
 
 // =============================================
 // Planul de campanie — ce va crea Hontrio în contul Google Ads al omului,
@@ -380,9 +380,13 @@ export function buildPlan(input: PlanInput): Plan {
   const foreignIds = [...new Set(input.merchant.foreign_ids ?? [])].filter(id => !own.has(id.trim().toLowerCase()))
   const itemIds = [...new Set([...excludedOffers.map(o => o.item_id).filter((x): x is string => !!x), ...foreignIds])]
   const unmatched = excludedOffers.filter(o => !o.item_id).length
+  // Produsele grupelor lansate au campaniile lor: la lansare, campania principală le lasă și pe ele afară, după ID.
+  // Eticheta Hontrio ține doar excluderile planului, deci cât rulează grupe merge doar lista (ca în listingFromPlan)
+  const taken = offers.filter(o => o.item_id && o.group_id && input.groups?.live.has(o.group_id)).map(o => o.item_id!)
+  const listed = new Set([...itemIds, ...taken].map(normalizeItemId)).size
   // Shopping standard duce 20.000 de noduri; PMax 1.000 pe grup, iar peste ele trece pe eticheta Hontrio
-  const exclusionMode: Plan['exclusions']['mode'] = type === 'shopping' || itemIds.length <= MAX_LISTING_ITEMS
-    ? 'items' : input.merchant.label_index !== null ? 'label' : 'too_many'
+  const exclusionMode: Plan['exclusions']['mode'] = type === 'shopping' || listed <= MAX_LISTING_ITEMS ? 'items'
+    : !taken.length && input.merchant.label_index !== null ? 'label' : 'too_many'
 
   // ── Ce lipsește până la lansare ──────────────────────────────────────────
   const blockers: Plan['blockers'] = []
@@ -413,7 +417,15 @@ export function buildPlan(input: PlanInput): Plan {
       }
     }
   }
-  if (exclusionMode === 'too_many') blockers.push({ id: 'too_many_exclusions', href: '/campaigns?tab=plan', external: false, params: { count: itemIds.length } })
+  if (exclusionMode === 'too_many') {
+    // Textul spune ce se poate face: sub 15 cumpărări, PMax e alegerea omului („Automat" n-are limita asta);
+    // cu grupe lansate, eticheta nu ajută (le ține doar pe ale planului)
+    const variant = campaignType === 'performance_max' && stageId === 'starter' ? 'chosen' : taken.length ? 'groups' : null
+    blockers.push({
+      id: 'too_many_exclusions', href: '/campaigns?tab=plan', external: false,
+      ...(variant ? { variant } : {}), params: { count: listed, limit: MAX_LISTING_ITEMS },
+    })
+  }
   // Eticheta Hontrio se pune doar pe produsele magazinului: cele străine ar rămâne în campanie
   else if (exclusionMode === 'label' && foreignIds.length) {
     blockers.push({ id: 'merchant_foreign', href: 'https://merchants.google.com/', external: true, params: { count: foreignIds.length } })

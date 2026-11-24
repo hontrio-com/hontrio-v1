@@ -88,6 +88,14 @@ campania învață greu. Treapta (`stage.id`) rămâne a contului; tipul e în `
 plafonul pe click și modul excluderilor (lista de ID-uri până la 990, apoi eticheta) urmează
 tipul. Campania lansată se salvează cu `stage = growth`, ca pilotul să nu propună o „trecere”
 a unui PMax. Alegerea contează doar la lansare: o campanie care rulează nu-și schimbă tipul.
+Pagina trimite la lansare tipul pe care l-a arătat (`expected_type`); dacă planul de acum spune
+altul (alegerea s-a schimbat între timp, sau auditul proaspăt a mutat treapta), lansarea întoarce
+409 `type_changed` și nu creează nimic. Tot așa, fără ciorna citită (`draftLoaded`), lansarea se
+refuză: tipul și bugetul ar fi cele implicite. Cât se salvează alegerea, butonul de lansare așteaptă.
+La PMax, lista de excluderi cuprinde și produsele grupelor lansate (au campaniile lor), iar cât
+rulează grupe eticheta nu se poate folosi: peste 990 de ID-uri, planul arată pasul
+`too_many_exclusions` (varianta `chosen` trimite la „Automat”, `groups` la mai puține excluderi).
+Avertismentul `main_low_data` al grupelor vede și PMax-ul ales sub 15 cumpărări.
 Verificat cu `validateOnly` pe contul VetDepo (24.11.2026): PMax-ul principal, trecerea
 pilotului, o grupă PMax și arborele cu excluderi plus cuvinte negative au fost acceptate.
 

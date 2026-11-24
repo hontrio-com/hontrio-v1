@@ -42,6 +42,11 @@ export type PlanContext = {
   account: StoreAdsAccount | null
   audit: StoredAudit | null
   draft: Draft
+  /**
+   * Ciorna (setările omului) s-a citit. Altfel `draft` are valorile implicite: bune pentru pagini și pilot
+   * (modul cu aprobare), dar lansarea s-ar face cu alt tip sau alt buget decât a ales omul, deci o refuză.
+   */
+  draftLoaded: boolean
   data: AdsData
   plan: Plan
   /** Grupele omului, cu produsele fiecăreia (ofertă → grupă) și planul lor. */
@@ -164,5 +169,5 @@ export async function loadPlanContext(supabase: Supabase, userId: string, store:
     .map(c => ({ group_id: c.product_group_id, daily_budget: Number(c.daily_budget) || 0 }))
   const groupPlans = buildGroupPlans(groups, plan, assigned, live, today)
 
-  return { context: { setup, googleConnected, account, audit, draft, data: ads.data, plan, groups, assigned, groupPlans, today }, errors }
+  return { context: { setup, googleConnected, account, audit, draft, draftLoaded: !draftRes.error, data: ads.data, plan, groups, assigned, groupPlans, today }, errors }
 }

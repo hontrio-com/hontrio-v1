@@ -126,8 +126,11 @@ function CampaignsView() {
     try {
       const r = await fetch('/api/campaigns/plan', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
       if (!r.ok) throw new Error()
-      // Bugetul și modul pilotului schimbă planul: îl socotește serverul
-      return !!(await load())
+      // Bugetul, modul pilotului și tipul campaniei schimbă planul: îl socotește serverul
+      const fresh = await load()
+      // Salvat, dar pagina a rămas cu planul vechi: omul trebuie să știe, altfel vede alt tip sau alt buget
+      if (!fresh) setNotice(t('campaigns.reload_error'))
+      return !!fresh
     } catch {
       setNotice(t('campaigns.save_error'))
       return false

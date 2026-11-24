@@ -178,6 +178,19 @@ test('grupele: fiecare vede conversiile și bugetele celorlalte', () => {
   assert.ok(plans[0].warnings.some(w => w.id === 'main_low_data' && w.params?.remaining === 1))
 })
 
+test('campania principală Performance Max aleasă de om: grupele văd că-i iau din conversii, chiar sub 15', () => {
+  // 10 cumpărări în cont. Cu „Automat", campania principală e Shopping (nu licitează pe valoare): fără avertisment
+  const history = { ...audit.history, conversions30: 10, purchase_conversions30: 10 }
+  const becuri = group('becuri', { categories: ['Becuri'] }, { daily_budget: 20 })
+  const assigned = assignGroups(groupOffers, [becuri])
+  const plan = (campaign_type: 'auto' | 'performance_max') =>
+    buildPlan(input({ audit: { ...audit, history }, settings: { daily_budget: null, mode: 'approve', max_daily_budget: null, campaign_type } }))
+  const warned = (p: ReturnType<typeof plan>) => buildGroupPlans([becuri], p, assigned, [], TODAY)[0].warnings.some(w => w.id === 'main_low_data')
+  assert.equal(warned(plan('auto')), false)
+  // Performance Max ales: licitează pe valoare, iar grupa îi ia cele 17 comenzi din Google
+  assert.equal(warned(plan('performance_max')), true)
+})
+
 test('ce trimite pagina: nume, reguli, perioadă', () => {
   assert.deepEqual(parseGroupFields({ name: '  Lustre   vara ', rules: { categories: ['Lustre'] }, ends_on: '2026-11-30' }, TODAY), {
     fields: { name: 'Lustre vara', rules: { ...EMPTY_RULES, categories: ['Lustre'] }, ends_on: '2026-11-30' },
